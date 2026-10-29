@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glimpse lo-fi flows</title>
+<meta name="viewport" content="width=1720">
+<style>/* Glimpse lo-fi wireframe kit. Greys only. Not the visual design (see DESIGN.md, separate ticket). */
+*{box-sizing:border-box}
+html{background:#ececec}
+body{margin:0;color:#222;font:14px/1.4 system-ui,-apple-system,"Segoe UI","Noto Sans","Noto Sans Arabic","Noto Sans Hebrew","Noto Sans CJK JP","DejaVu Sans",sans-serif}
+.page{width:1720px;margin:0 auto;padding:24px 24px 48px}
+.top{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:8px}
+.top h1{font-size:22px;margin:0}
+.top .tag{font-size:12px;border:1px solid #666;padding:1px 6px;color:#444}
+.top a{margin-left:auto;font-size:13px;color:#333}
+.lede{max-width:1100px;color:#444;margin:8px 0 18px}
+h2.sec{font-size:15px;margin:26px 0 10px;padding:4px 0;border-bottom:1px solid #aaa;text-transform:uppercase;letter-spacing:.04em;color:#333}
+h2.sec small{text-transform:none;letter-spacing:0;font-weight:400;color:#666;margin-left:8px}
+.row{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
+.arr{flex:none;align-self:center;font-size:22px;color:#777;margin-top:-30px}
+.frame{flex:none;width:520px}
+.frame.w360{width:360px}.frame.w400{width:400px}.frame.w440{width:440px}.frame.w640{width:640px}.frame.w760{width:760px}.frame.w300{width:300px}
+.cap{font-size:13px;font-weight:600;margin:0 0 6px;display:flex;gap:6px;align-items:baseline}
+.cap .n{font-weight:700;border:1.5px solid #333;padding:0 5px;font-size:11px;background:#fff}
+.note{font-size:12px;color:#555;margin:6px 0 0}
+.note b{color:#222}
+.os{font-size:10px;border:1px solid #888;padding:0 4px;color:#555;font-weight:400;margin-left:auto}
+
+/* fake desktop */
+.screen{position:relative;width:520px;height:340px;background:#d6d6d6;border:1px solid #888;overflow:hidden}
+.screen.tall{height:400px}
+.appwin{position:absolute;background:#efefef;border:1px solid #a9a9a9}
+.appwin .bar{height:16px;background:#cfcfcf;border-bottom:1px solid #b5b5b5;font-size:9px;color:#666;padding:1px 6px}
+.bub{position:absolute;background:#fff;border:1px solid #bbb;border-radius:8px;padding:3px 8px;font-size:12px;white-space:nowrap}
+.bub.me{background:#e2e2e2}
+.ts{position:absolute;font-size:10px;color:#777}
+.ghost{position:absolute;background:#c9c9c9;height:8px;border-radius:2px}
+
+/* picker */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.42)}
+.sel{position:absolute;border:1.5px solid #fff;outline:1px dashed #222;box-shadow:0 0 0 2000px rgba(0,0,0,.42)}
+.sel.live{outline-style:solid;outline-width:2px}
+.xh{position:absolute;background:rgba(255,255,255,.85)}
+.xh.h{left:0;right:0;height:1px}.xh.v{top:0;bottom:0;width:1px}
+.loupe{position:absolute;width:96px;height:96px;border-radius:50%;border:2px solid #fff;outline:1px solid #333;overflow:hidden;
+  background:#bdbdbd repeating-linear-gradient(0deg,transparent 0 7px,rgba(0,0,0,.18) 7px 8px),repeating-linear-gradient(90deg,#c8c8c8 0 7px,rgba(0,0,0,.18) 7px 8px)}
+.loupe::after{content:"";position:absolute;left:44px;top:44px;width:8px;height:8px;border:2px solid #111;background:#fff}
+.loupe-cap{position:absolute;font:10px/1.2 ui-monospace,Menlo,Consolas,monospace;background:#222;color:#fff;padding:2px 5px;white-space:nowrap}
+.size{position:absolute;font:11px/1.2 ui-monospace,Menlo,Consolas,monospace;background:#222;color:#fff;padding:2px 6px;white-space:nowrap}
+.hint{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;background:#222;color:#eee;font-size:11px;padding:4px 10px;border-radius:12px;white-space:nowrap}
+.hint b{color:#fff}
+.mode{display:inline-flex;border:1px solid #888;border-radius:10px;overflow:hidden;margin-right:6px;vertical-align:middle}
+.mode span{padding:0 7px;font-size:10px}.mode .on{background:#eee;color:#111;font-weight:700}
+.snapwin{position:absolute;outline:2px solid #fff;box-shadow:0 0 0 2000px rgba(0,0,0,.42)}
+.dbox{position:absolute;border:1.5px solid #333;background:rgba(255,255,255,.25)}
+.dbox i{position:absolute;left:-1px;top:-13px;font:9px/12px system-ui,sans-serif;font-style:normal;background:#333;color:#fff;padding:0 3px}
+.dbox.skip{border-style:dashed;border-color:#777}
+.dbox.neutral{border-style:dotted;border-color:#777}
+.keycap{display:inline-block;border:1px solid #555;border-bottom-width:3px;border-radius:5px;background:#fafafa;padding:1px 7px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.press{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid #555;padding:10px 16px;font-size:13px;text-align:center;box-shadow:0 2px 0 #999}
+
+/* Glimpse windows (popups, settings, onboarding) */
+.win{background:#fff;border:1.5px solid #444;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.pop{position:absolute;width:220px;font-size:12px}
+.pop.static{position:relative;width:340px;font-size:13px}
+.ph{display:flex;align-items:center;gap:5px;padding:5px 7px;border-bottom:1px solid #ccc;background:#f5f5f5}
+.ph .t{font-weight:700}
+.ph .sp{flex:1}
+.ib{border:1px solid #999;background:#fff;font-size:11px;padding:0 5px;border-radius:3px;line-height:17px;white-space:nowrap}
+.ib.on{background:#ddd;border-color:#555}
+.ib.x{border-color:transparent}
+.chip{font-size:10px;border:1px solid #777;border-radius:8px;padding:0 6px;color:#333;white-space:nowrap;background:#fff}
+.chip.solid{background:#333;color:#fff;border-color:#333}
+.chip.cloud{border-width:1.5px;border-style:dashed;font-weight:700}
+.pb{padding:4px 0}
+.blk{position:relative;padding:4px 8px 4px 22px;border-left:3px solid transparent}
+.blk .k{position:absolute;left:6px;top:5px;font-size:9px;color:#777}
+.blk .lang{font-size:9px;color:#888;margin-left:4px}
+.blk .src{color:#888}
+.blk .pending{color:#999}
+.blk .bar{display:inline-block;height:8px;background:#ddd;border-radius:2px;vertical-align:middle}
+.blk.changed{border-left-color:#222;background:#ececec}
+.blk.changed::after{content:"changed";position:absolute;right:6px;top:4px;font-size:9px;border:1px solid #555;padding:0 3px;background:#fff}
+.blk.fading{border-left-color:#999;background:#f6f6f6}
+.blk.neutral .v{font-family:ui-monospace,Menlo,Consolas,monospace}
+.caret{display:inline-block;width:6px;height:12px;background:#555;vertical-align:-2px;margin-left:1px}
+.rtl{direction:rtl;text-align:right;unicode-bidi:isolate}
+.skipped{margin:2px 8px 4px;padding:3px 6px;border:1px dashed #999;color:#555;font-size:11px}
+.skipped .row2{padding:3px 0 2px 12px;color:#666;border-top:1px dotted #ccc;margin-top:3px}
+.pf{display:flex;align-items:center;gap:6px;border-top:1px solid #ccc;padding:4px 8px;font-size:10px;color:#666;background:#fafafa}
+.pf .sp{flex:1}
+.pf.ok{background:#e9e9e9;color:#222;font-weight:600}
+.err{padding:12px 12px 10px}
+.err .h{font-weight:700;margin-bottom:4px}
+.err .b{color:#555;font-size:12px;margin-bottom:8px}
+.err .acts{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-block;border:1px solid #777;background:#fff;padding:3px 10px;font-size:12px;border-radius:3px;white-space:nowrap}
+.btn.pri{background:#333;color:#fff;border-color:#333}
+.btn.ghost2{border-color:transparent;text-decoration:underline;color:#444}
+.btn.sm{font-size:11px;padding:1px 7px}
+.icon-x{font-size:16px;color:#888}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.muted{color:#777}
+.small{font-size:11px}
+.toast{position:absolute;background:#222;color:#fff;font-size:11px;padding:4px 10px;border-radius:3px}
+.pin{position:absolute;font-size:9px;background:#222;color:#fff;padding:1px 5px;white-space:nowrap}
+.region{position:absolute;outline:2px solid #333;outline-offset:0}
+.region.paused{outline-style:dashed;outline-color:#666}
+.status{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#444}
+.dot{width:7px;height:7px;border-radius:50%;background:#333;display:inline-block}
+.dot.hollow{background:#fff;border:1.5px solid #333}
+.dot.half{background:linear-gradient(90deg,#333 50%,#fff 50%);border:1px solid #333}
+
+/* forms */
+.field{margin:0 0 12px}
+.field>label,.lbl{display:block;font-size:12px;font-weight:600;margin-bottom:4px}
+.help{font-size:11px;color:#666;margin-top:3px}
+.input{border:1px solid #888;background:#fff;padding:4px 8px;font-size:12px;min-height:26px;display:flex;align-items:center;gap:6px;border-radius:3px}
+.input.focus{outline:2px solid #333;outline-offset:1px}
+.select::after{content:"▾";margin-left:auto;color:#555}
+.cb{display:inline-block;width:12px;height:12px;border:1px solid #555;background:#fff;vertical-align:-2px;margin-right:6px;text-align:center;font-size:10px;line-height:10px}
+.cb.on::after{content:"✓"}
+.rd{display:inline-block;width:12px;height:12px;border:1px solid #555;border-radius:50%;background:#fff;vertical-align:-2px;margin-right:6px;position:relative}
+.rd.on::after{content:"";position:absolute;inset:2px;border-radius:50%;background:#333}
+.tog{display:inline-block;width:28px;height:15px;border:1px solid #555;border-radius:8px;background:#fff;position:relative;vertical-align:middle}
+.tog::after{content:"";position:absolute;left:2px;top:2px;width:9px;height:9px;border-radius:50%;background:#777}
+.tog.on{background:#444}.tog.on::after{left:15px;background:#fff}
+.slider{position:relative;height:18px;margin:4px 0}
+.slider::before{content:"";position:absolute;left:0;right:0;top:8px;height:2px;background:#999}
+.slider .th{position:absolute;top:2px;width:14px;height:14px;border-radius:50%;border:1.5px solid #333;background:#fff;margin-left:-7px}
+.ticks{display:flex;justify-content:space-between;font-size:10px;color:#777}
+.prog{height:8px;border:1px solid #777;background:#fff;border-radius:4px;overflow:hidden}
+.prog i{display:block;height:100%;background:#555}
+.tag2{display:inline-flex;align-items:center;gap:3px;border:1px solid #777;border-radius:10px;padding:0 7px;font-size:11px;background:#f2f2f2}
+.list{border:1px solid #aaa;background:#fff;font-size:12px}
+.list div{padding:3px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:4px}
+.list div.hl{background:#e6e6e6}
+.list div .r{margin-left:auto;font-size:10px;color:#777}
+.warnbox{border:1.5px solid #333;background:#f1f1f1;padding:6px 8px;font-size:12px;margin-top:6px}
+.warnbox b:first-child::before{content:"⚠ "}
+.infobox{border:1px dashed #777;background:#fafafa;padding:6px 8px;font-size:12px;margin-top:6px}
+.okline::before{content:"✓ ";font-weight:700}
+.badline::before{content:"✕ ";font-weight:700}
+
+/* settings / onboarding windows */
+.appframe{display:flex;flex-direction:column;border:1.5px solid #444;background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.tbar{height:26px;display:flex;align-items:center;gap:6px;padding:0 8px;background:#e9e9e9;border-bottom:1px solid #bbb;font-size:12px;color:#444}
+.tbar .lights{display:flex;gap:5px}.tbar .lights i{width:10px;height:10px;border-radius:50%;border:1px solid #888;background:#fff}
+.tbar .wctl{margin-left:auto;letter-spacing:10px;color:#666}
+.tbar .ttl{flex:1;text-align:center}
+.sbody{display:flex;min-height:360px}
+.side{width:150px;border-right:1px solid #ccc;background:#f4f4f4;padding:8px 0;font-size:12px}
+.side div{padding:4px 12px}.side .on{background:#d9d9d9;font-weight:700;border-left:3px solid #333;padding-left:9px}
+.main{flex:1;padding:14px 16px}
+.main h3{margin:0 0 12px;font-size:15px}
+.steps{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid #ddd;font-size:11px;color:#777}
+.steps span{flex:1;border-top:3px solid #ccc;padding-top:3px}
+.steps .done{border-color:#777;color:#555}.steps .cur{border-color:#222;color:#111;font-weight:700}
+.obody{padding:18px 22px;min-height:300px}
+.obody h3{margin:0 0 6px;font-size:17px}
+.obody p{margin:0 0 10px;font-size:13px;color:#333}
+.ofoot{display:flex;gap:8px;align-items:center;padding:10px 16px;border-top:1px solid #ddd;background:#fafafa}
+.ofoot .sp{flex:1}
+.kv{display:grid;grid-template-columns:110px 1fr auto;gap:6px 10px;align-items:center;font-size:12px}
+
+/* tray */
+.menu{background:#fff;border:1px solid #777;box-shadow:0 3px 0 rgba(0,0,0,.2);font-size:13px;padding:4px 0;width:280px}
+.menu.mac{border-radius:7px;padding:5px}
+.menu .mi{display:flex;gap:8px;padding:4px 12px;align-items:center}
+.menu.mac .mi{padding:3px 10px;border-radius:4px}
+.menu .mi .kb{margin-left:auto;color:#777;font-size:12px}
+.menu .mi.hl{background:#ddd}
+.menu .mi.dis{color:#999}
+.menu .mi.hdr{font-size:11px;color:#666;font-weight:600}
+.menu .mi.sub::after{content:"›";margin-left:auto;color:#777}
+.menu hr{border:0;border-top:1px solid #ddd;margin:4px 0}
+.menu .mi .ck{width:12px;display:inline-block}
+.taskbar{height:34px;background:#cfcfcf;border-top:1px solid #999;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:0 10px;font-size:11px;color:#444}
+.menubar{height:22px;background:#e4e4e4;border-bottom:1px solid #aaa;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 10px;font-size:11px;color:#444}
+.ticon{position:relative;width:18px;height:18px;border:1.5px solid #333;border-radius:4px;background:#fff;display:inline-block}
+.ticon.act{background:#bbb}
+.ticon .bd{position:absolute;right:-7px;bottom:-7px;font-size:9px;line-height:13px;min-width:14px;height:14px;border-radius:7px;font-weight:700;background:#222;color:#fff;text-align:center;padding:0 2px}
+.ticon .bd.hollow{background:#fff;color:#222;border:1px solid #222}
+
+table.t{border-collapse:collapse;font-size:12px;width:100%}
+table.t td,table.t th{border:1px solid #bbb;padding:4px 8px;text-align:left;vertical-align:top}
+table.t th{background:#e8e8e8}
+
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:10px}
+.card{display:block;background:#fff;border:1.5px solid #444;padding:14px 16px;color:#222;text-decoration:none;box-shadow:0 3px 0 rgba(0,0,0,.15)}
+.card:hover,.card:focus{outline:2px solid #222;outline-offset:2px}
+.card h3{margin:0 0 6px;font-size:16px}
+.card p{margin:0 0 8px;font-size:13px;color:#444}
+.card .meta{font-size:11px;color:#666}
+.card .thumb{height:120px;border:1px solid #aaa;margin-bottom:10px;background:#e4e4e4 center top/cover no-repeat}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top"><h1>Glimpse · low-fidelity flows</h1><span class="tag">GLIM-25 · greyscale wireframes</span></div>
+  <p class="lede">Every state of the five surfaces, labelled, at a fixed 1720 px desktop width. Wireframe only: grey boxes and real copy. Visual design (materials, type, colour, motion) comes from DESIGN.md in a separate ticket. Context: <span class="mono">PRODUCT.md</span>, hotkeys from <span class="mono">docs/decisions/GLIM-23-default-hotkeys.md</span>, skipped/neutral blocks from <span class="mono">docs/decisions/GLIM-21-language-detection.md</span>. Assumptions and open questions: <span class="mono">README.md</span> in this folder.</p>
+  <div class="cards">
+    <a class="card" href="snip.html"><div class="thumb" style="background-image:url(screenshots/snip.png)"></div><h3>Snip</h3><p>Hotkey → region picker (crosshair, loupe, size readout, dimmed surround, window snap) → popup with detected boxes → streaming translation → copied → dismiss. Details: "N blocks skipped" expander, neutral blocks, Arabic RTL source, cloud chip. Errors: no text, model missing, provider error, screen access lost.</p><div class="meta">S1–S8 · D1–D7 · E1–E4</div></a>
+    <a class="card" href="live.html"><div class="thumb" style="background-image:url(screenshots/live.png)"></div><h3>Live</h3><p>Pin a region → docked popup → text settling → changed-block highlight and fade → pause / resume / unpin → focus states → empty region. Cloud-in-use variant with one-time consent and region tag.</p><div class="meta">L1–L9 · C1–C3</div></a>
+    <a class="card" href="onboarding.html"><div class="thumb" style="background-image:url(screenshots/onboarding.png)"></div><h3>Onboarding</h3><p>Welcome → screen access (macOS Screen Recording with unsigned-build note; Windows SmartScreen note) → target language → per-language downloads with progress and resume → shortcuts with live status → done. Every step skippable; resume prompt on next launch.</p><div class="meta">O0–O5 · R1–R2</div></a>
+    <a class="card" href="settings.html"><div class="thumb" style="background-image:url(screenshots/settings.png)"></div><h3>Settings</h3><p>Target language, launch at login, source-language subset (searchable multi-select), shortcuts with recorder, conflict and validation states, providers and masked API keys with "Test key", downloads, Live fps and threshold, appearance and motion.</p><div class="meta">G1–G2 · H1–H2 · P1–P2 · M1 · L1 · A1</div></a>
+    <a class="card" href="tray.html"><div class="thumb" style="background-image:url(screenshots/tray.png)"></div><h3>Tray / menu bar</h3><p>Windows notification-area menu and macOS menu-bar menu side by side: idle, Live running, cloud in use, needs attention (shortcut conflict, setup, Screen Recording). Icon badge states.</p><div class="meta">T1–T5 · Windows + macOS</div></a>
+  </div>
+</div>
+</body>
+</html>
