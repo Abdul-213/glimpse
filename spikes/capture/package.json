@@ -1,0 +1,24 @@
+{
+  "name": "glimpse-spike-capture",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "prepare:devkit": "electrobun prepare",
+    "native:mac": "sh native/macos/build.sh",
+    "native:win": "powershell -ExecutionPolicy Bypass -File native/windows/build.ps1",
+    "native:win:cross": "sh native/windows/build-zig.sh",
+    "typecheck": "tsc -p .",
+    "test": "bun test",
+    "build": "electrobun build",
+    "dev": "electrobun dev",
+    "cli": "bun src/cli.ts"
+  },
+  "dependencies": {
+    "electrobun": "2.0.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^5.9.3"
+  }
+}
