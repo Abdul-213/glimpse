@@ -206,8 +206,9 @@ TeamIdentifier=not set`;
 
 describe("library lookup", () => {
 	test("candidates include bundle and dev paths", () => {
-		const c = libCandidates("win32", "/app/Resources/app/bun");
-		expect(c).toContain("/app/Resources/app/native/glimcapture.dll");
+		// Normalise separators: on Windows the candidates come back with "\\".
+		const c = libCandidates("win32", "/app/Resources/app/bun").map((p) => p.replaceAll("\\", "/"));
+		expect(c.some((p) => p.endsWith("/app/Resources/app/native/glimcapture.dll"))).toBe(true);
 		expect(c.some((p) => p.endsWith("native/windows/build/glimcapture.dll"))).toBe(true);
 		expect(libCandidates("darwin", "/x")[0]).toMatch(/libglimcapture\.dylib$/);
 	});
