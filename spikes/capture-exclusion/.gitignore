@@ -1,0 +1,10 @@
+.hutch/
+.cottontail-tmp/
+node_modules/
+build/
+artifacts/
+dist/
+native/macos/build/
+native/win/build/
+captures/
+*.tsbuildinfo
