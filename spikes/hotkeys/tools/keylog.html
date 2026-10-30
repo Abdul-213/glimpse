@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- GLIM-14 spike: open in any browser, focus it, press the hotkey.
+     If a keydown for KeyS / KeyL with the hotkey's modifiers appears here, the
+     keystroke was NOT consumed by the hotkey: the focused app received it too.
+     Also shows Alt key-up (which activates menu bars on Windows) and layout
+     changes via the "key" value. -->
+<html><head><meta charset="utf-8"><title>Glimpse spike key log</title>
+<style>
+  body { font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; margin: 16px; }
+  #log { white-space: pre; }
+  .hit { background: #fdd; }
+</style></head>
+<body>
+<p>Focus this page, then press the hotkey. Rows in red are S or L with Ctrl/Alt+Shift held (hotkey leaked through).
+   <button onclick="log.textContent=''">clear</button></p>
+<div id="log"></div>
+<script>
+  const log = document.getElementById("log");
+  function row(e) {
+    const mods = [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Meta"].filter(Boolean);
+    const line = document.createElement("div");
+    line.textContent = new Date().toISOString().slice(11, 23) + "  " + e.type.padEnd(8) +
+      [...mods, e.code].join("+").padEnd(28) + " key=" + JSON.stringify(e.key) + (e.repeat ? " (repeat)" : "");
+    if (e.type === "keydown" && (e.code === "KeyS" || e.code === "KeyL") && e.shiftKey && (e.ctrlKey || e.altKey)) line.className = "hit";
+    log.prepend(line);
+  }
+  addEventListener("keydown", row);
+  addEventListener("keyup", row);
+</script>
+</body></html>
