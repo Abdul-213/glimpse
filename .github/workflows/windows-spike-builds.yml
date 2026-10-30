@@ -25,8 +25,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { spike: overlay,           branch: glim-13-overlay-spike,           tool: hutch }
-          - { spike: window-materials,  branch: glim-19-window-materials-spike,  tool: hutch }
+          - { spike: overlay,           branch: glim-13-overlay-spike,           tool: hutch, build: hutch run build-dev }
+          - { spike: window-materials,  branch: glim-19-window-materials-spike,  tool: hutch, build: hutch run build }
           - { spike: hotkeys,           branch: glim-14-hotkeys-spike,           tool: bun }
           - { spike: capture,           branch: glim-15-capture-spike,           tool: bun, native: true }
           - { spike: capture-exclusion, branch: glim-16-capture-exclusion-spike, tool: bun }
@@ -74,7 +74,7 @@ jobs:
         run: ${{ matrix.tool == 'hutch' && 'hutch run test' || 'bun test' }}
 
       - name: Build
-        run: ${{ matrix.tool == 'hutch' && 'hutch run build-dev' || 'bun --bun run build' }}
+        run: ${{ matrix.build || 'bun --bun run build' }}
 
       - name: List build output
         if: always()
