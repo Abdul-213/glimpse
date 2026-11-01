@@ -16,6 +16,7 @@ export interface SettingsPushHandlers {
 	hotkeysChanged: (s: HotkeyStatus) => void;
 	modelsChanged: (s: ModelsSnapshot) => void;
 	cloudChanged: (s: CloudSnapshot) => void;
+	updateChanged: (s: import("@glimpse/core").UpdateStatus) => void;
 }
 
 export interface SettingsClient {

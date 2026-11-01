@@ -58,6 +58,7 @@ export class SettingsWindow {
 					resetLiveConsent: h.resetLiveConsent,
 					openCloudLink: h.openCloudLink,
 					openOnboarding: h.openOnboarding,
+					openUpdatePage: h.openUpdatePage,
 				},
 				messages: {
 					closeSettings: () => this.window?.close(),
@@ -77,6 +78,7 @@ export class SettingsWindow {
 			this.deps.hotkeys.subscribe((s) => rpc.send.hotkeysChanged(s)),
 			this.deps.models.subscribe((s) => rpc.send.modelsChanged(s)),
 			this.deps.cloud.subscribe((s) => rpc.send.cloudChanged(s)),
+			...(this.deps.updates ? [this.deps.updates.subscribe((s) => rpc.send.updateChanged(s))] : []),
 		];
 		win.on("close", () => {
 			for (const u of this.unsubscribe) u();

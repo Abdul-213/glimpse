@@ -24,6 +24,8 @@ export interface TrayState {
 	readonly hotkeys: { readonly snip: string | null; readonly live: string | null };
 	/** Windows only: the taskbar's theme, which picks the light or dark glyph. */
 	readonly taskbarTheme: TaskbarTheme;
+	/** A newer release on GitHub (GLIM-70), or null/absent when there is none or checks are off. */
+	readonly update?: { readonly version: string } | null;
 	/** Things that need the user, listed first (flows/tray.html: "problems are listed first"). */
 	readonly notices?: readonly TrayNotice[];
 }
@@ -112,12 +114,21 @@ export function buildTrayMenu(state: TrayState): TrayMenuItem[] {
 	const notices: TrayMenuItem[] = (state.notices ?? []).map((n) =>
 		item(mac ? n.label.macos : n.label.windows, n.action),
 	);
+	// GLIM-70: a newer release opens its download page; nothing is downloaded by Glimpse.
+	const update: TrayMenuItem[] = state.update
+		? [
+				item(`Download Glimpse ${state.update.version}…`, "update.open", {
+					tooltip: "Opens the release page in your browser",
+				}),
+			]
+		: [];
 
 	return [
 		...notices,
 		...(notices.length > 0 ? [{ type: "divider" } as const] : []),
 		status(statusLine(state)),
 		status(providerLine(state)),
+		...update,
 		{ type: "divider" },
 		item(withShortcut(state.platform, "Snip", state.hotkeys.snip), "snip.start"),
 		...live,

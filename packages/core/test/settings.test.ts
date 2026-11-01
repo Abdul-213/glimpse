@@ -49,6 +49,7 @@ describe("settings defaults", () => {
 			onboarding: { completed: false, step: "welcome", dismissed: false, languages: [] },
 			permissions: { screenAccess: "unknown" },
 			diagnostics: { logLevel: "info" },
+			updates: { check: true },
 		});
 	});
 

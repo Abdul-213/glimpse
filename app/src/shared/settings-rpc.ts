@@ -5,12 +5,20 @@
 // a request that main validates; the response says what actually happened, so the view never
 // guesses.
 
-import type { HotkeyAction, HotkeyBindings, Issue, LanguageCode, Settings, SourceLanguageGroup } from "@glimpse/core";
+import type {
+	HotkeyAction,
+	HotkeyBindings,
+	Issue,
+	LanguageCode,
+	Settings,
+	SourceLanguageGroup,
+	UpdateStatus,
+} from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { AppInfo } from "./rpc.ts";
 
 /** The parts of Settings the view may patch directly. The rest go through their own request. */
-export type EditableSection = "language" | "appearance" | "live" | "privacy" | "diagnostics";
+export type EditableSection = "language" | "appearance" | "live" | "privacy" | "diagnostics" | "updates";
 
 export const EDITABLE_SECTIONS: readonly EditableSection[] = [
 	"language",
@@ -18,6 +26,7 @@ export const EDITABLE_SECTIONS: readonly EditableSection[] = [
 	"live",
 	"privacy",
 	"diagnostics",
+	"updates",
 ];
 
 type DeepPartial<T> = T extends readonly unknown[]
@@ -225,6 +234,8 @@ export interface SettingsSnapshot {
 	};
 	/** Startup warnings about the settings file, if any (shown in About). */
 	readonly settingsWarnings: readonly string[];
+	/** GLIM-70: whether a newer release is out (About). Pushed again with `updateChanged`. */
+	readonly update: UpdateStatus;
 }
 
 export interface ProviderSummary {
@@ -271,6 +282,8 @@ export type SettingsRPC = {
 			openCloudLink: { params: { link: CloudLink }; response: ActionResult };
 			/** Open first-run setup again (GLIM-76). */
 			openOnboarding: { params: undefined; response: ActionResult };
+			/** Open the newer release's page in the browser (GLIM-70). */
+			openUpdatePage: { params: undefined; response: ActionResult };
 		};
 		messages: {
 			closeSettings: undefined;
@@ -283,6 +296,7 @@ export type SettingsRPC = {
 			hotkeysChanged: HotkeyStatus;
 			modelsChanged: ModelsSnapshot;
 			cloudChanged: CloudSnapshot;
+			updateChanged: UpdateStatus;
 		};
 	}>;
 };

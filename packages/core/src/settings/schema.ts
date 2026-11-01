@@ -105,6 +105,10 @@ export interface Settings {
 		/** Local log file threshold (GLIM-35). `GLIMPSE_LOG_LEVEL` overrides it for a run. */
 		readonly logLevel: LogLevel;
 	};
+	readonly updates: {
+		/** Ask GitHub for the latest release at most once a day and say when one is newer (GLIM-70). */
+		readonly check: boolean;
+	};
 }
 
 export interface SettingsEnv {
@@ -166,6 +170,9 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		}),
 		diagnostics: object({
 			logLevel: withDefault(oneOf(LOG_LEVELS), "info"),
+		}),
+		updates: object({
+			check: withDefault(boolean(), true),
 		}),
 	});
 }

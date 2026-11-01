@@ -179,6 +179,7 @@ Don't create packages for grouping alone; use folders.
 | `bun:ffi` bindings | `app/src/bun/native/macos.ts`, `windows.ts`, `load.ts`, `process-env.ts` (setenv, GLIM-112) | The only `dlopen` calls. Each exported function returns typed results, never raw pointers to callers outside `native/`. |
 | Native helper sources | `app/native/macos/`, `app/native/windows/` | See section 6. |
 | Logging and diagnostics | `packages/core/src/logging/` (`Logger` port, `Redactor`, line format, diagnostics bundle) + `app/src/bun/services/log.ts` (rotating file in `Utils.paths.userLogs`), `services/diagnostics.ts` | GLIM-35. Everything logged passes the `Redactor`: no keys, no screen text (wrap it in `sensitive()`), never pixels. |
+| Update notification | `packages/core/src/updates/` (version compare, `releases/latest` parsing, once-a-day rule) + `app/src/bun/services/update-check.ts` (`UpdateChecker`, state in `<userData>/update-check.json`) | GLIM-70. Notify only: tray item and Settings › About link to the release page; `settings.updates.check` turns it off; every failure (offline, 404 while the repo is private) is silent. |
 | Shared UI components | `packages/ui/src/components/` | GLIM-42. Tokens only, no raw colours or off-scale sizes. |
 | Surface UI | `app/src/views/<surface>/` | Thin: render state from main, send intents back. |
 

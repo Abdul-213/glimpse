@@ -13,6 +13,11 @@ export function AboutPane(props: { state: SettingsState }): JSX.Element {
 	const copy = createAction("Copied. Paste it into your bug report.");
 	const logs = createAction();
 	const setup = createAction();
+	const download = createAction();
+	const available = () => {
+		const u = props.state.updateStatus();
+		return u?.state === "available" ? u.release : null;
+	};
 	const os = () => (snap()?.app.platform ?? "macos") as Os;
 
 	return (
@@ -26,6 +31,34 @@ export function AboutPane(props: { state: SettingsState }): JSX.Element {
 						</span>
 					}
 				/>
+				<Show when={available()}>
+					{(release) => (
+						<SettingsRow
+							label={`Glimpse ${release().version} is available`}
+							description={
+								<>
+									<span class="block">Download it from the release page. Glimpse doesn't update itself.</span>
+									{download.view()}
+								</>
+							}
+						>
+							<Button
+								disabled={download.busy()}
+								onClick={() => void download.run(() => props.state.client.request.openUpdatePage())}
+							>
+								Open download page
+							</Button>
+						</SettingsRow>
+					)}
+				</Show>
+				<SettingsControlRow>
+					<Switch
+						label="Check for updates"
+						description="Once a day, asks GitHub whether a newer version is out. Nothing from your screen or settings is sent."
+						checked={s().updates.check}
+						onChange={(v) => void props.state.update({ updates: { check: v } })}
+					/>
+				</SettingsControlRow>
 			</SettingsGroup>
 
 			<Show when={(snap()?.settingsWarnings.length ?? 0) > 0}>

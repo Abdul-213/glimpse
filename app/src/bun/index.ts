@@ -48,6 +48,7 @@ import { loadPackCatalogue } from "./services/translation/pack-catalogue.ts";
 import { pipelineStages } from "./services/translation/pipeline-stages.ts";
 import { TranslationPacks } from "./services/translation/translation-packs.ts";
 import { TranslationService, warmPairsFor } from "./services/translation/translation-service.ts";
+import { fileUpdateStateStore, UpdateChecker } from "./services/update-check.ts";
 import { createTray } from "./tray.ts";
 import { finishSetupNotice } from "./tray-menu.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
@@ -220,9 +221,26 @@ const cloudSettings = new CloudSettings({
 	onKeyChanged: (secretId) => translation.keyChanged(secretId),
 	openUrl: (url) => Utils.openExternal(url),
 });
+// Update notification (GLIM-70): GitHub's latest release, at most once a day, notify only.
+const updates = new UpdateChecker({
+	currentVersion: appInfo.version,
+	enabled: () => appSettings.current.updates.check,
+	store: fileUpdateStateStore(Utils.paths.userData),
+	fetch: (url, init) => fetch(url, init),
+	log: log.child("updates"),
+});
+const openUpdatePage = (): boolean => {
+	const s = updates.status;
+	return s.state === "available" && Utils.openExternal(s.release.url);
+};
 const settings = new SettingsWindow(
 	{
 		appInfo,
+		updates: {
+			status: () => updates.status,
+			subscribe: (listener) => updates.subscribe(listener),
+			openPage: openUpdatePage,
+		},
 		settings: appSettings,
 		hotkeys: hotkeyRegistrar,
 		loginItem,
@@ -476,6 +494,22 @@ screenAccess.subscribe(() => tray.update({ notices: trayNotices() }));
 appSettings.subscribe((next, previous) => {
 	if (next.onboarding !== previous.onboarding) tray.update({ notices: trayNotices() });
 });
+
+// GLIM-70: the tray offers a newer release; the first check waits a minute after start, then
+// the checker is asked hourly and only goes to GitHub once a day.
+commands.handle("update.open", () => {
+	if (!openUpdatePage()) log.warn("could not open the release page");
+});
+updates.subscribe((s) => tray.update({ update: s.state === "available" ? { version: s.release.version } : null }));
+appSettings.subscribe((next, previous) => {
+	if (next.updates.check !== previous.updates.check) {
+		updates.settingsChanged();
+		if (next.updates.check) void updates.checkIfDue();
+	}
+});
+void updates.load();
+setTimeout(() => void updates.checkIfDue(), 60_000);
+setInterval(() => void updates.checkIfDue(), 60 * 60_000);
 
 // The service updates the tray through onPrivateChange.
 commands.handle("private.toggle", () => translation.setPrivate(!translation.private));

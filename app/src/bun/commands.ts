@@ -20,6 +20,7 @@ export const COMMANDS = [
 	"onboarding.open",
 	"diagnostics.copy",
 	"logs.open",
+	"update.open",
 	"app.quit",
 ] as const;
 

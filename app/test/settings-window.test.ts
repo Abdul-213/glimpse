@@ -182,6 +182,27 @@ describe("settings handlers", () => {
 		expect(s.loginItem).toEqual({ enabled: false, supported: true });
 	});
 
+	test("update notification (GLIM-70): snapshot status, the switch, and the download page", async () => {
+		const release = { version: "0.2.0", url: "https://github.com/Abdul-213/glimpse/releases/tag/v0.2.0" };
+		let opened = 0;
+		const { h, settings } = handlers({
+			updates: {
+				status: () => ({ state: "available", release, lastCheckAt: 1 }),
+				subscribe: () => () => {},
+				openPage: () => ++opened > 0,
+			},
+		});
+		expect((await h.getSnapshot()).update).toEqual({ state: "available", release, lastCheckAt: 1 });
+		expect(h.openUpdatePage()).toEqual({ ok: true });
+		expect(opened).toBe(1);
+		expect(settings.current.updates.check).toBe(true);
+		await h.updateSettings({ updates: { check: false } });
+		expect(settings.current.updates.check).toBe(false);
+		const none = handlers().h;
+		expect((await none.getSnapshot()).update).toEqual({ state: "current", lastCheckAt: null });
+		expect(none.openUpdatePage().ok).toBe(false);
+	});
+
 	test("updateSettings only accepts the editable sections", async () => {
 		const { h, settings } = handlers();
 		const r = await h.updateSettings({

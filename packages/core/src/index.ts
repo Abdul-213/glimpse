@@ -17,3 +17,4 @@ export * from "./schema/index.ts";
 export * from "./secrets/index.ts";
 export * from "./settings/index.ts";
 export * from "./text/index.ts";
+export * from "./updates/index.ts";
