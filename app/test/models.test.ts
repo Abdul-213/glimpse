@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
 	bundledModels,
 	installedSize,
@@ -151,7 +151,7 @@ describe("model cache", () => {
 	});
 
 	test("cache dir honours GLIMPSE_MODEL_CACHE and XDG_CACHE_HOME", () => {
-		expect(defaultCacheDir({ GLIMPSE_MODEL_CACHE: "/tmp/m" })).toBe("/tmp/m");
+		expect(defaultCacheDir({ GLIMPSE_MODEL_CACHE: "/tmp/m" })).toBe(resolve("/tmp/m"));
 		expect(defaultCacheDir({ XDG_CACHE_HOME: "/xdg" })).toBe(join("/xdg", "glimpse", "models"));
 	});
 });

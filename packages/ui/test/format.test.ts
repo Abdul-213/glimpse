@@ -24,7 +24,8 @@ describe("copy formatting", () => {
 
 	test("language names via Intl", () => {
 		expect(languageName("ja")).toBe("Japanese");
-		expect(languageName("zh-Hant")).toBe("Traditional Chinese");
+		// CLDR data differs by runtime: Bun on Linux/Windows vs the system ICU on macOS.
+		expect(["Traditional Chinese", "Chinese, Traditional"]).toContain(languageName("zh-Hant"));
 		expect(nativeLanguageName("ja")).toBe("日本語");
 		expect(languageName("not a tag!")).toBe("not a tag!");
 	});

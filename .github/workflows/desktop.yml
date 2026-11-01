@@ -1,0 +1,176 @@
+# Desktop builds (GLIM-34): typecheck, unit tests, native helper and a release
+# (`--env=stable`) `electrobun build` on real Windows and macOS runners.
+#
+# Intel macOS is not built: onnxruntime-node has no darwin-x64 build (GLIM-89).
+# Lint runs only on Linux (ci.yml); it is platform-independent.
+#
+# Windows minutes count 2x and macOS 10x on the free tier, so this never runs on PRs:
+# only on pushes to develop that touch app, native or package code, plus on demand
+# (workflow_dispatch works once this file is on the default branch).
+name: Desktop builds
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - app/**
+      - packages/**
+      - package.json
+      - bun.lock
+      - .github/workflows/desktop.yml
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: 1.4.4
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      # Keep LF endings so fixtures, snapshots and Biome see the same bytes as on Linux.
+      - name: Check out with LF line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Hutch itself, the pinned Electrobun release and its Bun toolchain (~/.hutch), plus the
+      # synced devkit (app/.hutch). Keyed by the Electrobun pin.
+      - name: Cache Hutch and the Electrobun devkit
+        id: hutch-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hutch
+            app/.hutch
+          key: hutch-${{ runner.os }}-${{ hashFiles('app/hutch.config.ts') }}
+
+      - name: Install Hutch
+        run: |
+          if (-not (Test-Path "$env:USERPROFILE\.hutch\bin\hutch.exe")) {
+            & ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))
+          }
+          "$env:USERPROFILE\.hutch\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Sync the Electrobun devkit
+        working-directory: app
+        run: hutch electrobun sync
+
+      - name: Cache bundled models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/models
+          key: glimpse-models-${{ runner.os }}-${{ hashFiles('app/models/manifest.json') }}
+
+      - name: Fetch bundled models
+        run: bun run models
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun test
+
+      - name: MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build glimpse.dll
+        env:
+          GLIMPSE_NATIVE_TOOL: msvc
+        run: ./app/native/windows/build.ps1
+
+      - name: Build the app (stable)
+        working-directory: app
+        env:
+          GLIMPSE_REQUIRE_MODELS: "1"
+        run: hutch electrobun build --env=stable
+
+  macos:
+    name: macOS arm64
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Hutch and the Electrobun devkit
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hutch
+            app/.hutch
+          key: hutch-${{ runner.os }}-${{ hashFiles('app/hutch.config.ts') }}
+
+      - name: Install Hutch
+        run: |
+          [ -x "$HOME/.hutch/bin/hutch" ] || curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the Electrobun devkit
+        working-directory: app
+        run: hutch electrobun sync
+
+      - name: Cache bundled models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/models
+          key: glimpse-models-${{ runner.os }}-${{ hashFiles('app/models/manifest.json') }}
+
+      - name: Fetch bundled models
+        run: bun run models
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun test
+
+      # arm64 only: Intel macOS is blocked by GLIM-89.
+      - name: Build libglimpse.dylib
+        env:
+          ARCHS: arm64
+        run: sh app/native/macos/build.sh
+
+      - name: Build the app (stable)
+        working-directory: app
+        env:
+          GLIMPSE_REQUIRE_MODELS: "1"
+        run: hutch electrobun build --env=stable

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { rect } from "@glimpse/core";
 import { chooseCaptureBackend, createCaptureSource, SAMPLE_FRAMES_DIR } from "../src/bun/services/capture/index.ts";
 
@@ -11,7 +11,10 @@ describe("capture backend selection", () => {
 	});
 
 	test("environment overrides", () => {
-		expect(chooseCaptureBackend("darwin", { GLIMPSE_CAPTURE_FRAMES: "/rec" })).toEqual({ kind: "file", path: "/rec" });
+		expect(chooseCaptureBackend("darwin", { GLIMPSE_CAPTURE_FRAMES: "/rec" })).toEqual({
+			kind: "file",
+			path: resolve("/rec"),
+		});
 		expect(chooseCaptureBackend("win32", { GLIMPSE_CAPTURE: "file" })).toMatchObject({ kind: "file" });
 		expect(chooseCaptureBackend("darwin", { GLIMPSE_CAPTURE: "native", GLIMPSE_CAPTURE_FRAMES: "/rec" })).toEqual({
 			kind: "macos",

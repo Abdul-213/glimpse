@@ -27,9 +27,11 @@ afterAll(() => rmSync(out, { recursive: true, force: true }));
 
 describe("resolveBergamotWorker", () => {
 	test("override, then the bundled file next to the main bundle, else the provider default", () => {
-		expect(resolveBergamotWorker("/app/bun", { GLIMPSE_BERGAMOT_WORKER: "/x/w.js" }, () => false)).toBe("/x/w.js");
-		expect(resolveBergamotWorker("/app/bun", {}, (p) => p === "/app/bun/bergamot-worker.js")).toBe(
-			"/app/bun/bergamot-worker.js",
+		expect(resolveBergamotWorker("/app/bun", { GLIMPSE_BERGAMOT_WORKER: "/x/w.js" }, () => false)).toBe(
+			resolve("/x/w.js"),
+		);
+		expect(resolveBergamotWorker("/app/bun", {}, (p) => p === resolve("/app/bun/bergamot-worker.js"))).toBe(
+			resolve("/app/bun/bergamot-worker.js"),
 		);
 		expect(resolveBergamotWorker("/app/src/bun", {}, () => false)).toBeNull();
 		expect(bergamotSpawner("/app/src/bun", {}, () => false).spawn).toBeUndefined();
