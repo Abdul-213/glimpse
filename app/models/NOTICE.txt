@@ -1,0 +1,34 @@
+Glimpse: third-party model notices
+==================================
+
+Glimpse ships or downloads the following model files. Each is listed with its source,
+the revision its SHA-256 hashes were pinned at, and its licence. Full licence texts are in
+the licenses/ folder next to this file. The per-file URLs and hashes are in manifest.json.
+
+PaddleOCR PP-OCRv5 mobile text detection and recognition models
+  Copyright (c) 2020 PaddlePaddle Authors. All rights reserved.
+  https://github.com/PaddlePaddle/PaddleOCR
+  Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
+
+  ONNX conversions of these models by RapidOCR, revision v3.10.0
+  Copyright (c) 2021 RapidAI. All rights reserved.
+  https://github.com/RapidAI/RapidOCR
+  Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
+
+  Files: ch_PP-OCRv5_det_mobile.onnx, <family>_PP-OCRv5_rec_mobile.onnx and the matching
+  ppocrv5_*_dict.txt character dictionaries. The files are unmodified.
+
+bergamot-translator (WebAssembly build and JavaScript glue), release v0.6.0
+  Copyright Mozilla and the Bergamot project contributors.
+  https://github.com/browsermt/bergamot-translator
+  https://github.com/mozilla/translations
+  The WebAssembly file comes from Mozilla's Remote Settings collection translations-wasm-v2;
+  the glue file is toolkit/components/translations/bergamot-translator/bergamot-translator.js
+  from the Firefox source tree (https://github.com/mozilla-firefox/firefox).
+  Licensed under the Mozilla Public License, Version 2.0 (licenses/MPL-2.0.txt). The source
+  code is available at the URLs above. The files are unmodified.
+
+Firefox Translations language models (downloaded on demand, not shipped in the installer)
+  Copyright Mozilla.
+  https://github.com/mozilla/translations
+  Licensed under the Mozilla Public License, Version 2.0 (licenses/MPL-2.0.txt).

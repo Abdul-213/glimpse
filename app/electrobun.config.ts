@@ -30,6 +30,8 @@ export default {
 		copy: {
 			"dist/views": "views",
 			"assets/tray": "views/assets",
+			// Bundled models + NOTICE (GLIM-37), staged by the preBuild hook from app/models/manifest.json.
+			"dist/models": "models",
 		},
 		watch: ["src/views", "../packages/ui/src", "../packages/core/src"],
 		watchIgnore: ["dist/**"],
