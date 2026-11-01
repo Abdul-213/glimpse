@@ -18,16 +18,33 @@ import type { RPCSchema } from "electrobun/view";
 import type { AppInfo } from "./rpc.ts";
 
 /** The parts of Settings the view may patch directly. The rest go through their own request. */
-export type EditableSection = "language" | "appearance" | "live" | "privacy" | "diagnostics" | "updates";
+export type EditableSection = "language" | "appearance" | "snip" | "live" | "privacy" | "diagnostics" | "updates";
 
 export const EDITABLE_SECTIONS: readonly EditableSection[] = [
 	"language",
 	"appearance",
+	"snip",
 	"live",
 	"privacy",
 	"diagnostics",
 	"updates",
 ];
+
+/** The window's panes, in sidebar order. `SettingsWindow.open(section)` opens at one (GLIM-117). */
+export const SETTINGS_SECTIONS = [
+	"general",
+	"languages",
+	"shortcuts",
+	"providers",
+	"models",
+	"privacy",
+	"about",
+] as const;
+
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+export const isSettingsSection = (v: unknown): v is SettingsSection =>
+	typeof v === "string" && (SETTINGS_SECTIONS as readonly string[]).includes(v);
 
 type DeepPartial<T> = T extends readonly unknown[]
 	? T
@@ -236,6 +253,8 @@ export interface SettingsSnapshot {
 	readonly settingsWarnings: readonly string[];
 	/** GLIM-70: whether a newer release is out (About). Pushed again with `updateChanged`. */
 	readonly update: UpdateStatus;
+	/** The pane to open at (a popup's "Check key…" asks for Providers), or null for the first one. */
+	readonly section: SettingsSection | null;
 }
 
 export interface ProviderSummary {
@@ -297,6 +316,8 @@ export type SettingsRPC = {
 			modelsChanged: ModelsSnapshot;
 			cloudChanged: CloudSnapshot;
 			updateChanged: UpdateStatus;
+			/** Switch to a pane: Settings was asked to open at it while already open (GLIM-117). */
+			showSection: SettingsSection;
 		};
 	}>;
 };

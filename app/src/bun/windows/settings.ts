@@ -1,5 +1,5 @@
 import { BrowserView, BrowserWindow } from "electrobun/main";
-import type { SettingsRPC } from "../../shared/settings-rpc.ts";
+import type { SettingsRPC, SettingsSection } from "../../shared/settings-rpc.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
 import type { SettingsDeps } from "./settings-handlers.ts";
 import { createSettingsHandlers } from "./settings-handlers.ts";
@@ -14,18 +14,25 @@ import { createSettingsHandlers } from "./settings-handlers.ts";
 export class SettingsWindow {
 	private window: BrowserWindow | null = null;
 	private unsubscribe: (() => void)[] = [];
+	/** Switches the open view to a pane (set while the window exists). */
+	private showSection: ((section: SettingsSection) => void) | null = null;
+	/** The pane a new window opens at; the view reads it with its first snapshot. */
+	private initialSection: SettingsSection | null = null;
 
 	constructor(
 		readonly deps: SettingsDeps,
 		private readonly exclusion: CaptureExclusion,
 	) {}
 
-	open(): void {
+	/** Open (or bring forward) Settings, at `section` if given (GLIM-117: popup deep links). */
+	open(section?: SettingsSection): void {
 		if (this.window) {
+			if (section) this.showSection?.(section);
 			this.window.activate();
 			return;
 		}
-		const h = createSettingsHandlers(this.deps);
+		this.initialSection = section ?? null;
+		const h = createSettingsHandlers({ ...this.deps, initialSection: () => this.initialSection });
 		const rpc = BrowserView.defineRPC<SettingsRPC>({
 			// Moving models between volumes can take a while.
 			maxRequestTime: 10 * 60_000,
@@ -80,10 +87,17 @@ export class SettingsWindow {
 			this.deps.cloud.subscribe((s) => rpc.send.cloudChanged(s)),
 			...(this.deps.updates ? [this.deps.updates.subscribe((s) => rpc.send.updateChanged(s))] : []),
 		];
+		this.showSection = (s) => {
+			// A reload of the view (or a late first snapshot) opens at the latest ask too.
+			this.initialSection = s;
+			rpc.send.showSection(s);
+		};
 		win.on("close", () => {
 			for (const u of this.unsubscribe) u();
 			this.unsubscribe = [];
 			this.window = null;
+			this.showSection = null;
+			this.initialSection = null;
 		});
 		this.window = win;
 		this.exclusion.protect(win, () => win.show());

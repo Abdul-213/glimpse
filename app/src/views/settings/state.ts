@@ -10,6 +10,7 @@ import type {
 	LoginItemStatus,
 	ModelsSnapshot,
 	SettingsEdit,
+	SettingsSection,
 	SettingsSnapshot,
 	SourceLanguagesSnapshot,
 } from "../../shared/settings-rpc.ts";
@@ -27,6 +28,9 @@ export function createSettingsState(client: SettingsClient) {
 	const [error, setError] = createSignal<string | null>(null);
 	// GLIM-70: a newer release, from the snapshot and then `updateChanged`.
 	const [update, setUpdate] = createSignal<UpdateStatus | null>(null);
+	// A pane main asked for (GLIM-117): the first snapshot's `section`, then `showSection` pushes.
+	// Wrapped so asking twice for the same pane still re-selects it.
+	const [requestedSection, setRequestedSection] = createSignal<{ section: SettingsSection } | null>(null);
 
 	client.listen({
 		settingsChanged: (s) => setSettings(s),
@@ -34,6 +38,7 @@ export function createSettingsState(client: SettingsClient) {
 		modelsChanged: (s) => setModels(s),
 		cloudChanged: (s) => setCloud(s),
 		updateChanged: (s) => setUpdate(s),
+		showSection: (section) => setRequestedSection({ section }),
 	});
 
 	const load = async () => {
@@ -44,6 +49,7 @@ export function createSettingsState(client: SettingsClient) {
 			setHotkeys(s.hotkeys);
 			setLoginItem(s.loginItem);
 			setUpdate(s.update);
+			if (s.section) setRequestedSection({ section: s.section });
 		} catch {
 			setError("Couldn't reach the Glimpse app process. Close Settings and open it again from the tray.");
 		}
@@ -59,6 +65,7 @@ export function createSettingsState(client: SettingsClient) {
 		updateStatus: update,
 		languages,
 		error,
+		requestedSection,
 		load,
 		client,
 		async update(edit: SettingsEdit) {

@@ -311,7 +311,7 @@ picker = new PickerController({
 		// Settings fields for these two land with GLIM-105; the spec defaults until then.
 		confirmOnRelease: true,
 		showLoupe: true,
-		reducedMotion: loadedSettings.settings.appearance.motion === "reduced",
+		reducedMotion: appSettings.current.appearance.motion === "reduced",
 	}),
 	// `live` is declared below; this only runs when the picker opens.
 	liveRunning: () => live.active,
@@ -343,8 +343,8 @@ snipPopup = new SnipPopupController({
 	eol: platform === "windows" ? "\r\n" : "\n",
 	targets: {
 		snipAgain: () => picker?.toggle("snip"),
-		// Settings sections arrive with GLIM-69; until then Settings opens at its first pane.
-		openSettings: () => settings.open(),
+		// "Check key…" opens Providers, "Edit source languages…" Languages (GLIM-117).
+		openSettings: (section) => settings.open(section),
 		openExternal: (url) => {
 			if (!Utils.openExternal(url)) popupLog.warn("could not open a link", { url });
 		},
@@ -352,11 +352,11 @@ snipPopup = new SnipPopupController({
 	focus: pickerNatives.focus,
 	results: { dismiss: () => picker?.dismiss() },
 	settings: () => ({
-		reducedMotion: loadedSettings.settings.appearance.motion === "reduced",
-		alwaysShowLanguages: loadedSettings.settings.snip.alwaysShowLanguages,
-		showOriginalUnder: loadedSettings.settings.snip.showOriginalUnder,
+		reducedMotion: appSettings.current.appearance.motion === "reduced",
+		alwaysShowLanguages: appSettings.current.snip.alwaysShowLanguages,
+		showOriginalUnder: appSettings.current.snip.showOriginalUnder,
 		// Snip only: Live never touches the clipboard (GLIM-71).
-		autoCopy: loadedSettings.settings.snip.copyAfterSnip,
+		autoCopy: appSettings.current.snip.copyAfterSnip,
 		uiDir: "ltr",
 	}),
 	pointer: () => screenProbe.cursor(),

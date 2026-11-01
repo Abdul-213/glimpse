@@ -1,5 +1,6 @@
 import { Banner, nextIndex } from "@glimpse/ui";
 import { createEffect, createSignal, For, type JSX, Match, onMount, Show, Switch } from "solid-js";
+import type { SettingsSection } from "../../shared/settings-rpc.ts";
 import type { SettingsClient } from "./client.ts";
 import { AboutPane } from "./panes/AboutPane.tsx";
 import { GeneralPane } from "./panes/GeneralPane.tsx";
@@ -18,9 +19,9 @@ export const SECTIONS = [
 	{ id: "models", label: "Models" },
 	{ id: "privacy", label: "Privacy" },
 	{ id: "about", label: "About" },
-] as const;
+] as const satisfies readonly { id: SettingsSection; label: string }[];
 
-export type SectionId = (typeof SECTIONS)[number]["id"];
+export type SectionId = SettingsSection;
 
 export interface SettingsAppProps {
 	client: SettingsClient;
@@ -60,6 +61,12 @@ export function SettingsApp(props: SettingsAppProps): JSX.Element {
 		document.title = `${label} · Glimpse Settings`;
 		document.getElementById("settings-pane")?.scrollTo({ top: 0 });
 	};
+
+	// Main asked for a pane: the first snapshot's `section`, or "Check key…" while open (GLIM-117).
+	createEffect(() => {
+		const ask = state.requestedSection();
+		if (ask) select(ask.section);
+	});
 
 	const onNavKey = (e: KeyboardEvent, index: number) => {
 		const next = nextIndex(index, SECTIONS.length, e.key, "vertical", { wrap: false });
