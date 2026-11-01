@@ -19,6 +19,9 @@ export const COPY = {
 	translateThese: "Translate these",
 	editSources: "Edit source languages…",
 	clipboardUnchanged: "Clipboard not changed",
+	showingOriginal: "Showing original",
+	showOriginal: "Show original",
+	showTranslation: "Show translation",
 } as const;
 
 export const translatingText = (done: number, total: number) => `Translating ${done} of ${total}`;
@@ -38,6 +41,8 @@ export function statusText(s: SnipStatus): string {
 			return partialText(s.done, s.total);
 		case "clipboardUnchanged":
 			return COPY.clipboardUnchanged;
+		case "original":
+			return COPY.showingOriginal;
 	}
 }
 
@@ -49,6 +54,7 @@ export function announcement(s: SnipStatus, translated: number, finished: boolea
 	if (s.kind === "reading") return COPY.reading;
 	if (s.kind === "translating") return "Translating";
 	if (s.kind === "clipboardUnchanged") return "";
+	if (s.kind === "original") return COPY.showingOriginal;
 	if (!finished || translated === 0) return "";
 	return `Translated ${translated} ${translated === 1 ? "block" : "blocks"}.`;
 }

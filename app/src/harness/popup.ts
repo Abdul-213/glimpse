@@ -53,6 +53,7 @@ export class FakePopupWindow implements PopupWindowPort {
 export const DEFAULT_POPUP_SETTINGS: SnipPopupSettings = {
 	reducedMotion: true,
 	alwaysShowLanguages: false,
+	showOriginalUnder: false,
 	uiDir: "ltr",
 };
 

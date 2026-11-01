@@ -105,6 +105,8 @@ export interface ResultsLayer {
 export interface SnipPopupSettings {
 	readonly reducedMotion: boolean;
 	readonly alwaysShowLanguages: boolean;
+	/** Settings › Show original under translation (off by default, owner question 9). */
+	readonly showOriginalUnder?: boolean;
 	readonly uiDir: "ltr" | "rtl";
 }
 
@@ -196,7 +198,10 @@ export class SnipPopupController {
 			id,
 			placement,
 			abort: new AbortController(),
-			state: initialSnipState(id, { alwaysShowLanguages: settings.alwaysShowLanguages }),
+			state: initialSnipState(id, {
+				alwaysShowLanguages: settings.alwaysShowLanguages,
+				showOriginalUnder: settings.showOriginalUnder ?? false,
+			}),
 			shown: false,
 			contentHeight: INITIAL_CONTENT_HEIGHT,
 			frame,
@@ -240,6 +245,11 @@ export class SnipPopupController {
 		if (sameRect(frame, r.frame)) return;
 		r.frame = frame;
 		this.deps.window.setFrame(frame);
+	}
+
+	/** Original view on or off (§4 S6). The clipboard is unchanged by it. */
+	toggleOriginal(requestId: string, on: boolean): void {
+		if (this.current(requestId)) this.dispatch({ type: "toggleOriginal", on });
 	}
 
 	toggleSkipped(requestId: string, expanded: boolean): void {

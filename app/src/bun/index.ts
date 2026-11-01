@@ -276,6 +276,7 @@ snipPopup = new SnipPopupController({
 	settings: () => ({
 		reducedMotion: loadedSettings.settings.appearance.motion === "reduced",
 		alwaysShowLanguages: loadedSettings.settings.snip.alwaysShowLanguages,
+		showOriginalUnder: loadedSettings.settings.snip.showOriginalUnder,
 		uiDir: "ltr",
 	}),
 	pointer: () => screenProbe.cursor(),
