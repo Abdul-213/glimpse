@@ -128,6 +128,8 @@ Don't create packages for grouping alone; use folders.
 | Secrets (`Bun.secrets`) | `app/src/bun/services/secrets.ts` | GLIM-40. Core sees a `SecretStore` port. |
 | Capture backends (DXGI/GDI, ScreenCaptureKit, file-based for Linux) | `app/src/bun/services/capture/` + native helpers | GLIM-36, GLIM-86. All implement core's `CaptureSource`. |
 | Hotkeys | `app/src/bun/services/hotkeys.ts` | Electrobun `GlobalShortcut` on Windows, Carbon via the dylib on macOS (GLIM-23, spikes/hotkeys). |
+| App commands (Start Snip, Start/Stop Live, Private, Clear cache, Settings, Quit...) | `app/src/bun/commands.ts` (`CommandBus`) | GLIM-41. Tray, hotkeys, popups and Settings dispatch; the owning feature registers the one handler. |
+| Tray / menu bar | `app/src/bun/tray-menu.ts` (pure: state -> menu + icon, `TrayController`) + `tray.ts` (Electrobun) | GLIM-41. Rebuilt only when the rendered menu changes. Windows icon follows the taskbar theme (`services/taskbar-theme.ts`). |
 | Window controllers (create, position, show/hide, materials, capture exclusion) | `app/src/bun/windows/<surface>.ts` | One class per window type, like `SettingsWindow`. |
 | `bun:ffi` bindings | `app/src/bun/native/macos.ts`, `windows.ts`, `load.ts` | The only `dlopen` calls. Each exported function returns typed results, never raw pointers to callers outside `native/`. |
 | Native helper sources | `app/native/macos/`, `app/native/windows/` | See section 6. |

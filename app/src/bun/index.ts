@@ -7,6 +7,7 @@ import { loadSettings, ProviderRegistry } from "@glimpse/core";
 import { Utils } from "electrobun/main";
 import pkg from "../../package.json" with { type: "json" };
 import type { AppInfo } from "../shared/rpc.ts";
+import { CommandBus } from "./commands.ts";
 import { readDisplays } from "./displays.ts";
 import { ELECTROBUN_VERSION } from "./electrobun-version.ts";
 import { platform } from "./platform.ts";
@@ -14,6 +15,7 @@ import { buildDiagnostics } from "./services/diagnostics.ts";
 import { createAppLogger } from "./services/log.ts";
 import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
+import { watchTaskbarTheme } from "./services/taskbar-theme.ts";
 import { createTray } from "./tray.ts";
 import { SettingsWindow } from "./windows/settings.ts";
 
@@ -62,25 +64,57 @@ const diagnostics = () =>
 		redactor: log.redactor,
 	});
 
-createTray(platform, (action) => {
-	switch (action) {
-		case "settings":
-			settings.open();
-			break;
-		case "copy-diagnostics":
-			Utils.clipboardWriteText(diagnostics());
-			log.info("diagnostics copied to the clipboard");
-			break;
-		case "open-logs":
-			if (!Utils.openPath(logs.file.dir)) log.warn("could not open the logs folder", { dir: logs.file.dir });
-			break;
-		case "quit":
-			log.info("quit from tray");
-			logs.file.close();
-			Utils.quit();
-			break;
-	}
+// Command bus (GLIM-41): the tray (and later hotkeys, popups, Settings) dispatch; features
+// handle. Snip (GLIM-48), Live (GLIM-56) and the cache (GLIM-67) replace the stubs below.
+const commands = new CommandBus(log.child("commands"));
+const stub = (command: string) => () => log.info("not implemented yet", { command });
+commands.handle("snip.start", stub("snip.start"));
+commands.handle("live.start", stub("live.start"));
+commands.handle("live.stop", stub("live.stop"));
+commands.handle("live.pause", stub("live.pause"));
+commands.handle("live.resume", stub("live.resume"));
+commands.handle("cache.clear", stub("cache.clear"));
+commands.handle("settings.open", () => settings.open());
+commands.handle("diagnostics.copy", () => {
+	Utils.clipboardWriteText(diagnostics());
+	log.info("diagnostics copied to the clipboard");
 });
+commands.handle("logs.open", () => {
+	if (!Utils.openPath(logs.file.dir)) log.warn("could not open the logs folder", { dir: logs.file.dir });
+});
+commands.handle("app.quit", () => {
+	log.info("quit");
+	logs.file.close();
+	Utils.quit();
+});
+
+const firstTranslator = () => {
+	const id = loadedSettings.settings.providers.translation[0];
+	const factory = id ? providers.get(id) : undefined;
+	return factory ? { name: factory.info.name, kind: factory.info.kind } : null;
+};
+
+const tray = createTray(
+	{
+		platform,
+		live: "off",
+		// App-wide Private state (GLIM-20); the Live popup toggle will share it.
+		private: loadedSettings.settings.privacy.privateByDefault,
+		translation: firstTranslator(),
+		hotkeys: { snip: loadedSettings.settings.hotkeys.snip, live: loadedSettings.settings.hotkeys.live },
+		taskbarTheme: "dark",
+	},
+	commands,
+);
+
+commands.handle("private.toggle", () => {
+	tray.update({ private: !tray.state.private });
+	log.info("private mode", { on: tray.state.private });
+});
+
+if (platform === "windows") {
+	watchTaskbarTheme((taskbarTheme) => tray.update({ taskbarTheme }));
+}
 
 // Until onboarding (GLIM-76) exists, show Settings on launch so a start is visible.
 settings.open();
