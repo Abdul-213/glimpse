@@ -16,6 +16,10 @@ export interface GalleryVariant {
 	query: string;
 	colorScheme: "light" | "dark";
 	width: number;
+	/** Viewport height (default 900). */
+	height?: number;
+	/** Capture the whole page (default) or just the viewport. */
+	fullPage?: boolean;
 }
 
 /** The committed set: both OSes in both appearances, RTL UI, Windows 10, the script matrix. */
@@ -31,7 +35,7 @@ export const VARIANTS: GalleryVariant[] = [
 	{ name: "scripts-macos-light-rtl", query: "os=macos&page=scripts&dir=rtl", colorScheme: "light", width: 1320 },
 ];
 
-async function serve(dir: string, port: number) {
+export async function serve(dir: string, port: number) {
 	return Bun.serve({
 		port,
 		async fetch(req) {
@@ -42,14 +46,14 @@ async function serve(dir: string, port: number) {
 	});
 }
 
-async function shoot(baseUrl: string, outDir: string, variants: GalleryVariant[]): Promise<string[]> {
+export async function shoot(baseUrl: string, outDir: string, variants: GalleryVariant[]): Promise<string[]> {
 	const { chromium } = await import("playwright-core");
 	const browser = await chromium.launch();
 	const problems: string[] = [];
 	try {
 		for (const v of variants) {
 			const page = await browser.newPage({
-				viewport: { width: v.width, height: 900 },
+				viewport: { width: v.width, height: v.height ?? 900 },
 				deviceScaleFactor: 1,
 				colorScheme: v.colorScheme,
 				// Freeze motion so stills are deterministic (the flash specimen holds its own frame).
@@ -65,7 +69,7 @@ async function shoot(baseUrl: string, outDir: string, variants: GalleryVariant[]
 			await page.evaluate(() => document.fonts.ready);
 			const blank = await page.evaluate(() => (document.getElementById("root")?.textContent ?? "").trim().length === 0);
 			if (blank) problems.push(`${v.name}: rendered nothing`);
-			await page.screenshot({ path: join(outDir, `${v.name}.png`), fullPage: true });
+			await page.screenshot({ path: join(outDir, `${v.name}.png`), fullPage: v.fullPage ?? true });
 			await page.close();
 		}
 	} finally {

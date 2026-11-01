@@ -27,7 +27,8 @@ describe("settings view build", () => {
 		const js = await read("settings/index.js");
 		expect(js).toContain("<nav"); // Solid's template() strings carry the static HTML
 		expect(js).not.toContain("jsxDEV");
-		expect(js).not.toContain("react");
+		// No React runtime. (Kobalte mentions `data-react-aria-top-layer` in a string, so match imports and calls.)
+		expect(js).not.toMatch(/react\/jsx-runtime|React\.createElement|from\s*["']react["']/);
 	});
 
 	test("electrobun/view is bundled from the devkit", async () => {

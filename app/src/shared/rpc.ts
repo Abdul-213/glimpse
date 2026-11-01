@@ -22,20 +22,8 @@ export interface AppInfo {
 	bun: string;
 }
 
-export type SettingsRPC = {
-	bun: RPCSchema<{
-		requests: {
-			getAppInfo: { params: undefined; response: AppInfo };
-		};
-		messages: {
-			closeSettings: undefined;
-		};
-	}>;
-	webview: RPCSchema<{
-		requests: Record<never, never>;
-		messages: Record<never, never>;
-	}>;
-};
+// Settings (GLIM-69) lives in its own file; re-exported so `import type { SettingsRPC } from "./rpc.ts"` keeps working.
+export type { SettingsRPC } from "./settings-rpc.ts";
 
 // ---- Region picker (GLIM-44; docs/design/specs/region-picker.md 9.4) ------------------
 // Main owns the picker state (PickerSession) and pushes the derived view to every overlay;

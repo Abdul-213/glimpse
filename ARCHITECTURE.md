@@ -143,7 +143,7 @@ Don't create packages for grouping alone; use folders.
 | Self-capture exclusion | `app/src/bun/windows/capture-exclusion.ts` | Every window controller shows its window through `CaptureExclusion.protect(win, show)`. |
 | Region picker: state machine, snapping, HUD layout, geometry; OS ports (`WindowListSource`, `PixelSampler`, `FocusKeeper`) | `packages/core/src/picker/` | GLIM-29 spec, GLIM-44/54/55/91. Fakes in `@glimpse/core/testing`. Loupe pixels come from capture (`CapturePixelSampler`; macOS keeps an SCStream warm), never from the webview. |
 | Picker OS ports (window list, loupe sampler, focus) | `app/src/bun/services/picker/` + `native/overlay.ts` | GLIM-91. `createPickerNatives()` picks per OS; the file backend gets no window list and no focus handling. |
-| Hotkeys | `app/src/bun/services/hotkeys.ts` (service, pure) + `hotkeys-electrobun.ts` / `hotkeys-carbon.ts` (backends) + `hotkey-keys.ts` (accelerator / Carbon key-code mapping) | Electrobun `GlobalShortcut` on Windows, Carbon `RegisterEventHotKey` in libglimpse.dylib on macOS (GLIM-23, GLIM-44, spikes/hotkeys). A taken combo is reported as `conflict`, never rebound. |
+| Hotkeys | `app/src/bun/services/hotkeys.ts` (service, pure) + `hotkeys-electrobun.ts` / `hotkeys-carbon.ts` (backends) + `hotkey-keys.ts` (accelerator / Carbon key-code mapping) | Electrobun `GlobalShortcut` on Windows, Carbon `RegisterEventHotKey` in libglimpse.dylib on macOS (GLIM-23, GLIM-44, spikes/hotkeys). A taken combo is reported as `conflict`, never rebound. Settings reaches it through the `HotkeyRegistrar` port (`services/hotkeys-port.ts`, `ServiceHotkeyRegistrar`). |
 | Region picker window controller | `app/src/bun/windows/picker-controller.ts` (pure: overlays per display, session, ticks, `RegionSelected`) + `windows/picker.ts` (Electrobun overlays) + `app/src/views/picker/` | GLIM-44. `snip.start` / `live.start` call `picker.toggle(mode)`; Snip (GLIM-65) and Live (GLIM-59) subscribe with `picker.onRegionSelected` (return `"keep"` to keep the results layer). The harness drives it headless (`bun run harness pick`); `bun app/scripts/picker-preview.ts` renders the real view in a browser. |
 | App commands (Start Snip, Start/Stop Live, Private, Clear cache, Settings, Quit...) | `app/src/bun/commands.ts` (`CommandBus`) | GLIM-41. Tray, hotkeys, popups and Settings dispatch; the owning feature registers the one handler. |
 | Tray / menu bar | `app/src/bun/tray-menu.ts` (pure: state -> menu + icon, `TrayController`) + `tray.ts` (Electrobun) | GLIM-41. Rebuilt only when the rendered menu changes. Windows icon follows the taskbar theme (`services/taskbar-theme.ts`). |
@@ -265,8 +265,21 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   and a warning, file untouched until the next save.
 - **Changing settings**: views send a patch; main applies it with `applySettingsPatch` (deep
   merge, re-validate, invalid fields keep their current value) and saves with `saveSettings`.
-  Adding a field with a default needs no migration; renaming or reshaping one does (bump
-  `SETTINGS_VERSION`, add a `Migration`, add a fixture test).
+  The one live copy is `AppSettings` (`app/src/bun/services/app-settings.ts`): `update(patch)`
+  applies, notifies subscribers (log level, tray, open Settings windows) and saves in order,
+  so changes apply without a restart. Adding a field with a default needs no migration;
+  renaming or reshaping one does (bump `SETTINGS_VERSION`, add a `Migration`, add a fixture test).
+- **Settings window (GLIM-69)**: `app/src/shared/settings-rpc.ts` is the contract. The view
+  may patch only `language`, `appearance`, `live`, `privacy`, `diagnostics`; hotkeys go
+  through `setHotkey` (Glimpse conflict check, then the `HotkeyRegistrar` port in
+  `services/hotkeys-port.ts`; an OS refusal keeps the old binding), models through
+  `ModelsSettings` (`services/models/models-settings.ts`; the folder setting is GLIM-96).
+  Handlers live in `windows/settings-handlers.ts` (tested on Linux). The view is a mirror:
+  `views/settings/state.ts` holds what main sent. `views/settings-preview` (dev-only) renders
+  it over a fake client; `bun app/scripts/settings-shots.ts --shots docs/design/screens/settings`
+  regenerates the committed screenshots.
+  The languages it offers and their script groups come from
+  `packages/core/src/language/source-subset.ts` (detectable or locally translatable).
 
 ### Capture (GLIM-36)
 

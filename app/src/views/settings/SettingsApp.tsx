@@ -1,67 +1,134 @@
-import { Button } from "@glimpse/ui";
-import { createResource, type JSX, Show } from "solid-js";
-import type { AppInfo, Platform } from "../../shared/rpc.ts";
+import { Banner, nextIndex } from "@glimpse/ui";
+import { createEffect, createSignal, For, type JSX, Match, onMount, Show, Switch } from "solid-js";
+import type { SettingsClient } from "./client.ts";
+import { AboutPane } from "./panes/AboutPane.tsx";
+import { GeneralPane } from "./panes/GeneralPane.tsx";
+import { ModelsPane } from "./panes/ModelsPane.tsx";
+import { PrivacyPane } from "./panes/PrivacyPane.tsx";
+import { ProvidersPane } from "./panes/ProvidersPane.tsx";
+import { ShortcutsPane } from "./panes/ShortcutsPane.tsx";
+import { createSettingsState } from "./state.ts";
 
-const platformName: Record<Platform, string> = { macos: "macOS", windows: "Windows", linux: "Linux" };
+export const SECTIONS = [
+	{ id: "general", label: "General" },
+	{ id: "shortcuts", label: "Shortcuts" },
+	{ id: "providers", label: "Providers" },
+	{ id: "models", label: "Models" },
+	{ id: "privacy", label: "Privacy" },
+	{ id: "about", label: "About" },
+] as const;
+
+export type SectionId = (typeof SECTIONS)[number]["id"];
 
 export interface SettingsAppProps {
-	loadInfo: () => Promise<AppInfo>;
-	onClose: () => void;
+	client: SettingsClient;
+	initialSection?: SectionId;
+	/** Called once the snapshot arrives (index.tsx applies the platform to <html>). */
+	onReady?: (platform: "macos" | "windows" | "linux") => void;
 }
 
 /**
- * Placeholder Settings shell (GLIM-28). It proves the stack end to end: Solid, the
- * DESIGN.md tokens, the shared Button and a typed RPC round trip. The real panes are
- * GLIM-69 and the tickets under it. Layout follows DESIGN.md Layout > Settings:
- * a 200px navigation list at inline-start, a scrolling pane with 24px padding.
+ * The Settings window (GLIM-69, docs/design/flows/settings.html, DESIGN.md Layout >
+ * Settings): a 200px section list at inline-start and a scrolling pane. Changes apply as they
+ * are made; there is no Save button. macOS draws the list as a sidebar with rounded
+ * selection; Windows as a navigation view with the accent pill (see index.css).
  */
 export function SettingsApp(props: SettingsAppProps): JSX.Element {
-	const [info] = createResource(props.loadInfo);
+	const state = createSettingsState(props.client);
+	const [section, setSection] = createSignal<SectionId>(props.initialSection ?? "general");
+	const buttons: HTMLButtonElement[] = [];
+
+	// The motion setting applies to this window too (DESIGN.md: `data-motion="reduced"`).
+	createEffect(() => {
+		const root = document.documentElement;
+		if (state.settings()?.appearance.motion === "reduced") root.dataset["motion"] = "reduced";
+		else delete root.dataset["motion"];
+	});
+
+	onMount(async () => {
+		await state.load();
+		const snap = state.snapshot();
+		if (snap) props.onReady?.(snap.app.platform);
+		void state.loadLanguages();
+	});
+
+	const select = (id: SectionId) => {
+		setSection(id);
+		const label = SECTIONS.find((s) => s.id === id)?.label ?? "";
+		document.title = `${label} · Glimpse Settings`;
+		document.getElementById("settings-pane")?.scrollTo({ top: 0 });
+	};
+
+	const onNavKey = (e: KeyboardEvent, index: number) => {
+		const next = nextIndex(index, SECTIONS.length, e.key, "vertical", { wrap: false });
+		if (next === null || next === index) return;
+		e.preventDefault();
+		const target = SECTIONS[next];
+		if (!target) return;
+		select(target.id);
+		buttons[next]?.focus();
+	};
 
 	return (
-		<div class="flex h-dvh bg-surface-popup-solid text-text-primary">
-			<nav aria-label="Settings sections" class="w-50 shrink-0 border-e border-divider p-2">
+		<div class="settings-shell flex h-dvh text-text-primary">
+			<nav aria-label="Settings sections" class="settings-nav w-50 shrink-0 overflow-y-auto">
 				<ul class="m-0 flex list-none flex-col gap-0.5 p-0">
-					<li>
-						<a
-							href="#general"
-							aria-current="page"
-							class="block rounded-control bg-overlay-selected px-2 py-1.5 text-body text-text-primary no-underline"
-						>
-							General
-						</a>
-					</li>
+					<For each={SECTIONS}>
+						{(s, i) => (
+							<li>
+								<button
+									ref={(el) => {
+										buttons[i()] = el;
+									}}
+									type="button"
+									class="settings-nav-item"
+									aria-current={section() === s.id ? "page" : undefined}
+									tabindex={section() === s.id ? 0 : -1}
+									onClick={() => select(s.id)}
+									onKeyDown={(e) => onNavKey(e, i())}
+								>
+									{s.label}
+								</button>
+							</li>
+						)}
+					</For>
 				</ul>
 			</nav>
 
-			<main id="general" class="min-w-0 flex-1 overflow-y-auto p-6">
-				<h1 class="m-0 mb-5 font-display text-title">General</h1>
-
-				<section aria-labelledby="about-heading" class="flex flex-col gap-2">
-					<h2 id="about-heading" class="m-0 text-heading">
-						About
-					</h2>
-					<div class="rounded-control border border-border-hairline bg-surface-group">
-						<div class="flex items-center justify-between gap-3 p-3">
-							<div class="flex min-w-0 flex-col gap-0.5">
-								<span class="text-body">Glimpse {info()?.version ?? ""}</span>
-								<Show when={info()} fallback={<span class="text-label text-text-secondary">Connecting…</span>}>
-									{(i) => (
-										<span class="text-label text-text-secondary tabular-nums">
-											{platformName[i().platform]} · Electrobun {i().electrobun} · Bun {i().bun}
-										</span>
-									)}
-								</Show>
-								<Show when={info.error}>
-									<span class="text-label text-danger">Couldn't reach the app process.</span>
-								</Show>
+			<main id="settings-pane" class="settings-pane min-w-0 flex-1 overflow-y-auto" aria-labelledby="pane-title">
+				<div class="mx-auto max-w-160 p-6">
+					<Show when={state.error()}>
+						{(message) => (
+							<div class="mb-5">
+								<Banner tone="danger" title="Settings can't load" live>
+									{message()}
+								</Banner>
 							</div>
-							<Button variant="secondary" onClick={() => props.onClose()}>
-								Close
-							</Button>
-						</div>
-					</div>
-				</section>
+						)}
+					</Show>
+					<Show when={state.snapshot() && state.settings()}>
+						<Switch>
+							<Match when={section() === "general"}>
+								<GeneralPane state={state} />
+							</Match>
+							<Match when={section() === "shortcuts"}>
+								<ShortcutsPane state={state} />
+							</Match>
+							<Match when={section() === "providers"}>
+								<ProvidersPane state={state} />
+							</Match>
+							<Match when={section() === "models"}>
+								<ModelsPane state={state} />
+							</Match>
+							<Match when={section() === "privacy"}>
+								<PrivacyPane state={state} />
+							</Match>
+							<Match when={section() === "about"}>
+								<AboutPane state={state} />
+							</Match>
+						</Switch>
+					</Show>
+				</div>
 			</main>
 		</div>
 	);
