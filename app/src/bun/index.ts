@@ -14,6 +14,7 @@ import { CommandBus } from "./commands.ts";
 import { readDisplays } from "./displays.ts";
 import { ELECTROBUN_VERSION } from "./electrobun-version.ts";
 import { exclusionOpsFor } from "./native/exclusion.ts";
+import { frameNativesFor } from "./native/frame.ts";
 import { loadMacNative } from "./native/macos.ts";
 import { overlayOpsFor } from "./native/overlay.ts";
 import { platform } from "./platform.ts";
@@ -24,6 +25,8 @@ import { HotkeyService } from "./services/hotkeys.ts";
 import { CarbonHotkeyBackend } from "./services/hotkeys-carbon.ts";
 import { ElectrobunHotkeyBackend } from "./services/hotkeys-electrobun.ts";
 import { ServiceHotkeyRegistrar } from "./services/hotkeys-port.ts";
+import { LiveService } from "./services/live/live-service.ts";
+import { PinnedFrame } from "./services/live/pinned-frame.ts";
 import { createAppLogger } from "./services/log.ts";
 import { LoginItem, loginTarget, systemLoginItemIO } from "./services/login-item.ts";
 import { loadBergamotCatalogue } from "./services/models/catalogue.ts";
@@ -237,6 +240,8 @@ picker = new PickerController({
 		showLoupe: true,
 		reducedMotion: loadedSettings.settings.appearance.motion === "reduced",
 	}),
+	// `live` is declared below; this only runs when the picker opens.
+	liveRunning: () => live.active,
 });
 picker.prepare();
 // Snip popup (GLIM-65): one hidden window created now, reused for every Snip. A confirmed
@@ -286,24 +291,32 @@ snipPopup = new SnipPopupController({
 });
 // A press on the results layer is a click outside the popup (snip-popup.md §5).
 picker.onResultsPointerDown(() => snipPopup?.outsideClick());
-// Live (GLIM-59) subscribes to picker.onRegionSelected too. Until it lands, a Live region is
-// just captured once, so the path to the capture service is exercised.
+// Live (GLIM-48/58/59/90): a Live region is pinned. The service runs the capture loop, change
+// detection and the pipeline session, draws the native frame around the region and emits typed
+// session events (logged for now; the docked popup, GLIM-79, renders them).
+const liveLog = log.child("live");
+const frameNatives = frameNativesFor(readDisplays);
+const live = new LiveService({
+	capture: capture.source,
+	openPipeline: () => translation.openLive(() => {}),
+	settings: () => appSettings.current,
+	frame: () =>
+		new PinnedFrame({
+			...frameNatives,
+			displays: readDisplays,
+			exclude: (windowId) => exclusion.register(windowId),
+			log: liveLog,
+		}),
+	log: liveLog,
+	// `tray` is declared below; the state only changes once a session runs.
+	onState: (state) => tray.update({ live: state }),
+	perfNow: () => performance.now(),
+});
 picker.onRegionSelected((region) => {
 	if (region.mode === "snip") {
 		return snipPopup?.open(region.rect) ? "keep" : undefined;
 	}
-	capture.source
-		.capture(region.rect)
-		.then((frame) =>
-			pickerLog.info("region captured (no Snip/Live consumer yet)", {
-				mode: region.mode,
-				width: frame.width,
-				height: frame.height,
-				scale: frame.scale,
-				pieces: region.pieces.length,
-			}),
-		)
-		.catch((error) => pickerLog.warn("region capture failed", { error }));
+	void live.start(region.rect);
 	return undefined;
 });
 
@@ -326,16 +339,19 @@ const diagnostics = () =>
 			translationCache: translation.caches.stats(),
 			translationProviders: translation.chain.map((p) => `${p.info.id}:${p.status.state}`),
 			private: translation.private,
+			live: live.status,
+			// Counters and timings only (GLIM-58 per-grab costs), never text.
+			liveStats: live.stats(),
+			liveFrame: frameNatives.status,
 		}),
 		logTail: () => logs.file.tail(200),
 		redactor: log.redactor,
 	});
 
 // Command bus (GLIM-41): the tray (and later hotkeys, popups, Settings) dispatch; features
-// handle. Snip (GLIM-65) and Live (GLIM-48/56) replace the stubs below; they call
-// `translation.snip()` / `translation.openLive()`.
+// handle. Snip (GLIM-65) owns snip.*, Live (GLIM-59, services/live/live-service.ts) owns live.*;
+// they call `translation.snip()` / `translation.openLive()`.
 const commands = new CommandBus(log.child("commands"));
-const stub = (command: string) => () => log.info("not implemented yet", { command });
 // The picker owns the start commands up to "region selected"; Snip / Live take it from there.
 // A new Snip or Live hotkey closes an open Snip popup without restoring focus: the new
 // picker takes over (snip-popup.md §7.4).
@@ -345,11 +361,13 @@ commands.handle("snip.start", () => {
 });
 commands.handle("live.start", () => {
 	snipPopup?.dismiss(null, "hotkey");
-	picker?.toggle("live");
+	// live-popup.md §6.3: the Live hotkey stops a pinned session; otherwise it opens the picker.
+	if (live.active && !picker?.isOpen) live.stop();
+	else picker?.toggle("live");
 });
-commands.handle("live.stop", stub("live.stop"));
-commands.handle("live.pause", stub("live.pause"));
-commands.handle("live.resume", stub("live.resume"));
+commands.handle("live.stop", () => live.stop());
+commands.handle("live.pause", () => live.pause("user"));
+commands.handle("live.resume", () => live.resume());
 commands.handle("cache.clear", () => translation.clearCache("user"));
 commands.handle("settings.open", () => settings.open());
 commands.handle("diagnostics.copy", () => {
@@ -367,6 +385,7 @@ commands.handle("app.quit", () => {
 	popupWindow.close();
 	picker?.dispose();
 	pickerNatives.sampler.stop();
+	live.dispose();
 	capture.source.dispose();
 	logs.file.close();
 	Utils.quit();
@@ -408,6 +427,9 @@ appSettings.subscribe((next, previous) => {
 	if (next.providers !== previous.providers) tray.update({ translation: firstTranslator() });
 });
 
+// Settings › Live (fps, diff threshold, stability) and language changes reach a pinned session at once.
+appSettings.subscribe((next, previous) => live.applySettings(next, previous));
+
 if (platform === "windows") {
 	watchTaskbarTheme((taskbarTheme) => tray.update({ taskbarTheme }));
 }
@@ -425,5 +447,6 @@ log.info("started", {
 	logLevel: log.level,
 	capture: capture.status,
 	picker: pickerNatives.status,
+	liveFrame: frameNatives.status,
 	hotkeys: hotkeys.backendName,
 });
