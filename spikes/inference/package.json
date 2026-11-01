@@ -1,0 +1,27 @@
+{
+  "name": "glimpse-spike-inference",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "fetch": "bun scripts/fetch-models.ts",
+    "samples": "bun scripts/make-samples.ts",
+    "ocr": "bun src/ocr-cli.ts",
+    "translate": "bun src/translate-cli.ts",
+    "bench": "bun src/bench.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test test/"
+  },
+  "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "onnxruntime-node": "1.31.1",
+    "onnxruntime-web": "1.31.1",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.1.0",
+    "@types/bun": "^1.4.4",
+    "@types/pngjs": "^6.0.5",
+    "typescript": "~5.9.3"
+  }
+}
