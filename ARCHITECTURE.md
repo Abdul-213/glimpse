@@ -117,7 +117,18 @@ Don't create packages for grouping alone; use folders.
   (preBuild hook) into `dist/workers/`, copied next to the main bundle (`<app>/bun/bergamot-worker.js`),
   and the app passes a spawner for it in the provider context
   (`services/translation/bergamot-worker.ts`: `GLIMPSE_BERGAMOT_WORKER`, then the bundled file,
-  else the provider's own default when running from source).
+  else the provider's own default when running from source). The PaddleOCR Worker works the same
+  way (`<app>/bun/ocr-worker.js`, `services/ocr/paddle-worker.ts`, `GLIMPSE_OCR_WORKER`).
+- **onnxruntime-node in the app (GLIM-103).** The npm package carries every platform's binaries
+  (~260 MB); `scripts/onnxruntime.ts` (preBuild) stages only the target's binding and runtime
+  library for the CPU provider into `dist/onnxruntime/`, copied to `<app>/native/onnxruntime/`
+  (linux: `libonnxruntime.so.1`; darwin-arm64: `libonnxruntime.1.dylib`; win32: `onnxruntime.dll`;
+  no DirectML/dxcompiler, which ORT only delay-loads for the DirectML/WebGPU providers). The
+  bundled OCR Worker loads the binding from `../native/onnxruntime/` (`GLIMPSE_ORT_BINDING`
+  overrides): `build-workers.ts` rewrites onnxruntime-node's package-relative `require`.
+  darwin-x64 has no onnxruntime-node build (GLIM-89): the build succeeds without it (with a
+  warning) and PaddleOCR's `init()` ends in `error` there. `scripts/ocr-smoke.ts <app dir>` runs one OCR call through a
+  built app's Worker and prints which onnxruntime files were loaded.
 - **Windows are pre-created where latency matters** (picker overlays, Snip popup) and hidden
   instead of destroyed; Settings and onboarding are created on demand. The app is a tray app:
   `exitOnLastWindowClosed: false`; only the tray's Quit ends it.

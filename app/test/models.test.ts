@@ -148,6 +148,7 @@ describe("model cache", () => {
 		).toEqual(["x"]);
 		expect(existsSync(join(out, "NOTICE.txt"))).toBe(true);
 		expect(existsSync(join(out, "licenses", "Apache-2.0.txt"))).toBe(true);
+		expect(existsSync(join(out, "licenses", "MIT-onnxruntime.txt"))).toBe(true);
 	});
 
 	test("cache dir honours GLIMPSE_MODEL_CACHE and XDG_CACHE_HOME", () => {

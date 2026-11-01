@@ -94,7 +94,7 @@ export function writeStagingExtras(outDir: string, manifest: ModelManifest): voi
 	mkdirSync(join(outDir, "licenses"), { recursive: true });
 	writeFileSync(join(outDir, "manifest.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
 	copyFileSync(join(modelsSrc, "NOTICE.txt"), join(outDir, "NOTICE.txt"));
-	for (const licence of ["Apache-2.0.txt", "MPL-2.0.txt"]) {
+	for (const licence of ["Apache-2.0.txt", "MPL-2.0.txt", "MIT-onnxruntime.txt"]) {
 		copyFileSync(join(modelsSrc, "licenses", licence), join(outDir, "licenses", licence));
 	}
 }
