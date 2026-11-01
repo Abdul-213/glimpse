@@ -73,8 +73,8 @@ const appInfo: AppInfo = {
 };
 
 // Model download manager (GLIM-38). Consumers (OCR/translation providers, onboarding) come later.
-// Seam: the storage location will come from settings (GLIM-53, GLIM-96); until then the default folder.
-const modelsDir = modelsRoot(Utils.paths.userData);
+// Storage location from settings (GLIM-96); Settings › Models moves it with relocate().
+const modelsDir = modelsRoot(Utils.paths.userData, loadedSettings.settings.models.directory);
 const models = new ModelManager({ root: modelsDir, bundledDir: bundledModelsDir(import.meta.dir) });
 
 // Translation (GLIM-101, GLIM-102): Bergamot over the model manager's packs, the core
@@ -152,7 +152,11 @@ const modelsSettings = new ModelsSettings({
 	manifest: parseModelManifest(modelManifestJson),
 	packs: bergamotPacks,
 	loadCatalogue: () => loadBergamotCatalogue({ cacheFile: catalogueCacheFile(models.root) }),
+	defaultDirectory: modelsRoot(Utils.paths.userData),
 	target: () => appSettings.current.language.target,
+	saveDirectory: async (directory) => {
+		await appSettings.update({ models: { directory } });
+	},
 	uiLocale: locale,
 });
 const settings = new SettingsWindow(
@@ -170,6 +174,15 @@ const settings = new SettingsWindow(
 			}),
 		// `commands` is declared below; this only runs once the window is open.
 		dispatch: (command, source) => commands.dispatch(command, source),
+		chooseFolder: async (startingFolder) => {
+			const paths = await Utils.openFileDialog({
+				startingFolder,
+				canChooseFiles: false,
+				canChooseDirectory: true,
+				allowsMultipleSelection: false,
+			});
+			return paths.find((p) => p.trim() !== "") ?? null;
+		},
 		reveal: (path) => Utils.openPath(path),
 		settingsWarnings: loadedSettings.warnings,
 		uiLocale: locale,

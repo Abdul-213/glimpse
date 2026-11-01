@@ -1,7 +1,7 @@
 // GLIM-69 / 68 / 77 / 96: the Settings window's main-process side, without Electrobun.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -162,6 +162,7 @@ function handlers(overrides: Partial<SettingsDeps> = {}) {
 			dispatched.push(c);
 			return true;
 		},
+		chooseFolder: async () => null,
 		reveal: () => true,
 		settingsWarnings: [],
 		uiLocale: "en",
@@ -424,7 +425,7 @@ describe("launch at login (GLIM-77)", () => {
 	});
 });
 
-describe("Models settings (GLIM-69)", () => {
+describe("Models settings (GLIM-96)", () => {
 	let dir: string;
 	let served: Map<string, Uint8Array>;
 	beforeEach(() => {
@@ -456,7 +457,7 @@ describe("Models settings (GLIM-69)", () => {
 		],
 	});
 
-	const gate: Promise<void> = Promise.resolve();
+	let gate: Promise<void> = Promise.resolve();
 	const fakeFetch = async (url: string) => {
 		await gate;
 		const body = served.get(url);
@@ -471,6 +472,7 @@ describe("Models settings (GLIM-69)", () => {
 			freeBytes: async () => 1e12,
 			progressIntervalMs: 0,
 		});
+		const saved: (string | null)[] = [];
 		const models = new ModelsSettings({
 			manager,
 			manifest: manifest(),
@@ -478,10 +480,14 @@ describe("Models settings (GLIM-69)", () => {
 			loadCatalogue: async () => {
 				throw new Error("offline");
 			},
+			defaultDirectory: root,
 			target: () => languageCode("en"),
+			saveDirectory: async (d) => {
+				saved.push(d);
+			},
 			freeBytes: async () => 5e9,
 		});
-		return { manager, models, root };
+		return { manager, models, saved, root };
 	};
 
 	test("lists models, downloads one, reports its size on disk", async () => {
@@ -491,7 +497,7 @@ describe("Models settings (GLIM-69)", () => {
 		expect(snap.rows).toEqual([
 			{ id: "ocr-rec-th", kind: "ocr", name: "Thai", bytes: 550, state: { status: "missing" } },
 		]);
-		expect(snap).toMatchObject({ directory: join(dir, "default"), usedBytes: 0, freeBytes: 5e9, catalogue: "idle" });
+		expect(snap).toMatchObject({ isDefaultDirectory: true, usedBytes: 0, freeBytes: 5e9, catalogue: "idle" });
 		expect(models.download("ocr-rec-th")).toEqual({ ok: true });
 		expect(models.download("nope")).toMatchObject({ ok: false });
 		await manager.install({ id: "ocr-rec-th", version: "1", files: manifest().models[0]?.files ?? [] });
@@ -505,6 +511,48 @@ describe("Models settings (GLIM-69)", () => {
 		await manager.scan();
 		expect((await models.loadCatalogue()).catalogue).toBe("offline");
 		expect(models.addLanguage("ja")).toMatchObject({ ok: false });
+	});
+
+	test("moving the folder moves installed models and saves the setting", async () => {
+		const { manager, models, saved } = setup();
+		await manager.scan();
+		await manager.install({ id: "ocr-rec-th", version: "1", files: manifest().models[0]?.files ?? [] });
+		const target = join(dir, "elsewhere");
+		expect(await models.moveTo(target)).toEqual({ ok: true });
+		expect(manager.root).toBe(target);
+		expect(existsSync(join(target, "ocr-rec-th", "th.onnx"))).toBe(true);
+		expect(saved).toEqual([target]);
+		const snap = await models.snapshot();
+		expect(snap.isDefaultDirectory).toBe(false);
+		expect(snap.rows[0]?.state.status).toBe("installed");
+		// Back to the default folder stores null.
+		expect(await models.moveTo(null)).toEqual({ ok: true });
+		expect(saved.at(-1)).toBeNull();
+	});
+
+	test("a running download blocks the move with a clear message", async () => {
+		const { manager, models, root } = setup();
+		await manager.scan();
+		let release = () => {};
+		gate = new Promise((r) => {
+			release = r;
+		});
+		const install = manager.install({ id: "ocr-rec-th", version: "1", files: manifest().models[0]?.files ?? [] });
+		const r = await models.moveTo(join(dir, "elsewhere"));
+		expect(r).toEqual({
+			ok: false,
+			message: "A download is running. Wait for it to finish or cancel it, then move the models.",
+		});
+		expect(manager.root).toBe(root);
+		release();
+		await install;
+		gate = Promise.resolve();
+	});
+
+	test("refuses a folder inside the current one", async () => {
+		const { manager, models, root } = setup();
+		await manager.scan();
+		expect(await models.moveTo(join(root, "sub"))).toMatchObject({ ok: false });
 	});
 
 	test("folderSize adds up nested files", async () => {

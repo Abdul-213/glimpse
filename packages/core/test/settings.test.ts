@@ -43,6 +43,7 @@ describe("settings defaults", () => {
 			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300 },
 			privacy: { privateByDefault: false, clearCacheAfterIdleMinutes: 15, clearCacheOnLock: true },
 			system: { launchAtLogin: false },
+			models: { directory: null },
 			onboarding: { completed: false },
 			diagnostics: { logLevel: "info" },
 		});
@@ -349,7 +350,7 @@ describe("loadSettings", () => {
 	});
 });
 
-describe("source-language subset (GLIM-68)", () => {
+describe("source-language subset and models folder (GLIM-68, GLIM-96)", () => {
 	test("sources are stored as catalogue tags; unsupported codes are dropped", () => {
 		const { settings, issues } = parseSettings({ language: { sources: ["zh-TW", "pt-BR", "tlh", "ja"] } }, env);
 		expect(settings.language.sources).toEqual([languageCode("zh-Hant"), languageCode("pt"), languageCode("ja")]);
@@ -363,9 +364,21 @@ describe("source-language subset (GLIM-68)", () => {
 		expect(bad.issues).toHaveLength(1);
 	});
 
+	test("models.directory accepts absolute paths only", () => {
+		for (const good of ["/Users/me/Models", "C:\\Glimpse\\models", "D:/models", "\\\\nas\\share\\models"]) {
+			expect(parseSettings({ models: { directory: good } }, env).settings.models.directory).toBe(good);
+		}
+		for (const bad of ["models", "", "~/models", 3]) {
+			const r = parseSettings({ models: { directory: bad } }, env);
+			expect(r.settings.models.directory).toBeNull();
+			expect(r.issues).toHaveLength(1);
+		}
+	});
+
 	test("a version-1 file without the new fields loads without warnings", async () => {
 		const loaded = await loadSettings(new MemorySettingsStore('{"version":1,"language":{"sources":["ja"]}}'), env);
 		expect(loaded.warnings).toEqual([]);
+		expect(loaded.settings.models.directory).toBeNull();
 		expect(loaded.settings.language.sources).toEqual([languageCode("ja")]);
 	});
 });

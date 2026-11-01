@@ -72,7 +72,7 @@ export type SetHotkeyResult =
 			readonly owner?: HotkeyAction;
 	  };
 
-// ── Models (GLIM-69) ────────────────────────────────────────────────────────────────────
+// ── Models (GLIM-96) ────────────────────────────────────────────────────────────────────
 
 export type ModelKind = "ocr" | "runtime" | "pack";
 
@@ -99,6 +99,8 @@ export interface ModelRow {
 export interface ModelsSnapshot {
 	/** Folder holding downloaded models. */
 	readonly directory: string;
+	/** True when the folder is the default (`<userData>/models`). */
+	readonly isDefaultDirectory: boolean;
 	/** Bytes used by downloaded (not bundled) models. */
 	readonly usedBytes: number;
 	/** Free bytes on that volume, or null if unknown. */
@@ -108,6 +110,8 @@ export interface ModelsSnapshot {
 	readonly addable: readonly { readonly code: LanguageCode; readonly name: string; readonly nativeName: string }[];
 	/** Pack catalogue status. `idle`: not loaded this session (no network until the user asks). */
 	readonly catalogue: "idle" | "loading" | "ready" | "cached" | "offline";
+	/** A move between folders is running. */
+	readonly moving: boolean;
 }
 
 export type ActionResult = { readonly ok: true } | { readonly ok: false; readonly message: string };
@@ -170,6 +174,8 @@ export type SettingsRPC = {
 			addLanguagePacks: { params: { language: string }; response: ActionResult };
 			cancelModelDownload: { params: { id: string }; response: ActionResult };
 			removeModel: { params: { id: string }; response: ActionResult };
+			chooseModelsDirectory: { params: undefined; response: ActionResult };
+			resetModelsDirectory: { params: undefined; response: ActionResult };
 			revealModelsDirectory: { params: undefined; response: ActionResult };
 			clearCache: { params: undefined; response: ActionResult };
 			copyDiagnostics: { params: undefined; response: ActionResult };

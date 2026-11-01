@@ -18,7 +18,8 @@ const rpc = connect<SettingsRPC>(
 			modelsChanged: (s) => handlers?.modelsChanged(s),
 		},
 	},
-	60_000,
+	// Moving the models folder between disks can take minutes.
+	10 * 60_000,
 );
 
 const client: SettingsClient = {

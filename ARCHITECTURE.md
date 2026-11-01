@@ -253,6 +253,7 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   subset; empty = all), hotkeys (canonical `Alt+Shift+S` strings, GLIM-23 defaults per OS),
   providers (`ProvidersConfig`), appearance (theme, motion), live (fps, diff threshold, stability
   ms), privacy (Private by default, idle cache wipe, wipe on lock), system (launch at login),
+  models (storage folder, null = default; GLIM-96),
   onboarding (completed), diagnostics (log level). Every field has a default; machine-dependent defaults come in through
   `SettingsEnv` (built by `app/src/bun/services/settings-env.ts`).
 - **File**: `<Utils.paths.userData>/settings.json`, `{ "version": N, ...settings }`, no secrets
@@ -274,7 +275,7 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   through `setHotkey` (Glimpse conflict check, then the `HotkeyRegistrar` port in
   `services/hotkeys-port.ts`; an OS refusal keeps the old binding), launch at login through
   `LoginItem` (`services/login-item.ts`, GLIM-77 decision), the models folder through
-  `ModelsSettings` (`services/models/models-settings.ts`; the folder setting is GLIM-96).
+  `ModelsSettings` (`services/models/models-settings.ts`, moves with `ModelManager.relocate`).
   Handlers live in `windows/settings-handlers.ts` (tested on Linux). The view is a mirror:
   `views/settings/state.ts` holds what main sent. `views/settings-preview` (dev-only) renders
   it over a fake client; `bun app/scripts/settings-shots.ts --shots docs/design/screens/settings`
