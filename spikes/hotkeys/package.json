@@ -1,0 +1,22 @@
+{
+  "name": "glimpse-spike-hotkeys",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "prepare:devkit": "electrobun prepare",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test test/",
+    "native:mac": "mkdir -p native/macos/build && clang -dynamiclib -O2 -Wall -Wextra -arch arm64 -arch x86_64 -mmacosx-version-min=14.0 -framework Carbon -framework ApplicationServices -o native/macos/build/libglimhotkey.dylib native/macos/glimhotkey.c && clang -DGLIM_HOLDER_MAIN -O2 -Wall -arch arm64 -arch x86_64 -mmacosx-version-min=14.0 -framework Carbon -framework ApplicationServices -o native/macos/build/glimhotkey-hold native/macos/glimhotkey.c",
+    "dev": "electrobun dev",
+    "build": "electrobun build --env=dev",
+    "build:stable": "electrobun build --env=stable"
+  },
+  "dependencies": {
+    "electrobun": "2.0.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "~5.9.3"
+  }
+}
