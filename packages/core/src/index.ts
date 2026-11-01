@@ -12,3 +12,4 @@ export * from "./region.ts";
 export * from "./schema/index.ts";
 export * from "./secrets/index.ts";
 export * from "./settings/index.ts";
+export * from "./text/index.ts";

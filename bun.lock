@@ -15,6 +15,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@glimpse/core": "workspace:*",
+        "@glimpse/providers": "workspace:*",
         "@glimpse/ui": "workspace:*",
         "solid-js": "1.9.18",
       },
@@ -30,6 +31,13 @@
     "packages/core": {
       "name": "@glimpse/core",
       "version": "0.0.1",
+    },
+    "packages/providers": {
+      "name": "@glimpse/providers",
+      "version": "0.0.1",
+      "dependencies": {
+        "@glimpse/core": "workspace:*",
+      },
     },
     "packages/ui": {
       "name": "@glimpse/ui",
@@ -124,6 +132,8 @@
     "@glimpse/app": ["@glimpse/app@workspace:app"],
 
     "@glimpse/core": ["@glimpse/core@workspace:packages/core"],
+
+    "@glimpse/providers": ["@glimpse/providers@workspace:packages/providers"],
 
     "@glimpse/ui": ["@glimpse/ui@workspace:packages/ui"],
 

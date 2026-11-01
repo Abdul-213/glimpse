@@ -1,0 +1,19 @@
+{
+	"name": "@glimpse/providers",
+	"version": "0.0.1",
+	"private": true,
+	"description": "OCR and translation provider implementations for Glimpse (Bun APIs, WASM, onnxruntime, fetch). No Electrobun.",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./translation/bergamot": "./src/translation/bergamot/index.ts",
+		"./testing": "./src/testing.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit -p .",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@glimpse/core": "workspace:*"
+	}
+}
