@@ -3,8 +3,9 @@
 //
 // Composition root only: build services, wire them to the tray and windows. Logic
 // lives in @glimpse/core; OS calls live in src/bun/native/ behind interfaces.
-import { loadSettings, ProviderRegistry } from "@glimpse/core";
+import { loadSettings, ProviderRegistry, parseModelManifest } from "@glimpse/core";
 import { Utils } from "electrobun/main";
+import modelManifestJson from "../../models/manifest.json" with { type: "json" };
 import pkg from "../../package.json" with { type: "json" };
 import type { AppInfo } from "../shared/rpc.ts";
 import { CommandBus } from "./commands.ts";
@@ -14,13 +15,17 @@ import { exclusionOpsFor } from "./native/exclusion.ts";
 import { loadMacNative } from "./native/macos.ts";
 import { overlayOpsFor } from "./native/overlay.ts";
 import { platform } from "./platform.ts";
+import { AppSettings } from "./services/app-settings.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
 import { buildDiagnostics } from "./services/diagnostics.ts";
 import { HotkeyService } from "./services/hotkeys.ts";
 import { CarbonHotkeyBackend } from "./services/hotkeys-carbon.ts";
 import { ElectrobunHotkeyBackend } from "./services/hotkeys-electrobun.ts";
+import { ServiceHotkeyRegistrar } from "./services/hotkeys-port.ts";
 import { createAppLogger } from "./services/log.ts";
+import { loadBergamotCatalogue } from "./services/models/catalogue.ts";
 import { ModelManager } from "./services/models/model-manager.ts";
+import { ModelsSettings } from "./services/models/models-settings.ts";
 import { bundledModelsDir, catalogueCacheFile, modelsRoot } from "./services/models/paths.ts";
 import { createPickerNatives } from "./services/picker/index.ts";
 import { type AppProviderContext, providerContext, registerProviders } from "./services/providers.ts";
@@ -36,6 +41,7 @@ import { CaptureExclusion } from "./windows/capture-exclusion.ts";
 import { electrobunOverlayFactory, screenProbe } from "./windows/picker.ts";
 import { PickerController } from "./windows/picker-controller.ts";
 import { SettingsWindow } from "./windows/settings.ts";
+import { providerSummaries } from "./windows/settings-handlers.ts";
 
 const logs = createAppLogger({ dir: Utils.paths.userLogs });
 const log = logs.logger;
@@ -52,6 +58,8 @@ const loadedSettings = await loadSettings(settingsStore, settingsEnv);
 logs.applySettingsLevel(loadedSettings.settings.diagnostics.logLevel);
 const settingsLog = log.child("settings");
 for (const warning of loadedSettings.warnings) settingsLog.warn(warning);
+// The live settings (GLIM-69): main owns them; Settings and features subscribe to changes.
+const appSettings = new AppSettings(loadedSettings.settings, settingsStore, settingsEnv, settingsLog);
 
 const appInfo: AppInfo = {
 	name: "Glimpse",
@@ -73,7 +81,7 @@ const bergamotPacks = new ModelManagerPackSource(models);
 const { ctx: providerCtx, bergamotWorker } = providerContext({
 	packs: bergamotPacks,
 	mainDir: import.meta.dir,
-	warmPairs: () => warmPairsFor(loadedSettings.settings),
+	warmPairs: () => warmPairsFor(appSettings.current),
 	log: translationLog,
 });
 const translationPacks = new TranslationPacks({
@@ -84,7 +92,7 @@ const translationPacks = new TranslationPacks({
 const translation: TranslationService<AppProviderContext> = new TranslationService({
 	registry: providers,
 	ctx: providerCtx,
-	settings: () => loadedSettings.settings,
+	settings: () => appSettings.current,
 	log: translationLog,
 	readinessOf: (from, to) => translationPacks.readiness(from, to),
 	onPrivateChange: (on) => tray.update({ private: on }),
@@ -107,7 +115,56 @@ const captureLog = log.child("capture");
 const capture = createCaptureSource({ shellDisplays: readDisplays, log: (message) => captureLog.info(message) });
 const exclusion = new CaptureExclusion(exclusionOpsFor(), capture.source, (message) => captureLog.warn(message));
 
-const settings = new SettingsWindow(appInfo, exclusion);
+// Global hotkeys (GLIM-23): Electrobun RegisterHotKey on Windows, Carbon on macOS.
+const macNative = platform === "macos" ? loadMacNative() : null;
+const hotkeyBackend =
+	platform === "windows"
+		? new ElectrobunHotkeyBackend()
+		: macNative?.binding
+			? new CarbonHotkeyBackend(macNative.binding)
+			: null;
+const hotkeys = new HotkeyService(
+	hotkeyBackend,
+	log.child("hotkeys"),
+	platform === "macos" && macNative && !macNative.status.available ? macNative.status.reason : undefined,
+);
+// Settings talks to the hotkey service through the HotkeyRegistrar port: it applies the
+// bindings with the actions' handlers and reports per-action status (GLIM-69). `commands` is
+// declared below; the handlers only run on a key press.
+const hotkeyRegistrar = new ServiceHotkeyRegistrar(hotkeys, {
+	snip: () => void commands.dispatch("snip.start", "hotkey"),
+	live: () => void commands.dispatch("live.start", "hotkey"),
+});
+
+// Settings window (GLIM-69).
+const modelsSettings = new ModelsSettings({
+	manager: models,
+	manifest: parseModelManifest(modelManifestJson),
+	packs: bergamotPacks,
+	loadCatalogue: () => loadBergamotCatalogue({ cacheFile: catalogueCacheFile(models.root) }),
+	target: () => appSettings.current.language.target,
+	uiLocale: locale,
+});
+const settings = new SettingsWindow(
+	{
+		appInfo,
+		settings: appSettings,
+		hotkeys: hotkeyRegistrar,
+		models: modelsSettings,
+		installedPairs: () => bergamotPacks.installed(),
+		providers: () =>
+			providerSummaries(appSettings.current.providers, (id) => {
+				const f = providers.get(id);
+				return f ? { name: f.info.name, kind: f.info.kind } : undefined;
+			}),
+		// `commands` is declared below; this only runs once the window is open.
+		dispatch: (command, source) => commands.dispatch(command, source),
+		reveal: (path) => Utils.openPath(path),
+		settingsWarnings: loadedSettings.warnings,
+		uiLocale: locale,
+	},
+	exclusion,
+);
 
 // Region picker (GLIM-44, GLIM-91): one hidden overlay per display, created now so a
 // hotkey only has to show them (spec 8: scrim within 100 ms). Loupe pixels come from the
@@ -184,27 +241,13 @@ picker.onRegionSelected((region) => {
 	return undefined;
 });
 
-// Global hotkeys (GLIM-23): Electrobun RegisterHotKey on Windows, Carbon on macOS.
-const macNative = platform === "macos" ? loadMacNative() : null;
-const hotkeyBackend =
-	platform === "windows"
-		? new ElectrobunHotkeyBackend()
-		: macNative?.binding
-			? new CarbonHotkeyBackend(macNative.binding)
-			: null;
-const hotkeys = new HotkeyService(
-	hotkeyBackend,
-	log.child("hotkeys"),
-	platform === "macos" && macNative && !macNative.status.available ? macNative.status.reason : undefined,
-);
-
 const diagnostics = () =>
 	buildDiagnostics({
 		appInfo,
 		locale,
 		displays: readDisplays,
 		providers,
-		providersConfig: () => loadedSettings.settings.providers,
+		providersConfig: () => appSettings.current.providers,
 		state: () => ({
 			settingsSource: loadedSettings.source,
 			settingsWarnings: loadedSettings.warnings.length,
@@ -275,9 +318,12 @@ const tray = createTray(
 // The service updates the tray through onPrivateChange.
 commands.handle("private.toggle", () => translation.setPrivate(!translation.private));
 
-hotkeys.apply(loadedSettings.settings.hotkeys, {
-	snip: () => void commands.dispatch("snip.start", "hotkey"),
-	live: () => void commands.dispatch("live.start", "hotkey"),
+void hotkeyRegistrar.apply(loadedSettings.settings.hotkeys);
+
+// Settings changes apply without a restart (GLIM-69).
+appSettings.subscribe((next, previous) => {
+	if (next.diagnostics.logLevel !== previous.diagnostics.logLevel) logs.applySettingsLevel(next.diagnostics.logLevel);
+	if (next.hotkeys !== previous.hotkeys) tray.update({ hotkeys: { snip: next.hotkeys.snip, live: next.hotkeys.live } });
 });
 
 if (platform === "windows") {

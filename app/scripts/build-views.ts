@@ -48,9 +48,9 @@ export function electrobunDevkitPlugin(root = devkitRoot): BunPlugin {
 
 /**
  * Views that only exist for development: the component gallery and font/RTL test page
- * (GLIM-42, GLIM-51). Built by dev builds and `--gallery`, never shipped in canary/stable.
+ * (GLIM-42, GLIM-51), and the Settings preview with fake data (GLIM-69). Built by dev builds and `--gallery`, never shipped in canary/stable.
  */
-export const DEV_ONLY_VIEWS: ReadonlySet<string> = new Set(["gallery"]);
+export const DEV_ONLY_VIEWS: ReadonlySet<string> = new Set(["gallery", "settings-preview"]);
 
 export function listViews(options: { includeDevOnly?: boolean } = {}): string[] {
 	return readdirSync(viewsSrc, { withFileTypes: true })

@@ -11,3 +11,4 @@ export * from "./ocr.ts";
 export * from "./route.ts";
 export * from "./script.ts";
 export * from "./script-count.ts";
+export * from "./source-subset.ts";
