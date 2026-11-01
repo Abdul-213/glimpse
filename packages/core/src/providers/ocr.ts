@@ -8,7 +8,7 @@
 import type { OcrBlock } from "../block.ts";
 import type { Rect } from "../geometry.ts";
 import type { LanguageCode } from "../language.ts";
-import type { ProviderLifecycle } from "./lifecycle.ts";
+import type { ModelResource, ProviderLifecycle } from "./lifecycle.ts";
 import type { Provenance, ProviderFingerprint, ProviderInfo, ProviderKind } from "./provenance.ts";
 
 /**
@@ -79,11 +79,27 @@ export interface OcrCapabilities {
 	readonly maxImageBytes: number | null;
 }
 
+/**
+ * Whether a provider can read one language right now. PP-OCRv5 uses one recognition model
+ * per script family (GLIM-17 findings: ch/ja, Korean, Latin, Cyrillic, Arabic, ...), so a
+ * ready provider can still lack the model for a language in the user's subset.
+ */
+export type OcrLanguageSupport =
+	| { readonly status: "ready" }
+	| { readonly status: "missing"; readonly missing: readonly ModelResource[] }
+	| { readonly status: "unsupported" };
+
 export interface OcrProvider extends ProviderLifecycle {
 	readonly info: ProviderInfo & { readonly task: "ocr" };
 	readonly capabilities: OcrCapabilities;
 	/** Identity for caches. Stable while the provider is ready; may change after `init()`. */
 	fingerprint(): ProviderFingerprint;
+	/**
+	 * Per-language readiness, answered from state loaded by `init()`. Onboarding and Settings
+	 * use it to offer the right model downloads for the source subset (GLIM-57).
+	 * `unsupported` before init.
+	 */
+	languageSupport(lang: LanguageCode): OcrLanguageSupport;
 	/**
 	 * Recognise text. Rejects with `ProviderError`:
 	 * `cancelled` (signal), `not-ready`, `model-missing`, `input-too-large`, `invalid-request`

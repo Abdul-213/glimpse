@@ -150,7 +150,10 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 - **OCR** is one call per image: `recognise({ image, languages?, regions? }, { signal,
   onProgress })` → blocks in region-local device pixels. Progressive engines emit `detected`
   boxes, then each `block` (Snip shows boxes before text). Whole-request failures throw a typed
-  `ProviderError`.
+  `ProviderError`. `languageSupport(lang)` reports per-language readiness, since PP-OCRv5 needs
+  one recognition model per script family (spikes/inference/FINDINGS.md).
+- **Warmup.** GLIM-17 measured a slow first call per Bergamot pack (0.3–0.8 s) and per ORT
+  session; implementations do a dummy run in `warmup()`, which the app calls after `init()`.
 - **Translation** is a batch of segments, each with its own source language (GLIM-21), and one
   target: `translate(request)` returns an `AsyncIterable` of `partial` (cumulative text, streaming
   engines only) and exactly one `done` or `error` per segment. Per-segment and request-level

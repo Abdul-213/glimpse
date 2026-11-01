@@ -6,11 +6,13 @@
 
 import type { OcrBlock } from "../block.ts";
 import { intersection, type Rect, rect } from "../geometry.ts";
+import { type LanguageCode, languageCode } from "../language.ts";
 import { abortable, ProviderError, type ProviderErrorCode, throwIfAborted } from "../providers/errors.ts";
 import { type ProviderStatus, StatusCell, type Unsubscribe } from "../providers/lifecycle.ts";
 import {
 	type OcrCapabilities,
 	type OcrImage,
+	type OcrLanguageSupport,
 	type OcrOptions,
 	type OcrProvider,
 	type OcrRequest,
@@ -33,6 +35,10 @@ export interface FakeOcrOptions {
 	readonly initStatus?: ProviderStatus | (() => ProviderStatus | Promise<ProviderStatus>);
 	readonly modelRevision?: string;
 	readonly options?: Readonly<Record<string, unknown>>;
+	/** Languages whose recognition model is "not downloaded" (BCP-47). */
+	readonly missingLanguages?: readonly string[];
+	/** Languages it can never read. Everything else is ready. */
+	readonly unsupportedLanguages?: readonly string[];
 }
 
 export const ocrBlock = (id: string, text: string, box: Rect, confidence = 0.9): OcrBlock => ({
@@ -115,6 +121,16 @@ export class FakeOcrProvider implements OcrProvider {
 	async dispose(): Promise<void> {
 		this.#cell.set({ state: "disposed" });
 		this.#cell.clear();
+	}
+
+	languageSupport(lang: LanguageCode): OcrLanguageSupport {
+		if (this.#cell.status.state !== "ready") return { status: "unsupported" };
+		const has = (list: readonly string[] | undefined) => (list ?? []).some((l) => languageCode(l) === lang);
+		if (has(this.#opts.unsupportedLanguages)) return { status: "unsupported" };
+		if (has(this.#opts.missingLanguages)) {
+			return { status: "missing", missing: [{ id: `${this.info.id}:rec-${lang}`, name: `${lang} text`, bytes: null }] };
+		}
+		return { status: "ready" };
 	}
 
 	fingerprint(): ProviderFingerprint {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isProviderError, type OcrProgress, rect, validateOcrImage } from "../../src/index.ts";
+import { isProviderError, languageCode, type OcrProgress, rect, validateOcrImage } from "../../src/index.ts";
 import {
 	blankImage,
 	type ContractCheck,
@@ -16,7 +16,11 @@ const blocks = [ocrBlock("b1", "続ける", rect(10, 10, 60, 20)), ocrBlock("b2"
 
 describe("OCR contract: fake, progressive", () => {
 	runAll(
-		ocrProviderContract(() => new FakeOcrProvider({ blocks }), { image: blankImage(200, 100), expectText: "設定" }),
+		ocrProviderContract(() => new FakeOcrProvider({ blocks }), {
+			image: blankImage(200, 100),
+			expectText: "設定",
+			language: languageCode("ja"),
+		}),
 	);
 });
 
@@ -62,6 +66,16 @@ describe("FakeOcrProvider behaviour", () => {
 		await p.init();
 		const result = await p.recognise({ image: blankImage(200, 100), regions: [rect(0, 45, 200, 30)] });
 		expect(result.blocks.map((b) => b.id)).toEqual(["b2"]);
+	});
+
+	test("per-language support reports missing recognition models", async () => {
+		const p = new FakeOcrProvider({ missingLanguages: ["ko"], unsupportedLanguages: ["am"] });
+		expect(p.languageSupport(languageCode("ja")).status).toBe("unsupported"); // before init
+		await p.init();
+		expect(p.languageSupport(languageCode("ja")).status).toBe("ready");
+		const ko = p.languageSupport(languageCode("ko"));
+		expect(ko.status === "missing" && ko.missing[0]?.id).toBe("fake-ocr:rec-ko");
+		expect(p.languageSupport(languageCode("am")).status).toBe("unsupported");
 	});
 
 	test("cloud failures surface as typed errors", async () => {

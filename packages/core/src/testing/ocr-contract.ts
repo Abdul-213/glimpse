@@ -1,5 +1,6 @@
 // Contract checks every OcrProvider must pass (GLIM-32). See contract.ts for usage.
 
+import type { LanguageCode } from "../language.ts";
 import type { OcrImage, OcrProgress, OcrProvider } from "../providers/ocr.ts";
 import { isProviderId, sameFingerprint } from "../providers/provenance.ts";
 import { type ContractCheck, check, expectProviderError, lifecycleChecks, withReadyProvider } from "./contract.ts";
@@ -9,6 +10,8 @@ export interface OcrContractFixture {
 	readonly image: OcrImage;
 	/** A substring that some recognised block must contain, if the engine is real. */
 	readonly expectText?: string;
+	/** The language of the text in `image`; the provider must report it ready after init. */
+	readonly language?: LanguageCode;
 }
 
 export function ocrProviderContract(
@@ -87,6 +90,22 @@ export function ocrProviderContract(
 						if (e.type === "block") check(ids.has(e.block.id), "progress block missing from the final result");
 					}
 				}),
+		},
+		{
+			name: "languageSupport: unsupported before init, ready for the fixture language after",
+			run: async () => {
+				const lang = fixture.language;
+				if (!lang) return;
+				const p = await make();
+				try {
+					check(p.languageSupport(lang).status === "unsupported", "languageSupport before init must be unsupported");
+					await p.init();
+					const s = p.languageSupport(lang);
+					check(s.status === "ready", `languageSupport(${lang}) after init is ${s.status}`);
+				} finally {
+					await p.dispose();
+				}
+			},
 		},
 		{
 			name: "recognise: an already-aborted signal rejects cancelled",
