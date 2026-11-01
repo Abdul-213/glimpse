@@ -3,6 +3,7 @@
 // Nothing outside app/src/bun/native/ sees a raw pointer from here.
 import { dlopen, FFIType, type Pointer, ptr } from "bun:ffi";
 import type { CapturePiece, Rect, RgbaImage } from "@glimpse/core";
+import type { FrameHandle, FrameNativeBinding, FrameNativeStyle } from "./frame.ts";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
 import { captureErrorFor } from "./status.ts";
 import { listNativeWindows, type NativeWindowInfo } from "./window-info.ts";
@@ -21,6 +22,18 @@ const glimpseSymbols = {
 	glim_list_windows: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
 	glim_focus_save: { args: [FFIType.ptr], returns: FFIType.i32 },
 	glim_focus_restore: { args: [FFIType.ptr], returns: FFIType.i32 },
+	// GLIM-90 pinned Live frame (frame.{m,cpp}): handle, rect f64[4], scale / style, palette u32[7], tag, text, below
+	glim_frame_create: { args: [FFIType.ptr], returns: FFIType.i32 },
+	glim_frame_set_rect: { args: [FFIType.u64, FFIType.ptr, FFIType.f64], returns: FFIType.i32 },
+	glim_frame_set_style: {
+		args: [FFIType.u64, FFIType.i32, FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.i32],
+		returns: FFIType.i32,
+	},
+	glim_frame_set_highlight: { args: [FFIType.u64, FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
+	glim_frame_show: { args: [FFIType.u64, FFIType.i32], returns: FFIType.i32 },
+	glim_frame_window_id: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
+	glim_frame_destroy: { args: [FFIType.u64], returns: FFIType.i32 },
+	glim_frame_info: { args: [FFIType.u64, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
 } as const;
 
 export type WindowsBackend = "gdi" | "dxgi";
@@ -56,7 +69,7 @@ export interface WindowsPickerBinding {
 
 type GlimpseSymbols = NonNullable<ReturnType<typeof loadNativeLibrary<typeof glimpseSymbols>>["symbols"]>;
 
-class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding {
+class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding, FrameNativeBinding {
 	private readonly geom = new Int32Array(10);
 	private readonly seq = new BigUint64Array(1);
 
@@ -118,6 +131,69 @@ class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding {
 		if (r !== 0) throw captureErrorFor("windows", "SetForegroundWindow", r, this.lastError());
 		return out[0] === 1;
 	}
+
+	// ---- GLIM-90 pinned Live frame ----
+
+	private frameFail(what: string, status: number): never {
+		throw captureErrorFor("windows", what, status, this.lastError());
+	}
+
+	frameCreate(): FrameHandle {
+		const out = new BigUint64Array(1);
+		const r = this.sym.glim_frame_create(ptr(out));
+		if (r !== 0) this.frameFail("creating the Live frame window", r);
+		return out[0] ?? 0n;
+	}
+
+	frameSetRect(handle: FrameHandle, region: Rect, scale: number): void {
+		const r = this.sym.glim_frame_set_rect(
+			handle,
+			ptr(Float64Array.of(region.x, region.y, region.width, region.height)),
+			scale,
+		);
+		if (r !== 0) this.frameFail("placing the Live frame", r);
+	}
+
+	frameSetStyle(handle: FrameHandle, style: FrameNativeStyle): void {
+		const text = new TextEncoder().encode(`${style.tagText}\0`);
+		const r = this.sym.glim_frame_set_style(
+			handle,
+			style.paused ? 1 : 0,
+			ptr(style.palette),
+			style.tag,
+			ptr(text),
+			style.tagBelow ? 1 : 0,
+		);
+		if (r !== 0) this.frameFail("styling the Live frame", r);
+	}
+
+	frameSetHighlight(handle: FrameHandle, box: Rect | null): void {
+		const r = box
+			? this.sym.glim_frame_set_highlight(handle, 1, ptr(Float64Array.of(box.x, box.y, box.width, box.height)))
+			: this.sym.glim_frame_set_highlight(handle, 0, null);
+		if (r !== 0) this.frameFail("highlighting a block on the Live frame", r);
+	}
+
+	frameShow(handle: FrameHandle, visible: boolean): void {
+		const r = this.sym.glim_frame_show(handle, visible ? 1 : 0);
+		if (r !== 0) this.frameFail("showing the Live frame", r);
+	}
+
+	frameWindowId(handle: FrameHandle): number {
+		const out = new BigUint64Array(1);
+		const r = this.sym.glim_frame_window_id(handle, ptr(out));
+		if (r !== 0) this.frameFail("reading the Live frame window id", r);
+		return Number(out[0] ?? 0n);
+	}
+
+	frameDestroy(handle: FrameHandle): void {
+		this.sym.glim_frame_destroy(handle);
+	}
+
+	frameInfo(handle: FrameHandle): Record<string, number> | null {
+		const json = readNativeString((b, c) => this.sym.glim_frame_info(handle, ptr(b), c), 512);
+		return json.startsWith("{") ? (JSON.parse(json) as Record<string, number>) : null;
+	}
 }
 
 let dll: GlimpseDll | { status: NativeStatus } | undefined;
@@ -125,7 +201,7 @@ let dll: GlimpseDll | { status: NativeStatus } | undefined;
 /** Load glimpse.dll once. `binding` is null when it is missing or broken (see `status`). */
 export function loadWindowsCapture(): {
 	status: NativeStatus;
-	binding: (WindowsCaptureBinding & WindowsPickerBinding) | null;
+	binding: (WindowsCaptureBinding & WindowsPickerBinding & FrameNativeBinding) | null;
 } {
 	if (!dll) {
 		if (process.platform !== "win32") {
