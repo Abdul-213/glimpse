@@ -17,8 +17,26 @@ bun install            # Bun workspace: app/, packages/*
 bun run devkit         # hutch electrobun sync in app/: Electrobun 2.0.6-beta.2 devkit -> app/.hutch/
 ```
 
-Windows 10 needs the WebView2 Evergreen runtime (Windows 11 has it). Building the macOS helper
-dylib (once it exists) needs the Xcode Command Line Tools.
+Windows 10 needs the WebView2 Evergreen runtime (Windows 11 has it).
+
+### Native helpers (Windows and macOS only)
+
+Screen capture needs the per-OS helper library (ARCHITECTURE.md section 6). Build it once, and
+again whenever `app/native/<os>/` changes; without it the app runs but capture is unavailable.
+
+```sh
+# macOS (Xcode Command Line Tools: xcode-select --install)
+sh app/native/macos/build.sh                 # -> app/native/macos/build/libglimpse.dylib
+
+# Windows: Developer PowerShell for VS (MSVC), or zig on PATH
+pwsh app/native/windows/build.ps1            # -> app/native/windows/build/glimpse.dll
+
+# Any OS with zig: check the Windows helper compiles
+ZIG=/path/to/zig sh app/native/windows/build-zig.sh
+```
+
+`bun app/scripts/native-smoke.ts --try-capture` loads the built helper through the real bindings
+and tries one small capture.
 
 ## Everyday commands (repo root)
 

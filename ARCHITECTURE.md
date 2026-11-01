@@ -30,8 +30,8 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 │   │       └── <surface>/       index.html + index.tsx + index.css + components (settings now; picker, popup, live, onboarding later)
 │   ├── scripts/                 build-views.ts (Bun.build + Solid + Tailwind), prebuild.ts (Electrobun hook), solid-plugin.ts, make-tray-icons.ts
 │   ├── assets/tray/             tray icons (copied to views://assets/)
-│   ├── native/macos/            libglimpse.dylib source + build.sh (empty, see README)
-│   ├── native/windows/          glimpse.dll source + build script (empty, see README)
+│   ├── native/macos/            libglimpse.dylib source (Objective-C) + build.sh, see README
+│   ├── native/windows/          glimpse.dll source (C++) + build.ps1 / build-zig.sh, see README
 │   └── test/                    tests for the app's pure modules and the view build
 ├── packages/
 │   ├── core/                    @glimpse/core: pure TypeScript domain logic (see section 4)
@@ -41,6 +41,7 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 ├── spikes/                      Wave 0 throwaway spikes. Reference only: copy from them, never import them.
 ├── docs/decisions/              ADRs. docs/design/: flows and token preview.
 ├── .github/workflows/ci.yml     Linux CI: typecheck, lint, test, Linux build
+├── .github/workflows/native.yml compile + load the native helpers on Windows/macOS runners
 ├── package.json                 Bun workspace root (workspaces: app, packages/*) and the root scripts
 ├── tsconfig.base.json           shared strict compiler options; each package has its own tsconfig.json
 ├── biome.json                   lint + format, including the @glimpse/core import boundary
@@ -126,7 +127,9 @@ Don't create packages for grouping alone; use folders.
 | Settings schema, defaults, migrations | `packages/core/src/settings/` | GLIM-53. Pure: `(unknown json) -> Settings`. |
 | Settings persistence (file in the user data dir) | `app/src/bun/services/settings-store.ts` | Implements a core `SettingsStore` port. |
 | Secrets (`Bun.secrets`) | `app/src/bun/services/secrets.ts` | GLIM-40. Core sees a `SecretStore` port (`packages/core/src/secrets/`: id pattern, no empty values, 2560-byte cap, error kinds, `maskSecret`); fake: `MemorySecretStore`. Service `dev.glimpse.app`, one item per `secretId`, Windows `persist: "local"`, no plaintext fallback. Headless Linux: `app/scripts/linux-headless-keyring.sh`. |
-| Capture backends (DXGI/GDI, ScreenCaptureKit, file-based for Linux) | `app/src/bun/services/capture/` + native helpers | GLIM-36, GLIM-86. All implement core's `CaptureSource`. |
+| `CaptureSource` port, capture geometry (`planCapture`), RGBA helpers, `FrameSequenceSource` | `packages/core/src/capture/` | GLIM-36. Fake: `ReplayCaptureSource` in `@glimpse/core/testing`. |
+| Capture backends (DXGI/GDI, ScreenCaptureKit, file-based for Linux) | `app/src/bun/services/capture/` + native helpers | GLIM-36, GLIM-86. All implement core's `CaptureSource`; `createCaptureSource()` picks one (see "Capture" below). |
+| Self-capture exclusion | `app/src/bun/windows/capture-exclusion.ts` | Every window controller shows its window through `CaptureExclusion.protect(win, show)`. |
 | Hotkeys | `app/src/bun/services/hotkeys.ts` | Electrobun `GlobalShortcut` on Windows, Carbon via the dylib on macOS (GLIM-23, spikes/hotkeys). |
 | App commands (Start Snip, Start/Stop Live, Private, Clear cache, Settings, Quit...) | `app/src/bun/commands.ts` (`CommandBus`) | GLIM-41. Tray, hotkeys, popups and Settings dispatch; the owning feature registers the one handler. |
 | Tray / menu bar | `app/src/bun/tray-menu.ts` (pure: state -> menu + icon, `TrayController`) + `tray.ts` (Electrobun) | GLIM-41. Rebuilt only when the rendered menu changes. Windows icon follows the taskbar theme (`services/taskbar-theme.ts`). |
@@ -216,6 +219,35 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   Adding a field with a default needs no migration; renaming or reshaping one does (bump
   `SETTINGS_VERSION`, add a `Migration`, add a fixture test).
 
+### Capture (GLIM-36)
+
+- **Port:** `CaptureSource` (`packages/core/src/capture/port.ts`): `capture(rect)` for Snip,
+  `openSession(rect, {fps})` for Live (a persistent stream; `next()` returns the latest frame and
+  its `sequence`, which stays put while the backend sees no new screen content), `displays()`,
+  `setExcludedWindows(ids)`. Rects are **global logical**; frames are RGBA8 at `scale` output px
+  per logical unit (default: the highest `scaleFactor` the rect touches); `toOcrImage(frame)`
+  hands one to an `OcrProvider`. Failures are `CaptureError`s with a code (`permission-denied`,
+  `temporarily-unavailable`, `no-display`, ...).
+- **Geometry:** `planCapture()` splits a rect per display and maps each piece into the backend's
+  native space: macOS points (ScreenCaptureKit scales), Windows physical px (glimpse.dll reports
+  monitor rects keyed by HMONITOR = Electrobun's `Display.id`; mixed-DPI pieces are resampled in
+  the DLL). Pieces tile the output exactly. Parts on no display are opaque black.
+- **Windows:** GDI for Snip; DXGI Desktop Duplication for Live, falling back to GDI per monitor
+  (lasting DXGI failure) or per frame (temporary, e.g. a mode switch). WGC isn't used: it draws a
+  border round the monitor.
+- **macOS:** `SCScreenshotManager` for Snip, one `SCStream` per display piece for Live. Calls
+  block the Bun worker on a semaphore with a timeout; moving them off the worker is a follow-up if
+  it shows in latency.
+- **Exclusion:** window controllers create windows `hidden: true` and show them through
+  `CaptureExclusion.protect(win, show)`. Windows: `WDA_EXCLUDEFROMCAPTURE` before the first show;
+  this hides Glimpse from *every* capture, screenshots and screen sharing included, and needs
+  build 19041+. macOS: `sharingType = none`, and the SCK filter excludes Glimpse's app (or its
+  window ids, kept current through `setExcludedWindows`), which also works on macOS 15+ where SCK
+  ignores `sharingType`.
+- **Choice:** `createCaptureSource()` (`app/src/bun/services/capture/index.ts`) builds the native
+  backend on Windows/macOS. It never throws; without a usable helper it returns a source whose
+  calls fail with `unavailable`, and the reason goes to the startup log.
+
 ## 5. Views and RPC
 
 **Build.** `app/scripts/build-views.ts` builds every `app/src/views/<name>/index.html` with
@@ -280,11 +312,19 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
 - C ABI only: symbols prefixed `glim_`, integer status returns (0 = ok, else `OSStatus` /
   `HRESULT` / Win32 error), out-params for data, caller-owned buffers or an explicit
   `glim_free`. The TypeScript binding maps codes to typed errors.
+- `load.ts` checks `glim_abi_version()` against `GLIM_ABI_VERSION` after `dlopen`; bump both
+  together when an export changes. `GLIMPSE_NATIVE_LIB=<path>` overrides the lookup. Glimpse's
+  own status codes are -1..-99 (`app/native/*/glimpse.h` = `app/src/bun/native/status.ts`);
+  other non-zero values are the OS's (`HRESULT`, NSError code) and map to typed `CaptureError`s.
 - If the helper is missing or a symbol fails to load, the binding reports "unavailable" and the
-  feature degrades (and says so in diagnostics). The app must still start.
-- Helpers can't be built on the Linux dev box. They are compiled in CI on macOS and Windows
-  runners (GLIM-34). Any PR that changes them states plainly that it is unverified on hardware
-  until those runs and a manual check (GLIM-87) pass.
+  feature degrades (and says so in diagnostics). The app must still start. `electrobun.config.ts`
+  copies the helper only if it was built, and `scripts/prebuild.ts` warns when it wasn't.
+- Helpers can't be built on the Linux dev box (the Windows one can be cross-compiled with zig:
+  `app/native/windows/build-zig.sh`). `.github/workflows/native.yml` compiles both, on
+  windows-latest (MSVC) and macos-latest, and loads them through the real bindings
+  (`app/scripts/native-smoke.ts`). It runs on pushes to `develop` that touch native code or its
+  bindings, and on demand. Any PR that changes them states plainly that it is unverified on
+  hardware until those runs and a manual check (GLIM-87) pass.
 
 ## 7. Testing strategy
 
@@ -294,8 +334,9 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
 2. **Fakes for every port.** Each port in core ships a fake next to it
    (`packages/core/src/testing/`, exported as `@glimpse/core/testing`): `FakeOcrProvider`
    (scripted blocks), `FakeTranslationProvider` (deterministic `text [ja>en]` output, pivots,
-   missing packs, scripted failures, a `manualGate` to hold segments), and later a
-   `CaptureSource` that replays PNG frames, an in-memory `SecretStore`, a manual `Clock`. Tests in
+   missing packs, scripted failures, a `manualGate` to hold segments), `ReplayCaptureSource`
+   (in-memory frames over a fake display layout, stepped per grab or timed by a `ManualClock`),
+   and later an in-memory `SecretStore`. Tests in
    other packages use these instead of hand-rolled mocks. Provider implementations also run the
    contract checks: `for (const c of translationProviderContract(make, fixture)) test(c.name, c.run)`
    (same for `ocrProviderContract`).
@@ -313,7 +354,8 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
 
 CI (`.github/workflows/ci.yml`) runs on ubuntu-latest for PRs to and pushes on `develop`:
 install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, and a Linux `electrobun
-build`. Windows and macOS runners are only used by their dedicated workflows.
+build`. Windows and macOS runners are only used by their dedicated, path-filtered workflows
+(`native.yml`).
 
 ## 8. Conventions
 

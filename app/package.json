@@ -13,7 +13,10 @@
 		"dev": "hutch electrobun dev --watch",
 		"start": "hutch electrobun dev",
 		"build": "hutch electrobun build --env=dev",
-		"build:stable": "hutch electrobun build --env=stable"
+		"build:stable": "hutch electrobun build --env=stable",
+		"native:mac": "sh native/macos/build.sh",
+		"native:win": "pwsh -NoProfile -ExecutionPolicy Bypass -File native/windows/build.ps1",
+		"native:win:cross": "sh native/windows/build-zig.sh"
 	},
 	"dependencies": {
 		"@glimpse/core": "workspace:*",

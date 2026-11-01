@@ -1,0 +1,104 @@
+# Compiles the native helpers on their own OS (GLIM-34 / GLIM-36): glimpse.dll with
+# MSVC on windows-latest and libglimpse.dylib (universal) on macos-latest, then loads
+# each through the real bun:ffi bindings to catch C <-> TypeScript ABI drift.
+# Compile and load only: no app build, no capture assertions (runners have no
+# Screen Recording grant and maybe no real desktop).
+#
+# Windows minutes count 2x and macOS 10x, so this only runs when native code or its
+# bindings change, plus on demand.
+name: Native helpers
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - app/native/**
+      - app/src/bun/native/**
+      - app/src/bun/services/capture/**
+      - app/scripts/native-smoke.ts
+      - .github/workflows/native.yml
+  workflow_dispatch:
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: glimpse.dll (MSVC)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build glimpse.dll
+        env:
+          GLIMPSE_NATIVE_TOOL: msvc
+        run: ./app/native/windows/build.ps1
+
+      - name: Check exports
+        run: |
+          $exports = dumpbin /nologo /exports app/native/windows/build/glimpse.dll | Out-String
+          Write-Host $exports
+          foreach ($s in "glim_abi_version", "glim_last_error", "glim_capture_displays_json", "glim_capture_piece", "glim_capture_release") {
+            if ($exports -notmatch "\b$s\b") { throw "missing export $s" }
+          }
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Load through the bindings
+        run: |
+          bun install --frozen-lockfile
+          bun app/scripts/native-smoke.ts --try-capture
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimpse-dll-windows-x64
+          path: app/native/windows/build/glimpse.dll
+          retention-days: 7
+
+  macos:
+    name: libglimpse.dylib (clang, universal)
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build libglimpse.dylib
+        run: sh app/native/macos/build.sh
+
+      - name: Check exports and architectures
+        run: |
+          lipo -info app/native/macos/build/libglimpse.dylib
+          nm -gU app/native/macos/build/libglimpse.dylib | tee exports.txt
+          for s in glim_abi_version glim_last_error glim_window_exclude_from_capture glim_window_number \
+            glim_capture_set_excluded_windows glim_capture_shot glim_capture_stream_open glim_capture_stream_read \
+            glim_capture_stream_close glim_capture_reset glim_capture_preflight glim_capture_displays_json; do
+            grep -q "_$s\$" exports.txt || { echo "missing export $s"; exit 1; }
+          done
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Load through the bindings
+        run: |
+          bun install --frozen-lockfile
+          bun app/scripts/native-smoke.ts --try-capture
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libglimpse-dylib-macos-universal
+          path: app/native/macos/build/libglimpse.dylib
+          retention-days: 7

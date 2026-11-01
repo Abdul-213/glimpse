@@ -1,6 +1,7 @@
 // @glimpse/core/testing: fakes for every core port plus provider contract checks.
 // For tests only; never import from production code.
 
+export * from "./capture.ts";
 export * from "./contract.ts";
 export * from "./fake-factories.ts";
 export * from "./fake-ocr-provider.ts";
