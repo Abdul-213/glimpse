@@ -5,7 +5,9 @@ export type PopupKind = "snip" | "live";
 /** The popup's edge that faces the region; the enter animation grows from it. */
 export type PopupFacing = "top" | "bottom" | "inline-start" | "inline-end";
 
-export interface PopupShellProps extends JSX.HTMLAttributes<HTMLDivElement> {
+export interface PopupShellProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "style"> {
+	/** Extra inline styles (the shell adds its transform-origin). */
+	style?: JSX.CSSProperties;
 	kind: PopupKind;
 	/** UI direction for the chrome; block text sets its own. */
 	dir?: Direction;
@@ -46,7 +48,10 @@ export function PopupShell(props: PopupShellProps): JSX.Element {
 			data-kind={local.kind}
 			data-entering={local.entering ? "" : undefined}
 			class={["glim-popup", local.class ?? ""].join(" ").trim()}
-			style={{ "transform-origin": origin(local.facing ?? "top", dir()) }}
+			style={{
+				...(typeof local.style === "object" ? local.style : {}),
+				"transform-origin": origin(local.facing ?? "top", dir()),
+			}}
 			{...rest}
 		>
 			{local.children}

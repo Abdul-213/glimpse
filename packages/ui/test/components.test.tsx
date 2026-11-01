@@ -5,6 +5,7 @@ import { render } from "solid-js/web";
 import { BlockList } from "../src/components/BlockList.tsx";
 import { HotkeyRecorder } from "../src/components/HotkeyRecorder.tsx";
 import { IconButton } from "../src/components/IconButton.tsx";
+import { PopupShell } from "../src/components/PopupShell.tsx";
 import { ProgressBar } from "../src/components/ProgressBar.tsx";
 import { SkippedLine } from "../src/components/SkippedLine.tsx";
 import { Switch } from "../src/components/Switch.tsx";
@@ -255,6 +256,20 @@ describe("HotkeyRecorder", () => {
 		const msg = root.querySelector(".glim-inline-message");
 		expect(msg?.getAttribute("data-tone")).toBe("danger");
 		expect(field.getAttribute("aria-describedby")).toBe(msg?.id ?? "missing");
+	});
+});
+
+describe("PopupShell", () => {
+	test("keeps caller styles alongside its transform-origin; Snip is a modal dialog", () => {
+		const root = mount(() => (
+			<PopupShell kind="snip" facing="inline-start" dir="rtl" aria-label="Translation" style={{ width: "22.5rem" }} />
+		));
+		const el = root.firstElementChild as HTMLElement;
+		expect(el.style.width).toBe("22.5rem");
+		expect(el.style.transformOrigin).toBe("right center");
+		expect(el.getAttribute("role")).toBe("dialog");
+		expect(el.getAttribute("aria-modal")).toBe("true");
+		expect(el.getAttribute("dir")).toBe("rtl");
 	});
 });
 
