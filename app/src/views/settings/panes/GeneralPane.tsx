@@ -176,6 +176,23 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 						</div>
 					)}
 				</SettingsRow>
+				<SettingsRow
+					label="Read changes aloud"
+					description="Screen readers announce changed Live text, even while another app has focus."
+				>
+					<SegmentedControl
+						label="Read changes aloud"
+						value={s().live.announceChanges}
+						onChange={(v) =>
+							void props.state.update({ live: { announceChanges: v === "on" || v === "off" ? v : "auto" } })
+						}
+						options={[
+							{ value: "auto", label: "With a screen reader" },
+							{ value: "on", label: "On" },
+							{ value: "off", label: "Off" },
+						]}
+					/>
+				</SettingsRow>
 			</SettingsGroup>
 
 			<SettingsGroup title="Motion">

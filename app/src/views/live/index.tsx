@@ -5,10 +5,12 @@ import { createSignal, Show } from "solid-js";
 import { render } from "solid-js/web";
 import type { LiveRPC, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
 import { connect } from "../rpc.ts";
-import { LivePopup } from "./LivePopup.tsx";
+import { type LiveAnnouncement, LivePopup } from "./LivePopup.tsx";
 
 const [init, setInit] = createSignal<LiveViewInit | null>(null);
 const [message, setMessage] = createSignal<LiveStateMessage | null>(null);
+const [announcements, setAnnouncements] = createSignal<readonly LiveAnnouncement[]>([]);
+let announcementId = 0;
 
 const rpc = connect<LiveRPC>({
 	requests: {},
@@ -21,7 +23,11 @@ const rpc = connect<LiveRPC>({
 			// "Focus Live popup": the controller already activated the window; LivePopup moves
 			// focus once `focused` arrives in the next state.
 		},
-		liveAnnounce: () => {},
+		// GLIM-92: one coalesced announcement; the log keeps its last 5 entries.
+		liveAnnounce: (m) => {
+			if (message()?.sessionId !== m.sessionId) return;
+			setAnnouncements((list) => [...list, { id: ++announcementId, text: m.text, kind: m.kind }].slice(-10));
+		},
 	},
 });
 
@@ -49,6 +55,7 @@ render(
 						<LivePopup
 							init={i()}
 							message={m()}
+							announcements={announcements()}
 							intents={{
 								painted: (sessionId) => rpc.send.livePainted({ sessionId }),
 								resized: (sessionId, contentHeight) => rpc.send.liveResized({ sessionId, contentHeight }),

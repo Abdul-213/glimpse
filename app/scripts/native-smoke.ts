@@ -8,6 +8,7 @@
 // prints the outcome without failing (CI runners may have no usable desktop or no
 // Screen Recording grant).
 import { rect } from "@glimpse/core";
+import { loadAnnounceNative } from "../src/bun/native/announce.ts";
 import { FRAME_PALETTE_ORDER, type FrameNativeBinding, rgbaOf } from "../src/bun/native/frame.ts";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import { loadWindowsCapture } from "../src/bun/native/windows.ts";
@@ -66,6 +67,17 @@ async function attempt(label: string, run: () => Promise<{ width: number; height
 	} catch (e) {
 		console.log(`${label}: failed (allowed in CI): ${e instanceof Error ? e.message : String(e)}`);
 	}
+}
+
+// Screen-reader announcements (GLIM-92): load the two symbols, ask whether a reader runs, and
+// on macOS post one low-priority announcement (Windows needs a real window's HWND).
+{
+	const { status, native } = loadAnnounceNative();
+	console.log("announce:", JSON.stringify(status));
+	if (!native) process.exit(1);
+	console.log("screen reader active:", native.screenReaderActive());
+	if (process.platform === "darwin")
+		console.log("announce posted:", native.announce(null, "Glimpse native smoke", "low"));
 }
 
 if (process.platform === "win32") {

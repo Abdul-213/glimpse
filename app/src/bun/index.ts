@@ -5,7 +5,7 @@
 // lives in @glimpse/core; OS calls live in src/bun/native/ behind interfaces.
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { loadSettings, opensAtLaunch, ProviderRegistry, parseModelManifest } from "@glimpse/core";
+import { loadSettings, opensAtLaunch, ProviderRegistry, parseModelManifest, systemTimers } from "@glimpse/core";
 import Electrobun, { Utils } from "electrobun/main";
 import modelManifestJson from "../../models/manifest.json" with { type: "json" };
 import pkg from "../../package.json" with { type: "json" };
@@ -14,6 +14,7 @@ import type { AppInfo } from "../shared/rpc.ts";
 import { CommandBus } from "./commands.ts";
 import { readDisplays } from "./displays.ts";
 import { ELECTROBUN_VERSION } from "./electrobun-version.ts";
+import { loadAnnounceNative } from "./native/announce.ts";
 import { exclusionOpsFor } from "./native/exclusion.ts";
 import { frameNativesFor } from "./native/frame.ts";
 import { loadMacNative } from "./native/macos.ts";
@@ -53,6 +54,7 @@ import { fileUpdateStateStore, UpdateChecker } from "./services/update-check.ts"
 import { createTray } from "./tray.ts";
 import { finishSetupNotice } from "./tray-menu.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
+import { LiveAnnouncements } from "./windows/live-announcements.ts";
 import { ElectrobunLivePopupWindow } from "./windows/live-popup.ts";
 import { LivePopupController, liveViewInit } from "./windows/live-popup-controller.ts";
 import { OnboardingWindow } from "./windows/onboarding.ts";
@@ -440,6 +442,17 @@ livePopup = new LivePopupController({
 	eol: platform === "windows" ? "\r\n" : "\n",
 	log: liveLog.child("popup"),
 });
+// GLIM-92: Live changes read aloud (live-popup.md §10): the view's live regions plus the
+// OS announcement while the popup isn't focused. Default: on when a screen reader runs.
+const liveAnnouncements = new LiveAnnouncements({
+	popup: livePopup,
+	post: (sessionId, text, kind) => livePopupWindow.announce(sessionId, text, kind),
+	speak: (text, kind) => livePopupWindow.speak(text, kind),
+	screenReaderActive: () => loadAnnounceNative().native?.screenReaderActive() ?? null,
+	mode: () => appSettings.current.live.announceChanges,
+	timers: systemTimers,
+	log: liveLog.child("a11y"),
+});
 picker.onRegionSelected((region) => {
 	if (region.mode === "snip") {
 		return snipPopup?.open(region.rect) ? "keep" : undefined;
@@ -526,6 +539,7 @@ commands.handle("app.quit", () => {
 	popupWindow.close();
 	picker?.dispose();
 	pickerNatives.sampler.stop();
+	liveAnnouncements.dispose();
 	livePopup?.dispose();
 	livePopupWindow.close();
 	live.dispose();

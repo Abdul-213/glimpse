@@ -24,6 +24,7 @@ export const COPY = {
 	resume: "Resume",
 	stop: "Stop Live",
 	locked: "Paused while the screen was locked",
+	changesLog: "Live changes",
 	a11yPaused: "Live paused",
 	a11yResumed: "Live resumed",
 	alreadyIn: "Already in",

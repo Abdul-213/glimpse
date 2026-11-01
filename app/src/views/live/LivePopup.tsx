@@ -69,6 +69,17 @@ export interface LivePopupProps {
 	raf?: (cb: () => void) => void;
 	/** Delay before reporting a smaller height, so removed blocks animate first (§9). */
 	shrinkDelayMs?: number;
+	/**
+	 * GLIM-92: the last announcements main sent (at most 5). `change` entries fill the polite
+	 * `role="log"`, the latest `status` the `role="status"` region.
+	 */
+	announcements?: readonly LiveAnnouncement[];
+}
+
+export interface LiveAnnouncement {
+	readonly id: number;
+	readonly text: string;
+	readonly kind: "change" | "status";
 }
 
 /** Shrinking waits for the content animation (~220 ms, §9 Window resize). */
@@ -402,8 +413,14 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 					</Show>
 				</Show>
 			</BlockList>
+			{/* §10: read while the popup has focus; main speaks through the OS otherwise. */}
+			<div class="sr-only" role="log" aria-live="polite" aria-relevant="additions" aria-label={COPY.changesLog}>
+				<For each={(props.announcements ?? []).filter((a) => a.kind === "change").slice(-5)}>
+					{(a) => <p>{a.text}</p>}
+				</For>
+			</div>
 			<span class="sr-only" role="status">
-				{state().status === "paused" || state().status === "error" ? COPY.a11yPaused : ""}
+				{(props.announcements ?? []).filter((a) => a.kind === "status").at(-1)?.text ?? ""}
 			</span>
 		</PopupShell>
 	);

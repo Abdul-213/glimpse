@@ -13,6 +13,7 @@
 import { type Display, displayAt } from "@glimpse/core";
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { LiveRPC, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
+import { loadAnnounceNative } from "../native/announce.ts";
 import { loadMacNative } from "../native/macos.ts";
 import { configureLivePopupWindow, raiseTopmost } from "../native/windows.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
@@ -183,11 +184,23 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 		}
 	}
 
-	announce(sessionId: string, text: string): void {
+	/** GLIM-92: into the view's live regions (read while the popup has focus). */
+	announce(sessionId: string, text: string, kind: "change" | "status"): void {
 		try {
-			this.rpc.send.liveAnnounce({ sessionId, text });
+			this.rpc.send.liveAnnounce({ sessionId, text, kind });
 		} catch {
 			// not connected
+		}
+	}
+
+	/** GLIM-92: the OS announcement (VoiceOver / UIA notification on this window's HWND). */
+	speak(text: string, kind: "change" | "status"): boolean {
+		const native = loadAnnounceNative().native;
+		if (!native) return false;
+		try {
+			return native.announce(this.win.ptr ?? null, text, kind === "status" ? "high" : "medium");
+		} catch {
+			return false;
 		}
 	}
 
