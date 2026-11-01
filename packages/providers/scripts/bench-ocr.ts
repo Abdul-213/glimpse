@@ -24,7 +24,9 @@ const rows: string[] = [];
 const row = (...cells: string[]) => rows.push(`| ${cells.join(" | ")} |`);
 
 const t0 = performance.now();
-const make = (cache: number) => new PaddleOcrProvider({ threads, recCacheSize: cache }, { models: cacheSource });
+// One block per line, so the Lines column and the Live line edits see lines, not grouped blocks.
+const make = (cache: number) =>
+	new PaddleOcrProvider({ threads, recCacheSize: cache, grouping: "lines" }, { models: cacheSource });
 const p = make(0);
 await p.init();
 const initMs = performance.now() - t0;

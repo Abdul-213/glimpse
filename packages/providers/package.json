@@ -6,6 +6,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./language-detect": "./src/language-detect/index.ts",
 		"./ocr/paddle": "./src/ocr/paddle/index.ts",
 		"./translation/bergamot": "./src/translation/bergamot/index.ts",
 		"./testing": "./src/testing.ts"
@@ -16,6 +17,7 @@
 	},
 	"dependencies": {
 		"@glimpse/core": "workspace:*",
+		"eld": "2.1.0",
 		"onnxruntime-node": "1.31.1"
 	}
 }
