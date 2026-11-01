@@ -71,6 +71,7 @@ class FakeFrame implements LiveFrame {
 async function setup(
 	frames: { image: ReturnType<typeof strip>; holdMs: number }[],
 	extra: Partial<LiveServiceDeps> = {},
+	wrapCapture?: (source: ReplayCaptureSource) => LiveServiceDeps["capture"],
 ) {
 	const timers = new ManualTimers(1_000_000);
 	const registry = new ProviderRegistry<unknown>();
@@ -103,7 +104,7 @@ async function setup(
 	const frameObjs: FakeFrame[] = [];
 	let closedPipelines = 0;
 	const live = new LiveService({
-		capture: source,
+		capture: wrapCapture ? wrapCapture(source) : source,
 		openPipeline: () => {
 			const s = translation.openLive(() => {});
 			return {
@@ -335,5 +336,39 @@ describe("LiveService cloud consent (GLIM-79, live-popup.md L10)", () => {
 		await s.live.start(REGION);
 		expect(s.events.some((e) => e.type === "consent")).toBe(false);
 		s.live.stop();
+	});
+});
+
+describe("unpin releases every capture resource (GLIM-81)", () => {
+	test("Stop: capture session, pipeline, frame and every session timer go", async () => {
+		const calls: string[] = [];
+		const t = await setup([{ image: strip(RED), holdMs: 10_000 }], {}, (source) => ({
+			openSession: async (r, o) => {
+				const c = await source.openSession(r, o);
+				calls.push("open");
+				return {
+					rect: c.rect,
+					next: () => c.next(),
+					close: () => {
+						calls.push("close");
+						c.close();
+					},
+				};
+			},
+		}));
+		await t.live.start(REGION);
+		await t.at(1500);
+		expect(t.ocrCalls()).toBe(1);
+		const idle = t.timers.pending;
+		t.live.stop();
+		expect(calls).toEqual(["open", "close"]);
+		expect(t.closedPipelines()).toBe(1);
+		expect(t.frames[0]?.disposed).toBe(true);
+		// The loop's next grab (and any updating / empty timer) is gone from the clock; what is
+		// left belongs to the translation service (cache timers), not the session.
+		expect(t.timers.pending).toBeLessThan(idle);
+		await t.at(5000);
+		expect(t.ocrCalls()).toBe(1);
+		expect(calls).toEqual(["open", "close"]);
 	});
 });

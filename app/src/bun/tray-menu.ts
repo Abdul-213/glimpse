@@ -30,6 +30,8 @@ export interface TrayState {
 	readonly update?: { readonly version: string } | null;
 	/** Things that need the user, listed first (flows/tray.html: "problems are listed first"). */
 	readonly notices?: readonly TrayNotice[];
+	/** The docked Live popup is hidden (L19). Default false. */
+	readonly livePopupHidden?: boolean;
 }
 
 /** A problem or unfinished step with the command that fixes it ("Allow Screen Access…"). */
@@ -120,6 +122,12 @@ export function buildTrayMenu(state: TrayState): TrayMenuItem[] {
 					state.live === "running"
 						? item(t("Pause Live", "Pause Live"), "live.pause")
 						: item(t("Resume Live", "Resume Live"), "live.resume"),
+					// live-popup.md §6.3: the tray mirrors the popup's controls.
+					item(
+						state.livePopupHidden ? t("Show Live popup", "Show Live Popup") : t("Hide Live popup", "Hide Live Popup"),
+						"live.popup.toggle",
+					),
+					item(t("Focus Live popup", "Focus Live Popup"), "live.popup.focus"),
 					item(withShortcut(state.platform, t("Stop Live", "Stop Live"), state.hotkeys.live), "live.stop"),
 				];
 

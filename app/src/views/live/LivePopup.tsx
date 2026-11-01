@@ -40,6 +40,7 @@ import {
 	staleText,
 	statusLabel,
 } from "./copy.ts";
+import { liveKey } from "./keys.ts";
 
 export interface LivePopupIntents {
 	painted(sessionId: string): void;
@@ -53,6 +54,7 @@ export interface LivePopupIntents {
 	hoverBlock(sessionId: string, id: string | null): void;
 	pointerEntered(sessionId: string): void;
 	blurred(sessionId: string): void;
+	copy(sessionId: string, what: "translation" | "original"): void;
 }
 
 export interface LivePopupProps {
@@ -190,11 +192,37 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 		),
 	);
 
+	// Original view (Ctrl/⌘⇧O): how this window renders blocks, not session state.
+	const [original, setOriginal] = createSignal(false);
 	const onKeyDown = (e: KeyboardEvent) => {
-		if (e.key === "Escape") {
-			e.preventDefault();
-			if (state().status === "consent") props.intents.consent(id(), "cancel", false);
-			else props.intents.blurred(id());
+		const key = liveKey(e, props.init.os === "macos");
+		if (!key) {
+			if (e.key === "Tab" && shell) trapTab(shell, e);
+			return;
+		}
+		if (key === "copy" && hasSelection(shell)) return; // the selection copies the normal way
+		e.preventDefault();
+		switch (key) {
+			case "escape":
+				if (state().status === "consent") props.intents.consent(id(), "cancel", false);
+				else props.intents.blurred(id());
+				break;
+			case "pause":
+				if (state().status !== "consent") togglePause();
+				break;
+			case "stop":
+				if (state().status === "consent") props.intents.consent(id(), "cancel", false);
+				else props.intents.stop(id());
+				break;
+			case "copy":
+				props.intents.copy(id(), "translation");
+				break;
+			case "copyOriginal":
+				props.intents.copy(id(), "original");
+				break;
+			case "original":
+				setOriginal(!original());
+				break;
 		}
 	};
 
@@ -335,6 +363,7 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 							<LiveTextBlock
 								block={b}
 								stale={state().stale}
+								original={original()}
 								marked={b.changeId !== null && b.changeId === state().changeSeq}
 								linked={hovered() === b.id}
 								onLink={(on) => hover(b.id, on)}
@@ -356,6 +385,7 @@ function LiveTextBlock(props: {
 	marked: boolean;
 	linked: boolean;
 	onLink: (on: boolean) => void;
+	original: boolean;
 }): JSX.Element {
 	const b = () => props.block;
 	const kind = () => (b().cls === "neutral" ? "neutral" : b().cls === "target" ? "target" : "translate");
@@ -371,6 +401,7 @@ function LiveTextBlock(props: {
 			state={view()}
 			kind={kind()}
 			translation={b().translation ?? undefined}
+			view={props.original ? "original" : "translation"}
 			source={b().pending && b().partial ? (b().partial ?? b().source) : b().source}
 			sourceLang={b().lang ?? undefined}
 			stale={props.stale}
@@ -381,4 +412,27 @@ function LiveTextBlock(props: {
 			onLinkChange={props.onLink}
 		/>
 	);
+}
+
+function hasSelection(root: HTMLElement | undefined): boolean {
+	const sel = typeof window !== "undefined" ? window.getSelection() : null;
+	if (!sel || sel.isCollapsed || sel.toString().length === 0) return false;
+	return !root || (sel.anchorNode !== null && root.contains(sel.anchorNode));
+}
+
+/** Strip buttons → state-row buttons → blocks, wrapping (§6.2 Tab). */
+function trapTab(shell: HTMLElement, e: KeyboardEvent): void {
+	const stops = [...shell.querySelectorAll<HTMLElement>("button, input, [data-block], [data-roving]")].filter(
+		(el) => !el.hasAttribute("disabled") && (el.tabIndex >= 0 || el.matches("[data-block], [data-roving]")),
+	);
+	const blocks = stops.filter((el) => el.matches("[data-block], [data-roving]"));
+	const controls = stops.filter((el) => !blocks.includes(el));
+	const order = blocks.length > 0 ? [...controls, blocks[0] as HTMLElement] : controls;
+	if (order.length === 0) return;
+	const active = document.activeElement as HTMLElement | null;
+	const inBlocks = !!active && blocks.includes(active);
+	const at = inBlocks ? order.length - 1 : order.indexOf(active as HTMLElement);
+	const next = e.shiftKey ? (at <= 0 ? order.length - 1 : at - 1) : at < 0 || at >= order.length - 1 ? 0 : at + 1;
+	e.preventDefault();
+	order[next]?.focus();
 }

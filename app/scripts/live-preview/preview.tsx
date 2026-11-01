@@ -55,6 +55,7 @@ function Frame(props: { scenario: (typeof LIVE_SCENARIOS)[number] }) {
 					hoverBlock: noop,
 					pointerEntered: noop,
 					blurred: noop,
+					copy: noop,
 				}}
 			/>
 		</div>
