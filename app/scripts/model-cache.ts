@@ -2,12 +2,13 @@
 // cache (default ~/.cache/glimpse/models), verifies SHA-256, unpacks zstd, and stages the
 // bundled ones into dist/models for electrobun.config.ts to copy into the app. Used by
 // scripts/fetch-models.ts (CLI) and scripts/prebuild.ts. The app's own on-demand downloads
-// go through the model download manager (GLIM-38), not this file.
+// go through the model download manager (src/bun/services/models/), which shares the downloader.
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { bundledModels, type ModelEntry, type ModelFile, type ModelManifest, parseModelManifest } from "@glimpse/core";
+import { downloadFile, type FetchLike } from "../src/bun/services/models/download.ts";
 
 export const appRoot = resolve(import.meta.dir, "..");
 export const modelsSrc = join(appRoot, "models");
@@ -41,7 +42,7 @@ export function cachePath(cacheDir: string, file: ModelFile): string {
 
 export interface FetchOptions {
 	readonly cacheDir: string;
-	readonly fetch?: (url: string) => Promise<Response>;
+	readonly fetch?: FetchLike;
 	readonly log?: (line: string) => void;
 }
 
@@ -49,34 +50,17 @@ export interface FetchOptions {
 export async function ensureCached(file: ModelFile, options: FetchOptions): Promise<string> {
 	const dest = cachePath(options.cacheDir, file);
 	if (existsSync(dest) && sha256Hex(readFileSync(dest)) === installedHash(file)) return dest;
-	const doFetch = options.fetch ?? ((url: string) => fetch(url, { redirect: "follow" }));
-	const errors: string[] = [];
-	for (const url of file.urls) {
-		try {
-			const started = performance.now();
-			const res = await doFetch(url);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const bytes = new Uint8Array(await res.arrayBuffer());
-			const got = sha256Hex(bytes);
-			if (got !== file.sha256) throw new Error(`sha256 mismatch: got ${got}, want ${file.sha256}`);
-			let installed = bytes;
-			if (file.compression === "zstd") {
-				installed = new Uint8Array(Bun.zstdDecompressSync(bytes));
-				const unpacked = sha256Hex(installed);
-				if (unpacked !== file.decompressedSha256) throw new Error(`decompressed sha256 mismatch: got ${unpacked}`);
-			}
-			mkdirSync(join(options.cacheDir, "sha256"), { recursive: true });
-			const tmp = `${dest}.${process.pid}.tmp`;
-			writeFileSync(tmp, installed);
-			renameSync(tmp, dest);
-			const secs = ((performance.now() - started) / 1000).toFixed(1);
-			options.log?.(`  ${(bytes.byteLength / 1e6).toFixed(1).padStart(6)} MB  ${secs}s  ${file.name}`);
-			return dest;
-		} catch (err) {
-			errors.push(`${url}: ${err instanceof Error ? err.message : String(err)}`);
-		}
+	mkdirSync(join(options.cacheDir, "sha256"), { recursive: true });
+	const started = performance.now();
+	try {
+		// Same downloader as the app (resume, verify, zstd); see src/bun/services/models/download.ts.
+		await downloadFile(file, dest, options.fetch ? { fetch: options.fetch } : {});
+	} catch (err) {
+		throw new Error(`could not fetch ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
 	}
-	throw new Error(`could not fetch ${file.name}:\n  ${errors.join("\n  ")}`);
+	const secs = ((performance.now() - started) / 1000).toFixed(1);
+	options.log?.(`  ${(file.size / 1e6).toFixed(1).padStart(6)} MB  ${secs}s  ${file.name}`);
+	return dest;
 }
 
 export async function ensureModel(model: ModelEntry, options: FetchOptions): Promise<void> {
