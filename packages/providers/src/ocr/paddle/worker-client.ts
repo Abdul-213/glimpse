@@ -1,6 +1,7 @@
 // Pipeline-side handle on the inference Worker: request/response with ids, per-job event
 // callbacks, and crash handling (a dead worker rejects everything in flight).
 
+import { explainOrtLoadFailure } from "./load-failure.ts";
 import type { FromWorker, OcrJobResult, ToWorker, WithoutId } from "./protocol.ts";
 
 /** The part of a Bun `Worker` the client uses, so tests and the app can spawn it their way. */
@@ -46,7 +47,7 @@ export class OcrWorkerClient {
 		this.#worker.onmessage = (event: MessageEvent<FromWorker>) => this.#receive(event.data);
 		this.#worker.onerror = (event: ErrorEvent) => {
 			event.preventDefault?.();
-			this.#fail(new Error(`OCR worker crashed: ${event.message || "unknown error"}`));
+			this.#fail(new Error(`OCR worker crashed: ${explainOrtLoadFailure(event.message || "unknown error")}`));
 		};
 	}
 

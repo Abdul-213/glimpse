@@ -127,7 +127,9 @@ Don't create packages for grouping alone; use folders.
   (~260 MB); `scripts/onnxruntime.ts` (preBuild) stages only the target's binding and runtime
   library for the CPU provider into `dist/onnxruntime/`, copied to `<app>/native/onnxruntime/`
   (linux: `libonnxruntime.so.1`; darwin-arm64: `libonnxruntime.1.dylib`; win32: `onnxruntime.dll`;
-  no DirectML/dxcompiler, which ORT only delay-loads for the DirectML/WebGPU providers). The
+  no DirectML/dxcompiler, which ORT only delay-loads for the DirectML/WebGPU providers). On
+  Windows the Visual C++ runtime DLLs those files import are copied next to them from the build
+  machine's Visual Studio redist folder (GLIM-111, `docs/decisions/GLIM-111-msvc-runtime.md`). The
   bundled OCR Worker loads the binding from `../native/onnxruntime/` (`GLIMPSE_ORT_BINDING`
   overrides): `build-workers.ts` rewrites onnxruntime-node's package-relative `require`.
   darwin-x64 has no onnxruntime-node build (GLIM-89): the build succeeds without it (with a

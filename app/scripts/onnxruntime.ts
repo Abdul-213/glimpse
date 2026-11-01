@@ -15,12 +15,21 @@
 // - darwin x64: onnxruntime-node >= 1.24 ships no Intel Mac build (GLIM-89). The build
 //   still succeeds; the app reports local OCR as unavailable there.
 //
+// Windows: onnxruntime.dll and the binding link the Microsoft Visual C++ runtime (MSVCP140*.dll,
+// VCRUNTIME140*.dll), which is not part of Windows. A PC without the VC++ 2015-2022
+// redistributable could not load local OCR, so the build copies the runtime DLLs the staged files
+// import (read from their PE import tables, see pe-imports.ts) next to them, app-local, from the
+// build machine's Visual Studio redist folder (GLIM-111, docs/decisions/GLIM-111-msvc-runtime.md).
+// Windows looks for a DLL's dependencies in that DLL's own folder first, so these copies are used
+// even on PCs that also have the redistributable installed.
+//
 // The preBuild hook stages the files into dist/onnxruntime/; electrobun.config.ts copies that to
 // <app>/native/onnxruntime/, and the bundled OCR Worker (<app>/bun/ocr-worker.js) loads the
 // binding from ../native/onnxruntime/ (see ortBindingPlugin in build-workers.ts).
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { peImports } from "./pe-imports.ts";
 
 export const ORT_BINDING = "onnxruntime_binding.node";
 export const ortOut = resolve(import.meta.dir, "..", "dist", "onnxruntime");
@@ -79,4 +88,95 @@ export function stageOnnxRuntime(
 		copyFileSync(src, join(outDir, f));
 	}
 	return files;
+}
+
+/** The Visual C++ runtime DLLs (the redistributable's Microsoft.VC14x.CRT folder). */
+const VC_RUNTIME_DLL = /^(?:msvcp140(?:_[a-z0-9_]+)?|vcruntime140(?:_[a-z0-9_]+)?|concrt140)\.dll$/i;
+
+/**
+ * The Visual C++ runtime DLLs the staged Windows files import, lower-case, sorted. Empty for other
+ * targets (their binaries aren't PE files). `dir` holds the staged files (see `stageOnnxRuntime`).
+ */
+export function vcRuntimeImports(dir: string, files: readonly string[]): string[] {
+	const needed = new Set<string>();
+	for (const f of files) {
+		const bytes = readFileSync(join(dir, f));
+		if (bytes[0] !== 0x4d || bytes[1] !== 0x5a) continue; // not a PE image (ELF, Mach-O)
+		for (const name of peImports(bytes)) {
+			if (VC_RUNTIME_DLL.test(name)) needed.add(name.toLowerCase());
+		}
+	}
+	return [...needed].sort();
+}
+
+/** The redist folder's arch name for a Node arch. */
+const REDIST_ARCH: Readonly<Record<string, string>> = { x64: "x64", arm64: "arm64", ia32: "x86" };
+
+/** `<redist>/<arch>/Microsoft.VC14x.CRT`, newest toolset first, if present. */
+function crtFolderIn(redist: string, arch: string, exists: (p: string) => boolean, list: (p: string) => string[]) {
+	const archDir = join(redist, REDIST_ARCH[arch] ?? arch);
+	if (!exists(archDir)) return null;
+	const crt = list(archDir)
+		.filter((d) => /^Microsoft\.VC\d+\.CRT$/i.test(d))
+		.sort()
+		.reverse()[0];
+	return crt ? join(archDir, crt) : null;
+}
+
+export interface VcRuntimeLookup {
+	readonly env?: Record<string, string | undefined>;
+	readonly exists?: (path: string) => boolean;
+	readonly list?: (path: string) => string[];
+}
+
+/**
+ * Where to copy the Visual C++ runtime from, or null if no Visual Studio redist folder is found:
+ *   1. GLIMPSE_VCRT_DIR: a folder holding the DLLs (any machine; e.g. a /layout of vc_redist)
+ *   2. %VCToolsRedistDir%<arch>\Microsoft.VC14x.CRT (a VS developer prompt, or ilammy/msvc-dev-cmd in CI)
+ *   3. Visual Studio 2022+ installs under %ProgramFiles% / %ProgramFiles(x86)%:
+ *      Microsoft Visual Studio\<year>\<edition>\VC\Redist\MSVC\<version>\<arch>\Microsoft.VC14x.CRT
+ * Only these redist folders: their files are the "Distributable Code" the VS licence lets us ship.
+ */
+export function findVcRuntimeDir(arch: string, lookup: VcRuntimeLookup = {}): string | null {
+	const env = lookup.env ?? process.env;
+	const exists = lookup.exists ?? existsSync;
+	const list = lookup.list ?? ((p: string) => readdirSync(p));
+	const forced = env["GLIMPSE_VCRT_DIR"];
+	if (forced) return forced;
+	const tools = env["VCToolsRedistDir"];
+	if (tools) {
+		const crt = crtFolderIn(tools, arch, exists, list);
+		if (crt) return crt;
+	}
+	const dirs = (p: string) => (exists(p) ? list(p).sort().reverse() : []);
+	for (const root of [env["ProgramFiles"], env["ProgramFiles(x86)"]]) {
+		if (!root) continue;
+		const vs = join(root, "Microsoft Visual Studio");
+		for (const year of dirs(vs)) {
+			for (const edition of dirs(join(vs, year))) {
+				const msvc = join(vs, year, edition, "VC", "Redist", "MSVC");
+				for (const version of dirs(msvc).filter((v) => /^\d/.test(v))) {
+					const crt = crtFolderIn(join(msvc, version), arch, exists, list);
+					if (crt) return crt;
+				}
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Copy the Visual C++ runtime DLLs that the staged files in `outDir` import from `crtDir` into
+ * `outDir`. Returns the DLLs copied. Throws if one is missing from `crtDir`, so a build never
+ * ships half a runtime.
+ */
+export function stageVcRuntime(outDir: string, files: readonly string[], crtDir: string): string[] {
+	const needed = vcRuntimeImports(outDir, files);
+	const available = new Map(readdirSync(crtDir).map((f) => [f.toLowerCase(), f] as const));
+	for (const dll of needed) {
+		const name = available.get(dll);
+		if (!name) throw new Error(`${crtDir} has no ${dll} (needed by onnxruntime)`);
+		copyFileSync(join(crtDir, name), join(outDir, dll));
+	}
+	return needed;
 }
