@@ -160,7 +160,12 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 		const show = () => this.win.show();
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
-			this.deps.exclusion.protect(this.win, show);
+			// GLIM-98: with the setting off the popup shows in screenshots, and Glimpse's own
+			// capture paints over its frame instead.
+			this.deps.exclusion.protect(this.win, show, {
+				role: "popup",
+				bounds: () => (this.visible ? (this.deps.controller()?.frame ?? null) : null),
+			});
 		} else {
 			show();
 		}

@@ -166,7 +166,7 @@ Don't create packages for grouping alone; use folders.
 | Secrets (`Bun.secrets`) | `app/src/bun/services/secrets.ts` | GLIM-40. Core sees a `SecretStore` port (`packages/core/src/secrets/`: id pattern, no empty values, 2560-byte cap, error kinds, `maskSecret`); fake: `MemorySecretStore`. Service `dev.glimpse.app`, one item per `secretId`, Windows `persist: "local"`, no plaintext fallback. Headless Linux: `app/scripts/linux-headless-keyring.sh`. |
 | `CaptureSource` port, capture geometry (`planCapture`), RGBA helpers, `FrameSequenceSource` | `packages/core/src/capture/` | GLIM-36. Fake: `ReplayCaptureSource` in `@glimpse/core/testing`. |
 | Capture backends (DXGI/GDI, ScreenCaptureKit, file-based for Linux) | `app/src/bun/services/capture/` + native helpers | GLIM-36, GLIM-86. All implement core's `CaptureSource`; `createCaptureSource()` picks one (see "Capture" below). |
-| Self-capture exclusion | `app/src/bun/windows/capture-exclusion.ts` | Every window controller shows its window through `CaptureExclusion.protect(win, show)`. |
+| Self-capture exclusion | `app/src/bun/windows/capture-exclusion.ts` | Every window controller shows its window through `CaptureExclusion.protect(win, show, { role })` (GLIM-98 roles: surface, popup, window). |
 | Region picker: state machine, snapping, HUD layout, geometry; OS ports (`WindowListSource`, `PixelSampler`, `FocusKeeper`) | `packages/core/src/picker/` | GLIM-29 spec, GLIM-44/54/55/91. Fakes in `@glimpse/core/testing`. Loupe pixels come from capture (`CapturePixelSampler`; macOS keeps an SCStream warm), never from the webview. |
 | Picker OS ports (window list, loupe sampler, focus) | `app/src/bun/services/picker/` + `native/overlay.ts` | GLIM-91. `createPickerNatives()` picks per OS; the file backend gets no window list and no focus handling. |
 | Pinned Live frame (ticks, region tag, linked box) | `app/src/bun/services/live/pinned-frame.ts` (`PinnedFrame`) + `frame-layout.ts` (pure geometry, tag copy, DESIGN.md colours) + `native/frame.ts` (binding interface, coordinate spaces) + `app/native/*/frame.{m,cpp}` | GLIM-90. A native click-through, always-on-top, capture-excluded window: macOS `NSPanel` (`ignoresMouseEvents`, level 101), Windows layered `WS_EX_TRANSPARENT` popup on a helper UI thread (`WDA_EXCLUDEFROMCAPTURE`). macOS takes global points, Windows physical px (`physicalFrameSpace`, the capture geometry). Never throws: a helper failure drops the frame and Live goes on. `CaptureExclusion.register(id)` adds its window id to the SCK fallback list. |
@@ -407,6 +407,14 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   build 19041+. macOS: `sharingType = none`, and the SCK filter excludes Glimpse's app (or its
   window ids, kept current through `setExcludedWindows`), which also works on macOS 15+ where SCK
   ignores `sharingType`.
+- **Hide from screenshots (GLIM-98):** `settings.privacy.hideFromCapture` (default on). Each
+  `protect` call names a role: `surface` (picker overlays, results layer; always flagged),
+  `popup` (gives its on-screen `bounds`) and `window` (Settings, onboarding). Off un-flags popups and windows
+  (`WDA_NONE` / `sharingType = readOnly`, `glim_window_set_sharing`) so the user's screenshots
+  and shares show them. Glimpse's own capture still never reads them: on macOS the SCK filter
+  skips them by id; on Windows Snip and Live read through `MaskedCaptureSource`
+  (`services/capture/masked.ts`), which paints `CaptureExclusion.maskRects()` (un-flagged
+  windows on screen) over with core's `maskFrame` before OCR.
 - **Choice:** `createCaptureSource()` (`app/src/bun/services/capture/index.ts`): native on
   Windows/macOS, the file-based backend (GLIM-86, section 7) on Linux. `GLIMPSE_CAPTURE=native|file`
   and `GLIMPSE_CAPTURE_FRAMES=<folder|png>` override it on any OS. It never throws; without a

@@ -21,6 +21,7 @@ import { overlayOpsFor } from "./native/overlay.ts";
 import { platform } from "./platform.ts";
 import { AppSettings } from "./services/app-settings.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
+import { MaskedCaptureSource } from "./services/capture/masked.ts";
 import { CloudSettings } from "./services/cloud-settings.ts";
 import { buildDiagnostics } from "./services/diagnostics.ts";
 import { HotkeyService } from "./services/hotkeys.ts";
@@ -153,6 +154,10 @@ models
 const captureLog = log.child("capture");
 const capture = createCaptureSource({ shellDisplays: readDisplays, log: (message) => captureLog.info(message) });
 const exclusion = new CaptureExclusion(exclusionOpsFor(), capture.source, (message) => captureLog.warn(message));
+// GLIM-98: Settings › Privacy › Hide Glimpse from screenshots and screen sharing. Snip and Live
+// read through `screen`, which paints over Glimpse windows the OS lets into a frame.
+exclusion.setHideFromCapture(loadedSettings.settings.privacy.hideFromCapture);
+const screen = new MaskedCaptureSource(capture.source, () => exclusion.maskRects());
 
 // Global hotkeys (GLIM-23): Electrobun RegisterHotKey on Windows, Carbon on macOS.
 const macNative = platform === "macos" ? loadMacNative() : null;
@@ -329,7 +334,7 @@ snipPopup = new SnipPopupController({
 	window: popupWindow,
 	displays: readDisplays,
 	runner: {
-		snip: (rect, onEvent, signal, runId) => translation.snip(capture.source, rect, onEvent, signal, runId),
+		snip: (rect, onEvent, signal, runId) => translation.snip(screen, rect, onEvent, signal, runId),
 		translate: (blocks, onEvent, signal, runId, opts) =>
 			translation.translateBlocks(blocks, onEvent, { runId, signal, ...opts }),
 	},
@@ -366,7 +371,7 @@ picker.onResultsPointerDown(() => snipPopup?.outsideClick());
 const liveLog = log.child("live");
 const frameNatives = frameNativesFor(readDisplays);
 const live = new LiveService({
-	capture: capture.source,
+	capture: screen,
 	openPipeline: () => translation.openLive(() => {}),
 	settings: () => appSettings.current,
 	frame: () =>
@@ -515,6 +520,9 @@ void hotkeyRegistrar.apply(loadedSettings.settings.hotkeys);
 // Settings changes apply without a restart (GLIM-69).
 appSettings.subscribe((next, previous) => {
 	if (next.diagnostics.logLevel !== previous.diagnostics.logLevel) logs.applySettingsLevel(next.diagnostics.logLevel);
+	if (next.privacy.hideFromCapture !== previous.privacy.hideFromCapture) {
+		exclusion.setHideFromCapture(next.privacy.hideFromCapture);
+	}
 	if (next.hotkeys !== previous.hotkeys) tray.update({ hotkeys: { snip: next.hotkeys.snip, live: next.hotkeys.live } });
 });
 

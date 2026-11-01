@@ -100,6 +100,6 @@ export class SettingsWindow {
 			this.initialSection = null;
 		});
 		this.window = win;
-		this.exclusion.protect(win, () => win.show());
+		this.exclusion.protect(win, () => win.show(), { role: "window" });
 	}
 }

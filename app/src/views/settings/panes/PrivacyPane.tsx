@@ -62,18 +62,21 @@ export function PrivacyPane(props: { state: SettingsState }): JSX.Element {
 				</SettingsRow>
 			</SettingsGroup>
 
-			{/* GLIM-98 replaces this placeholder with a real setting (default on). */}
-			<SettingsGroup title="Screen capture">
+			{/* GLIM-98. Either way, Glimpse never reads its own windows when it captures. */}
+			<SettingsGroup
+				title="Screen capture"
+				footer="Either way, Glimpse never reads its own windows when you Snip or pin Live."
+			>
 				<SettingsControlRow>
 					<Switch
 						label="Hide Glimpse from screenshots and screen sharing"
 						description={
 							os() === "macos"
-								? "Glimpse windows stay out of screenshots, recordings and screen sharing. On macOS 15 and later this is best effort. A choice to show them is coming."
-								: "Glimpse windows stay out of screenshots, recordings and screen sharing. A choice to show them is coming."
+								? "Popups and Settings stay out of screenshots, recordings and screen sharing. On macOS 15 and later, some apps can still capture them. Turn this off to share a translation or a bug report."
+								: "Popups and Settings stay out of screenshots, recordings and screen sharing. Turn this off to share a translation or a bug report; the selection overlay and the Live frame stay hidden."
 						}
-						checked
-						disabled
+						checked={s().privacy.hideFromCapture}
+						onChange={(v) => void props.state.update({ privacy: { hideFromCapture: v } })}
 					/>
 				</SettingsControlRow>
 			</SettingsGroup>

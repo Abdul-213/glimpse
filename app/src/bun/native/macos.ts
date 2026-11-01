@@ -13,6 +13,7 @@ const symbols = {
 	glim_last_error: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
 	glim_window_exclude_from_capture: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
 	glim_window_number: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+	glim_window_set_sharing: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
 	glim_capture_set_excluded_windows: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
 	// displayID, src f64[4] (local points), dest i32[4] (px), out, stride, len
 	glim_capture_shot: {
@@ -97,6 +98,8 @@ export interface MacWindowBinding {
 	/** NSWindow.sharingType = none; returns the CGWindowID (0 if the window has none yet). Throws. */
 	excludeWindowFromCapture(nsWindow: Pointer): { windowNumber: number; sharingType: number };
 	windowNumber(nsWindow: Pointer): number;
+	/** GLIM-98: sharingType = none (hidden) or readOnly. Returns what reads back. Throws. */
+	setWindowSharing(nsWindow: Pointer, hidden: boolean): { windowNumber: number; sharingType: number };
 }
 
 /** NSWindow levels the picker uses (spec 9.1). */
@@ -223,6 +226,12 @@ class LibGlimpse
 
 	excludeWindowFromCapture(nsWindow: Pointer): { windowNumber: number; sharingType: number } {
 		const r = this.sym.glim_window_exclude_from_capture(nsWindow, ptr(this.u32), ptr(this.i32));
+		if (r !== 0) this.fail("NSWindow sharingType", r);
+		return { windowNumber: this.u32[0] ?? 0, sharingType: this.i32[0] ?? -1 };
+	}
+
+	setWindowSharing(nsWindow: Pointer, hidden: boolean): { windowNumber: number; sharingType: number } {
+		const r = this.sym.glim_window_set_sharing(nsWindow, hidden ? 1 : 0, ptr(this.u32), ptr(this.i32));
 		if (r !== 0) this.fail("NSWindow sharingType", r);
 		return { windowNumber: this.u32[0] ?? 0, sharingType: this.i32[0] ?? -1 };
 	}

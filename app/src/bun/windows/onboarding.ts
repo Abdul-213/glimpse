@@ -86,7 +86,8 @@ export class OnboardingWindow {
 			this.window = null;
 		});
 		this.window = win;
-		this.exclusion.protect(win, () => win.show());
+		// GLIM-98: follows "Hide Glimpse from screenshots and screen sharing", like Settings.
+		this.exclusion.protect(win, () => win.show(), { role: "window" });
 	}
 
 	close(): void {
