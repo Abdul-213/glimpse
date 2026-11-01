@@ -113,6 +113,19 @@ describe("harness CLI", () => {
 		expect(report.summary).toEqual({ captured: 4, changed: 3, unchanged: 1 });
 	});
 
+	test("live --loop --json runs the core Live loop on virtual time (GLIM-48)", () => {
+		const p = run("live", "--loop", "--fps", "3", "--rect", "0,0,360,120", "--json");
+		expect(p.exitCode).toBe(0);
+		const report = JSON.parse(p.stdout.toString());
+		expect(report.mode).toBe("live-loop");
+		expect(report.fps).toBe(3);
+		// The sample holds 500/500/500/1000 ms (2.5 s) + 2 s: 3 fps until 2 s after the last change, then 1/s.
+		const at = report.frames.map((f: { at: number }) => Math.round(f.at));
+		expect(at.slice(0, 4)).toEqual([0, 333, 667, 1000]);
+		expect(report.loop.newFrames).toBe(3);
+		expect(report.loop.periodMs).toBe(1000);
+	});
+
 	test("a capture error exits 1 with the error code", () => {
 		const p = run("snip", "--rect", "5000,5000,10,10");
 		expect(p.exitCode).toBe(1);

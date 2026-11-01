@@ -79,6 +79,11 @@ export class FrameSequenceSource implements CaptureSource {
 		return this.opts.frames.length;
 	}
 
+	/** One pass through the recording in `timed` mode (sum of `holdMs`), ms. */
+	get durationMs(): number {
+		return this.opts.frames.reduce((s, f) => s + (f.holdMs ?? DEFAULT_HOLD_MS), 0);
+	}
+
 	displays(): readonly Display[] {
 		return this.opts.displays.map(({ nativeBounds: _n, ...d }) => d);
 	}

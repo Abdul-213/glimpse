@@ -264,6 +264,13 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 - **Live:** `LivePipelineSession` feeds settled frames through `run`, latest frame wins (the
   older run is dropped, but only cancelled after the newer one has joined the sentences they
   share), and keeps the session detection memo and session cache.
+- **Live capture loop (GLIM-48)** (`pipeline/live-loop.ts`): `LiveCaptureLoop` pulls a
+  `CaptureSession` at 2–4 fps (`clampLiveFps`) over a `Timers` port (`systemTimers`;
+  `ManualTimers` in `@glimpse/core/testing` runs it on virtual time). One grab at a time, no
+  drift; after 2 s without a new backend `sequence` it backs off to 1 grab/s; the handler can
+  ask for an earlier frame (`wakeInMs`, never under 100 ms). Transient capture errors retry with
+  backoff (0.5 → 5 s), fatal ones (`permission-denied`, `no-display`, `unavailable`) pause it
+  until `resume()`. `harness live --loop` replays a recording through it on virtual time.
 - **Cache** (`packages/core/src/cache/`): `normaliseSegment` (the GLIM-20 normaliser, the text
   that is hashed is the text that is sent), `keyHash`/`keyIdentity` (versions, text, codes as
   sent, hop fingerprint, context hash), `TranslationCache` (byte- and entry-bounded LRU, 16 MB /
@@ -453,7 +460,7 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
      `pipelineStage({ ocr, detect?, translation, to, sources?, cache? })` runs the core
      `TranslationPipeline` on each frame (tests drive it with the core fakes); change detection
      (GLIM-58) plugs in as another stage. CLI: `bun run harness <displays|snip|live> [--frames dir] [--rect
-     x,y,w,h] [--fps n] [--count n] [--realtime] [--out dir] [--json]`, plus `--pipeline
+     x,y,w,h] [--fps n] [--count n] [--realtime] [--loop [--duration ms]] [--out dir] [--json]`, plus `--pipeline
      [--ocr scripted|paddle] [--ocr-text "a|b"] [--translator fake|bergamot] [--to de] [--sources ja,de]
      [--private]` (real grouping and ELD detection; `scripted` OCR reads `--ocr-text`, `paddle` is
      real PaddleOCR over the dev model cache; `bergamot` uses the real WASM provider over packs

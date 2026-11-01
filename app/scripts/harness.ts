@@ -4,6 +4,7 @@
 //   bun run harness snip --rect 20,15,160,90 --out /tmp/glim
 //   bun run harness live --rect 190,0,150,60 --fps 4 --count 6
 //   bun run harness live --frames path/to/recording --realtime
+//   bun run harness live --loop --fps 3                             (core Live loop on virtual time, GLIM-48)
 //   bun run harness snip --native --rect 0,0,400,200 --out out    (real capture on Windows/macOS)
 //   bun run harness snip --pipeline                                 (OCR -> detect -> cache -> translate, fakes)
 //   bun run harness snip --pipeline --translator bergamot --to de --ocr-text "明日の会議は午後三時に始まります。"
@@ -27,9 +28,12 @@ import {
 	parseLanguageCode,
 	parseRect,
 	type Rect,
+	systemTimers,
+	type Timers,
 	TranslationCache,
 	TranslationPipeline,
 } from "@glimpse/core";
+import { ManualTimers } from "@glimpse/core/testing";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import { loadWindowsCapture } from "../src/bun/native/windows.ts";
 import { createFileCaptureSource } from "../src/bun/services/capture/file.ts";
@@ -56,6 +60,7 @@ import {
 	type PipelineStageReport,
 	pipelineStage,
 	runLive,
+	runLiveLoop,
 	runSnip,
 } from "../src/harness/run.ts";
 
@@ -67,6 +72,9 @@ const USAGE = `usage: bun run harness <displays|snip|live|pick|windows|loupe> [o
   --fps <n>         Live frame rate (default 4)
   --count <n>       Live frames to pull (default: frame count of the recording, else 8)
   --realtime        Live: sleep 1/fps between frames; file backend switches to timed advance
+  --loop            Live: run the core capture loop (GLIM-48: 2-4 fps, idle back-off) on
+                    virtual time over the recording's holdMs (with --realtime: wall clock)
+  --duration <ms>   --loop: how long to run (default: the recording's length + 2 s)
   --out <dir>       save each frame as PNG
   --json            print the full JSON report
   --pipeline        run the translation pipeline (GLIM-102) on every frame, with the real
@@ -99,6 +107,8 @@ const { values, positionals } = parseArgs({
 		fps: { type: "string", default: "4" },
 		count: { type: "string" },
 		realtime: { type: "boolean", default: false },
+		loop: { type: "boolean", default: false },
+		duration: { type: "string" },
 		out: { type: "string" },
 		json: { type: "boolean", default: false },
 		pipeline: { type: "boolean", default: false },
@@ -142,9 +152,16 @@ function nativeSource(): CaptureSource {
 	throw new Error(`--native needs Windows or macOS (this is ${process.platform})`);
 }
 
-const source: CaptureSource & { frameCount?: number } = values.native
+// --loop (GLIM-48) runs the core Live loop; without --realtime it runs on virtual time, and the
+// file backend shows each frame for its holdMs on that clock.
+const virtual = values.loop && !values.realtime ? new ManualTimers() : null;
+const timers: Timers = virtual ?? systemTimers;
+const source: CaptureSource & { frameCount?: number; durationMs?: number } = values.native
 	? nativeSource()
-	: createFileCaptureSource(resolve(values.frames ?? SAMPLE_FRAMES_DIR), values.realtime ? { advance: "timed" } : {});
+	: createFileCaptureSource(
+			resolve(values.frames ?? SAMPLE_FRAMES_DIR),
+			values.realtime || values.loop ? { advance: "timed", now: timers.now } : {},
+		);
 
 const displays = source.displays();
 const primary = displays.find((d) => d.isPrimary) ?? displays[0];
@@ -338,6 +355,33 @@ try {
 			values.json ? JSON.stringify(r, null, 2) : `snip ${source.backend} ${values.rect ?? "primary"}: ${line(r.frame)}`,
 		);
 		if (!values.json) for (const l of pipelineLines(r.frame)) console.log(l);
+	} else if (values.loop) {
+		const fps = num(values.fps, "fps") ?? 4;
+		const durationMs = num(values.duration, "duration") ?? (source.durationMs ?? 8000) + 2000;
+		const r = await runLiveLoop(source, rect, {
+			fps,
+			durationMs,
+			timers,
+			stages,
+			...(scale ? { scale } : {}),
+			...(onFrame ? { onFrame } : {}),
+		});
+		if (values.json) {
+			console.log(JSON.stringify(r, null, 2));
+		} else {
+			console.log(
+				`live loop ${source.backend} ${values.rect ?? "primary"} at ${r.fps} fps for ${durationMs} ms (${virtual ? "virtual" : "wall"} time):`,
+			);
+			for (const f of r.frames) {
+				console.log(`  t=${String(Math.round(f.at)).padStart(5)} ${line(f)}`);
+				for (const l of pipelineLines(f)) console.log(l);
+			}
+			const s = r.loop;
+			console.log(
+				`  ${s.grabs} grabs, ${s.newFrames} new, ${s.errors} errors; grab ${s.meanGrabMs.toFixed(2)} ms, ` +
+					`handler ${s.meanHandlerMs.toFixed(2)} ms mean / ${s.maxHandlerMs.toFixed(2)} max; period now ${Math.round(s.periodMs)} ms`,
+			);
+		}
 	} else {
 		const fps = num(values.fps, "fps") ?? 4;
 		const count = num(values.count, "count") ?? source.frameCount ?? 8;
