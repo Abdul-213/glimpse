@@ -1,0 +1,98 @@
+@import "@glimpse/ui/theme.css";
+@source "./";
+
+/* The window is exactly the popup: no page background, the veil is the window. */
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+	background: transparent;
+	overflow: hidden;
+}
+
+@layer components {
+	.live-popup {
+		width: 100%;
+		height: auto;
+		max-height: 100dvh;
+	}
+
+	/* Control strip (live-popup.md §2.2): 28px, dot · label · local, spacer, icon buttons 4px apart. */
+	.live-strip {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: calc(var(--spacing) * 2);
+		min-height: 1.75rem;
+		padding-inline-start: calc(var(--spacing) * 2);
+	}
+
+	.live-spacer {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.live-controls {
+		gap: var(--spacing);
+	}
+
+	/* Cloud row (§2.3): the egress pill for the whole session. */
+	.live-cloud-row {
+		display: flex;
+		flex: none;
+		align-items: center;
+		min-height: 1.5rem;
+		margin-block-start: var(--spacing);
+		padding-inline-start: calc(var(--spacing) * 2);
+	}
+
+	/* State row (§2.3): quiet line for paused / stale / empty; heading + body + buttons for errors. */
+	.live-state-row {
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		gap: calc(var(--spacing) * 2);
+	}
+
+	.live-state-row:not(:empty) {
+		margin-block-start: var(--spacing);
+	}
+
+	.live-quiet {
+		margin: 0;
+		padding-inline: calc(var(--spacing) * 2);
+		font-size: var(--text-body);
+		line-height: var(--text-body--line-height);
+		color: var(--color-text-secondary);
+	}
+
+	.live-remember {
+		display: inline-flex;
+		align-items: center;
+		gap: calc(var(--spacing) * 2);
+		padding-inline: calc(var(--spacing) * 2);
+		font-size: var(--text-body);
+		color: var(--color-text-secondary);
+	}
+
+	.live-remember input {
+		margin: 0;
+		accent-color: var(--color-accent);
+	}
+
+	.live-list {
+		flex: 0 1 auto;
+		margin-block-start: var(--spacing);
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-overlay-pressed) transparent;
+	}
+
+	.live-list:empty {
+		display: none;
+	}
+
+	.live-list ::selection {
+		background: var(--color-overlay-selected);
+	}
+}

@@ -289,7 +289,7 @@ export class TranslationService<Ctx> {
 	}
 
 	/** A Live session over the pipeline (GLIM-56/58 feed it frames). Close it when done. */
-	openLive(onEvent: PipelineListener): LivePipelineSession {
+	openLive(onEvent: PipelineListener, options: { readonly localOnly?: boolean } = {}): LivePipelineSession {
 		const settings = this.#opts.settings();
 		const session = new LivePipelineSession({
 			pipeline: this.pipeline,
@@ -297,6 +297,7 @@ export class TranslationService<Ctx> {
 			target: settings.language.target,
 			sources: settings.language.sources,
 			private: this.#private,
+			...(options.localOnly ? { localOnly: true } : {}),
 			onEvent,
 			onClose: () => this.#sessions.delete(session),
 		});

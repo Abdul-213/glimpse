@@ -292,6 +292,29 @@ export function configureOverlayWindow(hwnd: Pointer): number {
 	return Number(u.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
 }
 
+export const WS_EX_NOACTIVATE = 0x08000000;
+
+/**
+ * Docked Live popup ex-style (GLIM-79, live-popup.md §7, §12.1): tool window (out of the
+ * taskbar and Alt+Tab) and WS_EX_NOACTIVATE, so clicking its controls doesn't take focus from
+ * the game. Pure.
+ */
+export const livePopupExStyle = (exStyle: number): number => overlayExStyle(exStyle) | WS_EX_NOACTIVATE;
+
+/**
+ * Make an Electrobun HWND the Live popup: `livePopupExStyle` + HWND_TOPMOST. WebView2's child
+ * HWND may still take focus on click (spikes/window-materials check 8); the controller restores
+ * the game's focus if it does. Returns the ex-style read back.
+ */
+export function configureLivePopupWindow(hwnd: Pointer): number {
+	const u = openUser32();
+	const before = Number(u.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+	const after = livePopupExStyle(before);
+	if (after !== before) u.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, after);
+	raiseTopmost(hwnd, SWP_FRAMECHANGED);
+	return Number(u.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+}
+
 /** Re-assert HWND_TOPMOST without activating (the Snip popup above the results layer, spec 9.1). */
 export function raiseTopmost(hwnd: Pointer, extraFlags = 0): void {
 	openUser32().SetWindowPos(

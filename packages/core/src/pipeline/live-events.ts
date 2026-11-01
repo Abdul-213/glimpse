@@ -5,6 +5,7 @@
 
 import type { Rect } from "../geometry.ts";
 import type { LiveBlockUpdate } from "../popup/live-diff.ts";
+import type { ProviderRef } from "../providers/provenance.ts";
 
 /** live-popup.md §4, the states the session itself knows about. */
 export type LiveStatus =
@@ -39,7 +40,37 @@ export interface LiveError {
 	readonly message: string;
 }
 
+/** Where this session's text goes (the popup's local indicator or cloud row, live-popup.md §2.3). */
+export interface LiveSessionProviders {
+	/** The cloud provider the session sends to, or null when everything stays on this device. */
+	readonly cloud: ProviderRef | null;
+	/** "Use on-device" was chosen at consent: cloud providers are skipped for this session. */
+	readonly localOnly: boolean;
+}
+
 export type LiveSessionEvent =
+	/**
+	 * A region was pinned (GLIM-79): the popup opens docked to `region` (global logical). Comes
+	 * before the session's first `status`, and again with the same id once consent is answered.
+	 */
+	| {
+			readonly type: "opened";
+			readonly sessionId: string;
+			readonly region: Rect;
+			readonly providers: LiveSessionProviders;
+			readonly private: boolean;
+	  }
+	/**
+	 * A cloud provider would be used (live-popup.md L10, `liveCloudConsent`): nothing is captured
+	 * until the popup's question is answered (`LiveService.answerConsent`).
+	 */
+	| {
+			readonly type: "consent";
+			readonly sessionId: string;
+			readonly providers: readonly ProviderRef[];
+			readonly canRemember: boolean;
+			readonly reason: "cloud-ocr" | "cloud-translation";
+	  }
 	| {
 			readonly type: "status";
 			readonly sessionId: string;

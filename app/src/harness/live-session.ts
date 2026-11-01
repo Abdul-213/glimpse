@@ -7,14 +7,20 @@ import {
 	type BlockGrouper,
 	type BlockLanguageDetector,
 	type CaptureSource,
+	heldBlocks,
+	initialLivePopupState,
 	type LanguageCode,
+	LIVE_HOLD_MS,
 	LivePipelineSession,
+	type LivePopupState,
 	LiveRunner,
 	type LiveRunnerStats,
 	type LiveSessionEvent,
 	type LiveTrace,
+	livePopupSummary,
 	type OcrProvider,
 	type Rect,
+	reduceLivePopup,
 	type Timers,
 	TranslationCaches,
 	TranslationPipeline,
@@ -51,6 +57,11 @@ export interface LiveSessionReport {
 	readonly traces: readonly (LiveTrace & { readonly t: number })[];
 	/** Live session events with `t` (no screen text beyond what the scripted OCR returned). */
 	readonly events: readonly (LiveSessionEvent & { readonly t: number })[];
+	/**
+	 * The docked popup's state after each change (GLIM-79): the events folded through the core
+	 * reducer, with the 600 ms hold timed on the session clock. One summary line per state.
+	 */
+	readonly popup: readonly { readonly t: number; readonly state: string }[];
 	/** OCR calls the provider actually received. */
 	readonly ocrCalls: number;
 	readonly stats: LiveRunnerStats;
@@ -90,6 +101,29 @@ export async function runLiveSession(
 	const t0 = timers.now();
 	const traces: (LiveTrace & { t: number })[] = [];
 	const events: (LiveSessionEvent & { t: number })[] = [];
+	const popup: { t: number; state: string }[] = [];
+	let popupState: LivePopupState = initialLivePopupState;
+	const fold = (action: Parameters<typeof reduceLivePopup>[1]) => {
+		const prev = popupState;
+		popupState = reduceLivePopup(prev, action);
+		if (popupState === prev) return;
+		const line = livePopupSummary(popupState);
+		if (popup.at(-1)?.state !== line) popup.push({ t: timers.now() - t0, state: line });
+		for (const h of heldBlocks(prev, popupState)) {
+			timers.setTimeout(() => fold({ type: "holdExpired", ...h }), LIVE_HOLD_MS);
+		}
+	};
+	const onSessionEvent = (e: LiveSessionEvent) => {
+		events.push({ ...e, t: timers.now() - t0 });
+		fold({ type: "session", event: e });
+	};
+	onSessionEvent({
+		type: "opened",
+		sessionId: "harness",
+		region: rect,
+		providers: { cloud: null, localOnly: false },
+		private: options.private ?? false,
+	});
 	let ocrCalls = 0;
 	const counted = {
 		process: (...args: Parameters<LivePipelineSession["process"]>) => {
@@ -107,7 +141,7 @@ export async function runLiveSession(
 		diffThreshold: options.diffThreshold,
 		stabilityMs: options.stabilityMs,
 		perfNow: () => performance.now(),
-		onEvent: (e) => events.push({ ...e, t: timers.now() - t0 }),
+		onEvent: onSessionEvent,
 		onTrace: (tr) => traces.push({ ...tr, t: tr.at - t0 }),
 	});
 	const cpu0 = options.cpuMicros?.() ?? null;
@@ -132,6 +166,7 @@ export async function runLiveSession(
 		params: { fps: stats.loop.fps, diffThreshold: options.diffThreshold, stabilityMs: options.stabilityMs },
 		traces,
 		events,
+		popup,
 		ocrCalls,
 		stats,
 		cpuMsPerGrab: cpu0 !== null && cpu1 !== null ? (cpu1 - cpu0) / 1000 / Math.max(1, stats.grabs) : null,
@@ -168,8 +203,11 @@ export function liveSessionLines(r: LiveSessionReport, frameName?: (t: number) =
 						)
 						.join(""),
 			);
-		else if (e.final) out.push(`  [${Math.round(e.t)}] translation #${e.frameSeq} ${e.id} → ${JSON.stringify(e.text)}`);
+		else if (e.type === "translation" && e.final)
+			out.push(`  [${Math.round(e.t)}] translation #${e.frameSeq} ${e.id} → ${JSON.stringify(e.text)}`);
 	}
+	out.push("  popup states (GLIM-79; * = marked in the latest change set):");
+	for (const p of r.popup) out.push(`  [${String(Math.round(p.t)).padStart(5)}] ${p.state}`);
 	const s = r.stats;
 	out.push(
 		`  ${s.grabs} grabs (${s.loop.newFrames} new): ${s.decisions.first} first, ${s.decisions.same} same, ` +

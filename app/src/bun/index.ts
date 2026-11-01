@@ -53,6 +53,8 @@ import { fileUpdateStateStore, UpdateChecker } from "./services/update-check.ts"
 import { createTray } from "./tray.ts";
 import { finishSetupNotice } from "./tray-menu.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
+import { ElectrobunLivePopupWindow } from "./windows/live-popup.ts";
+import { LivePopupController, liveViewInit } from "./windows/live-popup-controller.ts";
 import { OnboardingWindow } from "./windows/onboarding.ts";
 import { electrobunOverlayFactory, screenProbe } from "./windows/picker.ts";
 import { PickerController, pickerSettingsFrom } from "./windows/picker-controller.ts";
@@ -131,7 +133,11 @@ const translation: TranslationService<AppProviderContext> = new TranslationServi
 	readinessOf: (from, to) => translationPacks.readiness(from, to),
 	// GLIM-109: GLIM-56 grouping and GLIM-21 detection over ELD.
 	...stages,
-	onPrivateChange: (on) => tray.update({ private: on }),
+	onPrivateChange: (on) => {
+		tray.update({ private: on });
+		// `livePopup` is declared below; Private only changes once the app runs.
+		livePopup?.privateChanged(on);
+	},
 });
 translation.startTimers();
 void loadPackCatalogue(bergamotPacks, catalogueCacheFile(modelsDir), { refresh: true, log: translationLog });
@@ -377,7 +383,18 @@ const liveLog = log.child("live");
 const frameNatives = frameNativesFor(readDisplays);
 const live = new LiveService({
 	capture: screen,
-	openPipeline: () => translation.openLive(() => {}),
+	openPipeline: (o) => translation.openLive(() => {}, o),
+	// GLIM-79: the cloud consent (live-popup.md L10) and the popup's cloud row.
+	providers: () => {
+		const ref = (p: { info: { id: string; kind: "local" | "cloud"; name: string } } | null | undefined) =>
+			p ? { id: p.info.id, kind: p.info.kind, name: p.info.name } : null;
+		return { ocr: ref(translation.ocr), translation: ref(translation.chain[0]) };
+	},
+	rememberConsent: (id) => {
+		const remembered = appSettings.current.cloud.liveConsent;
+		if (!remembered.includes(id)) void appSettings.update({ cloud: { liveConsent: [...remembered, id] } });
+	},
+	private: () => translation.private,
 	settings: () => appSettings.current,
 	frame: () =>
 		new PinnedFrame({
@@ -390,6 +407,28 @@ const live = new LiveService({
 	// `tray` is declared below; the state only changes once a session runs.
 	onState: (state) => tray.update({ live: state }),
 	perfNow: () => performance.now(),
+});
+// The docked Live popup (GLIM-79): one hidden window created now, reused for every session.
+let livePopup: LivePopupController | null = null;
+const livePopupWindow = new ElectrobunLivePopupWindow({
+	exclusion,
+	init: liveViewInit(platform),
+	controller: () => livePopup,
+	displays: readDisplays,
+	log: (message) => liveLog.info(message),
+});
+livePopup = new LivePopupController({
+	window: livePopupWindow,
+	live,
+	displays: readDisplays,
+	settings: () => ({ reducedMotion: appSettings.current.appearance.motion === "reduced", uiDir: "ltr" }),
+	setPrivate: (on) => translation.setPrivate(on),
+	repin: () => picker?.open("live"),
+	focus: pickerNatives.focus,
+	// Manual Ctrl/⌘C only: Live never copies by itself (GLIM-71).
+	clipboard: { writeText: (text) => Utils.clipboardWriteText(text) },
+	eol: platform === "windows" ? "\r\n" : "\n",
+	log: liveLog.child("popup"),
 });
 picker.onRegionSelected((region) => {
 	if (region.mode === "snip") {
@@ -467,6 +506,8 @@ commands.handle("app.quit", () => {
 	popupWindow.close();
 	picker?.dispose();
 	pickerNatives.sampler.stop();
+	livePopup?.dispose();
+	livePopupWindow.close();
 	live.dispose();
 	capture.source.dispose();
 	logs.file.close();

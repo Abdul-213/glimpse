@@ -115,6 +115,12 @@ export interface MacPickerBinding {
 	focusRestore(): boolean;
 	/** Level, collection behaviour etc. for a picker overlay. Returns the collection behaviour. Throws. */
 	configureOverlay(nsWindow: Pointer): number;
+	/**
+	 * The docked Live popup (GLIM-79, live-popup.md §7, §12.1): re-class to a non-activating
+	 * `NSPanel`, level 101, all Spaces + full-screen auxiliary, `sharingType = none`, first click
+	 * goes through. Returns 1 when the panel swap happened, 0 when it fell back to a plain window.
+	 */
+	configureLivePopup(nsWindow: Pointer): number;
 	setLevel(nsWindow: Pointer, level: number): void;
 	/**
 	 * `size` x `size` px at (x, y) of a running stream's latest frame (stream px), RGBA into
@@ -267,6 +273,13 @@ class LibGlimpse
 		const r = this.sym.glim_window_configure(nsWindow, 0, ptr(behavior));
 		if (r !== 0) this.fail("configuring the picker overlay", r);
 		return Number(behavior[0] ?? 0n);
+	}
+
+	configureLivePopup(nsWindow: Pointer): number {
+		const out = new BigInt64Array(1);
+		const r = this.sym.glim_window_configure(nsWindow, 1, ptr(out));
+		if (r !== 0) this.fail("configuring the Live popup panel", r);
+		return Number(out[0] ?? 0n);
 	}
 
 	setLevel(nsWindow: Pointer, level: number): void {

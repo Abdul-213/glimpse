@@ -4,9 +4,11 @@
 export * from "./clipboard.ts";
 // Cloud-in-use pill copy and footer wrap (GLIM-80).
 export * from "./egress.ts";
-// Live (live-popup.md §5): block diffing (GLIM-58). placeLivePopup, stripLayout, staleLabel and
-// announcementText join it with GLIM-79/81.
+// Live (live-popup.md): block diffing (GLIM-58), docking and strip rules, and the popup
+// state reducer (GLIM-79).
 export * from "./live-diff.ts";
+export * from "./live-layout.ts";
+export * from "./live-state.ts";
 export * from "./placement.ts";
 // Detection boxes on screen under the Snip popup (GLIM-115).
 export * from "./results-layer.ts";

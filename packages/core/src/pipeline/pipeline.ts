@@ -82,6 +82,12 @@ export interface RunOptions {
 	 * `BlockIdTracker`); the popup updates blocks in place and detection hysteresis keys on it.
 	 */
 	readonly blockIds?: { assign(blocks: readonly OcrBlock[]): readonly OcrBlock[] };
+	/**
+	 * Live, "Use on-device" at the cloud consent (live-popup.md L10): cloud translators are left
+	 * out of the chain for this run. (Cloud OCR has no local stand-in yet; Live doesn't offer
+	 * this answer when the OCR provider is a cloud one.)
+	 */
+	readonly localOnly?: boolean;
 }
 
 export interface BlockTranslateOptions extends Omit<RunOptions, "regions" | "memo" | "blockIds" | "mode"> {
@@ -252,9 +258,15 @@ export class TranslationPipeline {
 		return { translations, packs: plan.packs, done, total, translators: [...translators.values()] };
 	}
 
+	/** The translation chain for a run: without cloud providers when `localOnly` (Live "Use on-device"). */
+	#chainFor(opts: { readonly localOnly?: boolean }): readonly TranslationProvider[] {
+		const chain = this.#deps.chain();
+		return opts.localOnly ? chain.filter((p) => p.info.kind !== "cloud") : chain;
+	}
+
 	#started(opts: RunOptions): void {
 		const ocr = this.#deps.ocr();
-		const translation = this.#deps.chain().find((p) => p.status.state === "ready") ?? null;
+		const translation = this.#chainFor(opts).find((p) => p.status.state === "ready") ?? null;
 		const ref = (p: { info: ProviderRef } | null): ProviderRef | null =>
 			p ? { id: p.info.id, kind: p.info.kind, name: p.info.name } : null;
 		this.#emit(opts, {
@@ -361,7 +373,7 @@ export class TranslationPipeline {
 		const plan = planTranslation({
 			blocks,
 			to: opts.target,
-			chain: this.#deps.chain(),
+			chain: this.#chainFor(opts),
 			readinessOf: this.#readinessOf,
 		});
 		const marked = blocks.map((b) => (plan.waiting.has(b.id) ? { ...b, waitingForPack: true } : b));

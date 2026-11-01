@@ -1,0 +1,250 @@
+// Live popup states for the preview and the committed screenshots (live-popup.md §4 IDs).
+// Every state is built the way the app builds it: scripted Live session events folded through
+// the real `reduceLivePopup`, so a screenshot shows what main would push.
+import {
+	type BlockClass,
+	initialLivePopupState,
+	type LiveBlockUpdate,
+	type LivePopupAction,
+	type LivePopupState,
+	type LiveSessionEvent,
+	languageCode,
+	type PopupSide,
+	type ProviderRef,
+	rect,
+	reduceLivePopup,
+} from "@glimpse/core";
+import type { LiveStateMessage } from "../../src/shared/live-rpc.ts";
+
+const S = "preview";
+const NOW = Date.UTC(2026, 10, 1, 12, 0, 0);
+const GOOGLE: ProviderRef = { id: "cloud:google-translate-v2", kind: "cloud", name: "Google Cloud Translation" };
+
+type B = readonly [id: string, source: string, translation: string | null, cls?: BlockClass, lang?: string];
+
+const up = (b: B, order: number, changed = false): LiveBlockUpdate => ({
+	id: b[0],
+	order,
+	cls: b[3] ?? "translate",
+	lang: b[4] === undefined ? languageCode("es") : b[4] === "" ? null : languageCode(b[4]),
+	direction: "ltr",
+	box: rect(0, order * 24, 300, 22),
+	source: b[1],
+	translation: b[2],
+	failed: false,
+	waitingForPack: false,
+	changed,
+});
+
+const opened = (cloud: ProviderRef | null = null, priv = false): LiveSessionEvent => ({
+	type: "opened",
+	sessionId: S,
+	region: rect(0, 0, 800, 120),
+	providers: { cloud, localOnly: false },
+	private: priv,
+});
+const status = (
+	s: Extract<LiveSessionEvent, { type: "status" }>["status"],
+	over: Partial<Extract<LiveSessionEvent, { type: "status" }>> = {},
+): LiveSessionEvent => ({
+	type: "status",
+	sessionId: S,
+	status: s,
+	reason: null,
+	error: null,
+	stale: s === "paused" || s === "error",
+	capturedAt: NOW - 4 * 60_000,
+	at: NOW,
+	...over,
+});
+let seq = 0;
+const frame = (blocks: readonly B[], changeSet: readonly string[] = [], changed: readonly string[] = changeSet) => {
+	seq++;
+	const ev: LiveSessionEvent = {
+		type: "frame",
+		sessionId: S,
+		frameSeq: seq,
+		upserts: blocks.map((b, i) => up(b, i, changed.includes(b[0]))),
+		removes: [],
+		order: blocks.map((b) => b[0]),
+		changeSet,
+		capturedAt: NOW - 4 * 60_000,
+		reused: false,
+		region: rect(0, 0, 800, 120),
+		image: { width: 1600, height: 240 },
+	};
+	return ev;
+};
+const tr = (id: string, text: string): LiveSessionEvent => ({
+	type: "translation",
+	sessionId: S,
+	frameSeq: seq,
+	id,
+	text,
+	final: true,
+	failed: false,
+});
+
+const DOOR: B = ["L1", "La puerta del norte está cerrada.", "The north door is locked."];
+const GUARD: B = ["L2", "Habla primero con el guardia.", "Talk to the guard first."];
+const KEY: B = ["L2", "Busca la llave en la torre.", "Look for the key in the tower."];
+
+/** The first fill, then a changed second line: the main path. */
+const running = (cloud: ProviderRef | null = null, priv = false): LiveSessionEvent[] => {
+	seq = 0;
+	return [opened(cloud, priv), status("starting"), frame([DOOR, GUARD]), status("live")];
+};
+const changed = (): LiveSessionEvent[] => [...running(), frame([DOOR, KEY], ["L2"], ["L2"]), tr("L2", KEY[2] ?? "")];
+
+export interface LiveScenario {
+	readonly name: string;
+	readonly note: string;
+	readonly width: number;
+	readonly side?: PopupSide;
+	readonly maxHeight?: number;
+	readonly events: () => readonly (LiveSessionEvent | LivePopupAction)[];
+	readonly focused?: boolean;
+}
+
+export const LIVE_SCENARIOS: readonly LiveScenario[] = [
+	{
+		name: "l0-first-capture",
+		note: "Pinned, first capture: source pending, no marks",
+		width: 400,
+		events: () => {
+			seq = 0;
+			return [
+				opened(),
+				status("starting"),
+				frame([
+					["L1", DOOR[1], null],
+					["L2", GUARD[1], null],
+				]),
+			];
+		},
+	},
+	{
+		name: "l1-running",
+		note: "Running, local, wide strip",
+		width: 400,
+		events: () => [...running(), frame([DOOR, KEY], ["L2"]), tr("L2", KEY[2] ?? "")],
+	},
+	{ name: "l4-changed", note: "Changed block: resting tint + mark", width: 400, events: changed },
+	{
+		name: "l4-holding",
+		note: "Changed block within 600 ms: old translation held, no mark yet",
+		width: 400,
+		events: () => [...running(), frame([DOOR, [KEY[0], KEY[1], null]], ["L2"])],
+	},
+	{
+		name: "l4-pending-source",
+		note: "Hold ran out: new source in source style, marked",
+		width: 400,
+		events: () => [
+			...running(),
+			frame([DOOR, [KEY[0], KEY[1], null]], ["L2"]),
+			{ type: "holdExpired", id: "L2", frameSeq: seq },
+		],
+	},
+	{ name: "l3-updating", note: "Processing over 1 s", width: 400, events: () => [...running(), status("updating")] },
+	{
+		name: "l5-paused",
+		note: "Paused, stale: hollow dot, dimmed text, age",
+		width: 400,
+		events: () => [...changed(), status("paused", { reason: "user" })],
+	},
+	{
+		name: "l7-empty",
+		note: "No text for 5 s",
+		width: 400,
+		events: () => [...running(), { ...frame([]), removes: ["L1", "L2"] } as LiveSessionEvent, status("empty")],
+	},
+	{
+		name: "l8-private-regular",
+		note: "Private on, regular width (320)",
+		width: 320,
+		events: () => [...running(null, true)],
+	},
+	{
+		name: "l9-cloud",
+		note: "Cloud in use: the egress row for the whole session",
+		width: 400,
+		events: () => [...running(GOOGLE), frame([DOOR, KEY], ["L2"]), tr("L2", KEY[2] ?? "")],
+	},
+	{
+		name: "l10-consent",
+		note: "First cloud Live session: asks before anything is captured",
+		width: 400,
+		focused: true,
+		events: () => [
+			opened(GOOGLE),
+			{ type: "consent", sessionId: S, providers: [GOOGLE], canRemember: true, reason: "cloud-translation" },
+		],
+	},
+	{
+		name: "l16-ocr-stopped",
+		note: "Error, paused: heading, body, recovery first",
+		width: 400,
+		events: () => [...changed(), status("error", { error: { kind: "ocrFailed", message: "engine exited" } })],
+	},
+	{
+		name: "l-gone",
+		note: "Area no longer on a screen",
+		width: 400,
+		events: () => [...changed(), status("error", { error: { kind: "areaGone", message: "display removed" } })],
+	},
+	{
+		name: "l17-locked",
+		note: "Auto-paused while the screen was locked",
+		width: 400,
+		events: () => [...changed(), status("paused", { reason: "locked" })],
+	},
+	{
+		name: "l21-compact",
+		note: 'Compact (240): icon-only local indicator, no " · Private"',
+		width: 240,
+		events: () => [
+			opened(null, true),
+			status("starting"),
+			frame([["L1", "¿Continuar?", "Continue?"]]),
+			status("paused", { reason: "user", capturedAt: NOW - 10_000 }),
+		],
+	},
+	{
+		name: "l20-chat-side",
+		note: "Chat pane docked to the side; neutral 21:02 never flashes",
+		width: 360,
+		side: "inline-end",
+		maxHeight: 260,
+		events: () => {
+			seq = 0;
+			const lines: B[] = [
+				["C1", "Lucía: ¿vienes esta noche?", "Lucía: are you coming tonight?"],
+				["C2", "21:02", null, "neutral", ""],
+				["C3", "Pablo: voy de camino", "Pablo: I'm on my way"],
+			];
+			const added: B = ["C4", "Lucía: trae el libro, por favor", "Lucía: bring the book, please"];
+			return [opened(), status("starting"), frame(lines), status("live"), frame([...lines, added], ["C4"])];
+		},
+	},
+];
+
+export function liveScenarioState(s: LiveScenario): LivePopupState {
+	let state = initialLivePopupState;
+	for (const e of s.events()) {
+		const own = ["session", "holdExpired", "private", "skipped"].includes(e.type);
+		state = reduceLivePopup(state, own ? (e as LivePopupAction) : { type: "session", event: e as LiveSessionEvent });
+	}
+	return state;
+}
+
+export function liveScenarioMessage(s: LiveScenario): LiveStateMessage {
+	return {
+		sessionId: S,
+		layout: { side: s.side ?? "above", width: s.width, maxHeight: s.maxHeight ?? 360 },
+		state: liveScenarioState(s),
+		reducedMotion: true,
+		now: NOW,
+		focused: s.focused ?? false,
+	};
+}

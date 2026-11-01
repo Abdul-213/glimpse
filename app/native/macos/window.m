@@ -2,6 +2,8 @@
 // NSWindow*; AppKit must be used on the main thread, so every call hops there.
 // Ported from spikes/capture-exclusion/native/macos/glimcapture.m.
 #import <AppKit/AppKit.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #include <dispatch/dispatch.h>
 #include <pthread.h>
 
@@ -94,7 +96,81 @@ GLIM_EXPORT int32_t glim_window_number(void *window, uint32_t *windowNumberOut) 
 
 // ---- picker overlay windows (GLIM-91, region-picker spec 9.1) ---------------------
 
-enum { GLIM_ROLE_OVERLAY = 0 };
+enum { GLIM_ROLE_OVERLAY = 0, GLIM_ROLE_LIVE_POPUP = 1 };
+
+// ---- docked Live popup: non-activating panel (GLIM-79, live-popup.md §7, §12.1) ----------
+//
+// Electrobun creates `ElectrobunWindow : NSWindow`, and NSWindowStyleMaskNonactivatingPanel
+// only works on NSPanel. The instance is re-classed to `GlimLivePanel : NSPanel` (the trick
+// electron-panel-window and tauri-nspanel use; spikes/window-materials FINDINGS §4), only when
+// the instance sizes match and the object isn't KVO-swizzled. Clicking a control then acts
+// without activating Glimpse, so the game keeps keyboard focus. The panel can still become key
+// when Bun activates it on purpose (consent, Focus Live popup).
+@interface GlimLivePanel : NSPanel
+@end
+@implementation GlimLivePanel
+- (BOOL)canBecomeKeyWindow {
+  return YES;
+}
+- (BOOL)canBecomeMainWindow {
+  return NO;
+}
+@end
+
+// WKWebView swallows the first click on a non-key window unless acceptsFirstMouse: says YES.
+static BOOL glim_accepts_first_mouse(id self, SEL _cmd, NSEvent *event) { return YES; }
+
+static void glim_first_mouse_everywhere(NSView *view) {
+  if (!view) return;
+  Class wk = NSClassFromString(@"WKWebView");
+  if (wk && [view isKindOfClass:wk]) {
+    // A dynamic subclass for this instance's class only, so other webviews keep the default.
+    Class cls = object_getClass(view);
+    NSString *name = [NSString stringWithFormat:@"GlimFirstMouse_%@", NSStringFromClass(cls)];
+    Class sub = NSClassFromString(name);
+    if (!sub) {
+      sub = objc_allocateClassPair(cls, name.UTF8String, 0);
+      if (sub) {
+        class_addMethod(sub, @selector(acceptsFirstMouse:), (IMP)glim_accepts_first_mouse, "c@:@");
+        objc_registerClassPair(sub);
+      }
+    }
+    if (sub && class_getInstanceSize(sub) == class_getInstanceSize(cls)) object_setClass(view, sub);
+  }
+  for (NSView *child in view.subviews) glim_first_mouse_everywhere(child);
+}
+
+static int64_t glim_make_live_panel(NSWindow *w) {
+  int64_t swapped = 0;
+  Class before = object_getClass(w);
+  if (![w isKindOfClass:[NSPanel class]] && [NSStringFromClass(before) isEqualToString:@"ElectrobunWindow"] &&
+      class_getInstanceSize(before) == class_getInstanceSize([GlimLivePanel class])) {
+    object_setClass(w, [GlimLivePanel class]);
+    swapped = 1;
+  }
+  if ([w isKindOfClass:[NSPanel class]]) {
+    NSPanel *p = (NSPanel *)w;
+    p.styleMask = p.styleMask | NSWindowStyleMaskNonactivatingPanel;
+    p.becomesKeyOnlyIfNeeded = YES;
+    p.floatingPanel = YES;
+    p.worksWhenModal = YES;
+    SEL sel = NSSelectorFromString(@"_setPreventsActivation:");
+    if ([p respondsToSelector:sel]) ((void (*)(id, SEL, BOOL))objc_msgSend)(p, sel, YES);
+  }
+  // Pop-up menu level (101), like the Snip popup and the pinned frame.
+  w.level = NSPopUpMenuWindowLevel;
+  NSWindowCollectionBehavior b = w.collectionBehavior;
+  b &= ~(NSWindowCollectionBehaviorFullScreenPrimary | NSWindowCollectionBehaviorMoveToActiveSpace |
+         NSWindowCollectionBehaviorManaged);
+  b |= NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorIgnoresCycle |
+       NSWindowCollectionBehaviorFullScreenAuxiliary;
+  w.collectionBehavior = b;
+  w.hidesOnDeactivate = NO;
+  w.movable = NO;
+  w.sharingType = NSWindowSharingNone;
+  glim_first_mouse_everywhere(w.contentView);
+  return swapped;
+}
 
 typedef struct {
   void *window;
@@ -114,6 +190,11 @@ static void glim_configure_do(void *ctx) {
   NSWindow *w = glim_as_window(c->window);
   if (!w) {
     c->status = GLIM_E_NOT_A_WINDOW;
+    return;
+  }
+  if (c->role == GLIM_ROLE_LIVE_POPUP) {
+    c->behavior = glim_make_live_panel(w);
+    c->status = GLIM_OK;
     return;
   }
   if (c->role != GLIM_ROLE_OVERLAY) {
@@ -163,7 +244,8 @@ static int32_t glim_overlay_on_main(glim_overlay_call *c, dispatch_function_t fn
   return c->status;
 }
 
-// Configure an Electrobun NSWindow for a role (0 = picker overlay): level, collection
+// Configure an Electrobun NSWindow for a role (1 = docked Live popup: non-activating panel,
+// *behaviorOut = 1 when the NSPanel swap happened; 0 = picker overlay): level, collection
 // behaviour, shadow, movability, mouse-moved events, sharingType = none. Call while the
 // window is still hidden. *behaviorOut (optional) = the collection behaviour read back.
 GLIM_EXPORT int32_t glim_window_configure(void *window, int32_t role, int64_t *behaviorOut) {
