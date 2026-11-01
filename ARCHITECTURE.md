@@ -38,7 +38,9 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 ├── packages/
 │   ├── core/                    @glimpse/core: pure TypeScript domain logic (see section 4)
 │   ├── providers/               @glimpse/providers: provider implementations (Bun APIs, onnxruntime, WASM; no Electrobun)
-│   │   └── src/ocr/paddle/      PaddleOCR PP-OCRv5 on onnxruntime-node: engine (pure) + inference Worker + OcrProvider (GLIM-46)
+│   │   ├── src/ocr/paddle/      PaddleOCR PP-OCRv5 on onnxruntime-node: engine (pure) + inference Worker + OcrProvider (GLIM-46)
+│   │   ├── src/google/          shared Google Cloud plumbing: key from SecretStore, fetch + error mapping (GLIM-22)
+│   │   └── src/ocr/google-vision/  Google Cloud Vision OcrProvider (cloud, opt-in; GLIM-60)
 │   └── ui/                      @glimpse/ui: shared Solid components + Tailwind theme from DESIGN.md
 │       ├── scripts/             generate-tokens.ts: DESIGN.md frontmatter -> src/styles/tokens.css
 │       └── src/                 components/, styles/theme.css, styles/tokens.css (generated), platform.ts
@@ -199,6 +201,16 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 - **Provenance on every result** (`Provenance`: id, name, kind, model revision, options hash).
   The cloud indicator reads it; the cache keys on it; only the cache sets `remembered`.
 - **Errors** share one vocabulary (`ProviderErrorCode`), plain-data `ProviderErrorInfo` for RPC.
+- **Cloud providers (GLIM-22)** live in `packages/providers/src/{ocr,translation}/google-*`
+  over `src/google/common.ts`: one Google Cloud key (`secretId: "google-cloud"`) read from the
+  `SecretStore` port per request, plain `fetch` from Bun with the key in `x-goog-api-key`
+  (never in a URL), and Google's errors (`API_KEY_INVALID`, `SERVICE_DISABLED`,
+  `BILLING_DISABLED`, quota, rate limit) mapped to core codes plus a `GoogleProblem` with fix-it
+  copy. `init()` only checks a key is saved (`ready` / `needs-key`), no network. Vision sends
+  the region as a metadata-free PNG; its per-block `detectedLanguages` become
+  `OcrBlock.languageHints`, which GLIM-21 detection uses as a prior (never rules 2–4). Tests use
+  a `FakeFetch` (`@glimpse/providers/testing`) with fixtures in `test/fixtures/google/`; the
+  real-API test runs only with `GLIMPSE_GOOGLE_KEY`.
 - **Language codes** at the interface are BCP-47 `LanguageCode`s. A provider maps to its own
   scheme at its edge through a `LanguageCodeMap` (`providers/language-map.ts`); GLIM-39 supplies
   the real FLORES/Bergamot/Google tables.

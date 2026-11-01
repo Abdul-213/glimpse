@@ -10,6 +10,10 @@
 //            writing this script is in the detector's top 3, else skip
 //   *        decided language == target -> keep it, don't translate
 //
+// OCR language hints (Google Vision's per-block `detectedLanguages`, GLIM-22) are a prior,
+// never the decision: they never trigger rules 2-4. They stand in for detector candidates
+// when the detector has none for a block, and in 5c they are tried first.
+//
 // With no subset ("translate everything") detection only picks the source language: rules
 // 1, 3, 4, 5a, 5b, then the detector's top-1.
 
@@ -62,6 +66,8 @@ export interface DetectInput {
 	readonly text: string;
 	/** OCR confidence, 0..1. */
 	readonly confidence: number;
+	/** Languages the OCR engine reported for the block, best first (`OcrBlock.languageHints`). */
+	readonly hints?: readonly { readonly lang: LanguageCode; readonly confidence: number }[];
 }
 
 /** Rule 5a memory: decisions by detection-copy key (the Live session's text cache). */
@@ -76,6 +82,8 @@ type FirstPass =
 			readonly key: string;
 			readonly script: string | null;
 			readonly candidates: readonly DetectorCandidate[];
+			/** OCR hints consistent with the script, best first. */
+			readonly hinted: readonly DetectorCandidate[];
 	  };
 
 /** Decide every block of one capture. Returns decisions by block id. */
@@ -134,7 +142,12 @@ function firstPass(block: DetectInput, o: DetectOptions): FirstPass {
 	const unique = script ? uniqueScriptLanguage(script) : null;
 	const consistent = (c: DetectorCandidate) => !script || languageUsesScript(c.lang, script);
 	const raw = unique ? null : (o.detector?.detect(copy) ?? null);
-	const candidates = raw ? raw.candidates.filter(consistent) : [];
+	const detected = raw ? raw.candidates.filter(consistent) : [];
+	const hinted: DetectorCandidate[] = (block.hints ?? [])
+		.map((h) => ({ lang: h.lang, score: Math.max(0, Math.min(1, h.confidence)) }))
+		.filter(consistent);
+	// Hints only fill in for a detector that has nothing to say (rule 4 still needs `raw`).
+	const candidates = detected.length > 0 ? detected : hinted;
 
 	// Rule 2: nobody in the subset writes this script.
 	if (script && o.subset.length > 0 && !o.subset.some((l) => languageUsesScript(l, script))) {
@@ -147,7 +160,7 @@ function firstPass(block: DetectInput, o: DetectOptions): FirstPass {
 	if (top && raw?.reliable && top.score >= o.tau && letters >= o.minLetters && block.confidence >= o.minOcrConfidence) {
 		return { done: decision(top.lang, top.score, "4", o) };
 	}
-	return { done: null, key: textKey(copy), script, candidates };
+	return { done: null, key: textKey(copy), script, candidates, hinted };
 }
 
 function uncertain(
@@ -173,7 +186,8 @@ function uncertain(
 	// Subset languages the detector can't return can't be ruled out, so they count as plausible.
 	const known = new Set(o.detector?.languages ?? []);
 	const writers = o.subset.filter((l) => !f.script || languageUsesScript(l, f.script));
-	for (const c of top3) {
+	// The OCR engine's own guess first (a prior), then the detector's top 3.
+	for (const c of [...f.hinted.slice(0, 1), ...top3]) {
 		if (writers.some((w) => inSubset(c.lang, [w]))) return decision(c.lang, c.score, "5c", o);
 	}
 	const undetectable = writers.find((w) => ![...known].some((k) => inSubset(k, [w])));

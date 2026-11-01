@@ -32,6 +32,7 @@ import { ModelsSettings } from "./services/models/models-settings.ts";
 import { bundledModelsDir, catalogueCacheFile, modelsRoot } from "./services/models/paths.ts";
 import { createPickerNatives } from "./services/picker/index.ts";
 import { type AppProviderContext, providerContext, registerProviders } from "./services/providers.ts";
+import { KeychainSecretStore } from "./services/secrets.ts";
 import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
 import { watchTaskbarTheme } from "./services/taskbar-theme.ts";
@@ -85,6 +86,13 @@ const models = new ModelManager({ root: modelsDir, bundledDir: bundledModelsDir(
 // pipeline and the GLIM-20 caches. Providers load after the model scan, in the background.
 const translationLog = log.child("translation");
 const bergamotPacks = new ModelManagerPackSource(models);
+// API keys for cloud providers live in the OS keychain (GLIM-40); every value read or saved is
+// registered with the log redactor. Cloud providers are opt-in (GLIM-60/61): only used once
+// picked in Settings › Providers.
+const secrets = new KeychainSecretStore({
+	logger: log.child("secrets"),
+	onValue: (value) => log.redactor.addSecret(value),
+});
 const {
 	ctx: providerCtx,
 	bergamotWorker,
@@ -96,6 +104,7 @@ const {
 	mainDir: import.meta.dir,
 	warmPairs: () => warmPairsFor(appSettings.current),
 	log: translationLog,
+	secrets,
 });
 const translationPacks = new TranslationPacks({
 	manager: models,
