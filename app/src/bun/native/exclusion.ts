@@ -23,6 +23,12 @@ export function exclusionOpsFor(platform: string = process.platform): ExclusionO
 				};
 			},
 			windowId: (hwnd: Pointer) => Number(hwnd),
+			setHidden(hwnd: Pointer, hidden: boolean) {
+				const r = setWindowExcludedFromCapture(hwnd, hidden);
+				return { excluded: r.excluded, detail: r.excluded ? "WDA_EXCLUDEFROMCAPTURE" : "WDA_NONE" };
+			},
+			// WDA_EXCLUDEFROMCAPTURE is the only thing keeping a window out of DXGI/GDI frames.
+			ownCaptureSkipsIds: false,
 		};
 	}
 	if (platform === "darwin") {
@@ -42,6 +48,12 @@ export function exclusionOpsFor(platform: string = process.platform): ExclusionO
 				const n = binding.windowNumber(nsWindow);
 				return n > 0 ? n : null;
 			},
+			setHidden(nsWindow: Pointer, hidden: boolean) {
+				const { sharingType } = binding.setWindowSharing(nsWindow, hidden);
+				return { excluded: sharingType === 0, detail: `sharingType ${SHARING_NAMES[sharingType] ?? sharingType}` };
+			},
+			// The SCK filter skips registered window ids whatever sharingType says.
+			ownCaptureSkipsIds: true,
 		};
 	}
 	return null;

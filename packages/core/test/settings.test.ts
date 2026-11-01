@@ -43,7 +43,12 @@ describe("settings defaults", () => {
 			snip: { copyAfterSnip: true, showOriginalUnder: false, alwaysShowLanguages: false },
 			picker: { showLoupe: true, confirmOnRelease: true },
 			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300 },
-			privacy: { privateByDefault: false, clearCacheAfterIdleMinutes: 15, clearCacheOnLock: true },
+			privacy: {
+				privateByDefault: false,
+				clearCacheAfterIdleMinutes: 15,
+				clearCacheOnLock: true,
+				hideFromCapture: true,
+			},
 			system: { launchAtLogin: false },
 			cloud: { liveConsent: [] },
 			models: { directory: null },

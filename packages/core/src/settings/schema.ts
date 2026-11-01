@@ -81,6 +81,11 @@ export interface Settings {
 		readonly clearCacheAfterIdleMinutes: number;
 		/** Wipe the cache on screen lock and system sleep (GLIM-20). */
 		readonly clearCacheOnLock: boolean;
+		/**
+		 * Settings › "Hide Glimpse from screenshots and screen sharing" (GLIM-98). Off: popups
+		 * and Settings show in other apps' captures; Glimpse's own capture still skips them.
+		 */
+		readonly hideFromCapture: boolean;
 	};
 	readonly system: {
 		readonly launchAtLogin: boolean;
@@ -159,6 +164,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			privateByDefault: withDefault(boolean(), false),
 			clearCacheAfterIdleMinutes: withDefault(number({ min: 0, max: 24 * 60, integer: true }), 15),
 			clearCacheOnLock: withDefault(boolean(), true),
+			hideFromCapture: withDefault(boolean(), true),
 		}),
 		system: object({
 			launchAtLogin: withDefault(boolean(), false),

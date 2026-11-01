@@ -114,7 +114,8 @@ class ElectrobunOverlay implements OverlayWindow {
 		const show = () => (activate ? this.win.show() : this.win.showInactive());
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
-			this.deps.exclusion.protect(this.win, show);
+			// Picker overlays and the results layer are drawn over what Glimpse captures (GLIM-98).
+			this.deps.exclusion.protect(this.win, show, { role: "surface" });
 		} else {
 			show();
 		}

@@ -8,7 +8,7 @@
 #include "glimpse.h"
 
 typedef struct {
-  int op;  // 0: sharingType = none + read windowNumber; 1: read windowNumber
+  int op;  // 0: sharingType = none + read windowNumber; 1: read windowNumber; 2: sharingType = readOnly
   void *window;
   uint32_t number;
   int32_t sharing;
@@ -28,6 +28,10 @@ static void glim_window_do(void *ctx) {
     // other apps' ScreenCaptureKit captures). Glimpse's own capture does not rely on
     // it: the SCContentFilter excludes Glimpse explicitly (capture.m).
     w.sharingType = NSWindowSharingNone;
+  } else if (c->op == 2) {
+    // GLIM-98, "Hide Glimpse from screenshots and screen sharing" off: other apps may
+    // capture the window again. Glimpse's own capture still skips it (SCK filter, capture.m).
+    w.sharingType = NSWindowSharingReadOnly;
   }
   c->sharing = (int32_t)w.sharingType;
   // windowNumber == CGWindowID == SCWindow.windowID. <= 0 while the window has no
@@ -55,6 +59,21 @@ GLIM_EXPORT int32_t glim_window_exclude_from_capture(void *window, uint32_t *win
     return GLIM_E_ARGS;
   }
   glim_window_call c = {0, window, 0, -1, GLIM_E_API};
+  int32_t r = glim_window_on_main(&c);
+  if (windowNumberOut) *windowNumberOut = c.number;
+  if (sharingOut) *sharingOut = c.sharing;
+  return r;
+}
+
+// GLIM-98: hidden != 0 sets sharingType = none, else readOnly (the AppKit default). Same
+// out-params as glim_window_exclude_from_capture.
+GLIM_EXPORT int32_t glim_window_set_sharing(void *window, int32_t hidden, uint32_t *windowNumberOut,
+                                            int32_t *sharingOut) {
+  if (!window) {
+    glim_set_error("null window");
+    return GLIM_E_ARGS;
+  }
+  glim_window_call c = {hidden ? 0 : 2, window, 0, -1, GLIM_E_API};
   int32_t r = glim_window_on_main(&c);
   if (windowNumberOut) *windowNumberOut = c.number;
   if (sharingOut) *sharingOut = c.sharing;
