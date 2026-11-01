@@ -25,9 +25,9 @@ const v = (name: string, query: string, colorScheme: "light" | "dark", height = 
 });
 
 export const SETTINGS_VARIANTS: GalleryVariant[] = [
-	v("general-macos-light", "os=macos&pane=general", "light"),
-	v("general-macos-dark", "os=macos&pane=general", "dark"),
-	v("general-windows-light", "os=windows&pane=general", "light"),
+	v("general-macos-light", "os=macos&pane=general", "light", 1100),
+	v("general-macos-dark", "os=macos&pane=general", "dark", 1100),
+	v("general-windows-light", "os=windows&pane=general", "light", 1100),
 	v("languages-macos-light", "os=macos&pane=languages", "light"),
 	v("languages-windows-dark", "os=windows&pane=languages", "dark"),
 	v("shortcuts-macos-light-conflict", "os=macos&pane=shortcuts&scenario=conflict", "light"),

@@ -335,7 +335,8 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 
 - **Schema** (`packages/core/src/settings/schema.ts`): `Settings` = language (target, source
   subset; empty = all), hotkeys (canonical `Alt+Shift+S` strings, GLIM-23 defaults per OS),
-  providers (`ProvidersConfig`), appearance (theme, motion), live (fps, diff threshold, stability
+  providers (`ProvidersConfig`), appearance (theme, motion), snip (popup options), picker (magnifier,
+  confirm on release; GLIM-105), live (fps, diff threshold, stability
   ms), privacy (Private by default, idle cache wipe, wipe on lock), system (launch at login),
   models (storage folder, null = default; GLIM-96),
   onboarding (completed), diagnostics (log level). Every field has a default; machine-dependent defaults come in through
@@ -355,7 +356,7 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   so changes apply without a restart. Adding a field with a default needs no migration;
   renaming or reshaping one does (bump `SETTINGS_VERSION`, add a `Migration`, add a fixture test).
 - **Settings window (GLIM-69)**: `app/src/shared/settings-rpc.ts` is the contract. `SettingsWindow.open(section)` opens at a pane (popup deep links, GLIM-117). The view
-  may patch only `language`, `appearance`, `snip`, `live`, `privacy`, `diagnostics`; hotkeys go
+  may patch only `language`, `appearance`, `snip`, `picker`, `live`, `privacy`, `diagnostics`; hotkeys go
   through `setHotkey` (Glimpse conflict check, then the `HotkeyRegistrar` port in
   `services/hotkeys-port.ts`; an OS refusal keeps the old binding), launch at login through
   `LoginItem` (`services/login-item.ts`, GLIM-77 decision), the models folder through

@@ -18,12 +18,21 @@ import type { RPCSchema } from "electrobun/view";
 import type { AppInfo } from "./rpc.ts";
 
 /** The parts of Settings the view may patch directly. The rest go through their own request. */
-export type EditableSection = "language" | "appearance" | "snip" | "live" | "privacy" | "diagnostics" | "updates";
+export type EditableSection =
+	| "language"
+	| "appearance"
+	| "snip"
+	| "picker"
+	| "live"
+	| "privacy"
+	| "diagnostics"
+	| "updates";
 
 export const EDITABLE_SECTIONS: readonly EditableSection[] = [
 	"language",
 	"appearance",
 	"snip",
+	"picker",
 	"live",
 	"privacy",
 	"diagnostics",

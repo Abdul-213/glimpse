@@ -57,6 +57,15 @@ export interface Settings {
 		/** Settings › "Always show languages": per-block tags even when a region has one language. */
 		readonly alwaysShowLanguages: boolean;
 	};
+	readonly picker: {
+		/** Settings › "Show magnifier": the loupe next to the crosshair (region-picker.md §2 C). */
+		readonly showLoupe: boolean;
+		/**
+		 * Settings › "Translate as soon as I release the mouse" (region-picker.md §3). Off: a
+		 * release lands in `adjusting`, and Enter confirms.
+		 */
+		readonly confirmOnRelease: boolean;
+	};
 	readonly live: {
 		/** Capture rate while a region is pinned (PRODUCT.md: about 2–4 fps). */
 		readonly fps: number;
@@ -136,6 +145,10 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			copyAfterSnip: withDefault(boolean(), true),
 			showOriginalUnder: withDefault(boolean(), false),
 			alwaysShowLanguages: withDefault(boolean(), false),
+		}),
+		picker: object({
+			showLoupe: withDefault(boolean(), true),
+			confirmOnRelease: withDefault(boolean(), true),
 		}),
 		live: object({
 			fps: withDefault(number({ min: 0.5, max: 10 }), 3),

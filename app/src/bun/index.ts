@@ -54,7 +54,7 @@ import { finishSetupNotice } from "./tray-menu.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
 import { OnboardingWindow } from "./windows/onboarding.ts";
 import { electrobunOverlayFactory, screenProbe } from "./windows/picker.ts";
-import { PickerController } from "./windows/picker-controller.ts";
+import { PickerController, pickerSettingsFrom } from "./windows/picker-controller.ts";
 import { ElectrobunPopupWindow } from "./windows/popup.ts";
 import { SnipPopupController } from "./windows/popup-controller.ts";
 import { snipViewInit } from "./windows/popup-init.ts";
@@ -307,12 +307,8 @@ picker = new PickerController({
 	focus: pickerNatives.focus,
 	os: platform,
 	log: pickerLog,
-	settings: () => ({
-		// Settings fields for these two land with GLIM-105; the spec defaults until then.
-		confirmOnRelease: true,
-		showLoupe: true,
-		reducedMotion: appSettings.current.appearance.motion === "reduced",
-	}),
+	// Show magnifier, Translate on release, reduced motion (GLIM-105): read on every open.
+	settings: () => pickerSettingsFrom(appSettings.current),
 	// `live` is declared below; this only runs when the picker opens.
 	liveRunning: () => live.active,
 });

@@ -17,6 +17,7 @@ import {
 	type PixelSampler,
 	type PointerProbe,
 	type RegionSelected,
+	type Settings,
 	type WindowListSource,
 } from "@glimpse/core";
 import type {
@@ -100,6 +101,13 @@ export interface PickerControllerDeps {
 export type RegionListener = (region: RegionSelected) => "keep" | undefined;
 
 const DEFAULT_SETTINGS: PickerSettings = { confirmOnRelease: true, showLoupe: true, reducedMotion: false };
+
+/** The picker's settings from the app's (GLIM-105). The controller asks on every open. */
+export const pickerSettingsFrom = (s: Settings): PickerSettings => ({
+	confirmOnRelease: s.picker.confirmOnRelease,
+	showLoupe: s.picker.showLoupe,
+	reducedMotion: s.appearance.motion === "reduced",
+});
 
 /**
  * Does a view cover its display at the display's scale (GLIM-54)? Returns what is off, or

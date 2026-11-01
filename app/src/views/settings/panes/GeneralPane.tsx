@@ -98,6 +98,25 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 				</SettingsControlRow>
 			</SettingsGroup>
 
+			<SettingsGroup title="Selecting an area">
+				<SettingsControlRow>
+					<Switch
+						label="Show magnifier"
+						description="A close-up of the pixels under the pointer, for exact edges."
+						checked={s().picker.showLoupe}
+						onChange={(v) => void props.state.update({ picker: { showLoupe: v } })}
+					/>
+				</SettingsControlRow>
+				<SettingsControlRow>
+					<Switch
+						label="Translate as soon as I release the mouse"
+						description={`When off, you can adjust the box first, then press ${os() === "macos" ? "Return" : "Enter"}.`}
+						checked={s().picker.confirmOnRelease}
+						onChange={(v) => void props.state.update({ picker: { confirmOnRelease: v } })}
+					/>
+				</SettingsControlRow>
+			</SettingsGroup>
+
 			<SettingsGroup title="Startup">
 				<SettingsControlRow>
 					<Switch
