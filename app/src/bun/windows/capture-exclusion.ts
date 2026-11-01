@@ -53,6 +53,19 @@ export class CaptureExclusion {
 	}
 
 	/**
+	 * Register a native window Glimpse created without Electrobun (the Live frame, GLIM-90),
+	 * whose helper already flagged it. Returns an unregister function.
+	 */
+	register(windowId: number): () => void {
+		if (!(windowId > 0) || this.ids.has(windowId)) return () => {};
+		this.ids.add(windowId);
+		this.sink.setExcludedWindows(this.windowIds);
+		return () => {
+			if (this.ids.delete(windowId)) this.sink.setExcludedWindows(this.windowIds);
+		};
+	}
+
+	/**
 	 * Exclude `win` from capture, then run `show` (create windows with `hidden: true` and
 	 * pass their show call here), then register the window's id with the capture source.
 	 * Never throws: a failure is logged and the window is shown anyway.

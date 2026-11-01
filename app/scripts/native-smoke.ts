@@ -8,11 +8,13 @@
 // prints the outcome without failing (CI runners may have no usable desktop or no
 // Screen Recording grant).
 import { rect } from "@glimpse/core";
+import { FRAME_PALETTE_ORDER, type FrameNativeBinding, rgbaOf } from "../src/bun/native/frame.ts";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import { loadWindowsCapture } from "../src/bun/native/windows.ts";
 import { MacCaptureSource } from "../src/bun/services/capture/macos.ts";
 import { displaysFromMac, displaysFromWindows } from "../src/bun/services/capture/native-displays.ts";
 import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
+import { FRAME_COLORS } from "../src/bun/services/live/frame-layout.ts";
 import { macWindows, windowsWindows } from "../src/bun/services/picker/window-list.ts";
 
 // Picker helpers (GLIM-91): cheap, no permission needed, so failures here fail the job.
@@ -20,6 +22,39 @@ function pickerSmoke(binding: { listWindows(): unknown[]; focusSave(): number },
 	const raw = binding.listWindows();
 	console.log(`windows: ${raw.length} listed; logical:`, JSON.stringify(logical().slice(0, 5)));
 	console.log("focus save:", binding.focusSave());
+}
+
+// Pinned Live frame (GLIM-90): create, style, place, show, read back what the OS reports,
+// highlight, hide, destroy. Cheap and permission-free, so a failure fails the job.
+function frameSmoke(binding: FrameNativeBinding, check: (info: Record<string, number>) => string[]): void {
+	const h = binding.frameCreate();
+	binding.frameSetStyle(h, {
+		paused: false,
+		palette: Uint32Array.from(FRAME_PALETTE_ORDER.map((k) => rgbaOf(FRAME_COLORS[k]))),
+		tag: 1,
+		tagText: "Live",
+		tagBelow: false,
+	});
+	binding.frameSetRect(h, rect(200, 200, 320, 90), 1);
+	binding.frameShow(h, true);
+	binding.frameSetHighlight(h, rect(220, 220, 120, 24));
+	const info = binding.frameInfo(h);
+	console.log("live frame:", JSON.stringify(info), "window id", binding.frameWindowId(h));
+	binding.frameSetStyle(h, {
+		paused: true,
+		palette: Uint32Array.from(FRAME_PALETTE_ORDER.map((k) => rgbaOf(FRAME_COLORS[k]))),
+		tag: 3,
+		tagText: "☁︎ Live · Google",
+		tagBelow: true,
+	});
+	binding.frameSetHighlight(h, null);
+	binding.frameShow(h, false);
+	binding.frameDestroy(h);
+	const problems = info ? check(info) : ["no frame info"];
+	if (problems.length > 0) {
+		console.log(`live frame problems: ${problems.join("; ")}`);
+		process.exit(1);
+	}
 }
 
 const tryCapture = Bun.argv.includes("--try-capture");
@@ -40,6 +75,24 @@ if (process.platform === "win32") {
 	const physical = binding.physicalDisplays();
 	console.log("monitors:", JSON.stringify(physical));
 	pickerSmoke(binding, () => windowsWindows(binding.listWindows(), displaysFromWindows(physical), physical));
+	frameSmoke(binding, (info) => {
+		const problems: string[] = [];
+		const ex = info["exStyle"] ?? 0;
+		// WS_EX_TOPMOST 0x8, WS_EX_TRANSPARENT 0x20, WS_EX_TOOLWINDOW 0x80, WS_EX_LAYERED 0x80000, WS_EX_NOACTIVATE 0x8000000
+		for (const [name, bit] of [
+			["TOPMOST", 0x8],
+			["TRANSPARENT", 0x20],
+			["TOOLWINDOW", 0x80],
+			["LAYERED", 0x80000],
+			["NOACTIVATE", 0x8000000],
+		] as const) {
+			if ((ex & bit) === 0) problems.push(`WS_EX_${name} missing`);
+		}
+		if (info["affinity"] !== 0x11) problems.push(`display affinity ${info["affinity"]} (want WDA_EXCLUDEFROMCAPTURE)`);
+		if (info["clickThrough"] !== 1) problems.push("WindowFromPoint hit the frame");
+		if (info["visible"] !== 1) problems.push("not visible after show");
+		return problems;
+	});
 	if (tryCapture && physical.length > 0) {
 		const source = new WindowsCaptureSource({ binding, shellDisplays: () => displaysFromWindows(physical) });
 		await attempt("GDI snip 64x64", () => source.capture(rect(0, 0, 64, 64)));
@@ -61,6 +114,15 @@ if (process.platform === "win32") {
 	console.log("displays:", JSON.stringify(displays), "screen recording granted:", binding.preflight());
 	binding.setExcludedWindows([]);
 	pickerSmoke(binding, () => macWindows(binding.listWindows()));
+	frameSmoke(binding, (info) => {
+		const problems: string[] = [];
+		if (info["ignoresMouseEvents"] !== 1) problems.push("ignoresMouseEvents is off");
+		if (info["level"] !== 101) problems.push(`level ${info["level"]} (want 101)`);
+		if (info["sharingType"] !== 0) problems.push(`sharingType ${info["sharingType"]} (want none)`);
+		if (info["canBecomeKey"] !== 0) problems.push("the panel can become key");
+		if (info["visible"] !== 1) problems.push("not visible after show");
+		return problems;
+	});
 	// Carbon hot keys (GLIM-44): install the handler, register an unlikely chord, release it.
 	const init = binding.hotkeyInit(() => {});
 	const reg = binding.hotkeyRegister(0, 0x50, 0x1100); // Ctrl+Cmd+F19

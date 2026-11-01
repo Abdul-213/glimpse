@@ -14,7 +14,7 @@
 #define GLIM_EXPORT extern "C" __declspec(dllexport)
 
 // Bump together with GLIM_ABI_VERSION in app/src/bun/native/load.ts.
-#define GLIM_ABI 3
+#define GLIM_ABI 4
 
 enum : int32_t {
 	GLIM_OK = 0,
