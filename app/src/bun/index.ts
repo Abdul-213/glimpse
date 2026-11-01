@@ -10,6 +10,8 @@ import type { AppInfo } from "../shared/rpc.ts";
 import { readDisplays } from "./displays.ts";
 import { ELECTROBUN_VERSION } from "./electrobun-version.ts";
 import { platform } from "./platform.ts";
+import { ModelManager } from "./services/models/model-manager.ts";
+import { bundledModelsDir, modelsRoot } from "./services/models/paths.ts";
 import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
 import { createTray } from "./tray.ts";
@@ -30,6 +32,17 @@ const appInfo: AppInfo = {
 	electrobun: ELECTROBUN_VERSION,
 	bun: Bun.version,
 };
+
+// Model download manager (GLIM-38). Consumers (OCR/translation providers, onboarding) come later.
+// Seam: the storage location will come from settings (GLIM-53, GLIM-96); until then the default folder.
+const models = new ModelManager({
+	root: modelsRoot(Utils.paths.userData),
+	bundledDir: bundledModelsDir(import.meta.dir),
+});
+models
+	.scan()
+	.then(() => console.log(`[glimpse] models in ${models.root}: ${models.installedIds().join(", ") || "none"}`))
+	.catch((err) => console.warn("[glimpse] model scan failed", err));
 
 const settings = new SettingsWindow(appInfo);
 

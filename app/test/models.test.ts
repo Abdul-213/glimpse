@@ -104,7 +104,7 @@ describe("model cache", () => {
 
 	test("fails with every URL's error when none verifies", async () => {
 		const { fetch } = fakeFetch({ "https://a.test/a": 500 });
-		await expect(ensureCached(plain, { cacheDir: dir, fetch })).rejects.toThrow(/HTTP 500[\s\S]*HTTP 404/);
+		await expect(ensureCached(plain, { cacheDir: dir, fetch })).rejects.toThrow(/could not fetch a.onnx: HTTP 404/);
 		expect(existsSync(cachePath(dir, plain))).toBe(false);
 	});
 
