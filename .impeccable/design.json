@@ -1,0 +1,1437 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-29T23:47:33+00:00",
+  "title": "Design System: Glimpse",
+  "extensions": {
+    "colorMeta": {
+      "surface-popup": {
+        "role": "neutral",
+        "displayName": "Popup Veil",
+        "canonical": "oklch(97.1% 0.003 286.4 / 0.90)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242425",
+          "#404041",
+          "#5D5D5F",
+          "#808081",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ],
+        "dark": "surface-popup-dark"
+      },
+      "surface-popup-dark": {
+        "role": "neutral",
+        "displayName": "Popup Veil (dark)",
+        "canonical": "oklch(26.9% 0.004 286.2 / 0.90)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#3F3F41",
+          "#5D5D5F",
+          "#808082",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ],
+        "darkOf": "surface-popup"
+      },
+      "surface-popup-solid": {
+        "role": "neutral",
+        "displayName": "Popup Veil Solid",
+        "canonical": "oklch(97.1% 0.003 286.4)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242425",
+          "#404041",
+          "#5D5D5F",
+          "#808081",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ],
+        "dark": "surface-popup-solid-dark"
+      },
+      "surface-popup-solid-dark": {
+        "role": "neutral",
+        "displayName": "Popup Veil Solid (dark)",
+        "canonical": "oklch(26.9% 0.004 286.2)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#3F3F41",
+          "#5D5D5F",
+          "#808082",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ],
+        "darkOf": "surface-popup-solid"
+      },
+      "surface-window": {
+        "role": "neutral",
+        "displayName": "Window Veil",
+        "canonical": "oklch(96.2% 0.003 286.3 / 0.72)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242425",
+          "#404041",
+          "#5D5D5F",
+          "#808082",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ],
+        "dark": "surface-window-dark"
+      },
+      "surface-window-dark": {
+        "role": "neutral",
+        "displayName": "Window Veil (dark)",
+        "canonical": "oklch(24.0% 0.004 286.1 / 0.72)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#3F3F41",
+          "#5D5D5F",
+          "#808082",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ],
+        "darkOf": "surface-window"
+      },
+      "surface-group": {
+        "role": "neutral",
+        "displayName": "Group Ground",
+        "canonical": "oklch(100.0% 0.000 89.9 / 0.90)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "surface-group-dark"
+      },
+      "surface-group-dark": {
+        "role": "neutral",
+        "displayName": "Group Ground (dark)",
+        "canonical": "oklch(29.4% 0.005 286.1 / 0.90)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#3F3F42",
+          "#5D5D60",
+          "#808083",
+          "#A4A4A7",
+          "#CACACC",
+          "#EEEEEF"
+        ],
+        "darkOf": "surface-group"
+      },
+      "surface-control": {
+        "role": "neutral",
+        "displayName": "Control Ground",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "surface-control-dark"
+      },
+      "surface-control-dark": {
+        "role": "neutral",
+        "displayName": "Control Ground (dark)",
+        "canonical": "oklch(35.0% 0.005 286.1)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#3F3F41",
+          "#5D5D60",
+          "#808083",
+          "#A4A4A7",
+          "#CACACC",
+          "#EEEEEF"
+        ],
+        "darkOf": "surface-control"
+      },
+      "overlay-hover": {
+        "role": "neutral",
+        "displayName": "Hover Layer",
+        "canonical": "oklch(0.0% 0.000 0.0 / 0.06)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "overlay-hover-dark"
+      },
+      "overlay-hover-dark": {
+        "role": "neutral",
+        "displayName": "Hover Layer (dark)",
+        "canonical": "oklch(100.0% 0.000 89.9 / 0.08)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "darkOf": "overlay-hover"
+      },
+      "overlay-pressed": {
+        "role": "neutral",
+        "displayName": "Pressed Layer",
+        "canonical": "oklch(0.0% 0.000 0.0 / 0.10)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "overlay-pressed-dark"
+      },
+      "overlay-pressed-dark": {
+        "role": "neutral",
+        "displayName": "Pressed Layer (dark)",
+        "canonical": "oklch(100.0% 0.000 89.9 / 0.14)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "darkOf": "overlay-pressed"
+      },
+      "overlay-selected": {
+        "role": "neutral",
+        "displayName": "Selected Layer",
+        "canonical": "oklch(51.4% 0.176 256.9 / 0.12)",
+        "tonalRamp": [
+          "#010A1F",
+          "#04234B",
+          "#0B3E7C",
+          "#155BB2",
+          "#397FDD",
+          "#72A6F0",
+          "#A8CDFF",
+          "#DAF0FF"
+        ],
+        "dark": "overlay-selected-dark",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "overlay-selected-dark": {
+        "role": "neutral",
+        "displayName": "Selected Layer (dark)",
+        "canonical": "oklch(73.2% 0.141 256.0 / 0.16)",
+        "tonalRamp": [
+          "#020B1B",
+          "#0B2443",
+          "#194070",
+          "#295DA1",
+          "#4981CB",
+          "#7CA7E1",
+          "#AFCDF6",
+          "#DEF0FF"
+        ],
+        "darkOf": "overlay-selected",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(23.2% 0.004 286.1)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#3F3F41",
+          "#5D5D5F",
+          "#808082",
+          "#A4A4A6",
+          "#CACACC",
+          "#EEEEEF"
+        ],
+        "dark": "text-primary-dark"
+      },
+      "text-primary-dark": {
+        "role": "neutral",
+        "displayName": "Ink (dark)",
+        "canonical": "oklch(96.8% 0.003 286.4)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242425",
+          "#404041",
+          "#5D5D5F",
+          "#808081",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ],
+        "darkOf": "text-primary"
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "oklch(45.2% 0.011 285.9)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242427",
+          "#3F3F44",
+          "#5D5D63",
+          "#7F7F86",
+          "#A4A4A9",
+          "#CACACE",
+          "#EEEEF0"
+        ],
+        "dark": "text-secondary-dark"
+      },
+      "text-secondary-dark": {
+        "role": "neutral",
+        "displayName": "Pencil (dark)",
+        "canonical": "oklch(77.9% 0.011 286.1)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242427",
+          "#3F3F44",
+          "#5D5D63",
+          "#7F7F86",
+          "#A4A4A9",
+          "#CACACE",
+          "#EEEEF0"
+        ],
+        "darkOf": "text-secondary"
+      },
+      "text-disabled": {
+        "role": "neutral",
+        "displayName": "Faded",
+        "canonical": "oklch(64.8% 0.007 286.2)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242426",
+          "#3F3F42",
+          "#5D5D61",
+          "#808084",
+          "#A4A4A8",
+          "#CACACD",
+          "#EEEEF0"
+        ],
+        "dark": "text-disabled-dark"
+      },
+      "text-disabled-dark": {
+        "role": "neutral",
+        "displayName": "Faded (dark)",
+        "canonical": "oklch(53.3% 0.009 286.1)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242426",
+          "#3F3F43",
+          "#5D5D62",
+          "#7F8085",
+          "#A4A4A8",
+          "#CACACD",
+          "#EEEEF0"
+        ],
+        "darkOf": "text-disabled"
+      },
+      "border-hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.0% 0.000 0.0 / 0.12)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "border-hairline-dark"
+      },
+      "border-hairline-dark": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "canonical": "oklch(100.0% 0.000 89.9 / 0.12)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "darkOf": "border-hairline"
+      },
+      "border-control": {
+        "role": "neutral",
+        "displayName": "Control Edge",
+        "canonical": "oklch(56.8% 0.011 286.1)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242426",
+          "#3F3F43",
+          "#5D5D63",
+          "#7F7F86",
+          "#A4A4A9",
+          "#CACACE",
+          "#EEEEF0"
+        ],
+        "dark": "border-control-dark"
+      },
+      "border-control-dark": {
+        "role": "neutral",
+        "displayName": "Control Edge (dark)",
+        "canonical": "oklch(64.9% 0.012 286.1)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242427",
+          "#3F3F44",
+          "#5D5D63",
+          "#7F7F86",
+          "#A4A4AA",
+          "#CACACE",
+          "#EEEEF0"
+        ],
+        "darkOf": "border-control"
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "oklch(0.0% 0.000 0.0 / 0.08)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "divider-dark"
+      },
+      "divider-dark": {
+        "role": "neutral",
+        "displayName": "Rule (dark)",
+        "canonical": "oklch(100.0% 0.000 89.9 / 0.08)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "darkOf": "divider"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "System Accent (fallback)",
+        "canonical": "oklch(51.4% 0.176 256.9)",
+        "tonalRamp": [
+          "#010A1F",
+          "#04234B",
+          "#0B3E7C",
+          "#155BB2",
+          "#397FDD",
+          "#72A6F0",
+          "#A8CDFF",
+          "#DAF0FF"
+        ],
+        "dark": "accent-dark",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "System Accent (fallback) (dark)",
+        "canonical": "oklch(55.8% 0.177 259.1)",
+        "tonalRamp": [
+          "#010A1F",
+          "#07224B",
+          "#133D7D",
+          "#1F59B3",
+          "#407EDE",
+          "#75A5F1",
+          "#AACCFF",
+          "#DCF0FF"
+        ],
+        "darkOf": "accent",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "on-accent": {
+        "role": "primary",
+        "displayName": "On Accent",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "on-accent-dark"
+      },
+      "on-accent-dark": {
+        "role": "primary",
+        "displayName": "On Accent (dark)",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "darkOf": "on-accent"
+      },
+      "link": {
+        "role": "primary",
+        "displayName": "Link Blue",
+        "canonical": "oklch(48.1% 0.168 257.6)",
+        "tonalRamp": [
+          "#010A1E",
+          "#07234A",
+          "#123E7A",
+          "#1E5BAE",
+          "#3F7FDA",
+          "#75A6ED",
+          "#AACDFF",
+          "#DCF0FF"
+        ],
+        "dark": "link-dark"
+      },
+      "link-dark": {
+        "role": "primary",
+        "displayName": "Link Blue (dark)",
+        "canonical": "oklch(73.2% 0.141 256.0)",
+        "tonalRamp": [
+          "#020B1B",
+          "#0B2443",
+          "#194070",
+          "#295DA1",
+          "#4981CB",
+          "#7CA7E1",
+          "#AFCDF6",
+          "#DEF0FF"
+        ],
+        "darkOf": "link"
+      },
+      "focus-ring": {
+        "role": "primary",
+        "displayName": "Focus Ring",
+        "canonical": "oklch(51.4% 0.176 256.9)",
+        "tonalRamp": [
+          "#010A1F",
+          "#04234B",
+          "#0B3E7C",
+          "#155BB2",
+          "#397FDD",
+          "#72A6F0",
+          "#A8CDFF",
+          "#DAF0FF"
+        ],
+        "dark": "focus-ring-dark",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "focus-ring-dark": {
+        "role": "primary",
+        "displayName": "Focus Ring (dark)",
+        "canonical": "oklch(73.2% 0.141 256.0)",
+        "tonalRamp": [
+          "#020B1B",
+          "#0B2443",
+          "#194070",
+          "#295DA1",
+          "#4981CB",
+          "#7CA7E1",
+          "#AFCDF6",
+          "#DEF0FF"
+        ],
+        "darkOf": "focus-ring",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Success",
+        "canonical": "oklch(46.3% 0.113 151.7)",
+        "tonalRamp": [
+          "#020F05",
+          "#0C2B17",
+          "#1B4B2B",
+          "#2B6D41",
+          "#4D9261",
+          "#80B38C",
+          "#B2D5BA",
+          "#E0F5E4"
+        ],
+        "dark": "success-dark"
+      },
+      "success-dark": {
+        "role": "status",
+        "displayName": "Success (dark)",
+        "canonical": "oklch(75.4% 0.140 154.7)",
+        "tonalRamp": [
+          "#001005",
+          "#002D15",
+          "#004E28",
+          "#00713D",
+          "#31965D",
+          "#71B78A",
+          "#A9D8B8",
+          "#DCF7E3"
+        ],
+        "darkOf": "success"
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Warning",
+        "canonical": "oklch(47.9% 0.112 59.9)",
+        "tonalRamp": [
+          "#140801",
+          "#361D05",
+          "#5C350F",
+          "#854E1A",
+          "#AD703C",
+          "#C99973",
+          "#E5C3A8",
+          "#FFEADB"
+        ],
+        "dark": "warning-dark"
+      },
+      "warning-dark": {
+        "role": "status",
+        "displayName": "Warning (dark)",
+        "canonical": "oklch(78.7% 0.147 73.0)",
+        "tonalRamp": [
+          "#150800",
+          "#381D00",
+          "#5E3500",
+          "#884E00",
+          "#AF7100",
+          "#CB9A59",
+          "#E7C499",
+          "#FFEBD2"
+        ],
+        "darkOf": "warning"
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "oklch(50.0% 0.182 29.5)",
+        "tonalRamp": [
+          "#1C0301",
+          "#450D08",
+          "#731C14",
+          "#A42C20",
+          "#D05041",
+          "#E98475",
+          "#FEB6AA",
+          "#FFE3DB"
+        ],
+        "dark": "danger-dark"
+      },
+      "danger-dark": {
+        "role": "status",
+        "displayName": "Danger (dark)",
+        "canonical": "oklch(74.2% 0.157 27.5)",
+        "tonalRamp": [
+          "#1A0403",
+          "#41120E",
+          "#6D241E",
+          "#9C372F",
+          "#C7594F",
+          "#E0897F",
+          "#F7B9B0",
+          "#FFE4DF"
+        ],
+        "darkOf": "danger"
+      },
+      "egress": {
+        "role": "secondary",
+        "displayName": "Egress Violet",
+        "canonical": "oklch(44.7% 0.185 293.8)",
+        "tonalRamp": [
+          "#0D061E",
+          "#271849",
+          "#452D7A",
+          "#6544AE",
+          "#8767D9",
+          "#A994ED",
+          "#CDC0FF",
+          "#F0E9FF"
+        ],
+        "dark": "egress-dark"
+      },
+      "egress-dark": {
+        "role": "secondary",
+        "displayName": "Egress Violet (dark)",
+        "canonical": "oklch(80.3% 0.112 295.4)",
+        "tonalRamp": [
+          "#0C0817",
+          "#261E3B",
+          "#433763",
+          "#62518E",
+          "#8573B6",
+          "#A89BD0",
+          "#CDC4EA",
+          "#F0EBFF"
+        ],
+        "darkOf": "egress"
+      },
+      "egress-tint": {
+        "role": "secondary",
+        "displayName": "Egress Tint",
+        "canonical": "oklch(44.7% 0.185 293.8 / 0.10)",
+        "tonalRamp": [
+          "#0D061E",
+          "#271849",
+          "#452D7A",
+          "#6544AE",
+          "#8767D9",
+          "#A994ED",
+          "#CDC0FF",
+          "#F0E9FF"
+        ],
+        "dark": "egress-tint-dark"
+      },
+      "egress-tint-dark": {
+        "role": "secondary",
+        "displayName": "Egress Tint (dark)",
+        "canonical": "oklch(80.3% 0.112 295.4 / 0.10)",
+        "tonalRamp": [
+          "#0C0817",
+          "#261E3B",
+          "#433763",
+          "#62518E",
+          "#8573B6",
+          "#A89BD0",
+          "#CDC4EA",
+          "#F0EBFF"
+        ],
+        "darkOf": "egress-tint"
+      },
+      "change-flash": {
+        "role": "primary",
+        "displayName": "Change Flash",
+        "canonical": "oklch(51.4% 0.176 256.9 / 0.14)",
+        "tonalRamp": [
+          "#010A1F",
+          "#04234B",
+          "#0B3E7C",
+          "#155BB2",
+          "#397FDD",
+          "#72A6F0",
+          "#A8CDFF",
+          "#DAF0FF"
+        ],
+        "dark": "change-flash-dark",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "change-flash-dark": {
+        "role": "primary",
+        "displayName": "Change Flash (dark)",
+        "canonical": "oklch(73.2% 0.141 256.0 / 0.12)",
+        "tonalRamp": [
+          "#020B1B",
+          "#0B2443",
+          "#194070",
+          "#295DA1",
+          "#4981CB",
+          "#7CA7E1",
+          "#AFCDF6",
+          "#DEF0FF"
+        ],
+        "darkOf": "change-flash",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "change-rest": {
+        "role": "primary",
+        "displayName": "Change Rest",
+        "canonical": "oklch(51.4% 0.176 256.9 / 0.06)",
+        "tonalRamp": [
+          "#010A1F",
+          "#04234B",
+          "#0B3E7C",
+          "#155BB2",
+          "#397FDD",
+          "#72A6F0",
+          "#A8CDFF",
+          "#DAF0FF"
+        ],
+        "dark": "change-rest-dark",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "change-rest-dark": {
+        "role": "primary",
+        "displayName": "Change Rest (dark)",
+        "canonical": "oklch(73.2% 0.141 256.0 / 0.06)",
+        "tonalRamp": [
+          "#020B1B",
+          "#0B2443",
+          "#194070",
+          "#295DA1",
+          "#4981CB",
+          "#7CA7E1",
+          "#AFCDF6",
+          "#DEF0FF"
+        ],
+        "darkOf": "change-rest",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "change-mark": {
+        "role": "primary",
+        "displayName": "Change Mark",
+        "canonical": "oklch(51.4% 0.176 256.9)",
+        "tonalRamp": [
+          "#010A1F",
+          "#04234B",
+          "#0B3E7C",
+          "#155BB2",
+          "#397FDD",
+          "#72A6F0",
+          "#A8CDFF",
+          "#DAF0FF"
+        ],
+        "dark": "change-mark-dark",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "change-mark-dark": {
+        "role": "primary",
+        "displayName": "Change Mark (dark)",
+        "canonical": "oklch(73.2% 0.141 256.0)",
+        "tonalRamp": [
+          "#020B1B",
+          "#0B2443",
+          "#194070",
+          "#295DA1",
+          "#4981CB",
+          "#7CA7E1",
+          "#AFCDF6",
+          "#DEF0FF"
+        ],
+        "darkOf": "change-mark",
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      },
+      "picker-scrim": {
+        "role": "neutral",
+        "displayName": "Picker Scrim",
+        "canonical": "oklch(0.0% 0.000 0.0 / 0.45)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ]
+      },
+      "picker-stroke": {
+        "role": "neutral",
+        "displayName": "Picker Stroke",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ]
+      },
+      "picker-halo": {
+        "role": "neutral",
+        "displayName": "Picker Halo",
+        "canonical": "oklch(0.0% 0.000 0.0 / 0.60)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ]
+      },
+      "picker-hud": {
+        "role": "neutral",
+        "displayName": "Picker HUD",
+        "canonical": "oklch(22.7% 0.004 286.1 / 0.88)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#3F3F41",
+          "#5D5D5F",
+          "#808082",
+          "#A4A4A6",
+          "#CACACC",
+          "#EEEEEF"
+        ]
+      },
+      "picker-hud-text": {
+        "role": "neutral",
+        "displayName": "HUD Ink",
+        "canonical": "oklch(97.1% 0.003 286.4)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242425",
+          "#404041",
+          "#5D5D5F",
+          "#808081",
+          "#A4A4A6",
+          "#CACACB",
+          "#EEEEEF"
+        ]
+      },
+      "picker-hud-text-secondary": {
+        "role": "neutral",
+        "displayName": "HUD Pencil",
+        "canonical": "oklch(78.5% 0.010 286.2)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242426",
+          "#3F3F43",
+          "#5D5D62",
+          "#7F7F85",
+          "#A4A4A9",
+          "#CACACD",
+          "#EEEEF0"
+        ]
+      },
+      "box-linked-fill": {
+        "role": "primary",
+        "displayName": "Linked Box",
+        "canonical": "oklch(51.4% 0.176 256.9 / 0.24)",
+        "tonalRamp": [
+          "#010A1F",
+          "#04234B",
+          "#0B3E7C",
+          "#155BB2",
+          "#397FDD",
+          "#72A6F0",
+          "#A8CDFF",
+          "#DAF0FF"
+        ],
+        "runtime": "Derived from the injected OS accent (--os-accent) with color-mix(); this hex is the fallback."
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Onboarding step headings, settings pane title. One per view."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Settings group headings; Live paused/error line."
+      },
+      "translation": {
+        "displayName": "Translation",
+        "purpose": "Translated text in Snip and Live popups; the largest text on a popup."
+      },
+      "source": {
+        "displayName": "Source",
+        "purpose": "Original OCR text and pending placeholder. 14px on Windows."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Settings and onboarding copy, control text. 14px on Windows."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Small labels, skipped line, provider indicators, tooltips, kbd. Sentence case."
+      },
+      "numeric": {
+        "displayName": "Numeric",
+        "purpose": "Picker readout, download progress, byte counts; tabular figures."
+      }
+    },
+    "scriptTypography": [
+      {
+        "lang": "default (Latin, Cyrillic, Greek)",
+        "selector": ":root",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.5,
+          "source": 1.5,
+          "body": 1.45
+        }
+      },
+      {
+        "lang": "ja",
+        "selector": ":lang(ja)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo UI', 'Noto Sans CJK JP', 'Noto Sans JP', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.7,
+          "source": 1.7,
+          "body": 1.65
+        },
+        "css": "line-break: strict;"
+      },
+      {
+        "lang": "zh-Hans",
+        "selector": ":lang(zh-Hans), :lang(zh-CN), :lang(zh-SG)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei UI', 'Noto Sans CJK SC', 'Noto Sans SC', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.7,
+          "source": 1.7,
+          "body": 1.65
+        },
+        "css": "line-break: strict;"
+      },
+      {
+        "lang": "zh-Hant",
+        "selector": ":lang(zh-Hant), :lang(zh-TW)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei UI', 'Noto Sans CJK TC', 'Noto Sans TC', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.7,
+          "source": 1.7,
+          "body": 1.65
+        },
+        "css": "line-break: strict;"
+      },
+      {
+        "lang": "zh-HK",
+        "selector": ":lang(zh-HK), :lang(yue)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang HK', 'Microsoft JhengHei UI', 'Noto Sans CJK HK', 'Noto Sans HK', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.7,
+          "source": 1.7,
+          "body": 1.65
+        },
+        "css": "line-break: strict;"
+      },
+      {
+        "lang": "ko",
+        "selector": ":lang(ko)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', 'Noto Sans KR', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.7,
+          "source": 1.7,
+          "body": 1.65
+        },
+        "css": "line-break: strict; word-break: keep-all;"
+      },
+      {
+        "lang": "ar, fa, ps, ckb",
+        "selector": ":lang(ar), :lang(fa), :lang(ps), :lang(ckb)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'SF Arabic', 'Geeza Pro', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Arabic', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 1.75,
+          "source": 1.75,
+          "body": 1.7
+        },
+        "css": "letter-spacing: 0; font-synthesis: none;"
+      },
+      {
+        "lang": "ur",
+        "selector": ":lang(ur)",
+        "fontFamily": "'Noto Nastaliq Urdu', 'Urdu Typesetting', 'SF Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 2.0,
+          "source": 2.0,
+          "body": 1.9
+        },
+        "css": "letter-spacing: 0; font-synthesis: none;"
+      },
+      {
+        "lang": "he, yi",
+        "selector": ":lang(he), :lang(yi)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'SF Hebrew', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.55,
+          "source": 1.55,
+          "body": 1.5
+        }
+      },
+      {
+        "lang": "hi, mr, ne, sa (Devanagari)",
+        "selector": ":lang(hi), :lang(mr), :lang(ne), :lang(sa)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Kohinoor Devanagari', 'Devanagari Sangam MN', 'Nirmala UI', 'Noto Sans Devanagari', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 1.75,
+          "source": 1.75,
+          "body": 1.7
+        }
+      },
+      {
+        "lang": "bn, as (Bengali)",
+        "selector": ":lang(bn), :lang(as)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Kohinoor Bangla', 'Bangla Sangam MN', 'Nirmala UI', 'Noto Sans Bengali', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 1.75,
+          "source": 1.75,
+          "body": 1.7
+        }
+      },
+      {
+        "lang": "ta, te, kn, ml, gu, pa, or, si (other Indic)",
+        "selector": ":lang(ta), :lang(te), :lang(kn), :lang(ml), :lang(gu), :lang(pa), :lang(or), :lang(si)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Nirmala UI', 'Noto Sans Tamil', 'Noto Sans Telugu', 'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Gujarati', 'Noto Sans Gurmukhi', 'Noto Sans Oriya', 'Noto Sans Sinhala', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 1.75,
+          "source": 1.75,
+          "body": 1.7
+        }
+      },
+      {
+        "lang": "th",
+        "selector": ":lang(th)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Thonburi', 'Leelawadee UI', 'Noto Sans Thai', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 1.8,
+          "source": 1.8,
+          "body": 1.75
+        }
+      },
+      {
+        "lang": "lo, km",
+        "selector": ":lang(lo), :lang(km)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Lao Sangam MN', 'Khmer Sangam MN', 'Leelawadee UI', 'Noto Sans Lao', 'Noto Sans Khmer', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 1.8,
+          "source": 1.8,
+          "body": 1.75
+        }
+      },
+      {
+        "lang": "my, bo",
+        "selector": ":lang(my), :lang(bo)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Myanmar Sangam MN', 'Kailasa', 'Myanmar Text', 'Microsoft Himalaya', 'Noto Sans Myanmar', 'Noto Serif Tibetan', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1.0667,
+        "lineHeight": {
+          "translation": 1.9,
+          "source": 1.9,
+          "body": 1.85
+        }
+      }
+    ],
+    "shadows": [
+      {
+        "name": "menu",
+        "value": "0 8px 24px #0000002E, 0 0 0 0.5px #0000001F",
+        "dark": "0 8px 24px #00000073, 0 0 0 0.5px #FFFFFF1F",
+        "purpose": "Custom dropdowns and context menus inside settings when a native menu cannot be used."
+      },
+      {
+        "name": "tooltip",
+        "value": "0 2px 8px #00000026",
+        "dark": "0 2px 8px #00000066",
+        "purpose": "Tooltips on popup icon buttons."
+      },
+      {
+        "name": "loupe",
+        "value": "0 4px 16px #00000059, 0 0 0 1px #FFFFFF, 0 0 0 2px #00000099",
+        "purpose": "Picker zoom loupe, ringed in picker stroke and halo."
+      },
+      {
+        "name": "hud",
+        "value": "0 1px 4px #0000004D",
+        "purpose": "Picker readout and hint chips."
+      },
+      {
+        "name": "popup-outline-dark",
+        "value": "inset 0 0 0 1px #FFFFFF1F, 0 0 0 0.5px #000000A6",
+        "purpose": "Dark-appearance popup edge: hairline inside, dark line outside. Light appearance uses the inset hairline only (inset 0 0 0 1px #0000001F)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-instant",
+        "value": "0ms",
+        "purpose": "Live change flash onset; anything under reduced motion that would move."
+      },
+      {
+        "name": "duration-fast",
+        "value": "100ms",
+        "purpose": "Hover, press, small state changes, translation crossfade."
+      },
+      {
+        "name": "duration-base",
+        "value": "160ms",
+        "purpose": "Popup enter, crossfades, expanding the skipped line."
+      },
+      {
+        "name": "duration-slow",
+        "value": "240ms",
+        "purpose": "Settings pane and onboarding step changes."
+      },
+      {
+        "name": "duration-exit",
+        "value": "80ms",
+        "purpose": "Popup and tooltip exit (opacity only)."
+      },
+      {
+        "name": "duration-settle",
+        "value": "1600ms",
+        "purpose": "Changed-block tint decay from change-flash to change-rest (linear)."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Arrivals: popup enter, pane change."
+      },
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "State changes in place."
+      },
+      {
+        "name": "ease-exit",
+        "value": "cubic-bezier(0.4, 0, 1, 1)",
+        "purpose": "Departures."
+      },
+      {
+        "name": "ease-linear",
+        "value": "linear",
+        "purpose": "Settle decay and determinate progress only."
+      },
+      {
+        "name": "spring-dock",
+        "value": "{\"type\":\"spring\",\"stiffness\":520,\"damping\":44,\"mass\":1}",
+        "purpose": "Live popup and Live block size/position changes. Damping ratio ~0.96, no visible overshoot, ~220ms. CSS fallback: duration-base + ease-out."
+      },
+      {
+        "name": "popup-enter",
+        "value": "opacity 0→1, scale 0.98→1, origin = edge facing the selection; duration-base, ease-out",
+        "purpose": "Snip and Live popup arrival."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce), :root[data-motion=\"reduced\"]",
+        "purpose": "No scale, translate or spring; size changes instant; opacity transitions <= duration-fast; Live change shows change-rest + change-mark at once with no decay."
+      }
+    ],
+    "focus": {
+      "ring": "outline: 2px solid var(--color-focus-ring); outline-offset: 2px;",
+      "fallback": "If the injected OS accent is below 3:1 against the surface, --color-focus-ring resolves to --color-text-primary.",
+      "picker": "outline: 2px solid #FFFFFF; box-shadow: 0 0 0 3px #00000099;",
+      "trigger": ":focus-visible only"
+    },
+    "materials": {
+      "macos": {
+        "popup": "NSVisualEffectView .popover, .behindWindow",
+        "settings": ".windowBackground",
+        "settingsSidebar": ".sidebar",
+        "picker": "none (transparent overlay)"
+      },
+      "windows11": {
+        "popup": "Acrylic (DWMSBT_TRANSIENTWINDOW)",
+        "settings": "Mica (DWMSBT_MAINWINDOW)",
+        "picker": "none (transparent overlay)",
+        "corners": "DWMWCP_ROUND to match rounded.popup-win"
+      },
+      "fallback": "Windows 10, transparency off, or reduce transparency: solid surfaces (surface-popup-solid etc.)."
+    },
+    "platform": {
+      "macos": {
+        "rounded.popup": "12px",
+        "rounded.control": "6px",
+        "controlHeight": "28px",
+        "bodySize": "13px",
+        "sourceSize": "13px"
+      },
+      "windows": {
+        "rounded.popup": "8px",
+        "rounded.control": "4px",
+        "controlHeight": "32px",
+        "bodySize": "14px",
+        "sourceSize": "14px"
+      },
+      "selector": ":root[data-os=\"macos\" | \"windows\"] set by the shell"
+    },
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Snip popup",
+      "kind": "custom",
+      "refersTo": "popup-snip",
+      "description": "One-shot result beside the selection: blocks, then the footer with provider, skipped line and copy status.",
+      "html": "<div class=\"ds-popup\"><div class=\"ds-block\"><p class=\"ds-tr\">Press any key to continue</p><p class=\"ds-src\" lang=\"zh-Hans\">按任意键继续</p></div><div class=\"ds-block\"><p class=\"ds-tr\">Save failed. Try again?</p><p class=\"ds-src\" lang=\"ja\">保存に失敗しました。もう一度試しますか？</p></div><div class=\"ds-foot\"><span class=\"ds-local\">On device</span><button class=\"ds-skip\">2 blocks skipped · Korean</button></div></div>",
+      "css": ".ds-popup { width: 340px; padding: 12px; background: #F5F5F7E6; color: #1D1D1F; border-radius: 12px; box-shadow: inset 0 0 0 1px #0000001F, 0 8px 24px #0000002E; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; } .ds-block { padding: 4px 8px; border-radius: 6px; margin-block-end: 8px; } .ds-block:hover { background: #0000000F; } .ds-tr { margin: 0; font-size: 15px; line-height: 1.5; } .ds-src { margin: 4px 0 0; font-size: 13px; line-height: 1.7; color: #55555C; } .ds-foot { display: flex; gap: 12px; align-items: center; padding-inline: 8px; margin-block-start: 8px; font-size: 12px; font-weight: 500; color: #55555C; } .ds-skip { font: inherit; color: inherit; background: none; border: 0; padding: 4px 8px; border-radius: 6px; cursor: pointer; } .ds-skip:hover { background: #0000000F; } .ds-skip:focus-visible { outline: 2px solid #0A63C9; outline-offset: 2px; }"
+    },
+    {
+      "name": "Live changed block",
+      "kind": "custom",
+      "refersTo": "block-changed",
+      "description": "A Live block that just changed: flash tint decaying to rest, plus the change mark.",
+      "html": "<div class=\"ds-live\"><div class=\"ds-lblock\">The gate opens at dawn.</div><div class=\"ds-lblock ds-changed\">Bring the lantern with you.</div></div>",
+      "css": ".ds-live { width: 320px; padding: 8px 12px 12px; background: #F5F5F7E6; border-radius: 12px; box-shadow: inset 0 0 0 1px #0000001F; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 15px; line-height: 1.5; color: #1D1D1F; } .ds-lblock { position: relative; padding: 4px 8px 4px 20px; border-radius: 6px; margin-block-end: 8px; } .ds-changed { animation: ds-settle 1600ms linear forwards; } .ds-changed::before { content: ''; position: absolute; inset-inline-start: 8px; top: calc(4px + 0.75em - 3px); width: 6px; height: 6px; border-radius: 999px; background: #0A63C9; } @keyframes ds-settle { from { background: #0A63C924; } to { background: #0A63C90F; } } @media (prefers-reduced-motion: reduce) { .ds-changed { animation: none; background: #0A63C90F; } }"
+    },
+    {
+      "name": "Cloud-in-use indicator",
+      "kind": "chip",
+      "refersTo": "egress-indicator",
+      "description": "Shown on every result a cloud provider handled; never dismissible while active.",
+      "html": "<span class=\"ds-egress\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4.5 12.5h7a3 3 0 0 0 .4-5.97A4 4 0 0 0 4.2 7.6 2.5 2.5 0 0 0 4.5 12.5Z\"/></svg>Sent to DeepL</span>",
+      "css": ".ds-egress { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 2px 8px; border-radius: 999px; background: #5E32AE1A; color: #5E32AE; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 12px; font-weight: 500; line-height: 1.35; }"
+    },
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "At most one per view.",
+      "html": "<button class=\"ds-btn-primary\">Download model</button>",
+      "css": ".ds-btn-primary { height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: #0A63C9; color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 13px; cursor: pointer; transition: background-color 100ms cubic-bezier(0.2,0,0,1); } .ds-btn-primary:hover { background: color-mix(in srgb, #0A63C9, #000000 6%); } .ds-btn-primary:active { background: color-mix(in srgb, #0A63C9, #000000 10%); } .ds-btn-primary:focus-visible { outline: 2px solid #0A63C9; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Standard action with a control edge.",
+      "html": "<button class=\"ds-btn-secondary\">Choose shortcut…</button>",
+      "css": ".ds-btn-secondary { height: 28px; padding: 0 12px; border: 1px solid #76767D; border-radius: 6px; background: #FFFFFF; color: #1D1D1F; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 13px; cursor: pointer; } .ds-btn-secondary:hover { background: color-mix(in srgb, #FFFFFF, #000000 6%); } .ds-btn-secondary:active { background: color-mix(in srgb, #FFFFFF, #000000 10%); } .ds-btn-secondary:focus-visible { outline: 2px solid #0A63C9; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Settings text input (API keys use ui-monospace).",
+      "html": "<input class=\"ds-field\" placeholder=\"Paste API key\" aria-label=\"API key\">",
+      "css": ".ds-field { height: 28px; padding: 0 8px; border: 1px solid #76767D; border-radius: 6px; background: #FFFFFF; color: #1D1D1F; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace; font-size: 13px; } .ds-field::placeholder { color: #55555C; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; } .ds-field:focus-visible { outline: 2px solid #0A63C9; outline-offset: 2px; border-color: transparent; }"
+    },
+    {
+      "name": "Hotkey chip",
+      "kind": "chip",
+      "refersTo": "kbd",
+      "description": "OS-native key glyphs.",
+      "html": "<kbd class=\"ds-kbd\">⌃⇧S</kbd>",
+      "css": ".ds-kbd { display: inline-flex; align-items: center; height: 20px; padding: 1px 6px; border-radius: 4px; background: #FFFFFF; box-shadow: inset 0 0 0 1px #0000001F; color: #1D1D1F; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 12px; font-weight: 500; }"
+    },
+    {
+      "name": "Picker readout",
+      "kind": "custom",
+      "refersTo": "picker-readout",
+      "description": "Selection size readout; always dark.",
+      "html": "<span class=\"ds-readout\">640 × 212</span>",
+      "css": ".ds-readout { display: inline-flex; align-items: center; height: 20px; padding: 2px 6px; border-radius: 4px; background: #1C1C1EE0; color: #F5F5F7; box-shadow: 0 1px 4px #0000004D; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Detected box",
+      "kind": "custom",
+      "refersTo": "detection-box",
+      "description": "Detected text box drawn on screen over the selection; linked state fills with accent.",
+      "html": "<div class=\"ds-boxes\"><span class=\"ds-box\">OCR block</span><span class=\"ds-box ds-linked\">Linked block</span><span class=\"ds-box ds-skipped\">Skipped block</span></div>",
+      "css": ".ds-boxes { display: flex; gap: 12px; padding: 16px; background: #6B7280; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 13px; color: #FFFFFF; } .ds-box { padding: 4px 8px; border-radius: 3px; outline: 1px solid #FFFFFF; box-shadow: 0 0 0 2px #00000099; } .ds-linked { background: #0A63C93D; } .ds-skipped { outline: 1px dashed #FFFFFF99; box-shadow: 0 0 0 2px #00000066; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Margin Note",
+    "overview": "Glimpse writes the meaning of foreign text in the margin beside it, the way a reader pencils a gloss next to a hard line. The note is small, plain and close to its source. It never covers the original, it never decorates itself, and it disappears when the page is turned. Every surface (the region picker, the Snip popup, the Live docked popup, settings, onboarding, the tray item) is the same quiet hand: system type, the OS's own materials and accent, neutral tints, and colour used only to say something.\n\nDensity is that of a native utility, not a product page. Popups are compact and content-first: the translation is the largest thing on the surface, controls are small and secondary, and there is no header art, no logo and no empty decoration. Settings and onboarding follow the host OS's settings conventions (grouped rows, standard controls, sidebar or stepped layout) so a Windows user and a Mac user each recognise them at once. The world contributes type, palette and one signature move only; it never supplies controls or layout.\n\nThe signature move is the **linked gloss**: hovering or focusing a block in the popup lights its detected box on screen, and in Live mode a block that just changed carries a brief tint that settles into a faint resting mark. Source and meaning are always visibly connected, and change is shown, not churned.",
+    "keyCharacteristics": [
+      "System UI fonts on each OS, with per-script Noto fallbacks; no web fonts, no display face.",
+      "Neutral, untinted greys that read as OS chrome; the OS accent drives interactive colour.",
+      "Native window materials (macOS vibrancy, Windows Acrylic/Mica) under a tint that guarantees legibility over any screen content.",
+      "Colour carries state only: accent for action, focus and linkage; violet for cloud egress; standard status hues.",
+      "Motion is fast, short and explanatory; Live mode never animates anything that did not change.",
+      "Logical (direction-agnostic) layout everywhere; RTL and mixed-direction text are first-class."
+    ],
+    "rules": [
+      {
+        "name": "The Ninety Rule",
+        "body": "Any translucent surface that carries secondary text or body copy is at least 90% opaque. That is the floor at which every text token still passes 4.5:1 when the content behind the window is pure white or pure black. Lower opacity is allowed only for surfaces that carry primary text and headings alone (`surface-window`, 72%).",
+        "section": "colors"
+      },
+      {
+        "name": "The Borrowed Accent Rule",
+        "body": "Glimpse has no brand colour in its UI. Interactive colour is the user's OS accent; the app-icon orange stays in the icon, the installer and the README.",
+        "section": "colors"
+      },
+      {
+        "name": "The Violet Means Leaving Rule",
+        "body": "Egress violet appears if and only if data left, or will leave, the device. Never use it for decoration, promotion or \"premium\" cues.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Costume Rule",
+        "body": "No uppercase labels, no letter-spacing tweaks, no condensed or display faces, no monospace outside literal data. They fail in half the scripts Glimpse renders, and the OS never uses them.",
+        "section": "typography"
+      },
+      {
+        "name": "The Leading Follows Script Rule",
+        "body": "Line height is set per script, not per surface. A token's line height is the Latin value; the script table overrides it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Borrowed Depth Rule",
+        "body": "The window is the only elevated object. Inside a popup everything is flat: no cards, no shadows, no nested surfaces. Groups are separated by space and dividers.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** paint `surface-popup` (90% opaque) over the native material and switch to `surface-popup-solid` when the OS asks for less transparency.",
+      "**Do** take interactive colour from the OS accent, with the frontmatter hex as the fallback only.",
+      "**Do** tag every rendered block with its detected `lang` and `dir=\"auto\"`, and let `:lang()` choose stack and leading.",
+      "**Do** use logical properties for every inline-axis value.",
+      "**Do** keep each popup flat: blocks separated by 8px and, where needed, a `divider`.",
+      "**Do** show the cloud-in-use indicator with icon and provider name on every cloud-handled result and in the tray.",
+      "**Do** honour reduced motion by removing movement while keeping the change tint, mark and text updates."
+    ],
+    "donts": [
+      "**Don't** use gradients, gradient text, glows, coloured shadows or CSS glassmorphism; the only glass is the OS material.",
+      "**Don't** add cards, nested surfaces, eyebrows or kicker labels above headings, section numbers, or hero blocks to any surface.",
+      "**Don't** use uppercase or tracked labels, display faces, or monospace as decoration.",
+      "**Don't** mark changed Live blocks with a coloured side stripe, a border thicker than 1px, a pulsing dot or a shake.",
+      "**Don't** use spinners or shimmer inside content; show the real source text, then the translation.",
+      "**Don't** use the app-icon orange (#EA580C) anywhere in the UI.",
+      "**Don't** use egress violet for anything except data leaving the device, and never rely on colour alone for it.",
+      "**Don't** use emoji or Unicode glyphs as icons, celebration states, confetti or mascots.",
+      "**Don't** animate a whole popup, or any unchanged block, when Live content updates.",
+      "**Don't** let any Glimpse surface cover the selected or pinned region."
+    ]
+  }
+}
