@@ -1,0 +1,58 @@
+{
+	"displays": [
+		{
+			"id": 1,
+			"bounds": {
+				"x": 0,
+				"y": 0,
+				"width": 200,
+				"height": 120
+			},
+			"scaleFactor": 2,
+			"isPrimary": true,
+			"pixelBounds": {
+				"x": 0,
+				"y": 0,
+				"width": 400,
+				"height": 240
+			}
+		},
+		{
+			"id": 2,
+			"bounds": {
+				"x": 200,
+				"y": 0,
+				"width": 160,
+				"height": 120
+			},
+			"scaleFactor": 1,
+			"isPrimary": false,
+			"pixelBounds": {
+				"x": 400,
+				"y": 0,
+				"width": 160,
+				"height": 120
+			}
+		}
+	],
+	"frames": [
+		{
+			"file": "0001.png",
+			"holdMs": 500
+		},
+		{
+			"file": "0002.png",
+			"holdMs": 500
+		},
+		{
+			"file": "0003.png",
+			"holdMs": 500
+		},
+		{
+			"file": "0004.png",
+			"holdMs": 1000
+		}
+	],
+	"advance": "per-grab",
+	"end": "hold"
+}

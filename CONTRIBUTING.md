@@ -49,10 +49,28 @@ and tries one small capture.
 | `bun run format` | Biome format, in place |
 | `bun test` | All unit tests (spikes/ and .hutch/ are excluded by bunfig.toml) |
 | `bun run tokens` | Regenerate `packages/ui/src/styles/tokens.css` after editing DESIGN.md |
+| `bun run harness <displays\|snip\|live>` | Headless harness: Snip/Live over recorded frames, no window or webview (see below) |
 
 `cd app && bun run views` builds only the webviews into `app/dist/views/`.
 
 Run `typecheck`, `lint` and `bun test` before pushing; CI runs the same on Linux.
+
+## Headless harness (Linux, CI, quick checks anywhere)
+
+The harness drives the main-process services without Electrobun or a webview. On Linux, capture
+comes from the file-based backend: a folder of PNG "screenshots" plus an optional `frames.json`
+describing the displays and timing (format in `app/src/bun/services/capture/file.ts`).
+
+```sh
+bun run harness displays                                   # the sample recording's display layout
+bun run harness snip --rect 20,15,160,90 --out /tmp/glim   # one capture, saved as PNG
+bun run harness live --rect 0,0,360,120 --fps 4            # a Live session: new vs unchanged frames
+bun run harness live --frames ~/recordings/game --realtime # your own recording, real timing
+bun run harness snip --native --rect 0,0,400,200 --out out # Windows/macOS: the real capture backend
+```
+
+Add `--json` for the full report. The app honours the same switches:
+`GLIMPSE_CAPTURE_FRAMES=<folder> bun run dev` runs it on recorded frames.
 
 ## Branches, commits, PRs
 

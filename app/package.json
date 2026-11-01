@@ -16,7 +16,9 @@
 		"build:stable": "hutch electrobun build --env=stable",
 		"native:mac": "sh native/macos/build.sh",
 		"native:win": "pwsh -NoProfile -ExecutionPolicy Bypass -File native/windows/build.ps1",
-		"native:win:cross": "sh native/windows/build-zig.sh"
+		"native:win:cross": "sh native/windows/build-zig.sh",
+		"harness": "bun scripts/harness.ts",
+		"fixtures:capture": "bun scripts/make-capture-fixtures.ts"
 	},
 	"dependencies": {
 		"@glimpse/core": "workspace:*",
