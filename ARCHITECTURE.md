@@ -46,6 +46,7 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 ├── docs/decisions/              ADRs. docs/design/: flows and token preview.
 ├── .github/workflows/ci.yml     Linux CI: typecheck, lint, test, harness, Linux build
 ├── .github/workflows/native.yml compile + load the native helpers on Windows/macOS runners
+├── .github/workflows/desktop.yml Windows/macOS: typecheck, test, native helper, stable build
 ├── package.json                 Bun workspace root (workspaces: app, packages/*) and the root scripts
 ├── tsconfig.base.json           shared strict compiler options; each package has its own tsconfig.json
 ├── biome.json                   lint + format, including the @glimpse/core import boundary
@@ -467,7 +468,7 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
 CI (`.github/workflows/ci.yml`) runs on ubuntu-latest for PRs to and pushes on `develop`:
 install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, a harness Snip + Live run
 over the sample recording, and a Linux `electrobun build`. Windows and macOS runners are only used by their dedicated, path-filtered workflows
-(`native.yml`).
+(`native.yml`, `desktop.yml`).
 
 ## 8. Conventions
 

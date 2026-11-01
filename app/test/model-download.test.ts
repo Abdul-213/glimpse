@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { InstallState, ModelFile } from "@glimpse/core";
 import { loadBergamotCatalogue, packInstallable } from "../src/bun/services/models/catalogue.ts";
 import { DownloadError, downloadFile } from "../src/bun/services/models/download.ts";
@@ -328,7 +328,7 @@ describe("Bergamot catalogue", () => {
 describe("paths", () => {
 	test("models root and bundled dir", () => {
 		expect(modelsRoot("/data")).toBe(join("/data", "models"));
-		expect(modelsRoot("/data", "/custom/models")).toBe("/custom/models");
+		expect(modelsRoot("/data", "/custom/models")).toBe(resolve("/custom/models"));
 		const app = join(dir, "app");
 		mkdirSync(join(app, "models"), { recursive: true });
 		writeFileSync(join(app, "models", "manifest.json"), "{}");

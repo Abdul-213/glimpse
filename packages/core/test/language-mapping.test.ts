@@ -210,7 +210,10 @@ describe("display names", () => {
 	test("in the user's locale and natively", () => {
 		expect(displayName(L("ja"))).toBe("Japanese");
 		expect(displayName(L("ja"), "fr")).toBe("japonais");
-		expect(displayName(L("zh-Hant"), "en", { style: "standard" })).toBe("Chinese (Traditional)");
+		// CLDR data differs by runtime: Bun on Linux/Windows vs the system ICU on macOS.
+		expect(["Chinese (Traditional)", "Chinese, Traditional"]).toContain(
+			displayName(L("zh-Hant"), "en", { style: "standard" }),
+		);
 		expect(nativeName(L("de"))).toBe("Deutsch");
 		expect(nativeName(L("ja"))).toBe("日本語");
 		expect(displayName(L("ja"), "not a locale")).toBe("Japanese");

@@ -343,12 +343,16 @@ describe("ServiceHotkeyRegistrar (real HotkeyService, fake backend)", () => {
 });
 
 describe("launch at login (GLIM-77)", () => {
+	// The macOS paths go through node:path, which is win32 path logic on a Windows runner; the
+	// macOS branch never runs there, so those cases only run on macOS and Linux.
+	const posixPaths = process.platform !== "win32";
+
 	test("finds the .app bundle from the Bun binary", () => {
 		expect(macBundleOf("/Applications/Glimpse.app/Contents/MacOS/bun")).toBe("/Applications/Glimpse.app");
 		expect(macBundleOf("/Users/me/.bun/bin/bun")).toBeNull();
 	});
 
-	test("targets per platform", () => {
+	test.if(posixPaths)("targets per platform", () => {
 		const mac = loginTarget({
 			platform: "macos",
 			execPath: "/Applications/Glimpse.app/Contents/MacOS/bun",
@@ -369,7 +373,7 @@ describe("launch at login (GLIM-77)", () => {
 		expect(loginTarget({ platform: "linux", execPath: "/x", home: "", exists: () => true }).os).toBe("unsupported");
 	});
 
-	test("the LaunchAgent opens the bundle at login, escaped", () => {
+	test.if(posixPaths)("the LaunchAgent opens the bundle at login, escaped", () => {
 		const plist = launchAgentPlist("/Applications/Tom & Jerry/Glimpse.app");
 		expect(plist).toContain("<string>/usr/bin/open</string>");
 		expect(plist).toContain("<string>/Applications/Tom &amp; Jerry/Glimpse.app</string>");
@@ -395,7 +399,7 @@ describe("launch at login (GLIM-77)", () => {
 		expect(parseRegQuery("ERROR: not found")).toBeNull();
 	});
 
-	test("macOS: set writes and removes the plist; reconcile re-points a moved app", async () => {
+	test.if(posixPaths)("macOS: set writes and removes the plist; reconcile re-points a moved app", async () => {
 		const io = fakeLoginIO();
 		const plist = "/Users/me/Library/LaunchAgents/x.plist";
 		const item = new LoginItem({ os: "macos", bundle: "/Applications/Glimpse.app", plist }, io);

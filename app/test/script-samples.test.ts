@@ -11,10 +11,14 @@ const tokensCss = await Bun.file(
 /** Scripts the base stack (and the OS cascade behind it) is expected to render. */
 const BASE_SCRIPTS = new Set(["Latn", "Cyrl", "Grek", "Geor", "Armn"]);
 
+/** Newer CLDR (macOS's ICU) gives Urdu "Aran" (Nastaliq), a variant of Arabic; Bun on Linux gives "Arab". */
+const SCRIPT_VARIANTS: Record<string, string> = { Aran: "Arab" };
+
 describe("font and RTL test samples", () => {
 	test("each sample's lang resolves to its declared script", () => {
 		for (const s of SCRIPT_SAMPLES) {
-			expect(`${s.lang}: ${new Intl.Locale(s.lang).maximize().script}`).toBe(`${s.lang}: ${s.script}`);
+			const script = new Intl.Locale(s.lang).maximize().script ?? "";
+			expect(`${s.lang}: ${SCRIPT_VARIANTS[script] ?? script}`).toBe(`${s.lang}: ${s.script}`);
 		}
 	});
 

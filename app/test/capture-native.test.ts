@@ -10,6 +10,7 @@ import {
 	GLIM_E_TIMEOUT,
 } from "../src/bun/native/status.ts";
 
+// Expected paths go through resolve() too: on Windows "/x" resolves to "D:\\x".
 describe("native library lookup", () => {
 	test("maps platforms to helper OSes", () => {
 		expect(nativeOsFor("darwin")).toBe("macos");
@@ -20,14 +21,14 @@ describe("native library lookup", () => {
 	test("bundle path, then dev build path; env override first", () => {
 		const bundled = "/App/Contents/Resources/app/bun";
 		expect(libraryCandidates("macos", bundled, {})).toEqual([
-			"/App/Contents/Resources/app/native/libglimpse.dylib",
+			resolve("/App/Contents/Resources/app/native/libglimpse.dylib"),
 			resolve(bundled, "../../../native/macos/build/libglimpse.dylib"),
 		]);
 		const src = "/repo/app/src/bun/native";
 		expect(libraryCandidates("windows", src, { GLIMPSE_NATIVE_LIB: "/tmp/x.dll" })).toEqual([
-			"/tmp/x.dll",
-			"/repo/app/src/bun/native/glimpse.dll",
-			"/repo/app/native/windows/build/glimpse.dll",
+			resolve("/tmp/x.dll"),
+			resolve("/repo/app/src/bun/native/glimpse.dll"),
+			resolve("/repo/app/native/windows/build/glimpse.dll"),
 		]);
 	});
 
