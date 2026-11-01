@@ -131,6 +131,27 @@ describe("PickerController", () => {
 		expect(factory.created.every((o) => !o.visible)).toBe(true);
 	});
 
+	test("a press on the results layer is reported as a click outside the Snip popup (GLIM-72)", () => {
+		const { controller, factory } = setup({ reducedMotion: true });
+		let clicks = 0;
+		controller.onResultsPointerDown(() => clicks++);
+		controller.onRegionSelected(() => "keep");
+		// Not reported while picking.
+		controller.open("snip");
+		controller.viewKey({ displayId: 1, key: "ArrowRight", down: true, repeat: false, mods: NO_MODIFIERS });
+		controller.viewKey({ displayId: 1, key: "Enter", down: true, repeat: false, mods: NO_MODIFIERS });
+		expect(clicks).toBe(0);
+		controller.viewPointer(ptr(2, "move", 50, 50));
+		controller.viewPointer(ptr(2, "down", 50, 50));
+		controller.viewPointer(ptr(2, "up", 50, 50));
+		expect(clicks).toBe(1);
+		expect(controller.isOpen).toBe(false);
+		controller.dismiss();
+		controller.viewPointer(ptr(1, "down", 50, 50));
+		expect(clicks).toBe(1);
+		expect(factory.created.length).toBe(2);
+	});
+
 	test("Live confirm hides even if a listener asks to keep", () => {
 		const { controller, factory } = setup({ reducedMotion: true });
 		controller.onRegionSelected(() => "keep");

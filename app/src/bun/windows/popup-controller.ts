@@ -28,6 +28,12 @@ import { realScheduler, type Scheduler } from "./picker-controller.ts";
 
 /** Show the window anyway if the view hasn't reported `painted` by then (spec §8). */
 export const PAINT_TIMEOUT_MS = 32;
+/**
+ * After the popup loses key, wait this long before treating it as an app switch: a click
+ * on the results layer also takes key from the popup, and that click should dismiss as
+ * "outside" (with focus restore), not as "blur" (spec §7.4 vs §7.5).
+ */
+export const BLUR_GRACE_MS = 120;
 /** Height the window starts at, before the view measures: S0 (two skeleton bars + footer). */
 export const INITIAL_CONTENT_HEIGHT = 124;
 
@@ -71,13 +77,16 @@ export interface SnipPopupControllerDeps {
 
 interface Request {
 	readonly id: string;
-	readonly placement: SnipPopupPlacement;
+	placement: SnipPopupPlacement;
 	readonly abort: AbortController;
 	state: SnipPopupState;
 	shown: boolean;
 	contentHeight: number;
 	frame: Rect;
 	cancelPaintTimer: (() => void) | null;
+	cancelBlur: (() => void) | null;
+	/** The user dragged the popup: it stays where it was dropped (spec §2.4). */
+	dragged: boolean;
 }
 
 let counter = 0;
@@ -136,6 +145,8 @@ export class SnipPopupController {
 			contentHeight: INITIAL_CONTENT_HEIGHT,
 			frame,
 			cancelPaintTimer: null,
+			cancelBlur: null,
+			dragged: false,
 		};
 		this.request = request;
 		// Move (and size) the hidden window first, so it re-rasterises at the target display's
@@ -178,7 +189,41 @@ export class SnipPopupController {
 		if (this.current(requestId)) this.dispatch({ type: "toggleSkipped", expanded });
 	}
 
-	/** Esc, Close (from the view), and later click outside, app switch, a new hotkey. */
+	/**
+	 * The popup window gained or lost key. Losing it to another app (Cmd+Tab, Alt+Tab, a
+	 * notification) dismisses without restoring focus (spec §7.5, owner question 7), after
+	 * a short grace period in case the cause was a click on the results layer.
+	 */
+	windowFocus(focused: boolean): void {
+		const r = this.request;
+		if (!r?.shown) return;
+		r.cancelBlur?.();
+		r.cancelBlur = null;
+		if (focused) return;
+		const id = r.id;
+		r.cancelBlur = this.scheduler.later(BLUR_GRACE_MS, () => this.dismiss(id, "blur"));
+	}
+
+	/** A press on the results layer: click outside the popup (spec §5). */
+	outsideClick(): void {
+		if (this.request) this.close("outside");
+	}
+
+	/**
+	 * The window moved. Our own `setFrame` moves are ignored; a user drag (the footer is a
+	 * drag region) re-anchors the popup where it was dropped, top edge fixed, so later
+	 * growth doesn't snap it back next to the region.
+	 */
+	moved(x: number, y: number): void {
+		const r = this.request;
+		if (!r || !Number.isFinite(x) || !Number.isFinite(y)) return;
+		if (Math.abs(x - r.frame.x) <= 1 && Math.abs(y - r.frame.y) <= 1) return;
+		r.dragged = true;
+		r.frame = { ...r.frame, x, y };
+		r.placement = { ...r.placement, x, y, anchor: "top" };
+	}
+
+	/** Esc, Close (from the view), click outside, app switch, a new hotkey. */
 	dismiss(requestId: string | null, reason: SnipDismissReason): void {
 		const r = requestId === null ? this.request : this.current(requestId);
 		if (!r) return;
@@ -255,6 +300,7 @@ export class SnipPopupController {
 		if (!r) return;
 		this.request = null;
 		r.cancelPaintTimer?.();
+		r.cancelBlur?.();
 		r.abort.abort();
 		this.deps.window.hide();
 		this.deps.results?.dismiss();

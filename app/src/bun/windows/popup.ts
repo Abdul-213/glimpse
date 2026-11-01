@@ -11,13 +11,14 @@
 //
 // Native materials (Acrylic, NSVisualEffectView) aren't wired yet: the view paints the
 // solid `surface-popup-solid` veil (`data-material="none"`) until they are.
-import type { Display } from "@glimpse/core";
+import { type Display, displayAt } from "@glimpse/core";
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { SnipPopupRPC, SnipStateMessage, SnipViewInit } from "../../shared/popup-rpc.ts";
 import { loadMacNative } from "../native/macos.ts";
 import { configureOverlayWindow, raiseTopmost } from "../native/windows.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
 import type { PopupWindowPort, SnipPopupController } from "./popup-controller.ts";
+import { macFlipOffset } from "./popup-init.ts";
 
 /** NSWindow level for the Snip popup: NSPopUpMenuWindowLevel, above the lowered overlays (100). */
 export const MAC_POPUP_LEVEL = 101;
@@ -37,6 +38,8 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 	private protectedOnce = false;
 	private visible = false;
 	private last: SnipStateMessage | null = null;
+	/** The display the window is on (macOS Y-flip workaround). */
+	private displayId: number | null = null;
 
 	constructor(private readonly deps: ElectrobunPopupDeps) {
 		const c = () => deps.controller();
@@ -85,7 +88,25 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 			activate: false,
 			rpc: this.rpc,
 		});
+		this.displayId = primary?.id ?? null;
 		this.configure();
+		// Key changes and moves (app switch dismisses; a footer drag re-anchors the popup).
+		this.win.on("focus", () => c()?.windowFocus(true));
+		this.win.on("blur", () => c()?.windowFocus(false));
+		this.win.on("move", (e) => {
+			const d = (e as { data?: { x?: unknown; y?: unknown } }).data;
+			if (typeof d?.x !== "number" || typeof d.y !== "number") return;
+			c()?.moved(d.x, d.y - this.flipOffset());
+		});
+	}
+
+	/** macOS only: Electrobun's Y-flip error for the window's current display (0 elsewhere). */
+	private flipOffset(): number {
+		if (process.platform !== "darwin") return 0;
+		const displays = this.deps.displays();
+		const primary = displays.find((d) => d.isPrimary) ?? displays[0];
+		const current = displays.find((d) => d.id === this.displayId) ?? primary;
+		return primary && current ? macFlipOffset(current.bounds.height, primary.bounds.height) : 0;
 	}
 
 	private configure(): void {
@@ -106,7 +127,11 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 	}
 
 	setFrame(frame: { x: number; y: number; width: number; height: number }): void {
-		this.win.setFrame(frame.x, frame.y, frame.width, frame.height);
+		// Electrobun flips against the screen the window is on *before* the move.
+		const y = frame.y + this.flipOffset();
+		this.win.setFrame(frame.x, y, frame.width, frame.height);
+		const centre = { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 };
+		this.displayId = displayAt(this.deps.displays(), centre)?.id ?? this.displayId;
 	}
 
 	show(): void {
