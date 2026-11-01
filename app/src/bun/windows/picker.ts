@@ -42,7 +42,12 @@ class ElectrobunOverlay implements OverlayWindow {
 			maxRequestTime: 5_000,
 			handlers: {
 				requests: {
-					getPickerInit: ({ displayId }) => c()?.viewInit(typeof displayId === "number" ? displayId : id) ?? null,
+					getPickerInit: (p) =>
+						c()?.viewInit(id, {
+							...(typeof p?.devicePixelRatio === "number" ? { devicePixelRatio: p.devicePixelRatio } : {}),
+							...(typeof p?.innerWidth === "number" ? { innerWidth: p.innerWidth } : {}),
+							...(typeof p?.innerHeight === "number" ? { innerHeight: p.innerHeight } : {}),
+						}) ?? null,
 				},
 				messages: {
 					pickerPointer: (m) => c()?.viewPointer({ ...m, displayId: id }),

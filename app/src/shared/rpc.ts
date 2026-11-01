@@ -98,7 +98,11 @@ export interface PickerOpenInfo {
 export type PickerRPC = {
 	bun: RPCSchema<{
 		requests: {
-			getPickerInit: { params: { displayId: number }; response: PickerViewInit | null };
+			/** The view reports what it got, so a window that doesn't cover its display or renders at the wrong scale is logged (GLIM-54). */
+			getPickerInit: {
+				params: { displayId: number; devicePixelRatio?: number; innerWidth?: number; innerHeight?: number };
+				response: PickerViewInit | null;
+			};
 		};
 		messages: {
 			pickerPointer: PickerPointerMessage;

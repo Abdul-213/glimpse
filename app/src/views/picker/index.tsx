@@ -45,7 +45,12 @@ const root = document.getElementById("root");
 if (!root) throw new Error("picker: #root missing from index.html");
 
 rpc.request
-	.getPickerInit({ displayId })
+	.getPickerInit({
+		displayId,
+		devicePixelRatio: window.devicePixelRatio,
+		innerWidth: window.innerWidth,
+		innerHeight: window.innerHeight,
+	})
 	.then((i) => {
 		if (!i) return;
 		applyPlatform(i.os);

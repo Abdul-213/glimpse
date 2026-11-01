@@ -7,7 +7,12 @@ import { SAMPLE_FRAMES_DIR } from "../src/bun/services/capture/index.ts";
 import { describeOSStatus, hotkeyLabel, toCarbon, toElectrobunAccelerator } from "../src/bun/services/hotkey-keys.ts";
 import { type HotkeyBackend, HotkeyService } from "../src/bun/services/hotkeys.ts";
 import { CarbonHotkeyBackend } from "../src/bun/services/hotkeys-carbon.ts";
-import { displaySignature, EXIT_FADE_MS, PickerController } from "../src/bun/windows/picker-controller.ts";
+import {
+	displaySignature,
+	EXIT_FADE_MS,
+	overlayMismatch,
+	PickerController,
+} from "../src/bun/windows/picker-controller.ts";
 import { FakeOverlayFactory, ManualScheduler } from "../src/harness/overlays.ts";
 import { dragSteps, runPick } from "../src/harness/pick.ts";
 
@@ -201,6 +206,14 @@ describe("PickerController", () => {
 		expect(factory.created.every((o) => o.closed)).toBe(true);
 	});
 
+	test("overlayMismatch reports a window that doesn't cover its display or has the wrong DPI", () => {
+		expect(overlayMismatch(d(1, 0, 1.5), { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1.5 })).toBeNull();
+		expect(overlayMismatch(d(1, 0, 1.5), { innerWidth: 1920, innerHeight: 720, devicePixelRatio: 1 })).toBe(
+			"width 1920 != 1280, devicePixelRatio 1 != scale 1.5",
+		);
+		expect(overlayMismatch(d(1, 0), {})).toBeNull();
+	});
+
 	test("display signature changes with scale", () => {
 		expect(displaySignature([d(1, 0)])).not.toBe(displaySignature([d(1, 0, 2)]));
 	});
@@ -319,6 +332,16 @@ describe("harness pick over the sample recording", () => {
 			expect(r.region?.rect).toEqual(rect(20, 15, 140, 75));
 			expect([r.frame?.width, r.frame?.height]).toEqual([280, 150]);
 			expect(r.overlaysHidden).toBe(true);
+			// GLIM-54: across the 2x / 1x seam at x 200. The drag starts on display 1, whose
+			// overlay keeps reporting (pointer capture); points past its edge come from the cursor.
+			const seam = await runPick(source, [...dragSteps({ x: 150, y: 20 }, { x: 300, y: 100 }), { wait: 50 }]);
+			expect(seam.region?.rect).toEqual(rect(150, 20, 150, 80));
+			expect(seam.region?.pieces.map((p) => [p.displayId, p.physical])).toEqual([
+				[1, rect(300, 40, 100, 160)],
+				[2, rect(0, 20, 100, 80)],
+			]);
+			// One output image at the highest scale; the 1x part is upsampled by the capture plan.
+			expect([seam.frame?.width, seam.frame?.height, seam.frame?.scale]).toEqual([300, 160, 2]);
 			const esc = await runPick(source, [{ move: { x: 10, y: 10 } }, { key: "Escape" }]);
 			expect(esc.outcome).toEqual({ kind: "cancelled", reason: "escape" });
 			expect(esc.frame).toBeNull();
