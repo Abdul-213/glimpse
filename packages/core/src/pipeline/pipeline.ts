@@ -77,9 +77,14 @@ export interface RunOptions {
 	readonly regions?: readonly Rect[];
 	/** Live: the session's detection memo (GLIM-21 rule 5a). */
 	readonly memo?: Map<string, BlockLanguage>;
+	/**
+	 * Live: re-ids grouped blocks so a block keeps its id across frames (GLIM-56
+	 * `BlockIdTracker`); the popup updates blocks in place and detection hysteresis keys on it.
+	 */
+	readonly blockIds?: { assign(blocks: readonly OcrBlock[]): readonly OcrBlock[] };
 }
 
-export interface BlockTranslateOptions extends Omit<RunOptions, "regions" | "memo" | "mode"> {
+export interface BlockTranslateOptions extends Omit<RunOptions, "regions" | "memo" | "blockIds" | "mode"> {
 	readonly mode?: "snip" | "live";
 	/** "Retranslate": skip cached entries and overwrite them. */
 	readonly bypassCache?: boolean;
@@ -317,7 +322,8 @@ export class TranslationPipeline {
 		}
 
 		// 2. Grouping and 3. language detection.
-		const grouped = this.#grouper.group(lines, image);
+		const ordered = this.#grouper.group(lines, image);
+		const grouped = opts.blockIds ? opts.blockIds.assign(ordered) : ordered;
 		const memo = opts.memo;
 		const decisions = await this.#detector.detect(grouped, {
 			sources: opts.sources,

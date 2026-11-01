@@ -1,9 +1,10 @@
-Glimpse: third-party model notices
-==================================
+Glimpse: third-party notices
+============================
 
-Glimpse ships or downloads the following model files. Each is listed with its source,
-the revision its SHA-256 hashes were pinned at, and its licence. Full licence texts are in
-the licenses/ folder next to this file. The per-file URLs and hashes are in manifest.json.
+Glimpse ships or downloads the following model files and libraries. Each is listed with its
+source, the revision it was pinned at, and its licence. Full licence texts are in the
+licenses/ folder next to this file. The per-file URLs and hashes of the models are in
+manifest.json.
 
 PaddleOCR PP-OCRv5 mobile text detection and recognition models
   Copyright (c) 2020 PaddlePaddle Authors. All rights reserved.
@@ -32,3 +33,9 @@ Firefox Translations language models (downloaded on demand, not shipped in the i
   Copyright Mozilla.
   https://github.com/mozilla/translations
   Licensed under the Mozilla Public License, Version 2.0 (licenses/MPL-2.0.txt).
+
+ELD, Efficient Language Detector (JavaScript), version 2.1.0, medium database
+  Copyright 2023 Nito T.M.
+  https://github.com/nitotm/efficient-language-detector-js
+  Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
+  Bundled into the app's main script, unmodified.

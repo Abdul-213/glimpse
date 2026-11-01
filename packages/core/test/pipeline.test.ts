@@ -396,7 +396,10 @@ describe("Live session", () => {
 		gate.open();
 		expect(await first).toBeNull();
 		const result = await second;
-		expect(result?.translations["b1"]?.text).toBe("こんにちは [ja>en]");
+		// Live re-ids blocks (BlockIdTracker) so they stay stable across frames.
+		const id = result?.blocks[0]?.id ?? "";
+		expect(id).toMatch(/^k\d+$/);
+		expect(result?.translations[id]?.text).toBe("こんにちは [ja>en]");
 		expect(translator.calls).toHaveLength(1);
 		expect(session.last).toBe(result);
 	});

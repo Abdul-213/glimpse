@@ -1,24 +1,34 @@
-// End to end on Linux (GLIM-102): file-based capture of the sample recording -> scripted OCR
-// -> core pipeline (detection, sentence split, cache, English pivot) -> the real Bergamot
-// provider in its real Worker. Skipped unless GLIMPSE_REAL_PACKS=1 (CI never downloads packs):
+// End to end on Linux (GLIM-102, GLIM-109): file-based capture -> scripted OCR, or real
+// PaddleOCR on a rendered Japanese/German frame -> core pipeline (GLIM-56 grouping, GLIM-21
+// detection over ELD, sentence split, cache, English pivot) -> the real Bergamot provider in
+// its real Worker. Skipped unless GLIMPSE_REAL_PACKS=1 (CI never downloads packs):
 //   GLIMPSE_REAL_PACKS=1 bun test app/test/pipeline-real.test.ts
 // Packs install once into ~/.cache/glimpse/test-installs through the real model manager
 // (the same folder app/test/bergamot-real.test.ts uses), then are reused offline.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { languageCode, rect, TranslationCache } from "@glimpse/core";
+import { languageCode, type OcrProvider, rect, TranslationCache } from "@glimpse/core";
 import { loadManifest } from "../scripts/model-cache.ts";
 import { createFileCaptureSource } from "../src/bun/services/capture/file.ts";
 import { SAMPLE_FRAMES_DIR } from "../src/bun/services/capture/index.ts";
 import { loadBergamotCatalogue, manifestInstallable, packInstallable } from "../src/bun/services/models/catalogue.ts";
 import { ModelManager } from "../src/bun/services/models/model-manager.ts";
 import { RUNTIME_MODEL_ID } from "../src/bun/services/translation/bergamot-packs.ts";
-import { bergamotTranslator, defaultPackRoot, type HarnessTranslator, scriptedOcr } from "../src/harness/providers.ts";
+import { pipelineStages } from "../src/bun/services/translation/pipeline-stages.ts";
+import {
+	bergamotTranslator,
+	defaultPackRoot,
+	type HarnessTranslator,
+	paddleOcr,
+	scriptedOcr,
+} from "../src/harness/providers.ts";
 import { type PipelineStageReport, pipelineStage, runLive, runSnip } from "../src/harness/run.ts";
 
 const enabled = process.env["GLIMPSE_REAL_PACKS"] === "1";
 const L = languageCode;
 const PACKS = ["bergamot-ja-en", "bergamot-en-de", "bergamot-de-en"];
+/** Rendered with real fonts (fixtures/capture/mixed-ja-de/make.mjs). */
+const MIXED_FRAME = join(import.meta.dir, "fixtures", "capture", "mixed-ja-de", "mixed-ja-de.png");
 
 let translator: HarnessTranslator;
 
@@ -64,8 +74,17 @@ describe.skipIf(!enabled)("pipeline on real Bergamot packs (harness, Linux)", ()
 			const ocr = scriptedOcr(text);
 			await ocr.init();
 			const cache = new TranslationCache();
+			const { grouper, detector } = pipelineStages();
 			const stage = (to: string, sources: string[]) =>
-				pipelineStage({ ocr, translation: translator.provider, to: L(to), sources: sources.map(L), cache });
+				pipelineStage({
+					ocr,
+					grouper,
+					detect: detector,
+					translation: translator.provider,
+					to: L(to),
+					sources: sources.map(L),
+					cache,
+				});
 			const src = createFileCaptureSource(SAMPLE_FRAMES_DIR);
 			const de = await runSnip(src, rect(0, 0, 200, 120), { stages: [stage("de", ["ja", "de"])] });
 			const p = de.frame.stages["pipeline"] as PipelineStageReport;
@@ -105,4 +124,56 @@ describe.skipIf(!enabled)("pipeline on real Bergamot packs (harness, Linux)", ()
 		expect(reports[2]?.blocks[0]?.translation).toBe(reports[0]?.blocks[0]?.translation ?? "");
 		src.dispose();
 	}, 120_000);
+
+	test("real OCR: PaddleOCR + grouping + ELD + Bergamot on a rendered Japanese/German frame", async () => {
+		let ocr: OcrProvider | null = null;
+		try {
+			ocr = await paddleOcr();
+		} catch (error) {
+			console.warn(`[skip] real OCR run: ${error instanceof Error ? error.message : String(error)}`);
+			return;
+		}
+		try {
+			const { grouper, detector } = pipelineStages();
+			await detector.load();
+			const src = createFileCaptureSource(MIXED_FRAME);
+			const display = src.displays()[0];
+			if (!display) throw new Error("no display");
+			const run = async (to: string) => {
+				const r = await runSnip(src, display.bounds, {
+					stages: [
+						pipelineStage({
+							ocr: ocr as OcrProvider,
+							grouper,
+							detect: detector,
+							translation: translator.provider,
+							to: L(to),
+							sources: [L("ja"), L("de")],
+						}),
+					],
+				});
+				return r.frame.stages["pipeline"] as PipelineStageReport;
+			};
+			const en = await run("en");
+			console.log(
+				`real OCR snip →en: ${en.timings.totalMs} ms (OCR ${en.timings.ocrMs}, translate ${en.timings.translateMs})`,
+			);
+			expect(en.error).toBeNull();
+			// The two Japanese lines are one block; the German sentence its own; 42 neutral.
+			const [ja, de, n] = en.blocks;
+			expect(ja).toMatchObject({ cls: "translate", from: "ja" });
+			expect(ja?.text).toContain("\n");
+			expect(ja?.translation).toMatch(/meeting/i);
+			expect(de).toMatchObject({ cls: "translate", from: "de" });
+			expect(de?.translation).toMatch(/file/i);
+			expect(n).toMatchObject({ cls: "neutral", text: "42" });
+
+			const toDe = await run("de");
+			expect(toDe.blocks[0]?.translation).toMatch(/Treffen|Sitzung|Besprechung/);
+			expect(toDe.blocks[1]).toMatchObject({ cls: "target", from: "de" });
+			src.dispose();
+		} finally {
+			await ocr.dispose();
+		}
+	}, 180_000);
 });

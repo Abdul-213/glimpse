@@ -16,6 +16,7 @@ import type { Rect } from "../geometry.ts";
 import type { LanguageCode } from "../language/code.ts";
 import { isProviderError, ProviderError } from "../providers/errors.ts";
 import type { OcrImage } from "../providers/ocr.ts";
+import { BlockIdTracker } from "./block-ids.ts";
 import type { PipelineListener, PipelineResult } from "./events.ts";
 import type { TranslationPipeline } from "./pipeline.ts";
 
@@ -41,6 +42,7 @@ export class LivePipelineSession {
 	#sources: readonly LanguageCode[];
 	#target: LanguageCode;
 	#memo = new Map<string, BlockLanguage>();
+	readonly #ids = new BlockIdTracker();
 	#current: Run | null = null;
 	#last: PipelineResult | null = null;
 	#closed = false;
@@ -103,6 +105,7 @@ export class LivePipelineSession {
 				private: this.#cache.private,
 				signal: controller.signal,
 				memo: this.#memo,
+				blockIds: this.#ids,
 				...(options.regions ? { regions: options.regions } : {}),
 				onEvent: (event) => {
 					// Translation lookups run synchronously right after `recognised`.
