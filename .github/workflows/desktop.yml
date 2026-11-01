@@ -1,5 +1,11 @@
-# Desktop builds (GLIM-34): typecheck, unit tests, native helper and a release
-# (`--env=stable`) `electrobun build` on real Windows and macOS runners.
+# Desktop builds (GLIM-34, GLIM-50): typecheck, unit tests, native helper and a release
+# (`--env=stable`) `electrobun build` on real Windows and macOS runners, then the build is
+# packaged and uploaded as unsigned artifacts for manual testing (14 days):
+#
+#   glimpse-<version>-<sha>-windows-x64.zip         portable app (Glimpse\bin\launcher.exe)
+#   glimpse-<version>-<sha>-windows-x64-setup.zip   Electrobun's installer (Glimpse-Setup.exe)
+#   glimpse-<version>-<sha>-macos-arm64.zip         Glimpse.app, ad-hoc signed
+#   glimpse-<version>-<sha>-macos-arm64.dmg         the same app in a DMG
 #
 # Intel macOS is not built: onnxruntime-node has no darwin-x64 build (GLIM-89).
 # Lint runs only on Linux (ci.yml); it is platform-independent.
@@ -110,6 +116,46 @@ jobs:
           GLIMPSE_REQUIRE_MODELS: "1"
         run: hutch electrobun build --env=stable
 
+      - name: Package
+        id: package
+        run: |
+          $version = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          $base = "glimpse-$version-$sha-windows-x64"
+          $dist = Join-Path $env:RUNNER_TEMP "dist"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
+          Get-ChildItem -Recurse app/build, app/artifacts | Select-Object FullName, Length | Format-Table -AutoSize | Out-String -Width 300 | Write-Host
+
+          # app/build/stable-win-x64 holds the portable app (Glimpse\: bin\launcher.exe, which
+          # unpacks Resources\<hash>.tar.zst on first run) next to a loose copy of the installer.
+          # Zip only the app; the installer comes from app/artifacts. Contents are already zstd,
+          # so store them with the fastest zip level.
+          $app = Get-Item app/build/stable-win-*/Glimpse
+          7z a -tzip -mx=1 "$dist\$base.zip" $app.FullName | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z failed" }
+          "zip=$dist\$base.zip" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+
+          # Electrobun's installer: win-x64-Glimpse-Setup.zip (Glimpse-Setup.exe + its payload).
+          $setup = Get-Item app/artifacts/*-Setup.zip
+          Copy-Item $setup.FullName "$dist\$base-setup.zip"
+          "setup=$dist\$base-setup.zip" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          Get-ChildItem $dist | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Host
+
+      - name: Upload the build folder
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.zip }}
+          archive: false
+          retention-days: 14
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.setup }}
+          archive: false
+          retention-days: 14
+
   macos:
     name: macOS arm64
     runs-on: macos-latest
@@ -174,3 +220,61 @@ jobs:
         env:
           GLIMPSE_REQUIRE_MODELS: "1"
         run: hutch electrobun build --env=stable
+
+      # Unsigned for distribution, but every arm64 binary must carry a valid signature to run
+      # at all, so the bundle is ad-hoc signed as a whole after Electrobun has assembled it.
+      - name: Ad-hoc sign and package
+        id: package
+        run: |
+          set -eu
+          version=$(bun -e 'console.log(require("./app/package.json").version)')
+          base="glimpse-$version-${GITHUB_SHA::7}-macos-arm64"
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+
+          # Glimpse.app here is Electrobun's self-extracting wrapper: Contents/MacOS/launcher plus
+          # Resources/<hash>.tar.zst holding the real app, unpacked on first launch.
+          app=$(find app/build -maxdepth 2 -name '*.app' | head -1)
+          [ -n "$app" ] || { echo "no .app in app/build"; exit 1; }
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+
+          # Report (don't fail on) the signature state of the inner app the wrapper unpacks. Its
+          # Mach-Os are all signed, but the bundle seal doesn't verify (GLIM-113).
+          inner="$RUNNER_TEMP/inner"
+          mkdir -p "$inner"
+          tar -xf "$app"/Contents/Resources/*.tar.zst -C "$inner"
+          find "$inner" -maxdepth 4 | head -40
+          for bundle in "$inner"/*.app; do
+            codesign --verify --deep --strict --verbose=2 "$bundle" || echo "::warning::inner app bundle seal does not verify (GLIM-113)"
+            find "$bundle" -type f | while read -r f; do
+              file -b "$f" | grep -q Mach-O || continue
+              printf '%s: %s\n' "${f#"$bundle"/}" "$(codesign -dv "$f" 2>&1 | grep -E '^Signature|flags=' | tr '\n' ' ')"
+            done
+          done
+
+          ditto -c -k --keepParent "$app" "$dist/$base.zip"
+
+          stage="$RUNNER_TEMP/dmg"
+          mkdir -p "$stage"
+          ditto "$app" "$stage/$(basename "$app")"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -quiet -volname Glimpse -srcfolder "$stage" -format UDZO -ov "$dist/$base.dmg"
+
+          ls -la "$dist"
+          echo "zip=$dist/$base.zip" >> "$GITHUB_OUTPUT"
+          echo "dmg=$dist/$base.dmg" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.zip }}
+          archive: false
+          retention-days: 14
+
+      - name: Upload the DMG
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.dmg }}
+          archive: false
+          retention-days: 14

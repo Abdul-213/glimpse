@@ -72,6 +72,41 @@ bun run harness snip --native --rect 0,0,400,200 --out out # Windows/macOS: the 
 Add `--json` for the full report. The app honours the same switches:
 `GLIMPSE_CAPTURE_FRAMES=<folder> bun run dev` runs it on recorded frames.
 
+## Getting a Windows or macOS build
+
+You don't need a local toolchain to try Glimpse on a real PC or Mac: `.github/workflows/desktop.yml`
+(GLIM-34, GLIM-50) builds it on GitHub's Windows and macOS runners. It typechecks, runs the unit
+tests, builds the native helper and makes a release build (`hutch electrobun build --env=stable`),
+then uploads **unsigned** artifacts, kept for 14 days:
+
+| Artifact | What it is |
+|---|---|
+| `glimpse-<version>-<sha>-windows-x64.zip` | Portable app. Unzip it anywhere and run `Glimpse\bin\launcher.exe`. |
+| `glimpse-<version>-<sha>-windows-x64-setup.zip` | Electrobun's installer: unzip, run `Glimpse-Setup.exe`. |
+| `glimpse-<version>-<sha>-macos-arm64.zip` | `Glimpse.app`, ad-hoc signed, Apple Silicon only. Move it to Applications first. |
+| `glimpse-<version>-<sha>-macos-arm64.dmg` | The same app in a disk image. |
+
+There is no Intel macOS build yet: onnxruntime-node ships no darwin-x64 binary (GLIM-89).
+
+Release builds are Electrobun's self-extracting wrappers: the first launch unpacks the real app
+(`Resources/<hash>.tar.zst`) and starts it, so the first start is slower. On macOS the unpacked
+app's binaries are all signed but its bundle seal doesn't verify yet (GLIM-113).
+
+**When it runs.** Windows minutes cost 2x and macOS 10x on the free plan, so it never runs on PRs.
+It runs on pushes to `develop` that change `app/`, `packages/`, `package.json`, `bun.lock` or the
+workflow, and on demand: Actions -> Desktop builds -> Run workflow, or
+`gh workflow run desktop.yml -R Abdul-213/glimpse --ref develop` (manual runs need the workflow on
+the default branch). Pick a run and download the artifacts from its summary page, or
+`gh run download <run-id> -R Abdul-213/glimpse`.
+
+**Opening an unsigned build.** The builds aren't code-signed or notarized (user-facing guidance is GLIM-63), so:
+
+- Windows: SmartScreen says "Windows protected your PC". Choose *More info* -> *Run anyway*.
+- macOS: Gatekeeper blocks a downloaded unsigned app. Either remove the quarantine flag
+  (`xattr -dr com.apple.quarantine /Applications/Glimpse.app`) or try to open it once, then allow
+  it in System Settings -> Privacy & Security -> *Open Anyway*. Screen capture needs the Screen
+  Recording permission the first time.
+
 ## Branches, commits, PRs
 
 - Work happens in Jira space **GLIM**. One ticket per branch: `glim-<n>-<slug>`, branched from
