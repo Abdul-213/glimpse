@@ -95,6 +95,8 @@ export class LivePopupController {
 	readonly #now: () => number;
 	#state: LivePopupState = initialLivePopupState;
 	#placement: LivePopupPlacement | null = null;
+	/** The window's last frame (global logical). */
+	#frame: Rect | null = null;
 	#visible = false;
 	#painted = false;
 	#focused = false;
@@ -128,6 +130,15 @@ export class LivePopupController {
 		return this.#focused;
 	}
 
+	/**
+	 * Where the popup is on screen (global logical), or null while hidden. GLIM-128: the
+	 * capture-exclusion `popup` bounds, which Glimpse's own capture paints over on Windows when
+	 * "Hide Glimpse from screenshots" is off.
+	 */
+	get frame(): Rect | null {
+		return this.#visible ? this.#frame : null;
+	}
+
 	get placement(): LivePopupPlacement | null {
 		return this.#placement;
 	}
@@ -157,7 +168,7 @@ export class LivePopupController {
 			this.#d.log.warn("live popup: no display for the region");
 			return;
 		}
-		this.#d.window.setFrame(livePopupFrame(this.#placement, LIVE_INITIAL_HEIGHT));
+		this.#setFrame(livePopupFrame(this.#placement, LIVE_INITIAL_HEIGHT));
 		this.#d.log.info("live popup: docked", {
 			side: this.#placement.side,
 			width: this.#placement.width,
@@ -199,7 +210,7 @@ export class LivePopupController {
 
 	resized(sessionId: string, contentHeight: number): void {
 		if (sessionId !== this.#state.sessionId || !this.#placement || !Number.isFinite(contentHeight)) return;
-		this.#d.window.setFrame(livePopupFrame(this.#placement, contentHeight));
+		this.#setFrame(livePopupFrame(this.#placement, contentHeight));
 	}
 
 	pause(sessionId: string): void {
@@ -373,6 +384,11 @@ export class LivePopupController {
 		this.#syncStaleTimer();
 		for (const l of this.#listeners) l(prev, next);
 		this.#push();
+	}
+
+	#setFrame(frame: Rect): void {
+		this.#frame = frame;
+		this.#d.window.setFrame(frame);
 	}
 
 	#syncStaleTimer(): void {

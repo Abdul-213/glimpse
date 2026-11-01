@@ -137,7 +137,13 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 	private reveal(show: () => void): void {
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
-			this.deps.exclusion.protect(this.win, show);
+			// GLIM-98/128: a `popup` follows "Hide Glimpse from screenshots"; with it off, its
+			// on-screen frame is painted over in Glimpse's own capture (Windows), so Live never
+			// reads its own popup.
+			this.deps.exclusion.protect(this.win, show, {
+				role: "popup",
+				bounds: () => (this.visible ? (this.deps.controller()?.frame ?? null) : null),
+			});
 		} else {
 			show();
 		}
