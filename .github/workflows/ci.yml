@@ -48,6 +48,11 @@ jobs:
       - name: Unit tests
         run: bun test
 
+      - name: Headless harness (file-based capture, GLIM-86)
+        run: |
+          bun run harness snip --rect 20,15,160,90
+          bun run harness live --rect 0,0,360,120 --fps 4
+
       # Bundled OCR models + Bergamot runtime (app/models/manifest.json, ~29 MB download), fetched
       # by the preBuild hook. Cached by manifest hash so most runs download nothing.
       - name: Cache bundled models

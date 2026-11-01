@@ -20,7 +20,8 @@
 		"tokens": "bun run --filter @glimpse/ui tokens",
 		"models": "bun run --filter @glimpse/app models",
 		"dev": "bun run --filter @glimpse/app dev",
-		"build": "bun run --filter @glimpse/app build"
+		"build": "bun run --filter @glimpse/app build",
+		"harness": "bun app/scripts/harness.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.4",

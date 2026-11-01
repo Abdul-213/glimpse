@@ -28,11 +28,13 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 │   │   └── views/               webviews, one folder per surface
 │   │       ├── rpc.ts           connect<SurfaceRPC>(): the only place a view opens its RPC channel
 │   │       └── <surface>/       index.html + index.tsx + index.css + components (settings now; picker, popup, live, onboarding later)
-│   ├── scripts/                 build-views.ts (Bun.build + Solid + Tailwind), prebuild.ts (Electrobun hook), solid-plugin.ts, make-tray-icons.ts
+│   ├── scripts/                 build-views.ts (Bun.build + Solid + Tailwind), prebuild.ts (Electrobun hook), solid-plugin.ts, make-tray-icons.ts,
+│   │                            harness.ts (headless CLI), native-smoke.ts, make-capture-fixtures.ts
+│   ├── src/harness/             headless runner (GLIM-86): drives services without Electrobun or a webview
 │   ├── assets/tray/             tray icons (copied to views://assets/)
 │   ├── native/macos/            libglimpse.dylib source (Objective-C) + build.sh, see README
 │   ├── native/windows/          glimpse.dll source (C++) + build.ps1 / build-zig.sh, see README
-│   └── test/                    tests for the app's pure modules and the view build
+│   └── test/                    tests for the app's pure modules and the view build; fixtures/capture/ recordings
 ├── packages/
 │   ├── core/                    @glimpse/core: pure TypeScript domain logic (see section 4)
 │   └── ui/                      @glimpse/ui: shared Solid components + Tailwind theme from DESIGN.md
@@ -40,7 +42,7 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 │       └── src/                 components/, styles/theme.css, styles/tokens.css (generated), platform.ts
 ├── spikes/                      Wave 0 throwaway spikes. Reference only: copy from them, never import them.
 ├── docs/decisions/              ADRs. docs/design/: flows and token preview.
-├── .github/workflows/ci.yml     Linux CI: typecheck, lint, test, Linux build
+├── .github/workflows/ci.yml     Linux CI: typecheck, lint, test, harness, Linux build
 ├── .github/workflows/native.yml compile + load the native helpers on Windows/macOS runners
 ├── package.json                 Bun workspace root (workspaces: app, packages/*) and the root scripts
 ├── tsconfig.base.json           shared strict compiler options; each package has its own tsconfig.json
@@ -244,9 +246,11 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   build 19041+. macOS: `sharingType = none`, and the SCK filter excludes Glimpse's app (or its
   window ids, kept current through `setExcludedWindows`), which also works on macOS 15+ where SCK
   ignores `sharingType`.
-- **Choice:** `createCaptureSource()` (`app/src/bun/services/capture/index.ts`) builds the native
-  backend on Windows/macOS. It never throws; without a usable helper it returns a source whose
-  calls fail with `unavailable`, and the reason goes to the startup log.
+- **Choice:** `createCaptureSource()` (`app/src/bun/services/capture/index.ts`): native on
+  Windows/macOS, the file-based backend (GLIM-86, section 7) on Linux. `GLIMPSE_CAPTURE=native|file`
+  and `GLIMPSE_CAPTURE_FRAMES=<folder|png>` override it on any OS. It never throws; without a
+  usable backend it returns a source whose calls fail with `unavailable`, and the reason goes to
+  the startup log.
 
 ## 5. Views and RPC
 
@@ -348,13 +352,27 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
 5. **Linux headless harness (GLIM-86):** runs the real main-process services and pipeline with the
    file-based capture backend and a fake display list, so Snip and Live flows can be exercised end
    to end in CI without a desktop.
+   - **File backend** (`app/src/bun/services/capture/file.ts`): a frame folder holds PNGs, each
+     one the whole virtual desktop, plus an optional `frames.json` with the display layout
+     (logical bounds, scale, where each display sits in the PNG), frame order and `holdMs`,
+     `advance: per-grab | timed` and `end: hold | loop`. Identical consecutive frames keep the
+     same `sequence`, like an idle DXGI/SCStream. The sample recording is
+     `app/test/fixtures/capture/sample` (two displays, 2x + 1x); regenerate it with
+     `bun run --filter @glimpse/app fixtures:capture`.
+   - **Runner** (`app/src/harness/run.ts`): `runSnip` / `runLive` with pluggable **stages**.
+     `pipelineStage({ ocr, detect, translation, to })` runs frame → `OcrProvider` → detector →
+     `TranslationProvider` → blocks (tests drive it with the core fakes); the core pipeline,
+     real detection and change detection replace it as they land (GLIM-48, 39, 56, 58). CLI: `bun run harness <displays|snip|live> [--frames dir] [--rect
+     x,y,w,h] [--fps n] [--count n] [--realtime] [--out dir] [--json]`. It exits 1 on a capture
+     error. `--native` runs the same flows against the real backend on a Windows PC or Mac,
+     without Electrobun.
 6. **Real hardware:** what only Windows/macOS can show (materials, overlays above fullscreen apps,
    capture permission, hotkey conflicts) is covered by the ticket's manual test notes, the
    Windows/macOS CI builds (GLIM-34) and GLIM-87. PRs say what is unverified.
 
 CI (`.github/workflows/ci.yml`) runs on ubuntu-latest for PRs to and pushes on `develop`:
-install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, and a Linux `electrobun
-build`. Windows and macOS runners are only used by their dedicated, path-filtered workflows
+install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, a harness Snip + Live run
+over the sample recording, and a Linux `electrobun build`. Windows and macOS runners are only used by their dedicated, path-filtered workflows
 (`native.yml`).
 
 ## 8. Conventions

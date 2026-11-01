@@ -3,31 +3,43 @@
 //
 //   Windows  WindowsCaptureSource (glimpse.dll: DXGI for Live, GDI for Snip)
 //   macOS    MacCaptureSource (libglimpse.dylib: ScreenCaptureKit)
-//   Linux    none yet: the file-based backend for the headless harness is GLIM-86
+//   Linux    file-based source over a frame folder (GLIM-86)
 //
 // Environment:
-//   GLIMPSE_CAPTURE=native   the default on Windows/macOS (more choices arrive with GLIM-86)
+//   GLIMPSE_CAPTURE=native|file   force a backend (default: native on Windows/macOS, file elsewhere)
+//   GLIMPSE_CAPTURE_FRAMES=<path> frame folder or PNG for the file backend; setting it
+//                                 selects the file backend unless GLIMPSE_CAPTURE=native.
+//                                 Default: the sample frames in app/test/fixtures/capture/sample
+import { resolve } from "node:path";
 import type { CaptureSource, Display } from "@glimpse/core";
 import { loadMacNative } from "../../native/macos.ts";
 import { loadWindowsCapture } from "../../native/windows.ts";
+import { createFileCaptureSource } from "./file.ts";
 import { MacCaptureSource } from "./macos.ts";
 import { UnavailableCaptureSource } from "./unavailable.ts";
 import { WindowsCaptureSource } from "./windows.ts";
 
+/** The committed sample sequence (exists in the source tree, not in a packaged app). */
+export const SAMPLE_FRAMES_DIR = resolve(import.meta.dir, "../../../../test/fixtures/capture/sample");
+
 export type CaptureChoice =
 	| { readonly kind: "windows" }
 	| { readonly kind: "macos" }
+	| { readonly kind: "file"; readonly path: string }
 	| { readonly kind: "none"; readonly reason: string };
 
 /** Pure backend choice from platform + environment. */
 export function chooseCaptureBackend(platform: string, env: Record<string, string | undefined>): CaptureChoice {
 	const forced = env["GLIMPSE_CAPTURE"]?.trim().toLowerCase();
-	if (forced && forced !== "native") {
-		return { kind: "none", reason: `GLIMPSE_CAPTURE must be "native", got "${forced}"` };
+	const frames = env["GLIMPSE_CAPTURE_FRAMES"]?.trim();
+	if (forced && forced !== "native" && forced !== "file") {
+		return { kind: "none", reason: `GLIMPSE_CAPTURE must be "native" or "file", got "${forced}"` };
 	}
-	if (platform === "win32") return { kind: "windows" };
-	if (platform === "darwin") return { kind: "macos" };
-	return { kind: "none", reason: `no capture backend on ${platform}` };
+	const native = platform === "win32" ? "windows" : platform === "darwin" ? "macos" : null;
+	if (forced === "native" || (forced !== "file" && !frames && native)) {
+		return native ? { kind: native } : { kind: "none", reason: `no native capture backend on ${platform}` };
+	}
+	return { kind: "file", path: frames ? resolve(frames) : SAMPLE_FRAMES_DIR };
 }
 
 export interface CaptureSetup {
@@ -40,7 +52,7 @@ export interface CaptureSetup {
 export interface CreateCaptureOptions {
 	readonly platform?: string;
 	readonly env?: Record<string, string | undefined>;
-	/** Logical displays from the shell (Electrobun Screen). */
+	/** Logical displays from the shell (Electrobun Screen); unused by the file backend. */
 	readonly shellDisplays?: () => readonly Display[];
 	readonly now?: () => number;
 	readonly log?: (message: string) => void;
@@ -62,6 +74,13 @@ export function createCaptureSource(options: CreateCaptureOptions = {}): Capture
 	switch (choice.kind) {
 		case "none":
 			return unavailable(choice.reason);
+		case "file":
+			try {
+				const source = createFileCaptureSource(choice.path, { now });
+				return { source, choice, status: `file: ${choice.path} (${source.frameCount} frames)` };
+			} catch (e) {
+				return unavailable(e instanceof Error ? e.message : String(e));
+			}
 		case "windows": {
 			const { status, binding } = loadWindowsCapture();
 			if (!binding) return unavailable(status.available ? "glimpse.dll failed to load" : status.reason);
