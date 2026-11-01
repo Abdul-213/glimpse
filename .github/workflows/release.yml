@@ -78,6 +78,8 @@ jobs:
           pattern: glimpse-*
           path: ${{ runner.temp }}/builds
           merge-multiple: true
+          # desktop.yml uploads each file as-is (archive: false); keep the .zip files zipped.
+          skip-decompress: true
 
       # desktop.yml names files glimpse-<version>-<sha7>-<target>.<ext>; releases drop the sha.
       - name: Collect the release files
@@ -87,7 +89,8 @@ jobs:
           mkdir -p "$out"
           ls -la "$RUNNER_TEMP/builds"
           for target in windows-x64-setup.zip windows-x64.zip macos-arm64.dmg macos-arm64.zip; do
-            set -- "$RUNNER_TEMP"/builds/glimpse-"$VERSION"-*-"$target"
+            # (Trailing * in case the download adds an extension to an artifact named *.zip.)
+            set -- "$RUNNER_TEMP"/builds/glimpse-"$VERSION"-*-"$target"*
             [ "$#" -eq 1 ] && [ -f "$1" ] || { echo "::error::missing or ambiguous build for $target: $*"; exit 1; }
             cp "$1" "$out/glimpse-$VERSION-$target"
           done
