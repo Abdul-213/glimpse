@@ -1,15 +1,18 @@
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { SettingsRPC, SettingsSection } from "../../shared/settings-rpc.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
+import { electrobunChromeTarget } from "./chrome-target.ts";
 import type { SettingsDeps } from "./settings-handlers.ts";
 import { createSettingsHandlers } from "./settings-handlers.ts";
+import type { WindowChrome } from "./window-chrome.ts";
 
 /**
  * The Settings window (GLIM-69): one instance, created on demand, re-activated if already
  * open. DESIGN.md Layout > Settings: 720 x 520 minimum, resizable. The handlers live in
  * settings-handlers.ts (tested on Linux); this file only wires them to Electrobun and pushes
- * state changes to the open view. Native materials (Mica / windowBackground vibrancy) need
- * helper support that doesn't exist yet; the view paints the solid window surface.
+ * state changes to the open view. The window gets the theme from WindowChrome (GLIM-110); no
+ * native material yet (Mica / windowBackground vibrancy would need a transparent, re-chromed
+ * window), so the view paints the solid window surface.
  */
 export class SettingsWindow {
 	private window: BrowserWindow | null = null;
@@ -22,6 +25,8 @@ export class SettingsWindow {
 	constructor(
 		readonly deps: SettingsDeps,
 		private readonly exclusion: CaptureExclusion,
+		/** Light / dark from Settings › General › Theme (GLIM-110). */
+		private readonly chrome?: WindowChrome,
 	) {}
 
 	/** Open (or bring forward) Settings, at `section` if given (GLIM-117: popup deep links). */
@@ -92,7 +97,9 @@ export class SettingsWindow {
 			this.initialSection = s;
 			rpc.send.showSection(s);
 		};
+		const chrome = this.chrome?.attach(electrobunChromeTarget(win), "window");
 		win.on("close", () => {
+			chrome?.dispose();
 			for (const u of this.unsubscribe) u();
 			this.unsubscribe = [];
 			this.window = null;

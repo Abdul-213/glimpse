@@ -191,6 +191,18 @@ const hotkeys = new HotkeyService(
 	log.child("hotkeys"),
 	platform === "macos" && macNative && !macNative.status.available ? macNative.status.reason : undefined,
 );
+// Native window chrome (GLIM-116, GLIM-110): materials, cloaked hide, popup edges, and the
+// theme from Settings › General (System / Light / Dark) applied to every window at once.
+const chromeLog = log.child("chrome");
+const chrome = new WindowChrome({
+	os: platform,
+	native: platform === "macos" ? (macNative?.binding ?? null) : platform === "windows" ? loadWindowsChrome() : null,
+	theme: () => appSettings.current.appearance.theme,
+	log: (message) => chromeLog.info(message),
+});
+appSettings.subscribe((next, previous) => {
+	if (next.appearance.theme !== previous.appearance.theme) chrome.themeChanged();
+});
 // Settings talks to the hotkey service through the HotkeyRegistrar port: it applies the
 // bindings with the actions' handlers and reports per-action status (GLIM-69). `commands` is
 // declared below; the handlers only run on a key press.
@@ -292,6 +304,7 @@ const settings = new SettingsWindow(
 		uiLocale: locale,
 	},
 	exclusion,
+	chrome,
 );
 // First-run setup and the screen-access window (GLIM-45, GLIM-76). Shares the Settings
 // window's services, so shortcuts, launch at login and downloads follow the same rules.
@@ -305,6 +318,7 @@ const onboarding = new OnboardingWindow(
 		locale,
 	},
 	exclusion,
+	chrome,
 );
 
 // Region picker (GLIM-44, GLIM-91): one hidden overlay per display, created now so a
@@ -337,14 +351,6 @@ picker = new PickerController({
 	liveRunning: () => live.active,
 });
 picker.prepare();
-// Native window chrome (GLIM-116): materials, cloaked hide, popup edges, light / dark.
-const chromeLog = log.child("chrome");
-const chrome = new WindowChrome({
-	os: platform,
-	native: platform === "macos" ? (macNative?.binding ?? null) : platform === "windows" ? loadWindowsChrome() : null,
-	theme: () => "system",
-	log: (message) => chromeLog.info(message),
-});
 // Snip popup (GLIM-65): one hidden window created now, reused for every Snip. A confirmed
 // Snip region runs through the translation pipeline and streams into it; the overlays stay
 // up under it as the results layer until it closes.

@@ -278,6 +278,24 @@ export function generateTokensCss(design: DesignFrontmatter, sidecar: SidecarExt
 		line();
 	}
 
+	// GLIM-110: Settings › General › Theme. Webviews take light / dark from the OS, and the
+	// build lowers light-dark() to prefers-color-scheme media queries, so a forced theme needs
+	// both palettes spelled out under data-theme (set on <html> by the window chrome).
+	const forced = pairs.filter((p) => p.light !== p.dark);
+	const themedShadows = shadows.filter((s) => s.dark && s.dark !== s.value);
+	for (const scheme of ["light", "dark"] as const) {
+		const pick = (p: ColorPair) => (scheme === "light" ? p.light : p.dark);
+		line(`/* Theme override: ${scheme} (data-theme="${scheme}", GLIM-110). */`);
+		line(`:root[data-theme="${scheme}"] {`);
+		line(`\tcolor-scheme: ${scheme};`);
+		for (const p of forced) if (!mixed.includes(p)) line(`\t--color-${p.key}: ${pick(p)};`);
+		for (const s of themedShadows) line(`\t--shadow-${s.name}: ${scheme === "light" ? s.value : s.dark};`);
+		line("}");
+		// One rule per property, like the mixes above (the color-mix lowering).
+		for (const p of mixed) line(`:root[data-theme="${scheme}"] { --mix-${p.key}: ${pick(p)}; }`);
+		line();
+	}
+
 	const platform = PLATFORM_RADII.filter((k) => design.rounded[`${k}-win`]);
 	if (platform.length > 0) {
 		line("/* Windows radii: the shell sets data-os on <html>. */");

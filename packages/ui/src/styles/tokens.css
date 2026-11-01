@@ -126,6 +126,84 @@
 	:root { --mix-box-linked-fill: color-mix(in oklab, var(--os-accent-dark, #0A63C9) 23.9%, transparent); }
 }
 
+/* Theme override: light (data-theme="light", GLIM-110). */
+:root[data-theme="light"] {
+	color-scheme: light;
+	--color-surface-popup: #F5F5F7E6;
+	--color-surface-popup-solid: #F5F5F7;
+	--color-surface-window: #F2F2F4B8;
+	--color-surface-window-solid: #F2F2F4;
+	--color-surface-group: #FFFFFFE6;
+	--color-surface-group-solid: #FFFFFF;
+	--color-surface-control: #FFFFFF;
+	--color-popup-outline: #00000000;
+	--color-knob: #FFFFFF;
+	--color-overlay-hover: #0000000F;
+	--color-overlay-pressed: #0000001A;
+	--color-text-primary: #1D1D1F;
+	--color-text-secondary: #55555C;
+	--color-text-disabled: #8E8E93;
+	--color-border-hairline: #0000001F;
+	--color-border-control: #76767D;
+	--color-divider: #00000014;
+	--color-accent: var(--os-accent, #0A63C9);
+	--color-link: #0959BA;
+	--color-focus-ring: var(--os-accent, #0A63C9);
+	--color-success: #156A37;
+	--color-warning: #8A4B00;
+	--color-danger: #B42318;
+	--color-egress: #5E32AE;
+	--color-egress-tint: #5E32AE1A;
+	--color-change-mark: var(--os-accent, #0A63C9);
+	--shadow-menu: 0 8px 24px #0000002E, 0 0 0 0.5px #0000001F;
+	--shadow-tooltip: 0 2px 8px #00000026;
+	--shadow-knob: 0 1px 2px #00000033, 0 0 0 0.5px #0000000F;
+	--shadow-segment: 0 1px 2px #0000001F, 0 0 0 0.5px #0000000F;
+}
+:root[data-theme="light"] { --mix-overlay-selected: color-mix(in oklab, var(--os-accent, #0A63C9) 12.2%, transparent); }
+:root[data-theme="light"] { --mix-change-flash: color-mix(in oklab, var(--os-accent, #0A63C9) 14.1%, transparent); }
+:root[data-theme="light"] { --mix-change-rest: color-mix(in oklab, var(--os-accent, #0A63C9) 5.9%, transparent); }
+:root[data-theme="light"] { --mix-box-linked-fill: color-mix(in oklab, var(--os-accent, #0A63C9) 23.9%, transparent); }
+
+/* Theme override: dark (data-theme="dark", GLIM-110). */
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--color-surface-popup: #262628E6;
+	--color-surface-popup-solid: #262628;
+	--color-surface-window: #1F1F21B8;
+	--color-surface-window-solid: #1F1F21;
+	--color-surface-group: #2C2C2FE6;
+	--color-surface-group-solid: #2C2C2F;
+	--color-surface-control: #3A3A3D;
+	--color-popup-outline: #000000A6;
+	--color-knob: #E6E6E9;
+	--color-overlay-hover: #FFFFFF14;
+	--color-overlay-pressed: #FFFFFF24;
+	--color-text-primary: #F4F4F6;
+	--color-text-secondary: #B6B6BE;
+	--color-text-disabled: #6C6C72;
+	--color-border-hairline: #FFFFFF1F;
+	--color-border-control: #8E8E96;
+	--color-divider: #FFFFFF14;
+	--color-accent: var(--os-accent-dark, #2A6FD9);
+	--color-link: #6AAAFF;
+	--color-focus-ring: var(--os-accent-dark, #6AAAFF);
+	--color-success: #5BC987;
+	--color-warning: #F2A93B;
+	--color-danger: #FF8073;
+	--color-egress: #C4B0FF;
+	--color-egress-tint: #C4B0FF1A;
+	--color-change-mark: var(--os-accent-dark, #6AAAFF);
+	--shadow-menu: 0 8px 24px #00000073, 0 0 0 0.5px #FFFFFF1F;
+	--shadow-tooltip: 0 2px 8px #00000066;
+	--shadow-knob: 0 1px 2px #00000066, 0 0 0 0.5px #00000033;
+	--shadow-segment: 0 1px 2px #00000052, 0 0 0 0.5px #FFFFFF14;
+}
+:root[data-theme="dark"] { --mix-overlay-selected: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 16.1%, transparent); }
+:root[data-theme="dark"] { --mix-change-flash: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 12.2%, transparent); }
+:root[data-theme="dark"] { --mix-change-rest: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 5.9%, transparent); }
+:root[data-theme="dark"] { --mix-box-linked-fill: color-mix(in oklab, var(--os-accent-dark, #0A63C9) 23.9%, transparent); }
+
 /* Windows radii: the shell sets data-os on <html>. */
 :root[data-os="windows"] {
 	--radius-control: var(--radius-control-win);

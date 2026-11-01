@@ -360,6 +360,13 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   applies, notifies subscribers (log level, tray, open Settings windows) and saves in order,
   so changes apply without a restart. Adding a field with a default needs no migration;
   renaming or reshaping one does (bump `SETTINGS_VERSION`, add a `Migration`, add a fixture test).
+- **Theme (GLIM-110)**: Settings › General › Appearance › Theme (`appearance.theme`: system / light /
+  dark). Webviews follow the OS and the build lowers `light-dark()` to `prefers-color-scheme`
+  media queries, so `tokens.css` also carries both palettes under `:root[data-theme="light|dark"]`
+  (with `color-scheme`). `WindowChrome` sets `data-theme` on every attached window (Snip popup,
+  Settings, onboarding) and the native appearance (macOS `NSWindow.appearance`, which WKWebView
+  follows too; Windows `DWMWA_USE_IMMERSIVE_DARK_MODE`); "system" removes both. A change applies at
+  once through `AppSettings.subscribe` → `chrome.themeChanged()`. New windows call `chrome.attach`.
 - **Settings window (GLIM-69)**: `app/src/shared/settings-rpc.ts` is the contract. `SettingsWindow.open(section)` opens at a pane (popup deep links, GLIM-117). The view
   may patch only `language`, `appearance`, `snip`, `picker`, `live`, `privacy`, `diagnostics`; hotkeys go
   through `setHotkey` (Glimpse conflict check, then the `HotkeyRegistrar` port in
