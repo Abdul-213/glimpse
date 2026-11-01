@@ -254,6 +254,13 @@ jobs:
             done
           done) || true
 
+          # GLIM-106: both the wrapper and the app it unpacks are accessory apps (no Dock icon).
+          for plist in "$app/Contents/Info.plist" "$inner"/*.app/Contents/Info.plist; do
+            value=$(plutil -extract LSUIElement raw "$plist" 2>/dev/null || echo missing)
+            echo "LSUIElement=$value in ${plist#"$RUNNER_TEMP"/}"
+            [ "$value" = true ] || echo "::warning::LSUIElement is not set in $plist (GLIM-106)"
+          done
+
           ditto -c -k --keepParent "$app" "$dist/$base.zip"
 
           stage="$RUNNER_TEMP/dmg"

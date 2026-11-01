@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { loadSettings, ProviderRegistry, parseModelManifest } from "@glimpse/core";
-import { Utils } from "electrobun/main";
+import Electrobun, { Utils } from "electrobun/main";
 import modelManifestJson from "../../models/manifest.json" with { type: "json" };
 import pkg from "../../package.json" with { type: "json" };
 import type { AppInfo } from "../shared/rpc.ts";
@@ -449,6 +449,18 @@ appSettings.subscribe((next, previous) => {
 
 // Settings › Live (fps, diff threshold, stability) and language changes reach a pinned session at once.
 appSettings.subscribe((next, previous) => live.applySettings(next, previous));
+
+// GLIM-106: a menu-bar app on macOS. LSUIElement (scripts/mac-accessory.ts) starts it as an
+// accessory app; this is the backstop for builds without it. Electrobun shows the Dock icon
+// again when the app is re-opened from Finder or Spotlight, so hide it again and open
+// Settings, the usual answer of a menu-bar app to being launched twice.
+if (platform === "macos") {
+	Utils.setDockIconVisible(false);
+	Electrobun.events.on("reopen", () => {
+		Utils.setDockIconVisible(false);
+		void commands.dispatch("settings.open", "internal");
+	});
+}
 
 if (platform === "windows") {
 	watchTaskbarTheme((taskbarTheme) => tray.update({ taskbarTheme }));

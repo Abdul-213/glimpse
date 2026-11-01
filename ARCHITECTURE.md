@@ -135,7 +135,10 @@ Don't create packages for grouping alone; use folders.
   built app's Worker and prints which onnxruntime files were loaded.
 - **Windows are pre-created where latency matters** (picker overlays, Snip popup) and hidden
   instead of destroyed; Settings and onboarding are created on demand. The app is a tray app:
-  `exitOnLastWindowClosed: false`; only the tray's Quit ends it.
+  `exitOnLastWindowClosed: false`; only the tray's Quit ends it. On macOS it is an accessory app
+  (no Dock icon, GLIM-106): `scripts/postbuild.ts` (postBuild + postWrap hooks) sets `LSUIElement`
+  in the app's and the self-extracting wrapper's Info.plist, and `index.ts` calls
+  `Utils.setDockIconVisible(false)` at startup and after a Finder re-open, which opens Settings.
 - `process.platform` decides OS-specific paths at the edge (in `app/src/bun/native/` and
   services). Core never branches on platform; it receives capabilities.
 
