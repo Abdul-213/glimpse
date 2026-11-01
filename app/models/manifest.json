@@ -1,0 +1,376 @@
+{
+	"schema": 1,
+	"models": [
+		{
+			"id": "ocr-det",
+			"kind": "ocr-detector",
+			"bundled": true,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "ch_PP-OCRv5_det_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+					],
+					"sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+					"size": 4819576
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-ch",
+			"kind": "ocr-recognizer",
+			"recognizer": "ch",
+			"bundled": true,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "ch_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
+					"size": 16631306
+				},
+				{
+					"name": "ppocrv5_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile/ppocrv5_dict.txt"
+					],
+					"sha256": "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b",
+					"size": 74012
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-latin",
+			"kind": "ocr-recognizer",
+			"recognizer": "latin",
+			"bundled": true,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "latin_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a",
+					"size": 7904513
+				},
+				{
+					"name": "ppocrv5_latin_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile/ppocrv5_latin_dict.txt"
+					],
+					"sha256": "3c0a8a79b612653c25f765271714f71281e4e955962c153e272b7b8c1d2b13ff",
+					"size": 1634
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-en",
+			"kind": "ocr-recognizer",
+			"recognizer": "en",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "en_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+					"size": 7872351
+				},
+				{
+					"name": "ppocrv5_en_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile/ppocrv5_en_dict.txt"
+					],
+					"sha256": "e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6",
+					"size": 1416
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-korean",
+			"kind": "ocr-recognizer",
+			"recognizer": "korean",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "korean_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b",
+					"size": 13488748
+				},
+				{
+					"name": "ppocrv5_korean_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile/ppocrv5_korean_dict.txt"
+					],
+					"sha256": "a88071c68c01707489baa79ebe0405b7beb5cca229f4fc94cc3ef992328802d7",
+					"size": 47451
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-eslav",
+			"kind": "ocr-recognizer",
+			"recognizer": "eslav",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "eslav_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "08705d6721849b1347d26187f15a5e362c431963a2a62bfff4feac578c489aab",
+					"size": 7911802
+				},
+				{
+					"name": "ppocrv5_eslav_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile/ppocrv5_eslav_dict.txt"
+					],
+					"sha256": "3e95f1581557162870cacdba5af91a4c6be2890710d395b0c3c7578e7ee5e6eb",
+					"size": 1663
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-cyrillic",
+			"kind": "ocr-recognizer",
+			"recognizer": "cyrillic",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "cyrillic_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/cyrillic_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "90f761b4bfcce0c8c561c0cb5c887b0971d3ec01c32164bdf7374a35b0982711",
+					"size": 8074092
+				},
+				{
+					"name": "ppocrv5_cyrillic_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/cyrillic_PP-OCRv5_rec_mobile/ppocrv5_cyrillic_dict.txt"
+					],
+					"sha256": "db40aa52ceb112055be80c694afdf655d5d2c4f7873704524cc16a447ca913ba",
+					"size": 2781
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-arabic",
+			"kind": "ocr-recognizer",
+			"recognizer": "arabic",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "arabic_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/arabic_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "c1192e632d0baa9146ae5b756a0e635e3dc63c1733737ebfd1629e87144e9295",
+					"size": 8023828
+				},
+				{
+					"name": "ppocrv5_arabic_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/arabic_PP-OCRv5_rec_mobile/ppocrv5_arabic_dict.txt"
+					],
+					"sha256": "7f92f7dbb9b75a4787a83bfb4f6d14a8ab515525130c9d40a9036f61cf6999e9",
+					"size": 2369
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-devanagari",
+			"kind": "ocr-recognizer",
+			"recognizer": "devanagari",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "devanagari_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/devanagari_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "d6f0a906580e3fa6b324a318718f1f31f268b6ea8ef985f91c2012a37f52c91e",
+					"size": 7940361
+				},
+				{
+					"name": "ppocrv5_devanagari_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/devanagari_PP-OCRv5_rec_mobile/ppocrv5_devanagari_dict.txt"
+					],
+					"sha256": "09c7440bfc5477e5c41052304b6b185aff8c4a5e8b2b4c23c1c706f6fe1ee9fc",
+					"size": 1943
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-th",
+			"kind": "ocr-recognizer",
+			"recognizer": "th",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "th_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/th_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "de541dd83161c241ff426f7ecfd602a0ba77d686cf3ab9a6c255ea82fd08006e",
+					"size": 7915294
+				},
+				{
+					"name": "ppocrv5_th_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/th_PP-OCRv5_rec_mobile/ppocrv5_th_dict.txt"
+					],
+					"sha256": "57f5406f94bb6688fb7077f7be65f08bbd71cecf48c01ea26c522cb5c4836b7a",
+					"size": 1767
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-el",
+			"kind": "ocr-recognizer",
+			"recognizer": "el",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "el_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/el_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "b4368bccd557123c702b7549fee6cd1e94b581337d1c9b65310f109131542b7f",
+					"size": 7832350
+				},
+				{
+					"name": "ppocrv5_el_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/el_PP-OCRv5_rec_mobile/ppocrv5_el_dict.txt"
+					],
+					"sha256": "31defc62c0c3ad3674a82da6192226a2ba98ef4ff014a7045cb88d59f9c3de31",
+					"size": 1103
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-ta",
+			"kind": "ocr-recognizer",
+			"recognizer": "ta",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "ta_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/ta_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "a42448808b7dea87597336f12438935f40353f1949e8360acd9e06b4da21bfe1",
+					"size": 7909926
+				},
+				{
+					"name": "ppocrv5_ta_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/ta_PP-OCRv5_rec_mobile/ppocrv5_ta_dict.txt"
+					],
+					"sha256": "85b541352ae18dc6ba6d47152d8bf8adff6b0266e605d2eef2990c1bf466117b",
+					"size": 1723
+				}
+			]
+		},
+		{
+			"id": "ocr-rec-te",
+			"kind": "ocr-recognizer",
+			"recognizer": "te",
+			"bundled": false,
+			"licence": "Apache-2.0",
+			"attribution": "PaddleOCR PP-OCRv5 mobile (PaddlePaddle Authors), converted to ONNX by RapidOCR (RapidAI)",
+			"revision": "RapidOCR v3.10.0",
+			"files": [
+				{
+					"name": "te_PP-OCRv5_rec_mobile.onnx",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/te_PP-OCRv5_rec_mobile.onnx"
+					],
+					"sha256": "a3690451b50028a09a3316a1274f7c05728151ea3f8fd392696397a7fefcbd92",
+					"size": 7923102
+				},
+				{
+					"name": "ppocrv5_te_dict.txt",
+					"urls": [
+						"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/paddle/PP-OCRv5/rec/te_PP-OCRv5_rec_mobile/ppocrv5_te_dict.txt"
+					],
+					"sha256": "42f83f5d3fdb50778e4fa5b66c58d99a59ab7792151c5e74f34b8ffd7b61c9d6",
+					"size": 1831
+				}
+			]
+		},
+		{
+			"id": "bergamot-runtime",
+			"kind": "translation-runtime",
+			"bundled": true,
+			"licence": "MPL-2.0",
+			"attribution": "bergamot-translator (Mozilla and the Bergamot project). WASM build from Firefox Remote Settings translations-wasm-v2; JS glue from the Firefox source tree",
+			"revision": "bergamot-translator v0.6.0 (Remote Settings record 4.0); glue at mozilla-firefox/firefox 48d55cf7ec80093903e2ef7f58b61a84a22ef716",
+			"files": [
+				{
+					"name": "bergamot-translator.wasm",
+					"urls": [
+						"https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/translations-wasm-v2/a76f9efe-b185-4a7f-9c3b-5f5d216d12e6.zst"
+					],
+					"sha256": "327fcfc7b7e9d95f6fa0844ebf899cfc05469872ef02d3aef5783182839a6255",
+					"size": 1211955,
+					"compression": "zstd",
+					"decompressedSha256": "f38ef807636a7c994afedaab7ff8ffe0d590d21897f05139f747b80fd7bbe926",
+					"decompressedSize": 4960506
+				},
+				{
+					"name": "bergamot-translator.js",
+					"urls": [
+						"https://raw.githubusercontent.com/mozilla-firefox/firefox/48d55cf7ec80093903e2ef7f58b61a84a22ef716/toolkit/components/translations/bergamot-translator/bergamot-translator.js"
+					],
+					"sha256": "faff1ef6285b0d26f01787776fd49299dfb756ecb9688aa990c250e66797b47d",
+					"size": 100187
+				}
+			]
+		}
+	]
+}

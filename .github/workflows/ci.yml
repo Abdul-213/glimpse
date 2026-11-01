@@ -48,6 +48,14 @@ jobs:
       - name: Unit tests
         run: bun test
 
+      # Bundled OCR models + Bergamot runtime (app/models/manifest.json, ~29 MB download), fetched
+      # by the preBuild hook. Cached by manifest hash so most runs download nothing.
+      - name: Cache bundled models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/models
+          key: glimpse-models-${{ hashFiles('app/models/manifest.json') }}
+
       - name: Build the app (Linux)
         working-directory: app
         run: hutch electrobun build --env=dev

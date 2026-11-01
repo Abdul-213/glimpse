@@ -18,6 +18,7 @@
 		"test": "bun test",
 		"devkit": "bun run --filter @glimpse/app devkit",
 		"tokens": "bun run --filter @glimpse/ui tokens",
+		"models": "bun run --filter @glimpse/app models",
 		"dev": "bun run --filter @glimpse/app dev",
 		"build": "bun run --filter @glimpse/app build"
 	},

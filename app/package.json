@@ -9,6 +9,7 @@
 		"test": "bun test",
 		"devkit": "hutch electrobun sync",
 		"views": "bun scripts/build-views.ts",
+		"models": "bun scripts/fetch-models.ts",
 		"dev": "hutch electrobun dev --watch",
 		"start": "hutch electrobun dev",
 		"build": "hutch electrobun build --env=dev",
