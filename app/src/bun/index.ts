@@ -16,10 +16,15 @@ import { createCaptureSource } from "./services/capture/index.ts";
 import { buildDiagnostics } from "./services/diagnostics.ts";
 import { createAppLogger } from "./services/log.ts";
 import { ModelManager } from "./services/models/model-manager.ts";
-import { bundledModelsDir, modelsRoot } from "./services/models/paths.ts";
+import { bundledModelsDir, catalogueCacheFile, modelsRoot } from "./services/models/paths.ts";
+import { type AppProviderContext, providerContext, registerProviders } from "./services/providers.ts";
 import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
 import { watchTaskbarTheme } from "./services/taskbar-theme.ts";
+import { ModelManagerPackSource } from "./services/translation/bergamot-packs.ts";
+import { loadPackCatalogue } from "./services/translation/pack-catalogue.ts";
+import { TranslationPacks } from "./services/translation/translation-packs.ts";
+import { TranslationService, warmPairsFor } from "./services/translation/translation-service.ts";
 import { createTray } from "./tray.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
 import { SettingsWindow } from "./windows/settings.ts";
@@ -28,8 +33,9 @@ const logs = createAppLogger({ dir: Utils.paths.userLogs });
 const log = logs.logger;
 process.on("unhandledRejection", (reason) => log.error("unhandled rejection", { error: reason }));
 
-// Provider implementations (packages/providers, GLIM-46/47 and later) register here.
-const providers = new ProviderRegistry<unknown>();
+// Provider implementations (packages/providers) register in services/providers.ts.
+const providers = new ProviderRegistry<AppProviderContext>();
+registerProviders(providers);
 
 const locale = Intl.DateTimeFormat().resolvedOptions().locale;
 const settingsStore = FileSettingsStore.inDirectory(Utils.paths.userData);
@@ -49,13 +55,41 @@ const appInfo: AppInfo = {
 
 // Model download manager (GLIM-38). Consumers (OCR/translation providers, onboarding) come later.
 // Seam: the storage location will come from settings (GLIM-53, GLIM-96); until then the default folder.
-const models = new ModelManager({
-	root: modelsRoot(Utils.paths.userData),
-	bundledDir: bundledModelsDir(import.meta.dir),
+const modelsDir = modelsRoot(Utils.paths.userData);
+const models = new ModelManager({ root: modelsDir, bundledDir: bundledModelsDir(import.meta.dir) });
+
+// Translation (GLIM-101, GLIM-102): Bergamot over the model manager's packs, the core
+// pipeline and the GLIM-20 caches. Providers load after the model scan, in the background.
+const translationLog = log.child("translation");
+const bergamotPacks = new ModelManagerPackSource(models);
+const { ctx: providerCtx, bergamotWorker } = providerContext({
+	packs: bergamotPacks,
+	mainDir: import.meta.dir,
+	warmPairs: () => warmPairsFor(loadedSettings.settings),
+	log: translationLog,
 });
+const translationPacks = new TranslationPacks({
+	manager: models,
+	packs: bergamotPacks,
+	chain: () => translation.chain,
+});
+const translation: TranslationService<AppProviderContext> = new TranslationService({
+	registry: providers,
+	ctx: providerCtx,
+	settings: () => loadedSettings.settings,
+	log: translationLog,
+	readinessOf: (from, to) => translationPacks.readiness(from, to),
+	onPrivateChange: (on) => tray.update({ private: on }),
+});
+translation.startTimers();
+void loadPackCatalogue(bergamotPacks, catalogueCacheFile(modelsDir), { refresh: true, log: translationLog });
 models
 	.scan()
-	.then(() => log.child("models").info("scan complete", { installed: models.installedIds().length }))
+	.then(() => {
+		log.child("models").info("scan complete", { installed: models.installedIds().length });
+		translationLog.info("starting providers", { bergamotWorker: bergamotWorker ?? "default (source tree)" });
+		return translation.start();
+	})
 	.catch((error) => log.child("models").warn("model scan failed", { error }));
 
 // Capture (GLIM-36). Nothing captures yet: the Snip and Live pipelines (GLIM-48, GLIM-56)
@@ -82,13 +116,18 @@ const diagnostics = () =>
 			screenTextLogging: logs.overrides.screenText,
 			logLinesDropped: logs.file.dropped,
 			logsDir: logs.file.dir,
+			// Counters only, never text (GLIM-20 stats).
+			translationCache: translation.caches.stats(),
+			translationProviders: translation.chain.map((p) => `${p.info.id}:${p.status.state}`),
+			private: translation.private,
 		}),
 		logTail: () => logs.file.tail(200),
 		redactor: log.redactor,
 	});
 
 // Command bus (GLIM-41): the tray (and later hotkeys, popups, Settings) dispatch; features
-// handle. Snip (GLIM-48), Live (GLIM-56) and the cache (GLIM-67) replace the stubs below.
+// handle. Snip (GLIM-65) and Live (GLIM-48/56) replace the stubs below; they call
+// `translation.snip()` / `translation.openLive()`.
 const commands = new CommandBus(log.child("commands"));
 const stub = (command: string) => () => log.info("not implemented yet", { command });
 commands.handle("snip.start", stub("snip.start"));
@@ -96,7 +135,7 @@ commands.handle("live.start", stub("live.start"));
 commands.handle("live.stop", stub("live.stop"));
 commands.handle("live.pause", stub("live.pause"));
 commands.handle("live.resume", stub("live.resume"));
-commands.handle("cache.clear", stub("cache.clear"));
+commands.handle("cache.clear", () => translation.clearCache("user"));
 commands.handle("settings.open", () => settings.open());
 commands.handle("diagnostics.copy", () => {
 	Utils.clipboardWriteText(diagnostics());
@@ -107,6 +146,7 @@ commands.handle("logs.open", () => {
 });
 commands.handle("app.quit", () => {
 	log.info("quit");
+	void translation.dispose();
 	capture.source.dispose();
 	logs.file.close();
 	Utils.quit();
@@ -122,8 +162,8 @@ const tray = createTray(
 	{
 		platform,
 		live: "off",
-		// App-wide Private state (GLIM-20); the Live popup toggle will share it.
-		private: loadedSettings.settings.privacy.privateByDefault,
+		// App-wide Private state (GLIM-20), owned by the translation service; the Live popup toggle shares it.
+		private: translation.private,
 		translation: firstTranslator(),
 		hotkeys: { snip: loadedSettings.settings.hotkeys.snip, live: loadedSettings.settings.hotkeys.live },
 		taskbarTheme: "dark",
@@ -131,10 +171,8 @@ const tray = createTray(
 	commands,
 );
 
-commands.handle("private.toggle", () => {
-	tray.update({ private: !tray.state.private });
-	log.info("private mode", { on: tray.state.private });
-});
+// The service updates the tray through onPrivateChange.
+commands.handle("private.toggle", () => translation.setPrivate(!translation.private));
 
 if (platform === "windows") {
 	watchTaskbarTheme((taskbarTheme) => tray.update({ taskbarTheme }));

@@ -42,6 +42,8 @@ export default {
 		},
 		copy: {
 			"dist/views": "views",
+			// Inference Workers (GLIM-101), bundled by the preBuild hook; found next to bun/index.js.
+			"dist/workers/bergamot-worker.js": "bun/bergamot-worker.js",
 			"assets/tray": "views/assets",
 			// Bundled models + NOTICE (GLIM-37), staged by the preBuild hook from app/models/manifest.json.
 			"dist/models": "models",

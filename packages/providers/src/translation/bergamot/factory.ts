@@ -1,7 +1,15 @@
 // Registry factory for the Bergamot provider (GLIM-43). The app's provider context must
 // carry a `bergamot` pack source (implemented over the model download manager) and may
 // override how the inference Worker is spawned (bundled builds).
-import { type Infer, number, object, PROVIDER_IDS, type TranslationProviderFactory, withDefault } from "@glimpse/core";
+import {
+	type Infer,
+	type LanguageCode,
+	number,
+	object,
+	PROVIDER_IDS,
+	type TranslationProviderFactory,
+	withDefault,
+} from "@glimpse/core";
 import { DEFAULT_IDLE_MS, DEFAULT_MAX_LOADED_PACKS, type EngineEvent } from "./engine.ts";
 import type { BergamotPackSource } from "./packs.ts";
 import type { WorkerSpawner } from "./protocol.ts";
@@ -21,6 +29,8 @@ export interface BergamotContext {
 		readonly packs: BergamotPackSource;
 		readonly spawn?: WorkerSpawner;
 		readonly onEvent?: (event: EngineEvent) => void;
+		/** Pairs `warmup()` loads and warms (the user's sources -> target), read at create time. */
+		readonly warmPairs?: () => readonly { readonly from: LanguageCode; readonly to: LanguageCode }[];
 	};
 }
 
@@ -38,6 +48,7 @@ export function bergamotFactory<Ctx extends BergamotContext>(): TranslationProvi
 				idleMs: options.idleSeconds * 1000,
 				...(ctx.bergamot.spawn ? { spawn: ctx.bergamot.spawn } : {}),
 				...(ctx.bergamot.onEvent ? { onEvent: ctx.bergamot.onEvent } : {}),
+				...(ctx.bergamot.warmPairs ? { warmPairs: ctx.bergamot.warmPairs() } : {}),
 			}),
 	};
 }

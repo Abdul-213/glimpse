@@ -5,11 +5,16 @@ import { existsSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { NATIVE_LIBS } from "../electrobun.config.ts";
 import { buildViews, viewsOut } from "./build-views.ts";
+import { buildWorkers, workersOut } from "./build-workers.ts";
 import { defaultCacheDir, loadManifest, modelsOut, stageBundled, writeStagingExtras } from "./model-cache.ts";
 
 const dev = process.env["ELECTROBUN_BUILD_ENV"] === "dev";
 const built = await buildViews({ dev });
 console.log(`[prebuild] views (${dev ? "dev" : "prod"}): ${built.join(", ")} -> ${viewsOut}`);
+
+// Inference Workers (GLIM-101): bundled as their own entries, copied next to the main bundle.
+const workers = await buildWorkers({ dev });
+console.log(`[prebuild] workers: ${workers.join(", ")} -> ${workersOut}`);
 
 // Bundled models (GLIM-37): staged from the cache, fetched when missing. Release builds must
 // have them. Dev builds without network still build, with an empty models/ folder; the app
