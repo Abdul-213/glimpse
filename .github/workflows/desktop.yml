@@ -25,9 +25,12 @@ on:
       - bun.lock
       - .github/workflows/desktop.yml
   workflow_dispatch:
+  # release.yml (GLIM-62) reuses these jobs for a tagged release, then collects the artifacts.
+  workflow_call:
 
 concurrency:
-  group: desktop-${{ github.ref }}
+  # github.workflow is the caller's name when release.yml calls this, so the two never cancel each other.
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

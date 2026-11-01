@@ -1,0 +1,129 @@
+# Releases (GLIM-62): pushing a version tag (`v0.1.0`) builds Windows and macOS with the same
+# jobs as desktop.yml (called as a reusable workflow) and creates a **draft** GitHub Release
+# with the four downloads, SHA256SUMS and release notes. The owner reviews and publishes it;
+# nothing here publishes a release.
+#
+#   glimpse-<version>-windows-x64-setup.zip   Electrobun installer
+#   glimpse-<version>-windows-x64.zip         portable app
+#   glimpse-<version>-macos-arm64.dmg         Glimpse.app (ad-hoc signed) in a disk image
+#   glimpse-<version>-macos-arm64.zip         the same app, zipped
+#   SHA256SUMS                                sha256sum format
+#
+# Notes: the tag's section of CHANGELOG.md, else generated from the GLIM-<n> commits since the
+# previous tag (app/scripts/release-notes.ts). The tag must match package.json's version.
+#
+# Manual runs (once this file is on the default branch) do everything except create the
+# release: the files, checksums and notes are uploaded as a `release-preview` artifact.
+# Cost: one desktop.yml run (Windows 2x, macOS 10x) plus a minute of Linux.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check the version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          set -eu
+          version=$(jq -r .version app/package.json)
+          root=$(jq -r .version package.json)
+          [ "$version" = "$root" ] || { echo "::error::app/package.json ($version) and package.json ($root) disagree"; exit 1; }
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            [ "${GITHUB_REF_NAME}" = "v$version" ] || { echo "::error::tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build
+    needs: check
+    uses: ./.github/workflows/desktop.yml
+
+  release:
+    name: Draft release
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Download the builds
+        uses: actions/download-artifact@v8
+        with:
+          pattern: glimpse-*
+          path: ${{ runner.temp }}/builds
+          merge-multiple: true
+          # desktop.yml uploads each file as-is (archive: false); keep the .zip files zipped.
+          skip-decompress: true
+
+      # desktop.yml names files glimpse-<version>-<sha7>-<target>.<ext>; releases drop the sha.
+      - name: Collect the release files
+        run: |
+          set -eu
+          out="$RUNNER_TEMP/release"
+          mkdir -p "$out"
+          ls -la "$RUNNER_TEMP/builds"
+          for target in windows-x64-setup.zip windows-x64.zip macos-arm64.dmg macos-arm64.zip; do
+            # (Trailing * in case the download adds an extension to an artifact named *.zip.)
+            set -- "$RUNNER_TEMP"/builds/glimpse-"$VERSION"-*-"$target"*
+            [ "$#" -eq 1 ] && [ -f "$1" ] || { echo "::error::missing or ambiguous build for $target: $*"; exit 1; }
+            cp "$1" "$out/glimpse-$VERSION-$target"
+          done
+          (cd "$out" && sha256sum glimpse-* > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Release notes
+        run: |
+          set -eu
+          # Commits since the previous version tag (all history for the first release).
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_SHA}^" 2>/dev/null || true)
+          range=${prev:+$prev..}${GITHUB_SHA}
+          echo "notes from ${prev:-the first commit} to ${GITHUB_SHA}"
+          git log --no-merges --format=%s "$range" > "$RUNNER_TEMP/subjects.txt"
+          bun app/scripts/release-notes.ts "$VERSION" "$RUNNER_TEMP/subjects.txt" > "$RUNNER_TEMP/release/NOTES.md"
+          cat "$RUNNER_TEMP/release/NOTES.md"
+
+      - name: Create the draft release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP/release"
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" --draft $prerelease --verify-tag \
+            --title "Glimpse $VERSION" --notes-file NOTES.md \
+            glimpse-* SHA256SUMS
+
+      - name: Upload a preview (no release created)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-preview
+          path: ${{ runner.temp }}/release
+          retention-days: 3

@@ -115,6 +115,21 @@ the default branch). Pick a run and download the artifacts from its summary page
   it in System Settings -> Privacy & Security -> *Open Anyway*. Screen capture needs the Screen
   Recording permission the first time.
 
+## Releases
+
+`.github/workflows/release.yml` (GLIM-62) turns a version tag into a **draft** GitHub Release:
+
+1. Under `## [Unreleased]` in `CHANGELOG.md`, write what changed for users; move it under a new
+   `## [x.y.z] - <date>` heading. Set the same version in `package.json` and `app/package.json`.
+2. Merge to `main`, then tag the merge commit `v<x.y.z>` and push the tag.
+3. The workflow checks the tag matches the version, runs the desktop.yml builds, renames the
+   artifacts to `glimpse-<version>-<target>.<ext>`, writes `SHA256SUMS` and the notes (the
+   changelog section, or a list generated from the `GLIM-<n>:` commits since the last tag), and
+   creates the draft. Review it on the Releases page and publish it by hand.
+
+A manual run (Actions -> Release -> Run workflow, once the file is on the default branch) does
+the same without creating a release and uploads the files as a `release-preview` artifact.
+
 ## Branches, commits, PRs
 
 - Work happens in Jira space **GLIM**. One ticket per branch: `glim-<n>-<slug>`, branched from
