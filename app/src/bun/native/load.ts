@@ -18,7 +18,7 @@ export const NATIVE_FILE: Record<NativeOs, string> = {
 };
 
 /** ABI version the bindings expect from glim_abi_version(). Bump with the C side. */
-export const GLIM_ABI_VERSION = 2;
+export const GLIM_ABI_VERSION = 3;
 
 export function nativeOsFor(platform: string): NativeOs | null {
 	if (platform === "darwin") return "macos";

@@ -11,7 +11,7 @@ const outDir = mkdtempSync(join(tmpdir(), "glimpse-views-"));
 const read = (path: string) => Bun.file(join(outDir, path)).text();
 
 beforeAll(async () => {
-	await buildViews({ outDir, views: ["settings"] });
+	await buildViews({ outDir, views: ["settings", "picker"] });
 }, 60_000);
 
 afterAll(() => rmSync(outDir, { recursive: true, force: true }));
@@ -43,5 +43,19 @@ describe("settings view build", () => {
 		expect(css).toMatch(/\[data-os="?windows"?\]/);
 		// The default Tailwind palette is switched off: only DESIGN.md colours exist.
 		expect(css).not.toContain("--color-red-500");
+	});
+});
+
+describe("picker view build (GLIM-44)", () => {
+	test("Solid-compiled, with the devkit RPC and the picker tokens", async () => {
+		const js = await read("picker/index.js");
+		expect(js).not.toContain("jsxDEV");
+		expect(js).toContain("__electrobunWebviewId");
+		expect(js).toContain("area picker");
+		const css = await read("picker/index.css");
+		expect(css).toContain("--color-picker-scrim");
+		expect(css).toContain("--color-picker-hud");
+		expect(css).toMatch(/\.rounded-kbd\s*\{/);
+		expect(css).toMatch(/\.text-numeric\s*\{/);
 	});
 });

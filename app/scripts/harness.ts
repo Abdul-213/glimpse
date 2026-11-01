@@ -7,6 +7,8 @@
 //   bun run harness snip --native --rect 0,0,400,200 --out out    (real capture on Windows/macOS)
 //   bun run harness snip --pipeline                                 (OCR -> detect -> cache -> translate, fakes)
 //   bun run harness snip --pipeline --translator bergamot --to de --ocr-text "明日の会議は午後三時に始まります。"
+//   bun run harness pick --drag 20,15,160,90 --out /tmp/glim       (region picker, GLIM-44)
+//   bun run harness pick --keys ArrowRight,Enter --mode live
 //   bun run harness windows --native                               (picker window list, GLIM-91)
 //   bun run harness loupe --native --at 400,300 --count 60         (loupe sampling rate, GLIM-91)
 //
@@ -34,6 +36,7 @@ import { displaysFromMac, displaysFromWindows } from "../src/bun/services/captur
 import { encodePng } from "../src/bun/services/capture/png.ts";
 import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
 import { createPickerNatives } from "../src/bun/services/picker/index.ts";
+import { dragSteps, type PickStep, runPick } from "../src/harness/pick.ts";
 import {
 	bergamotTranslator,
 	defaultPackRoot,
@@ -50,7 +53,7 @@ import {
 	runSnip,
 } from "../src/harness/run.ts";
 
-const USAGE = `usage: bun run harness <displays|snip|live|windows|loupe> [options]
+const USAGE = `usage: bun run harness <displays|snip|live|pick|windows|loupe> [options]
   --frames <path>   frame folder or PNG for the file backend (default: sample recording)
   --native          use the real capture backend (Windows/macOS only)
   --rect x,y,w,h    global logical rect (default: the primary display)
@@ -68,6 +71,10 @@ const USAGE = `usage: bun run harness <displays|snip|live|windows|loupe> [option
   --to <lang>       pipeline target language (default en)
   --sources <a,b>   pipeline source-language subset (default: every language)
   --private         pipeline: Private mode (nothing cached)
+  --drag x1,y1,x2,y2  pick: press, drag and release (global logical)
+  --click x,y       pick: click (selects the window or display under it)
+  --keys a,b,...    pick: key presses (DOM key names: ArrowRight, Enter, Escape, Tab)
+  --mode snip|live  pick: picker mode (default snip)
   --at x,y          loupe: global logical point to sample (default: primary display centre)`;
 
 const { values, positionals } = parseArgs({
@@ -91,12 +98,16 @@ const { values, positionals } = parseArgs({
 		sources: { type: "string" },
 		private: { type: "boolean", default: false },
 		at: { type: "string" },
+		drag: { type: "string" },
+		click: { type: "string" },
+		keys: { type: "string" },
+		mode: { type: "string", default: "snip" },
 		help: { type: "boolean", short: "h", default: false },
 	},
 });
 
 const command = positionals[0] ?? "snip";
-if (values.help || !["displays", "snip", "live", "windows", "loupe"].includes(command)) {
+if (values.help || !["displays", "snip", "live", "pick", "windows", "loupe"].includes(command)) {
 	console.log(USAGE);
 	process.exit(values.help ? 0 : 2);
 }
@@ -205,6 +216,50 @@ try {
 			values.json ? JSON.stringify({ backend: source.backend, displays }, null, 2) : `backend ${source.backend}`,
 		);
 		if (!values.json) for (const d of displays) console.log(JSON.stringify(d));
+	} else if (command === "pick") {
+		const nums = (v: string) => v.split(",").map(Number);
+		const steps: PickStep[] = [];
+		if (values.drag) {
+			const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = nums(values.drag);
+			steps.push(...dragSteps({ x: x1, y: y1 }, { x: x2, y: y2 }));
+		}
+		if (values.click) {
+			const [x = 0, y = 0] = nums(values.click);
+			steps.push({ move: { x, y } }, { down: { x, y } }, { up: { x, y } });
+		}
+		for (const key of values.keys ? values.keys.split(",") : []) steps.push({ key });
+		const mode = values.mode === "live" ? "live" : "snip";
+		const r = await runPick(source, steps, { mode });
+		if (r.frame && onFrame) {
+			onFrame(r.frame, { index: 0 } as FrameReport);
+		}
+		if (values.json)
+			console.log(
+				JSON.stringify(
+					{ ...r, frame: r.frame ? { width: r.frame.width, height: r.frame.height, scale: r.frame.scale } : null },
+					null,
+					2,
+				),
+			);
+		else {
+			console.log(
+				`pick ${mode}: ${r.outcome ? (r.outcome.kind === "confirmed" ? "confirmed" : `cancelled (${r.outcome.reason})`) : "still open"}`,
+			);
+			if (r.region) {
+				console.log(
+					`  rect ${JSON.stringify(r.region.rect)} source ${r.region.source}, ${r.region.pieces.length} piece(s)`,
+				);
+				for (const p of r.region.pieces)
+					console.log(
+						`    display ${p.displayId} @${p.scale}x local ${JSON.stringify(p.local)} px ${JSON.stringify(p.physical)}`,
+					);
+			}
+			if (r.frame) console.log(`  captured ${r.frame.width}x${r.frame.height} @${r.frame.scale}x`);
+			console.log(
+				`  states ${JSON.stringify(r.statesPerDisplay)}, loupe patches ${r.loupes}, overlays hidden: ${r.overlaysHidden}`,
+			);
+		}
+		if (!r.outcome) process.exitCode = 1;
 	} else if (command === "windows" || command === "loupe") {
 		const natives = createPickerNatives({ capture: source, shellDisplays: () => source.displays() });
 		console.log(natives.status);

@@ -1,6 +1,21 @@
 // Fakes for the region picker's OS ports (core/picker/ports.ts).
 import type { Point } from "../geometry.ts";
 import type { FocusKeeper, LoupePatch, PixelSampler, ScreenWindow, WindowListSource } from "../picker/ports.ts";
+import type { PointerProbe } from "../picker/session.ts";
+
+/** A pointer you move by hand: stands in for Electrobun's Screen cursor and button state. */
+export class FakePointer implements PointerProbe {
+	constructor(
+		public at: Point = { x: 0, y: 0 },
+		public down = false,
+	) {}
+	cursor(): Point {
+		return this.at;
+	}
+	primaryDown(): boolean {
+		return this.down;
+	}
+}
 
 /** A fixed window list. `fail` makes `list()` reject (the picker must cope). */
 export class StaticWindowList implements WindowListSource {
