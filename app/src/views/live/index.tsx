@@ -61,6 +61,7 @@ render(
 								hoverBlock: (sessionId, id) => rpc.send.blockHovered({ sessionId, id }),
 								pointerEntered: (sessionId) => rpc.send.livePointerEntered({ sessionId }),
 								blurred: (sessionId) => rpc.send.liveBlurred({ sessionId }),
+								copy: (sessionId, what) => rpc.send.copyRequested({ sessionId, what }),
 							}}
 						/>
 					)}

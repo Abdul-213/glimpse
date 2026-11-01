@@ -405,7 +405,7 @@ const live = new LiveService({
 		}),
 	log: liveLog,
 	// `tray` is declared below; the state only changes once a session runs.
-	onState: (state) => tray.update({ live: state }),
+	onState: (state) => tray.update({ live: state, ...(state === "off" ? { livePopupHidden: false } : {}) }),
 	perfNow: () => performance.now(),
 });
 // The docked Live popup (GLIM-79): one hidden window created now, reused for every session.
@@ -423,7 +423,17 @@ livePopup = new LivePopupController({
 	displays: readDisplays,
 	settings: () => ({ reducedMotion: appSettings.current.appearance.motion === "reduced", uiDir: "ltr" }),
 	setPrivate: (on) => translation.setPrivate(on),
-	repin: () => picker?.open("live"),
+	// L18: the session pauses while the picker is open; a new area replaces it, Esc resumes
+	// it as it was (a session the user had paused stays paused).
+	repin: () => {
+		const wasRunning = live.status !== "paused" && live.status !== "error";
+		if (wasRunning) live.pause("user");
+		const off = picker?.onOutcome((o) => {
+			off?.();
+			if (o.kind === "cancelled" && wasRunning && live.active) live.resume("user");
+		});
+		picker?.open("live");
+	},
 	focus: pickerNatives.focus,
 	// Manual Ctrl/⌘C only: Live never copies by itself (GLIM-71).
 	clipboard: { writeText: (text) => Utils.clipboardWriteText(text) },
@@ -489,6 +499,16 @@ commands.handle("onboarding.open", () => onboarding.open("setup"));
 commands.handle("live.stop", () => live.stop());
 commands.handle("live.pause", () => live.pause("user"));
 commands.handle("live.resume", () => live.resume());
+// GLIM-81: the tray mirrors the popup (live-popup.md §6.3).
+commands.handle("live.popup.toggle", () => {
+	const hidden = !livePopup?.hidden;
+	livePopup?.setHidden(hidden);
+	tray.update({ livePopupHidden: hidden });
+});
+commands.handle("live.popup.focus", () => {
+	livePopup?.focusPopup();
+	tray.update({ livePopupHidden: false });
+});
 commands.handle("cache.clear", () => translation.clearCache("user"));
 commands.handle("settings.open", () => settings.open());
 commands.handle("diagnostics.copy", () => {

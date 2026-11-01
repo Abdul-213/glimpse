@@ -13,6 +13,10 @@ export const COMMANDS = [
 	"live.stop",
 	"live.pause",
 	"live.resume",
+	/** Hide / show the docked Live popup (live-popup.md L19); the session keeps running. */
+	"live.popup.toggle",
+	/** "Focus Live popup" (§6.3): keyboard and screen-reader users reach its controls. */
+	"live.popup.focus",
 	"private.toggle",
 	"cache.clear",
 	"settings.open",

@@ -72,6 +72,12 @@ describe("tray menu", () => {
 		const paused = buildTrayMenu({ ...base, live: "paused" });
 		expect(labels(paused)[0]).toBe("❚❚ Live is paused · on this computer");
 		expect(actions(paused)).toContain("live.resume");
+		// GLIM-81: the popup's tray mirrors (live-popup.md §6.3).
+		expect(byAction(running, "live.popup.toggle")?.label).toBe("Hide Live popup");
+		expect(byAction(running, "live.popup.focus")?.label).toBe("Focus Live popup");
+		expect(
+			byAction(buildTrayMenu({ ...base, live: "running", livePopupHidden: true }), "live.popup.toggle")?.label,
+		).toBe("Show Live popup");
 	});
 
 	test("cloud provider is named in the status line (flow T3)", () => {
