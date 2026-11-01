@@ -42,8 +42,12 @@ export default {
 		},
 		copy: {
 			"dist/views": "views",
-			// Inference Workers (GLIM-101), bundled by the preBuild hook; found next to bun/index.js.
+			// Inference Workers (GLIM-101, GLIM-103), bundled by the preBuild hook; found next to bun/index.js.
 			"dist/workers/bergamot-worker.js": "bun/bergamot-worker.js",
+			"dist/workers/ocr-worker.js": "bun/ocr-worker.js",
+			// onnxruntime-node's native binding + runtime for this OS/arch only, CPU provider only
+			// (GLIM-103, scripts/onnxruntime.ts). The OCR Worker loads it from ../native/onnxruntime/.
+			"dist/onnxruntime": "native/onnxruntime",
 			"assets/tray": "views/assets",
 			// Bundled models + NOTICE (GLIM-37), staged by the preBuild hook from app/models/manifest.json.
 			"dist/models": "models",

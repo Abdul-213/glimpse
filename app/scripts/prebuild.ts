@@ -7,6 +7,7 @@ import { NATIVE_LIBS } from "../electrobun.config.ts";
 import { buildViews, viewsOut } from "./build-views.ts";
 import { buildWorkers, workersOut } from "./build-workers.ts";
 import { defaultCacheDir, loadManifest, modelsOut, stageBundled, writeStagingExtras } from "./model-cache.ts";
+import { ortOut, ortTarget, stageOnnxRuntime } from "./onnxruntime.ts";
 
 const dev = process.env["ELECTROBUN_BUILD_ENV"] === "dev";
 const built = await buildViews({ dev });
@@ -15,6 +16,16 @@ console.log(`[prebuild] views (${dev ? "dev" : "prod"}): ${built.join(", ")} -> 
 // Inference Workers (GLIM-101): bundled as their own entries, copied next to the main bundle.
 const workers = await buildWorkers({ dev });
 console.log(`[prebuild] workers: ${workers.join(", ")} -> ${workersOut}`);
+
+// onnxruntime-node for the OCR Worker (GLIM-103): this target's binding + runtime only.
+const target = ortTarget();
+const ort = stageOnnxRuntime(target);
+if (ort) console.log(`[prebuild] onnxruntime ${target.os}-${target.arch}: ${ort.join(", ")} -> ${ortOut}`);
+else {
+	console.warn(
+		`[prebuild] WARNING: onnxruntime-node has no ${target.os}-${target.arch} build; local OCR will be unavailable (GLIM-89).`,
+	);
+}
 
 // Bundled models (GLIM-37): staged from the cache, fetched when missing. Release builds must
 // have them. Dev builds without network still build, with an empty models/ folder; the app

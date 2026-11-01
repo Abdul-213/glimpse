@@ -39,3 +39,11 @@ ELD, Efficient Language Detector (JavaScript), version 2.1.0, medium database
   https://github.com/nitotm/efficient-language-detector-js
   Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
   Bundled into the app's main script, unmodified.
+
+ONNX Runtime (onnxruntime-node and onnxruntime-common), version 1.31.1
+  Copyright (c) Microsoft Corporation.
+  https://github.com/microsoft/onnxruntime
+  Licensed under the MIT License (licenses/MIT-onnxruntime.txt).
+  Shipped as the native runtime library and Node-API binding for this platform
+  (native/onnxruntime/), with the JavaScript bindings bundled into the OCR worker script.
+  Unmodified, except that the bundled binding loader points at native/onnxruntime/.

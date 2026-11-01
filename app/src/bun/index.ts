@@ -82,8 +82,14 @@ const models = new ModelManager({ root: modelsDir, bundledDir: bundledModelsDir(
 // pipeline and the GLIM-20 caches. Providers load after the model scan, in the background.
 const translationLog = log.child("translation");
 const bergamotPacks = new ModelManagerPackSource(models);
-const { ctx: providerCtx, bergamotWorker } = providerContext({
+const {
+	ctx: providerCtx,
+	bergamotWorker,
+	ocrWorker,
+} = providerContext({
 	packs: bergamotPacks,
+	// PaddleOCR (GLIM-103) reads its model files through the model manager.
+	models,
 	mainDir: import.meta.dir,
 	warmPairs: () => warmPairsFor(appSettings.current),
 	log: translationLog,
@@ -110,7 +116,10 @@ models
 	.scan()
 	.then(() => {
 		log.child("models").info("scan complete", { installed: models.installedIds().length });
-		translationLog.info("starting providers", { bergamotWorker: bergamotWorker ?? "default (source tree)" });
+		translationLog.info("starting providers", {
+			bergamotWorker: bergamotWorker ?? "default (source tree)",
+			ocrWorker: ocrWorker ?? "default (source tree)",
+		});
 		void stages.detector.load();
 		return translation.start();
 	})

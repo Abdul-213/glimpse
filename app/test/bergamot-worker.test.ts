@@ -44,7 +44,7 @@ describe("resolveBergamotWorker", () => {
 describe("bundled Bergamot Worker", () => {
 	test("builds as one self-contained file that runs as a Worker and speaks the protocol", async () => {
 		const built = await buildWorkers({ dev: false, outDir: out });
-		expect(built).toEqual([BERGAMOT_WORKER_FILE]);
+		expect(built).toContain(BERGAMOT_WORKER_FILE);
 		const file = join(out, BERGAMOT_WORKER_FILE);
 		const source = readFileSync(file, "utf8");
 		// Nothing left to resolve at runtime but Node/Bun built-ins.
