@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glimpse · Snip popup mockup (GLIM-30)</title>
+<style>
+/* ---- DESIGN.md tokens (GLIM-27), emitted per "Token mapping" ---- */
+:root {
+  color-scheme: light dark;
+  --color-surface-popup: light-dark(#F5F5F7E6, #262628E6);
+  --color-surface-popup-solid: light-dark(#F5F5F7, #262628);
+  --color-surface-control: light-dark(#FFFFFF, #3A3A3D);
+  --color-overlay-hover: light-dark(#0000000F, #FFFFFF14);
+  --color-overlay-pressed: light-dark(#0000001A, #FFFFFF24);
+  --color-overlay-selected: light-dark(#0A63C91F, #6AAAFF29);
+  --color-text-primary: light-dark(#1D1D1F, #F4F4F6);
+  --color-text-secondary: light-dark(#55555C, #B6B6BE);
+  --color-text-disabled: light-dark(#8E8E93, #6C6C72);
+  --color-border-hairline: light-dark(#0000001F, #FFFFFF1F);
+  --color-border-control: light-dark(#76767D, #8E8E96);
+  --color-divider: light-dark(#00000014, #FFFFFF14);
+  --color-accent: light-dark(#0A63C9, #2A6FD9);
+  --color-on-accent: #FFFFFF;
+  --color-link: light-dark(#0959BA, #6AAAFF);
+  --color-focus-ring: light-dark(#0A63C9, #6AAAFF);
+  --color-success: light-dark(#156A37, #5BC987);
+  --color-danger: light-dark(#B42318, #FF8073);
+  --color-egress: light-dark(#5E32AE, #C4B0FF);
+  --color-egress-tint: light-dark(#5E32AE1A, #C4B0FF1A);
+  --color-change-flash: light-dark(#0A63C924, #6AAAFF1F);
+  --color-change-rest: light-dark(#0A63C90F, #6AAAFF0F);
+  --color-change-mark: light-dark(#0A63C9, #6AAAFF);
+  --color-picker-scrim: #00000073;
+  --color-picker-stroke: #FFFFFF;
+  --color-picker-halo: #00000099;
+  --color-picker-hud: #1C1C1EE0;
+  --color-picker-hud-text: #F5F5F7;
+  --color-picker-hud-text-secondary: #B8B8BF;
+  --color-box-linked-fill: #0A63C93D;
+  --color-egress-dark: #C4B0FF;
+  --color-egress-tint-dark: #C4B0FF1A;
+  --radius-box: 3px; --radius-kbd: 4px; --radius-control: 6px; --radius-popup: 12px; --radius-pill: 999px;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif;
+  --font-ar: -apple-system, BlinkMacSystemFont, 'SF Arabic', 'Geeza Pro', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  --font-he: -apple-system, BlinkMacSystemFont, 'SF Hebrew', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', sans-serif;
+  --font-ja: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif;
+  --size-source: 13px; --size-body: 13px;
+  --size-scale: 1; --lh-translation: 1.5; --lh-source: 1.5;
+  --duration-fast: 100ms; --duration-base: 160ms; --duration-exit: 80ms; --duration-settle: 1600ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-standard: cubic-bezier(0.2, 0, 0, 1); --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --shadow-tooltip: 0 2px 8px #00000026;
+  --shadow-hud: 0 1px 4px #0000004D;
+  --shadow-loupe: 0 4px 16px #00000059, 0 0 0 1px #FFFFFF, 0 0 0 2px #00000099;
+}
+:root[data-os="windows"] { --radius-control: 4px; --radius-popup: 8px; --size-source: 14px; --size-body: 14px; }
+:root[data-os="win10"] { --radius-control: 4px; --radius-popup: 0px; --size-source: 14px; --size-body: 14px; }
+
+/* ---- Script stacks (DESIGN.md table; subset used here) ---- */
+:lang(ja) { font-family: var(--font-ja); --lh-translation: 1.7; --lh-source: 1.7; line-break: strict; }
+:lang(ar), :lang(fa) { font-family: var(--font-ar); --size-scale: 1.0667; --lh-translation: 1.75; --lh-source: 1.75; letter-spacing: 0; font-synthesis: none; }
+:lang(he) { font-family: var(--font-he); --lh-translation: 1.55; --lh-source: 1.55; }
+
+/* ---- Documentation page chrome (not product UI) ---- */
+* { box-sizing: border-box; }
+html { background: light-dark(#E9E9EC, #141416); }
+body { margin: 0; font: 13px/1.45 var(--font-ui); color: var(--color-text-primary); }
+::selection { background: var(--color-overlay-selected); }
+:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.doc { max-inline-size: 1680px; margin-inline: auto; padding: 32px 24px 64px; }
+.doc > h1 { font-size: 20px; font-weight: 600; line-height: 1.3; margin: 0 0 8px; }
+.doc > p { margin: 0 0 8px; max-inline-size: 90ch; color: var(--color-text-secondary); }
+.doc h2 { font-size: 15px; font-weight: 600; line-height: 1.35; margin: 32px 0 8px; }
+.doc code { font-family: ui-monospace, 'SF Mono', Consolas, 'DejaVu Sans Mono', monospace; font-size: 12px; }
+.toolbar { position: sticky; inset-block-start: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 8px 12px; margin: 16px 0; border-radius: 8px; background: light-dark(#FFFFFFF2, #2A2A2DF2); box-shadow: inset 0 0 0 1px var(--color-border-hairline); font-size: 12px; font-weight: 500; }
+.toolbar fieldset { border: 0; margin: 0; padding: 0; display: flex; gap: 4px; align-items: center; }
+.toolbar legend { float: inline-start; margin-inline-end: 6px; color: var(--color-text-secondary); }
+.toolbar label { display: inline-flex; gap: 4px; align-items: center; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+.toolbar label:has(input:checked) { background: var(--color-overlay-selected); }
+.toolbar input { margin: 0; accent-color: var(--color-accent); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cols.one { grid-template-columns: 1fr; }
+.col-head { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 8px; }
+.col { padding: 16px; border-radius: 12px; background: light-dark(#F7F7F8, #1C1C1E); box-shadow: inset 0 0 0 1px var(--color-border-hairline); color: var(--color-text-primary); }
+.grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.state { display: flex; flex-direction: column; gap: 6px; }
+.state > h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
+.state > h3 .id { display: inline-block; min-inline-size: 28px; color: var(--color-text-secondary); font-weight: 500; font-variant-numeric: tabular-nums; }
+.state > p { margin: 0; max-inline-size: 420px; font-size: 12px; color: var(--color-text-secondary); }
+.sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Stand-in screen content behind popups (the real material is native; not simulated) */
+.scene { position: relative; overflow: hidden; border-radius: 6px; padding: 16px; }
+.bg-white { background: #FFFFFF; }
+.bg-black { background: #000000; }
+.bg-busy { background: repeating-linear-gradient(115deg, #2D5A3D 0 18px, #F2E8C8 18px 36px, #1B2A4A 36px 54px, #E8D0B0 54px 72px); }
+.bg-game { background: linear-gradient(#273246, #10141C); }
+.bg-chat { background: #ECE5DD; }
+
+/* ---- Popup (Snip and Live) ---- */
+.popup { position: relative; padding: 12px; border-radius: var(--radius-popup); background: var(--color-surface-popup); box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 12px 32px #00000040; color: var(--color-text-primary); font-family: var(--font-ui); display: flex; flex-direction: column; }
+.solid .popup, .popup.solid { background: var(--color-surface-popup-solid); }
+.dark .popup { box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 0 0 0.5px #000000A6, 0 12px 32px #00000080; }
+.popup.live { padding: 8px 12px 12px; }
+.list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--color-overlay-pressed) transparent; min-block-size: 0; }
+.list:focus { outline: none; }
+.block { position: relative; padding: 4px 8px; border-radius: var(--radius-control); transition: background-color var(--duration-fast) var(--ease-standard); }
+.block:hover, .block.hover { background: var(--color-overlay-hover); }
+.live .block { padding-inline-start: 20px; }
+.tr { margin: 0; font-size: calc(15px * var(--size-scale)); line-height: var(--lh-translation); unicode-bidi: plaintext; text-align: start; }
+.src { margin: 0; font-size: calc(var(--size-source) * var(--size-scale)); line-height: var(--lh-source); color: var(--color-text-secondary); unicode-bidi: plaintext; text-align: start; }
+.tr + .src { margin-block-start: 4px; }
+.tag { font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); margin-inline-start: 6px; unicode-bidi: isolate; white-space: nowrap; }
+.skel { display: flex; align-items: center; block-size: 22.5px; }
+.skel > span { display: block; block-size: 10px; border-radius: var(--radius-box); background: var(--color-overlay-pressed); }
+.fail { display: flex; align-items: center; gap: 6px; margin-block-start: 4px; font: 500 12px/1.35 var(--font-ui); color: var(--color-danger); }
+.textbtn { border: 0; padding: 0; background: none; font: 500 12px/1.35 var(--font-ui); color: var(--color-link); cursor: pointer; }
+.textbtn:hover { text-decoration: underline; text-underline-offset: 2px; }
+.skipped-line { display: flex; align-items: center; gap: 4px; inline-size: 100%; block-size: 24px; padding: 4px 8px; border: 0; border-radius: var(--radius-control); background: none; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); cursor: pointer; text-align: start; }
+.skipped-line:hover { background: var(--color-overlay-hover); }
+.skipped-line svg { transition: transform var(--duration-fast) var(--ease-standard); }
+:dir(rtl) .skipped-line svg { transform: scaleX(-1); }
+.skipped-line[aria-expanded="true"] svg { transform: rotate(90deg); }
+.skipped-body { display: flex; flex-direction: column; gap: 4px; padding-inline: 8px 8px; padding-block-end: 4px; }
+.skipped-body .row { display: flex; gap: 12px; margin-block-start: 4px; }
+.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-block-start: 8px; padding-inline: 8px; min-block-size: 24px; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); }
+.foot.rule { border-block-start: 1px solid var(--color-divider); padding-block-start: 8px; }
+.foot .spacer { flex: 1; }
+.foot .status { display: inline-flex; align-items: center; gap: 4px; }
+.local { display: inline-flex; align-items: center; gap: 4px; block-size: 20px; color: var(--color-text-secondary); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; }
+.egress { display: inline-flex; align-items: center; gap: 4px; block-size: 20px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--color-egress-tint); color: var(--color-egress); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; }
+.egress-row { inline-size: 100%; }
+.ibtns { display: inline-flex; gap: 4px; }
+.ib { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border: 0; padding: 0; border-radius: var(--radius-control); background: none; color: var(--color-text-secondary); cursor: pointer; transition: background-color var(--duration-fast) var(--ease-standard); }
+.ib:hover { background: var(--color-overlay-hover); color: var(--color-text-primary); }
+.ib[aria-pressed="true"] { background: var(--color-overlay-selected); color: var(--color-text-primary); }
+.ico { inline-size: 16px; block-size: 16px; flex: none; }
+.ico.s12 { inline-size: 12px; block-size: 12px; }
+.err { padding: 4px 8px 8px; }
+.err h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--color-text-primary); }
+.err h4 .ico.danger { color: var(--color-danger); }
+.err h4 .ico.muted { color: var(--color-text-secondary); }
+.err p { margin: 0 0 12px; font-size: var(--size-body); line-height: 1.45; color: var(--color-text-secondary); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { block-size: 28px; padding: 0 12px; border-radius: var(--radius-control); font: var(--size-body) var(--font-ui); cursor: pointer; white-space: nowrap; }
+:root[data-os="windows"] .btn, :root[data-os="win10"] .btn { block-size: 32px; }
+.btn.primary { border: 0; background: var(--color-accent); color: var(--color-on-accent); }
+.btn.primary:hover { background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover)); }
+.btn.secondary { border: 1px solid var(--color-border-control); background: var(--color-surface-control); color: var(--color-text-primary); }
+.btn.secondary:hover { background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover)); }
+.progress { block-size: 4px; inline-size: 100%; border-radius: var(--radius-pill); background: var(--color-overlay-pressed); overflow: hidden; margin-block: 6px 4px; }
+.progress > span { display: block; block-size: 100%; border-radius: var(--radius-pill); background: var(--color-accent); }
+.num { font: 500 12px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.packrow { padding: 4px 8px; font-size: var(--size-body); color: var(--color-text-secondary); }
+.packrow .btnrow { margin-block-start: 6px; }
+.tooltip { position: absolute; padding: 4px 8px; border-radius: var(--radius-kbd); background: var(--color-surface-popup-solid); color: var(--color-text-primary); box-shadow: var(--shadow-tooltip), inset 0 0 0 1px var(--color-border-hairline); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; z-index: 5; }
+
+/* HUD (picker, region tag) */
+.hud { display: inline-flex; align-items: center; gap: 6px; block-size: 20px; padding: 2px 6px; border-radius: var(--radius-kbd); background: var(--color-picker-hud); color: var(--color-picker-hud-text); box-shadow: var(--shadow-hud); font: 500 12px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hud .egress-hud { color: var(--color-egress-dark); display: inline-flex; gap: 4px; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; animation: none !important; } }
+:root[data-motion="reduced"] * { transition-duration: 0ms !important; animation: none !important; }
+@media (forced-colors: active) { .egress { border: 1px solid CanvasText; } }
+
+.col.light { color-scheme: light; } .col.dark { color-scheme: dark; }
+.w280 { inline-size: 280px; } .w360 { inline-size: 360px; } .w420 { inline-size: 420px; } .w480 { inline-size: 480px; }
+.maxh { max-block-size: 300px; }
+
+/* Main-path demo */
+.demo { position: relative; block-size: 460px; border-radius: 8px; overflow: hidden; background: #ECE5DD; font-family: var(--font-ui); }
+.chat { position: absolute; inset-block-start: 24px; inset-inline-start: 24px; inline-size: 330px; display: flex; flex-direction: column; gap: 8px; }
+.msg { align-self: flex-start; max-inline-size: 280px; padding: 6px 10px; border-radius: 8px; background: #FFFFFF; color: #111111; font-size: 14px; box-shadow: 0 1px 1px #0000001A; }
+.msg.me { align-self: flex-end; background: #D9FDD3; }
+.msg .t { font-size: 11px; color: #667781; margin-inline-start: 8px; }
+.region { position: absolute; outline: 1px solid var(--color-picker-stroke); box-shadow: 0 0 0 2px var(--color-picker-halo); pointer-events: none; }
+.dbox { position: absolute; border-radius: var(--radius-box); outline: 1px solid var(--color-picker-stroke); box-shadow: 0 0 0 2px var(--color-picker-halo); pointer-events: none; transition: background-color var(--duration-fast) var(--ease-standard); }
+.dbox.skip { outline-style: dashed; opacity: .6; }
+.dbox.linked { background: var(--color-box-linked-fill); }
+.demo .popup { position: absolute; }
+.demo .controls { position: absolute; inset-block-end: 12px; inset-inline-end: 12px; display: flex; gap: 8px; }
+.enter { animation: enter var(--duration-base) var(--ease-out) both; }
+@keyframes enter { from { opacity: 0; transform: scale(.98); } }
+.xfade { animation: xfade var(--duration-fast) var(--ease-standard) both; }
+@keyframes xfade { from { opacity: 0; } }
+:root[data-motion="reduced"] .enter { animation: none; }
+
+/* Placement diagrams */
+.place { display: flex; flex-wrap: wrap; gap: 16px; }
+.pd { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--color-text-secondary); }
+.pd .screen { position: relative; inline-size: 288px; block-size: 180px; border-radius: 4px; background: light-dark(#D7D7DB, #2E2E31); overflow: hidden; }
+.pd .wa { position: absolute; inset: 0 0 12px 0; }
+.pd .bar { position: absolute; inset-inline: 0; inset-block-end: 0; block-size: 12px; background: light-dark(#BDBDC2, #3C3C40); }
+.pd .r { position: absolute; outline: 1px solid #FFFFFF; box-shadow: 0 0 0 1px #000000; background: #FFFFFF33; }
+.pd .p { position: absolute; border-radius: 3px; background: var(--color-surface-popup-solid); box-shadow: inset 0 0 0 1px var(--color-border-control); }
+.pd b { color: var(--color-text-primary); font-weight: 600; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-chip" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M6.5 2v2M9.5 2v2M6.5 12v2M9.5 12v2M2 6.5h2M2 9.5h2M12 6.5h2M12 9.5h2"/></g></symbol>
+    <symbol id="i-cloud" viewBox="0 0 16 16"><path d="M4.5 12.5h7a3 3 0 0 0 .4-6A4 4 0 0 0 4.2 7.6 2.5 2.5 0 0 0 4.5 12.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-original" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h6M5.5 3.5v1.5M3.5 9c1.6-.7 3.2-2.3 3.8-4M4.5 5.5c.6 1.6 1.8 3 3 3.6"/><path d="M8.5 13.5l2.5-6 2.5 6M9.3 11.6h3.4"/></g></symbol>
+    <symbol id="i-eyeoff" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2.5l11 11"/><path d="M6.4 4.1A6.6 6.6 0 0 1 8 3.9c3.3 0 5.4 2.6 6 4.1-.3.7-.9 1.6-1.7 2.4M10.6 11.4A6.6 6.6 0 0 1 8 12.1c-3.3 0-5.4-2.6-6-4.1.4-1 1.3-2.2 2.5-3.1"/><path d="M6.6 6.6a2 2 0 0 0 2.8 2.8"/></g></symbol>
+    <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-repin" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"/><path d="M8 6v4M6 8h4"/></g></symbol>
+    <symbol id="i-stop" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.75"/><path d="M8 5v3.5M8 11h0"/></g></symbol>
+    <symbol id="i-info" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.75"/><path d="M8 7.5V11M8 5h0"/></g></symbol>
+  </defs>
+</svg>
+
+<main class="doc">
+  <h1>Snip popup</h1>
+  <p>Mockup for <code>docs/design/specs/snip-popup.md</code> (GLIM-30). State IDs match the spec. Popups are drawn at 1:1 over stand-in screen content. The native material can't be shown in a browser, so the 90% veil is painted over the content directly (the worst case for legibility). Fonts: this preview uses whatever system fonts are installed. CJK samples are left out because the render machine has no CJK font.</p>
+
+  <div class="toolbar" role="group" aria-label="Preview options">
+    <fieldset><legend>Theme</legend>
+      <label><input type="radio" name="theme" value="both" checked>Both</label>
+      <label><input type="radio" name="theme" value="light">Light</label>
+      <label><input type="radio" name="theme" value="dark">Dark</label></fieldset>
+    <fieldset><legend>OS</legend>
+      <label><input type="radio" name="os" value="macos" checked>macOS</label>
+      <label><input type="radio" name="os" value="windows">Windows 11</label>
+      <label><input type="radio" name="os" value="win10">Windows 10</label></fieldset>
+    <fieldset><legend>Mirror layout (copy stays English; see the RTL states for real RTL copy)</legend>
+      <label><input type="radio" name="dir" value="ltr" checked>LTR</label>
+      <label><input type="radio" name="dir" value="rtl">RTL</label></fieldset>
+    <label><input type="checkbox" id="solid">Reduce transparency</label>
+    <label><input type="checkbox" id="rm">Reduced motion</label>
+  </div>
+
+  <h2>Main path (interactive)</h2>
+  <p>Press Replay to run S0 → S4 at roughly real pacing (OCR detection, recognition, then translation block by block). Hover a block to light its detected box (the linked gloss). Target English; source subset Spanish and Arabic.</p>
+  <div class="cols" id="demoCols">
+    <div class="col light" data-solid><p class="col-head">Light</p><div class="demo" data-ui-dir></div></div>
+    <div class="col dark dark" data-solid><p class="col-head">Dark</p><div class="demo" data-ui-dir></div></div>
+  </div>
+
+  <h2>Placement (spec §3)</h2>
+  <p>Computed by the same rules the spec gives (<code>placeSnipPopup</code>), on a 1440 × 900 display with a 48px taskbar, drawn at 1:5. White outline: region. Grey: popup at its maximum height for that side.</p>
+  <div class="place" id="place"></div>
+
+  <h2>States</h2>
+  <div class="cols" id="states">
+    <div class="col light" data-solid><p class="col-head">Light</p><div class="grid"></div></div>
+    <div class="col dark dark" data-solid><p class="col-head">Dark</p><div class="grid"></div></div>
+  </div>
+</main>
+
+<!-- ======== State templates ======== -->
+<template data-state>
+  <div class="state"><h3><span class="id">S0</span>Opened, before detection</h3>
+    <div class="scene bg-busy"><div class="popup w360" data-ui-dir role="dialog" aria-label="Translation">
+      <div class="list"><div class="block"><div class="skel"><span style="inline-size:70%"></span></div></div><div class="block"><div class="skel"><span style="inline-size:45%"></span></div></div></div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Reading text</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>Visible ≤ 100 ms after release. Static bars, no shimmer.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S2</span>Recognised, translating</h3>
+    <div class="scene bg-white"><div class="popup w360" data-ui-dir>
+      <div class="list">
+        <div class="block hover"><p class="tr">See you at eight?</p></div>
+        <div class="block"><p class="src" lang="es">Traje el libro que me pediste</p></div>
+        <div class="block"><p class="src">12:45</p></div>
+        <div class="block"><p class="src" lang="es">Está en la mesa de la cocina</p></div>
+        <button class="skipped-line" aria-expanded="false"><svg class="ico s12"><use href="#i-chevron"/></svg>2 blocks skipped · Russian, German</button>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Translating 1 of 3</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>Pending blocks show their OCR text in source style, in the slot the translation will take. The first block is hovered (its box lights on screen). 12:45 is neutral: as-is.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S4</span>Done, copied</h3>
+    <div class="scene bg-black"><div class="popup w360" data-ui-dir>
+      <div class="list">
+        <div class="block"><p class="tr">See you at eight?</p></div>
+        <div class="block"><p class="tr">I brought the book you asked for</p></div>
+        <div class="block"><p class="src">12:45</p></div>
+        <div class="block"><p class="tr">It's on the kitchen table</p></div>
+        <button class="skipped-line" aria-expanded="false"><svg class="ico s12"><use href="#i-chevron"/></svg>2 blocks skipped · Russian, German</button>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status"><svg class="ico"><use href="#i-check"/></svg>Copied</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>"Copied" for 2 s, then the status clears. Over pure black: the worst case for the dark veil.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S5</span>Show original under translation, mixed languages</h3>
+    <div class="scene bg-busy"><div class="popup w420" data-ui-dir>
+      <div class="list">
+        <div class="block"><p class="tr">See you at eight?<span class="tag">Spanish</span></p><p class="src" lang="es">¿Nos vemos a las ocho?</p></div>
+        <div class="block"><p class="tr">The meeting is tomorrow at 3 PM in the office<span class="tag">Arabic</span></p><p class="src" lang="ar" dir="auto">الاجتماع غداً الساعة 3 PM في المكتب</p></div>
+        <div class="block"><p class="tr">Thank you very much<span class="tag">Arabic</span></p><p class="src" lang="ar" dir="auto">شكراً جزيلاً</p></div>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>Language tags appear because the region holds two source languages. Arabic source lines are right-aligned on their own, with "3 PM" in the right bidi order.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S6</span>Original view (RTL source)</h3>
+    <div class="scene bg-white"><div class="popup w360" data-ui-dir>
+      <div class="list">
+        <div class="block"><p class="tr" lang="ar" dir="auto">الاجتماع غداً الساعة 3 PM في المكتب</p></div>
+        <div class="block"><p class="tr" lang="ar" dir="auto">شكراً جزيلاً</p></div>
+        <div class="block"><p class="src">09:14</p></div>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Showing original</span><span class="ibtns"><button class="ib" aria-pressed="true" aria-label="Show translation"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>Ctrl/⌘⇧O. OCR text takes the translation type size. The toggle is pressed; chrome keeps the UI direction.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S7</span>Skipped expanded, target-language block</h3>
+    <div class="scene bg-busy"><div class="popup w360" data-ui-dir>
+      <div class="list">
+        <div class="block"><p class="tr">Where did you leave it?</p></div>
+        <div class="block"><p class="tr">On the shelf, I think<span class="tag">Already in English</span></p></div>
+        <button class="skipped-line" aria-expanded="true"><svg class="ico s12"><use href="#i-chevron"/></svg>2 blocks skipped · Russian, German</button>
+        <div class="skipped-body">
+          <p class="src" lang="ru">Увидимся завтра<span class="tag">Russian</span></p>
+          <p class="src" lang="de">Danke dir!<span class="tag">German</span></p>
+          <div class="row"><button class="textbtn">Translate these</button><button class="textbtn">Edit source languages…</button></div>
+        </div>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>The skipped line is the last row of the list and expands in place. Never a warning colour.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S14</span>Cloud in use, narrow (footer wraps)</h3>
+    <div class="scene bg-white"><div class="popup w280" data-ui-dir>
+      <div class="list">
+        <div class="block"><p class="tr">See you at eight?</p></div>
+        <div class="block"><p class="tr">I brought the book you asked for</p></div>
+      </div>
+      <div class="foot"><span class="egress egress-row" title="Text sent to Google Cloud Translation (2 segments)"><svg class="ico"><use href="#i-cloud"/></svg>Sent to Google Cloud Translation</span><span class="spacer"></span><span class="status"><svg class="ico"><use href="#i-check"/></svg>Copied</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>At 280px the pill takes its own row instead of truncating. Violet means the text left the device.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S14b</span>Cloud, remembered + Private</h3>
+    <div class="scene bg-black"><div class="popup w480" data-ui-dir>
+      <div class="list">
+        <div class="block"><p class="tr">Your order has shipped and will arrive on Thursday.</p></div>
+      </div>
+      <div class="foot"><span class="egress"><svg class="ico"><use href="#i-cloud"/></svg>Sent to Google Cloud Translation (remembered)</span><span class="local"><svg class="ico"><use href="#i-eyeoff"/></svg>Private</span><span class="spacer"></span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>A cached cloud result keeps its badge. The Private mark sits after the provider indicator.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S12</span>Very long (scrolls, footer pinned)</h3>
+    <div class="scene bg-busy"><div class="popup w420 maxh" data-ui-dir>
+      <div class="list">
+        <div class="block"><p class="tr">Clause 4. The tenant shall pay the rent on the first working day of each month by bank transfer to the account given in Annex 2.</p></div>
+        <div class="block"><p class="tr">Clause 5. Any change to the agreed use of the premises requires the landlord's written consent.</p></div>
+        <div class="block"><p class="tr">Clause 6. The deposit is returned within thirty days of the end of the lease, less any documented repair costs.</p></div>
+        <div class="block"><p class="src" lang="de">Klausel 7. Der Mieter trägt die Kosten für Schönheitsreparaturen.</p></div>
+      </div>
+      <div class="foot rule"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Translating 3 of 12</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>Height capped at 60% of the work area (shown at 300px here). A divider appears above the footer only while the list overflows.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S13</span>Very short</h3>
+    <div class="scene bg-white"><div class="popup w280" data-ui-dir>
+      <div class="list"><div class="block"><p class="tr">Settings</p></div></div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status"><svg class="ico"><use href="#i-check"/></svg>Copied</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>One word still gets the 280px minimum so the footer fits.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S16</span>Partial failure + pack row</h3>
+    <div class="scene bg-busy"><div class="popup w360" data-ui-dir>
+      <div class="list">
+        <div class="packrow">Greek isn't downloaded yet.<div class="progress"><span style="inline-size:38%"></span></div><span class="num">12 MB of 31 MB</span></div>
+        <div class="block"><p class="tr">Free shipping on orders over 50 euros</p></div>
+        <div class="block"><p class="src" lang="el">Προσωρινά εξαντλημένο</p></div>
+        <div class="block"><p class="src" lang="es">Oferta válida hasta agotar existencias</p><div class="fail"><svg class="ico"><use href="#i-alert"/></svg>Not translated<button class="textbtn">Retry</button></div></div>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Translated 1 of 3</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>One pack row per missing language at the top, here mid-download; its blocks translate in place when it finishes. A failed block keeps its source and offers Retry.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">E1</span>No text found</h3>
+    <div class="scene bg-white"><div class="popup w360" data-ui-dir>
+      <div class="err"><h4><svg class="ico muted"><use href="#i-info"/></svg>No text found</h4><p>Glimpse couldn't find any text in this area. Try a larger area, or zoom in so the text is bigger.</p><div class="btnrow"><button class="btn primary">Snip again</button><button class="btn secondary">Close</button></div></div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Clipboard not changed</span></div>
+    </div></div><p>Focus starts on Snip again, which reopens the picker with this region pre-drawn.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">E2</span>Language pack missing</h3>
+    <div class="scene bg-busy"><div class="popup w360" data-ui-dir>
+      <div class="err"><h4><svg class="ico muted"><use href="#i-info"/></svg>Greek isn't downloaded yet</h4><p>The text was read, but Glimpse needs the Greek language pack to translate it. The original text is below.</p><div class="btnrow"><button class="btn primary">Download Greek (31 MB)</button><button class="btn secondary">Copy original</button></div></div>
+      <div class="list"><div class="block"><p class="src" lang="el">Προσωρινά εξαντλημένο</p></div><div class="block"><p class="src" lang="el">Παρακαλώ δοκιμάστε ξανά</p></div></div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Clipboard not changed</span></div>
+    </div></div><p>Never falls through to a cloud provider (GLIM-22 rule 1).</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">E3</span>Cloud provider: offline</h3>
+    <div class="scene bg-black"><div class="popup w360" data-ui-dir>
+      <div class="err"><h4><svg class="ico danger"><use href="#i-alert"/></svg>You're offline</h4><p>Nothing was sent. Connect to the internet, or translate on this device.</p><div class="btnrow"><button class="btn primary">Retry</button><button class="btn secondary">Translate on this device</button></div></div>
+      <div class="list"><div class="block"><p class="src" lang="es">¿Nos vemos a las ocho?</p></div></div>
+      <div class="foot"><span class="egress"><svg class="ico"><use href="#i-cloud"/></svg>Sent to Google</span><span class="spacer"></span><span class="status">Clipboard not changed</span></div>
+    </div></div><p>Other variants (rejected key, quota, timeout) differ only in copy and the primary action; see spec §12.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">E4</span>Screen access lost (macOS)</h3>
+    <div class="scene bg-white"><div class="popup w360" data-ui-dir>
+      <div class="err"><h4><svg class="ico danger"><use href="#i-alert"/></svg>Glimpse can't see your screen</h4><p>Screen Recording permission is off, or was reset by an update. The capture came back blank.</p><div class="btnrow"><button class="btn primary">Open System Settings</button><button class="btn secondary">Why does this happen?</button></div></div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Clipboard not changed</span></div>
+    </div></div><p>Shown instead of a misleading "No text found".</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">E5</span>Nothing to translate</h3>
+    <div class="scene bg-busy"><div class="popup w360" data-ui-dir>
+      <div class="err"><h4><svg class="ico muted"><use href="#i-info"/></svg>Nothing to translate</h4><p>Every block is in a language outside your source languages.</p></div>
+      <div class="list">
+        <button class="skipped-line" aria-expanded="true"><svg class="ico s12"><use href="#i-chevron"/></svg>3 blocks skipped · German, Russian</button>
+        <div class="skipped-body"><p class="src" lang="de">Danke dir!<span class="tag">German</span></p><p class="src" lang="ru">Увидимся завтра<span class="tag">Russian</span></p><p class="src" lang="ru">До встречи<span class="tag">Russian</span></p><div class="row"><button class="textbtn">Translate these</button><button class="textbtn">Edit source languages…</button></div></div>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span><span class="status">Clipboard not changed</span></div>
+    </div></div><p>The skipped list opens by default here.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">S10</span>RTL UI (Arabic) with English target</h3>
+    <div class="scene bg-white" dir="rtl"><div class="popup w360" dir="rtl" lang="ar">
+      <div class="list">
+        <div class="block"><p class="tr" lang="en" dir="auto">See you at eight?</p></div>
+        <div class="block"><p class="tr" lang="en" dir="auto">It's on the kitchen table</p></div>
+        <button class="skipped-line" aria-expanded="false"><svg class="ico s12"><use href="#i-chevron"/></svg>تم تخطي كتلة واحدة · الألمانية</button>
+      </div>
+      <div class="foot"><span class="local"><svg class="ico"><use href="#i-chip"/></svg>على الجهاز</span><span class="spacer"></span><span class="status"><svg class="ico"><use href="#i-check"/></svg>تم النسخ</span><span class="ibtns"><button class="ib" aria-label="Show original"><svg class="ico"><use href="#i-original"/></svg></button><button class="ib" aria-label="Copy translation"><svg class="ico"><use href="#i-copy"/></svg></button><button class="ib" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button></span></div>
+    </div></div><p>Chrome mirrors (footer reversed, chevron points left); English blocks stay left-aligned by their own direction. Arabic UI strings here are illustrative, not reviewed translations.</p></div>
+</template>
+
+<script>
+// Shared mockup helpers: toolbar wiring and light/dark duplication of <template data-state>.
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const ico = (id, cls = '') => `<svg class="ico ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+function wireToolbar() {
+  const root = document.documentElement;
+  const set = () => {
+    const theme = $('input[name=theme]:checked')?.value ?? 'both';
+    root.dataset.os = $('input[name=os]:checked')?.value ?? 'macos';
+    root.dataset.motion = $('#rm')?.checked ? 'reduced' : 'full';
+    const dir = $('input[name=dir]:checked')?.value ?? 'ltr';
+    $$('[data-ui-dir]').forEach((el) => el.setAttribute('dir', dir));
+    $$('.col.light').forEach((c) => (c.hidden = theme === 'dark'));
+    $$('.col.dark').forEach((c) => (c.hidden = theme === 'light'));
+    $$('.cols').forEach((c) => c.classList.toggle('one', theme !== 'both'));
+    $$('[data-solid]').forEach((el) => el.classList.toggle('solid', $('#solid')?.checked));
+    document.dispatchEvent(new CustomEvent('toolbar'));
+  };
+  $$('.toolbar input').forEach((i) => i.addEventListener('change', set));
+  const q = new URLSearchParams(location.search);
+  for (const [k, v] of q) {
+    const r = $(`input[name=${k}][value=${v}]`); if (r) r.checked = true;
+    if (k === 'rm') $('#rm').checked = v === '1';
+  }
+  set();
+}
+
+// Render every <template data-state> into both the light and the dark column.
+function renderStates(host) {
+  const templates = $$('template[data-state]');
+  for (const col of $$('.col', host)) {
+    const grid = col.querySelector('.grid');
+    if (!grid) continue;
+    for (const t of templates) {
+      const node = t.content.cloneNode(true);
+      grid.appendChild(node);
+    }
+  }
+}
+
+
+// ---- Placement (mirrors spec §3) ----
+function placeSnipPopup(region, wa, uiDir = 'ltr') {
+  const GAP = 8, M = 8, COMFORT = 200, MIN = 96;
+  const W = Math.min(Math.max(region.w, 280), 480, wa.w - 2 * M);
+  const below = wa.y + wa.h - (region.y + region.h) - GAP - M;
+  const above = region.y - wa.y - GAP - M;
+  const right = wa.x + wa.w - (region.x + region.w) - GAP - M;
+  const left = region.x - wa.x - GAP - M;
+  const end = uiDir === 'ltr' ? right : left, start = uiDir === 'ltr' ? left : right;
+  const maxH = (space) => Math.min(0.6 * wa.h, space);
+  const clampX = (x, w) => Math.min(Math.max(x, wa.x + M), wa.x + wa.w - M - w);
+  const alignX = uiDir === 'ltr' ? region.x : region.x + region.w - W;
+  const clampY = (y, h) => Math.min(Math.max(y, wa.y + M), wa.y + wa.h - M - h);
+  if (below >= COMFORT) { const h = maxH(below); return { side: 'below', x: clampX(alignX, W), y: region.y + region.h + GAP, w: W, h }; }
+  if (above >= COMFORT) { const h = maxH(above); return { side: 'above', x: clampX(alignX, W), y: region.y - GAP - h, w: W, h }; }
+  for (const [name, space] of [['inline-end', end], ['inline-start', start]]) {
+    if (space >= 280) {
+      const w = Math.min(W, space), h = 0.6 * wa.h;
+      const isRight = (name === 'inline-end') === (uiDir === 'ltr');
+      return { side: name, x: isRight ? region.x + region.w + GAP : region.x - GAP - w, y: clampY(region.y, h), w, h };
+    }
+  }
+  if (Math.max(below, above) >= MIN) {
+    if (below >= above) return { side: 'below', x: clampX(alignX, W), y: region.y + region.h + GAP, w: W, h: maxH(below) };
+    const h = maxH(above); return { side: 'above', x: clampX(alignX, W), y: region.y - GAP - h, w: W, h };
+  }
+  const h = Math.max(MIN, 0.6 * region.h);
+  return { side: 'inside', x: region.x + region.w - 8 - W, y: region.y + region.h - 8 - h, w: W, h };
+}
+
+function drawPlacement() {
+  const wa = { x: 0, y: 0, w: 1440, h: 852 }, S = 0.2;
+  const cases = [
+    ['Region near the top: <b>below</b>', { x: 120, y: 80, w: 400, h: 160 }],
+    ['Region near the bottom: <b>above</b>', { x: 300, y: 600, w: 560, h: 180 }],
+    ['Tall chat pane: <b>inline-end side</b>', { x: 80, y: 60, w: 380, h: 740 }],
+    ['Pane at the right edge: <b>inline-start side</b>', { x: 1000, y: 40, w: 420, h: 780 }],
+    ['Wide strip near the bottom: <b>above</b>, inline-start aligned', { x: 40, y: 700, w: 1360, h: 100 }],
+    ['Region fills the screen: <b>inside</b> (draggable)', { x: 10, y: 10, w: 1420, h: 830 }],
+  ];
+  const host = $('#place');
+  for (const [label, r] of cases) {
+    const p = placeSnipPopup(r, wa);
+    const el = document.createElement('div'); el.className = 'pd';
+    el.innerHTML = `<div class="screen"><div class="wa"></div><div class="bar"></div>
+      <div class="p" style="inset-inline-start:${p.x * S}px;inset-block-start:${p.y * S}px;inline-size:${p.w * S}px;block-size:${p.h * S}px"></div>
+      <div class="r" style="left:${r.x * S}px;top:${r.y * S}px;width:${r.w * S}px;height:${r.h * S}px"></div></div><span>${label} · popup ${Math.round(p.w)} wide, max ${Math.round(p.h)} tall</span>`;
+    el.querySelector('.p').style.left = p.x * S + 'px'; el.querySelector('.p').style.insetInlineStart = '';
+    host.appendChild(el);
+  }
+}
+
+// ---- Main-path demo ----
+const MSGS = [
+  { id: 'b1', text: '¿Nos vemos a las ocho?', time: '12:45', cls: 'translate', tr: 'See you at eight?' },
+  { id: 'b2', text: 'Traje el libro que me pediste', cls: 'translate', tr: 'I brought the book you asked for', me: true },
+  { id: 'b3', text: 'Увидимся завтра', cls: 'skip' },
+  { id: 'b4', text: 'Danke dir!', cls: 'skip' },
+  { id: 'b5', text: 'Está en la mesa de la cocina', cls: 'translate', tr: "It's on the kitchen table" },
+];
+function buildDemo(demo) {
+  demo.innerHTML = `<div class="chat">${MSGS.map((m) => `<div class="msg ${m.me ? 'me' : ''}" data-id="${m.id}">${m.text}${m.time ? `<span class="t">${m.time}</span>` : ''}</div>`).join('')}</div>
+    <div class="controls"><button class="btn secondary replay">Replay</button></div>`;
+}
+function runDemo(demo) {
+  buildDemo(demo);
+  const chat = demo.querySelector('.chat');
+  const cr = chat.getBoundingClientRect(), dr = demo.getBoundingClientRect();
+  const region = { x: cr.left - dr.left - 8, y: cr.top - dr.top - 8, w: cr.width + 16, h: cr.height + 16 };
+  const reg = document.createElement('div'); reg.className = 'region';
+  Object.assign(reg.style, { left: region.x + 'px', top: region.y + 'px', width: region.w + 'px', height: region.h + 'px' });
+  demo.appendChild(reg);
+  const timers = [];
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const pop = document.createElement('div');
+  pop.className = 'popup enter'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Translation');
+  pop.style.left = region.x + region.w + 8 + 'px'; pop.style.top = region.y + 'px'; pop.style.width = '320px';
+  pop.setAttribute('dir', $('input[name=dir]:checked').value);
+  pop.style.transformOrigin = 'left center';
+  pop.innerHTML = `<div class="list" role="list" tabindex="-1"><div class="block"><div class="skel"><span style="inline-size:70%"></span></div></div><div class="block"><div class="skel"><span style="inline-size:45%"></span></div></div></div>
+    <div class="foot"><span class="local">${ico('chip')}On device</span><span class="spacer"></span><span class="status" role="status">Reading text</span><span class="ibtns"><button class="ib" aria-label="Show original (Ctrl+Shift+O)" aria-pressed="false">${ico('original')}</button><button class="ib" aria-label="Copy translation (Ctrl+C)">${ico('copy')}</button><button class="ib" aria-label="Close (Esc)">${ico('close')}</button></span></div>`;
+  const list = pop.querySelector('.list'), status = pop.querySelector('.status');
+  at(60, () => demo.appendChild(pop));
+  const boxes = {};
+  at(220, () => {
+    for (const m of MSGS) {
+      const el = chat.querySelector(`[data-id=${m.id}]`).getBoundingClientRect();
+      const b = document.createElement('div'); b.className = 'dbox' + (m.cls === 'skip' ? ' skip' : '');
+      Object.assign(b.style, { left: el.left - dr.left - 2 + 'px', top: el.top - dr.top - 2 + 'px', width: el.width + 4 + 'px', height: el.height + 4 + 'px' });
+      demo.appendChild(b); boxes[m.id] = b;
+    }
+    list.innerHTML = MSGS.filter((m) => m.cls !== 'skip').flatMap((m) => m.time ? [m, { id: m.id + 't', time: true }] : [m])
+      .map((m) => `<div class="block" role="listitem" data-id="${m.id}" aria-busy="true"><div class="skel"><span style="inline-size:${m.time ? 20 : 75}%"></span></div></div>`).join('');
+  });
+  at(480, () => {
+    for (const el of $$('.block', list)) {
+      const m = MSGS.find((x) => x.id === el.dataset.id);
+      el.innerHTML = m ? `<p class="src" lang="es">${m.text}</p>` : `<p class="src">12:45</p>`;
+      if (!m) el.removeAttribute('aria-busy');
+    }
+    list.insertAdjacentHTML('beforeend', `<button class="skipped-line" aria-expanded="false">${ico('chevron', 's12')}2 blocks skipped · Russian, German</button>`);
+    status.textContent = 'Translating 0 of 3';
+    list.querySelector('.skipped-line').addEventListener('click', (e) => toggleSkipped(e.currentTarget));
+  });
+  let done = 0;
+  for (const [i, m] of MSGS.filter((x) => x.cls === 'translate').entries()) {
+    at(700 + i * 260, () => {
+      const el = list.querySelector(`[data-id=${m.id}]`);
+      el.innerHTML = `<p class="tr xfade">${m.tr}</p>`; el.removeAttribute('aria-busy');
+      done++; status.textContent = `Translating ${done} of 3`;
+    });
+  }
+  at(700 + 3 * 260, () => { status.innerHTML = `${ico('check')}Copied`; });
+  at(700 + 3 * 260 + 2000, () => { status.textContent = ''; });
+  demo.addEventListener('pointerover', (e) => {
+    const blk = e.target.closest('.block[data-id]');
+    Object.values(boxes).forEach((b) => b.classList.remove('linked'));
+    if (blk) boxes[blk.dataset.id.replace(/t$/, '')]?.classList.add('linked');
+  });
+  demo.querySelector('.replay').onclick = () => { timers.forEach(clearTimeout); runDemo(demo); };
+}
+function toggleSkipped(btn) {
+  const open = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', String(open));
+  const next = btn.nextElementSibling;
+  if (open && !(next && next.classList.contains('skipped-body'))) {
+    btn.insertAdjacentHTML('afterend', `<div class="skipped-body"><p class="src" lang="ru">Увидимся завтра<span class="tag">Russian</span></p><p class="src" lang="de">Danke dir!<span class="tag">German</span></p><div class="row"><button class="textbtn">Translate these</button><button class="textbtn">Edit source languages…</button></div></div>`);
+  } else if (!open && next?.classList.contains('skipped-body')) next.remove();
+}
+
+renderStates(document);
+wireToolbar();
+drawPlacement();
+$$('.demo').forEach(runDemo);
+document.addEventListener('toolbar', () => $$('.demo').forEach(runDemo));
+</script>
+</body>
+</html>

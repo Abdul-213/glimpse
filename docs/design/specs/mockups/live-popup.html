@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glimpse · Live popup mockup (GLIM-31)</title>
+<style>
+/* ---- DESIGN.md tokens (GLIM-27), emitted per "Token mapping" ---- */
+:root {
+  color-scheme: light dark;
+  --color-surface-popup: light-dark(#F5F5F7E6, #262628E6);
+  --color-surface-popup-solid: light-dark(#F5F5F7, #262628);
+  --color-surface-control: light-dark(#FFFFFF, #3A3A3D);
+  --color-overlay-hover: light-dark(#0000000F, #FFFFFF14);
+  --color-overlay-pressed: light-dark(#0000001A, #FFFFFF24);
+  --color-overlay-selected: light-dark(#0A63C91F, #6AAAFF29);
+  --color-text-primary: light-dark(#1D1D1F, #F4F4F6);
+  --color-text-secondary: light-dark(#55555C, #B6B6BE);
+  --color-text-disabled: light-dark(#8E8E93, #6C6C72);
+  --color-border-hairline: light-dark(#0000001F, #FFFFFF1F);
+  --color-border-control: light-dark(#76767D, #8E8E96);
+  --color-divider: light-dark(#00000014, #FFFFFF14);
+  --color-accent: light-dark(#0A63C9, #2A6FD9);
+  --color-on-accent: #FFFFFF;
+  --color-link: light-dark(#0959BA, #6AAAFF);
+  --color-focus-ring: light-dark(#0A63C9, #6AAAFF);
+  --color-success: light-dark(#156A37, #5BC987);
+  --color-danger: light-dark(#B42318, #FF8073);
+  --color-egress: light-dark(#5E32AE, #C4B0FF);
+  --color-egress-tint: light-dark(#5E32AE1A, #C4B0FF1A);
+  --color-change-flash: light-dark(#0A63C924, #6AAAFF1F);
+  --color-change-rest: light-dark(#0A63C90F, #6AAAFF0F);
+  --color-change-mark: light-dark(#0A63C9, #6AAAFF);
+  --color-picker-scrim: #00000073;
+  --color-picker-stroke: #FFFFFF;
+  --color-picker-halo: #00000099;
+  --color-picker-hud: #1C1C1EE0;
+  --color-picker-hud-text: #F5F5F7;
+  --color-picker-hud-text-secondary: #B8B8BF;
+  --color-box-linked-fill: #0A63C93D;
+  --color-egress-dark: #C4B0FF;
+  --color-egress-tint-dark: #C4B0FF1A;
+  --radius-box: 3px; --radius-kbd: 4px; --radius-control: 6px; --radius-popup: 12px; --radius-pill: 999px;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif;
+  --font-ar: -apple-system, BlinkMacSystemFont, 'SF Arabic', 'Geeza Pro', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  --font-he: -apple-system, BlinkMacSystemFont, 'SF Hebrew', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', sans-serif;
+  --font-ja: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif;
+  --size-source: 13px; --size-body: 13px;
+  --size-scale: 1; --lh-translation: 1.5; --lh-source: 1.5;
+  --duration-fast: 100ms; --duration-base: 160ms; --duration-exit: 80ms; --duration-settle: 1600ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-standard: cubic-bezier(0.2, 0, 0, 1); --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --shadow-tooltip: 0 2px 8px #00000026;
+  --shadow-hud: 0 1px 4px #0000004D;
+  --shadow-loupe: 0 4px 16px #00000059, 0 0 0 1px #FFFFFF, 0 0 0 2px #00000099;
+}
+:root[data-os="windows"] { --radius-control: 4px; --radius-popup: 8px; --size-source: 14px; --size-body: 14px; }
+:root[data-os="win10"] { --radius-control: 4px; --radius-popup: 0px; --size-source: 14px; --size-body: 14px; }
+
+/* ---- Script stacks (DESIGN.md table; subset used here) ---- */
+:lang(ja) { font-family: var(--font-ja); --lh-translation: 1.7; --lh-source: 1.7; line-break: strict; }
+:lang(ar), :lang(fa) { font-family: var(--font-ar); --size-scale: 1.0667; --lh-translation: 1.75; --lh-source: 1.75; letter-spacing: 0; font-synthesis: none; }
+:lang(he) { font-family: var(--font-he); --lh-translation: 1.55; --lh-source: 1.55; }
+
+/* ---- Documentation page chrome (not product UI) ---- */
+* { box-sizing: border-box; }
+html { background: light-dark(#E9E9EC, #141416); }
+body { margin: 0; font: 13px/1.45 var(--font-ui); color: var(--color-text-primary); }
+::selection { background: var(--color-overlay-selected); }
+:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.doc { max-inline-size: 1680px; margin-inline: auto; padding: 32px 24px 64px; }
+.doc > h1 { font-size: 20px; font-weight: 600; line-height: 1.3; margin: 0 0 8px; }
+.doc > p { margin: 0 0 8px; max-inline-size: 90ch; color: var(--color-text-secondary); }
+.doc h2 { font-size: 15px; font-weight: 600; line-height: 1.35; margin: 32px 0 8px; }
+.doc code { font-family: ui-monospace, 'SF Mono', Consolas, 'DejaVu Sans Mono', monospace; font-size: 12px; }
+.toolbar { position: sticky; inset-block-start: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 8px 12px; margin: 16px 0; border-radius: 8px; background: light-dark(#FFFFFFF2, #2A2A2DF2); box-shadow: inset 0 0 0 1px var(--color-border-hairline); font-size: 12px; font-weight: 500; }
+.toolbar fieldset { border: 0; margin: 0; padding: 0; display: flex; gap: 4px; align-items: center; }
+.toolbar legend { float: inline-start; margin-inline-end: 6px; color: var(--color-text-secondary); }
+.toolbar label { display: inline-flex; gap: 4px; align-items: center; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+.toolbar label:has(input:checked) { background: var(--color-overlay-selected); }
+.toolbar input { margin: 0; accent-color: var(--color-accent); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cols.one { grid-template-columns: 1fr; }
+.col-head { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 8px; }
+.col { padding: 16px; border-radius: 12px; background: light-dark(#F7F7F8, #1C1C1E); box-shadow: inset 0 0 0 1px var(--color-border-hairline); color: var(--color-text-primary); }
+.grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.state { display: flex; flex-direction: column; gap: 6px; }
+.state > h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
+.state > h3 .id { display: inline-block; min-inline-size: 28px; color: var(--color-text-secondary); font-weight: 500; font-variant-numeric: tabular-nums; }
+.state > p { margin: 0; max-inline-size: 420px; font-size: 12px; color: var(--color-text-secondary); }
+.sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Stand-in screen content behind popups (the real material is native; not simulated) */
+.scene { position: relative; overflow: hidden; border-radius: 6px; padding: 16px; }
+.bg-white { background: #FFFFFF; }
+.bg-black { background: #000000; }
+.bg-busy { background: repeating-linear-gradient(115deg, #2D5A3D 0 18px, #F2E8C8 18px 36px, #1B2A4A 36px 54px, #E8D0B0 54px 72px); }
+.bg-game { background: linear-gradient(#273246, #10141C); }
+.bg-chat { background: #ECE5DD; }
+
+/* ---- Popup (Snip and Live) ---- */
+.popup { position: relative; padding: 12px; border-radius: var(--radius-popup); background: var(--color-surface-popup); box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 12px 32px #00000040; color: var(--color-text-primary); font-family: var(--font-ui); display: flex; flex-direction: column; }
+.solid .popup, .popup.solid { background: var(--color-surface-popup-solid); }
+.dark .popup { box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 0 0 0.5px #000000A6, 0 12px 32px #00000080; }
+.popup.live { padding: 8px 12px 12px; }
+.list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--color-overlay-pressed) transparent; min-block-size: 0; }
+.list:focus { outline: none; }
+.block { position: relative; padding: 4px 8px; border-radius: var(--radius-control); transition: background-color var(--duration-fast) var(--ease-standard); }
+.block:hover, .block.hover { background: var(--color-overlay-hover); }
+.live .block { padding-inline-start: 20px; }
+.tr { margin: 0; font-size: calc(15px * var(--size-scale)); line-height: var(--lh-translation); unicode-bidi: plaintext; text-align: start; }
+.src { margin: 0; font-size: calc(var(--size-source) * var(--size-scale)); line-height: var(--lh-source); color: var(--color-text-secondary); unicode-bidi: plaintext; text-align: start; }
+.tr + .src { margin-block-start: 4px; }
+.tag { font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); margin-inline-start: 6px; unicode-bidi: isolate; white-space: nowrap; }
+.skel { display: flex; align-items: center; block-size: 22.5px; }
+.skel > span { display: block; block-size: 10px; border-radius: var(--radius-box); background: var(--color-overlay-pressed); }
+.fail { display: flex; align-items: center; gap: 6px; margin-block-start: 4px; font: 500 12px/1.35 var(--font-ui); color: var(--color-danger); }
+.textbtn { border: 0; padding: 0; background: none; font: 500 12px/1.35 var(--font-ui); color: var(--color-link); cursor: pointer; }
+.textbtn:hover { text-decoration: underline; text-underline-offset: 2px; }
+.skipped-line { display: flex; align-items: center; gap: 4px; inline-size: 100%; block-size: 24px; padding: 4px 8px; border: 0; border-radius: var(--radius-control); background: none; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); cursor: pointer; text-align: start; }
+.skipped-line:hover { background: var(--color-overlay-hover); }
+.skipped-line svg { transition: transform var(--duration-fast) var(--ease-standard); }
+:dir(rtl) .skipped-line svg { transform: scaleX(-1); }
+.skipped-line[aria-expanded="true"] svg { transform: rotate(90deg); }
+.skipped-body { display: flex; flex-direction: column; gap: 4px; padding-inline: 8px 8px; padding-block-end: 4px; }
+.skipped-body .row { display: flex; gap: 12px; margin-block-start: 4px; }
+.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-block-start: 8px; padding-inline: 8px; min-block-size: 24px; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); }
+.foot.rule { border-block-start: 1px solid var(--color-divider); padding-block-start: 8px; }
+.foot .spacer { flex: 1; }
+.foot .status { display: inline-flex; align-items: center; gap: 4px; }
+.local { display: inline-flex; align-items: center; gap: 4px; block-size: 20px; color: var(--color-text-secondary); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; }
+.egress { display: inline-flex; align-items: center; gap: 4px; block-size: 20px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--color-egress-tint); color: var(--color-egress); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; }
+.egress-row { inline-size: 100%; }
+.ibtns { display: inline-flex; gap: 4px; }
+.ib { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border: 0; padding: 0; border-radius: var(--radius-control); background: none; color: var(--color-text-secondary); cursor: pointer; transition: background-color var(--duration-fast) var(--ease-standard); }
+.ib:hover { background: var(--color-overlay-hover); color: var(--color-text-primary); }
+.ib[aria-pressed="true"] { background: var(--color-overlay-selected); color: var(--color-text-primary); }
+.ico { inline-size: 16px; block-size: 16px; flex: none; }
+.ico.s12 { inline-size: 12px; block-size: 12px; }
+.err { padding: 4px 8px 8px; }
+.err h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--color-text-primary); }
+.err h4 .ico.danger { color: var(--color-danger); }
+.err h4 .ico.muted { color: var(--color-text-secondary); }
+.err p { margin: 0 0 12px; font-size: var(--size-body); line-height: 1.45; color: var(--color-text-secondary); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { block-size: 28px; padding: 0 12px; border-radius: var(--radius-control); font: var(--size-body) var(--font-ui); cursor: pointer; white-space: nowrap; }
+:root[data-os="windows"] .btn, :root[data-os="win10"] .btn { block-size: 32px; }
+.btn.primary { border: 0; background: var(--color-accent); color: var(--color-on-accent); }
+.btn.primary:hover { background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover)); }
+.btn.secondary { border: 1px solid var(--color-border-control); background: var(--color-surface-control); color: var(--color-text-primary); }
+.btn.secondary:hover { background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover)); }
+.progress { block-size: 4px; inline-size: 100%; border-radius: var(--radius-pill); background: var(--color-overlay-pressed); overflow: hidden; margin-block: 6px 4px; }
+.progress > span { display: block; block-size: 100%; border-radius: var(--radius-pill); background: var(--color-accent); }
+.num { font: 500 12px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.packrow { padding: 4px 8px; font-size: var(--size-body); color: var(--color-text-secondary); }
+.packrow .btnrow { margin-block-start: 6px; }
+.tooltip { position: absolute; padding: 4px 8px; border-radius: var(--radius-kbd); background: var(--color-surface-popup-solid); color: var(--color-text-primary); box-shadow: var(--shadow-tooltip), inset 0 0 0 1px var(--color-border-hairline); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; z-index: 5; }
+
+/* HUD (picker, region tag) */
+.hud { display: inline-flex; align-items: center; gap: 6px; block-size: 20px; padding: 2px 6px; border-radius: var(--radius-kbd); background: var(--color-picker-hud); color: var(--color-picker-hud-text); box-shadow: var(--shadow-hud); font: 500 12px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hud .egress-hud { color: var(--color-egress-dark); display: inline-flex; gap: 4px; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; animation: none !important; } }
+:root[data-motion="reduced"] * { transition-duration: 0ms !important; animation: none !important; }
+@media (forced-colors: active) { .egress { border: 1px solid CanvasText; } }
+
+.col.light { color-scheme: light; } .col.dark { color-scheme: dark; }
+.w240 { inline-size: 240px; } .w320 { inline-size: 320px; } .w400 { inline-size: 400px; } .w480 { inline-size: 480px; }
+
+/* Control strip */
+.strip { display: flex; align-items: center; gap: 8px; block-size: 28px; padding-inline-start: 8px; }
+.status { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); white-space: nowrap; }
+.dot { inline-size: 8px; block-size: 8px; border-radius: 999px; background: var(--color-accent); flex: none; }
+.dot.hollow { background: none; box-shadow: inset 0 0 0 1.5px var(--color-text-secondary); }
+.dot.danger { background: var(--color-danger); }
+.strip .spacer { flex: 1; }
+.cloudrow { display: flex; margin-block-start: 4px; padding-inline-start: 8px; }
+.staterow { margin-block-start: 4px; padding: 4px 8px; font-size: var(--size-body); line-height: 1.45; color: var(--color-text-secondary); }
+.staterow.err h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--color-text-primary); }
+.staterow.err h4 .danger { color: var(--color-danger); }
+.staterow.err h4 .muted { color: var(--color-text-secondary); }
+.staterow.err p { margin: 0 0 10px; }
+.check { display: flex; align-items: center; gap: 6px; margin-block-start: 10px; font-size: 12px; }
+.live .list { margin-block-start: 4px; }
+.stale .tr, .stale .src { color: var(--color-text-secondary); }
+/* Changed block */
+.block.changed { background: var(--color-change-rest); }
+.block.changed::before { content: ''; position: absolute; inset-inline-start: 8px; inset-block-start: calc(4px + (15px * var(--size-scale) * var(--lh-translation)) / 2 - 3px); inline-size: 6px; block-size: 6px; border-radius: 999px; background: var(--color-change-mark); }
+.block.changed.flash { background: var(--color-change-flash); }
+.block.changed.decay { animation: settle var(--duration-settle) linear both; }
+@keyframes settle { from { background: var(--color-change-flash); } to { background: var(--color-change-rest); } }
+:root[data-motion="reduced"] .block.changed.decay { animation: none; background: var(--color-change-rest); }
+
+/* Scene with pinned region */
+.game { position: relative; block-size: 420px; border-radius: 8px; overflow: hidden; background: linear-gradient(#3B4C68, #141A24 70%); font-family: var(--font-ui); }
+.game .hpbar { position: absolute; inset-block-start: 14px; inset-inline-start: 16px; font: 600 12px var(--font-ui); color: #E8F0FF; }
+.game .hill { position: absolute; inset-inline: -40px; inset-block-end: 0; block-size: 180px; background: radial-gradient(120% 100% at 30% 100%, #2B3A2A, #1B241B); }
+.dialog { position: absolute; inset-inline-start: 60px; inset-block-end: 28px; inline-size: 520px; padding: 10px 16px; border-radius: 6px; background: #0B0F16E6; color: #F7F1DE; box-shadow: inset 0 0 0 2px #C9B27A; font-size: 16px; line-height: 1.5; }
+.dialog .who { display: block; font-size: 12px; color: #C9B27A; font-weight: 600; }
+.ticks { position: absolute; pointer-events: none; }
+.ticks i { position: absolute; inline-size: 12px; block-size: 12px; border-color: var(--color-accent); border-style: solid; border-width: 0; filter: drop-shadow(0 0 0.5px #000) drop-shadow(0 0 0.5px #000); }
+.ticks.paused i { border-color: #FFFFFF99; }
+.ticks i:nth-child(1) { left: -3px; top: -3px; border-left-width: 2px; border-top-width: 2px; }
+.ticks i:nth-child(2) { right: -3px; top: -3px; border-right-width: 2px; border-top-width: 2px; }
+.ticks i:nth-child(3) { left: -3px; bottom: -3px; border-left-width: 2px; border-bottom-width: 2px; }
+.ticks i:nth-child(4) { right: -3px; bottom: -3px; border-right-width: 2px; border-bottom-width: 2px; }
+.ticks .tagchip { position: absolute; left: -3px; bottom: calc(100% + 7px); }
+.game .popup { position: absolute; }
+.game .controls { position: absolute; inset-block-start: 10px; inset-inline-end: 10px; display: flex; gap: 6px; }
+.linkbox { position: absolute; border-radius: var(--radius-box); background: var(--color-box-linked-fill); outline: 1px solid var(--color-picker-stroke); box-shadow: 0 0 0 2px var(--color-picker-halo); pointer-events: none; }
+
+.chatpane { position: relative; display: flex; gap: 8px; align-items: flex-start; }
+.chatsrc { inline-size: 260px; padding: 10px; border-radius: 6px; background: #ECE5DD; color: #111; font: 13px/1.4 var(--font-ui); display: flex; flex-direction: column; gap: 6px; position: relative; }
+.chatsrc span { background: #FFF; padding: 4px 8px; border-radius: 6px; align-self: flex-start; }
+
+/* Docking diagrams */
+.place { display: flex; flex-wrap: wrap; gap: 16px; }
+.pd { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--color-text-secondary); max-inline-size: 288px; }
+.pd .screen { position: relative; inline-size: 288px; block-size: 180px; border-radius: 4px; background: light-dark(#D7D7DB, #2E2E31); overflow: hidden; }
+.pd .bar { position: absolute; inset-inline: 0; inset-block-end: 0; block-size: 10px; background: light-dark(#BDBDC2, #3C3C40); }
+.pd .r { position: absolute; outline: 1px solid #FFFFFF; box-shadow: 0 0 0 1px #000000; background: #FFFFFF33; }
+.pd .p { position: absolute; border-radius: 3px; background: var(--color-surface-popup-solid); box-shadow: inset 0 0 0 1px var(--color-border-control); }
+.pd b { color: var(--color-text-primary); font-weight: 600; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--color-text-secondary); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-chip" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M6.5 2v2M9.5 2v2M6.5 12v2M9.5 12v2M2 6.5h2M2 9.5h2M12 6.5h2M12 9.5h2"/></g></symbol>
+    <symbol id="i-cloud" viewBox="0 0 16 16"><path d="M4.5 12.5h7a3 3 0 0 0 .4-6A4 4 0 0 0 4.2 7.6 2.5 2.5 0 0 0 4.5 12.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-original" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h6M5.5 3.5v1.5M3.5 9c1.6-.7 3.2-2.3 3.8-4M4.5 5.5c.6 1.6 1.8 3 3 3.6"/><path d="M8.5 13.5l2.5-6 2.5 6M9.3 11.6h3.4"/></g></symbol>
+    <symbol id="i-eyeoff" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2.5l11 11"/><path d="M6.4 4.1A6.6 6.6 0 0 1 8 3.9c3.3 0 5.4 2.6 6 4.1-.3.7-.9 1.6-1.7 2.4M10.6 11.4A6.6 6.6 0 0 1 8 12.1c-3.3 0-5.4-2.6-6-4.1.4-1 1.3-2.2 2.5-3.1"/><path d="M6.6 6.6a2 2 0 0 0 2.8 2.8"/></g></symbol>
+    <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-repin" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"/><path d="M8 6v4M6 8h4"/></g></symbol>
+    <symbol id="i-stop" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.75"/><path d="M8 5v3.5M8 11h0"/></g></symbol>
+    <symbol id="i-info" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.75"/><path d="M8 7.5V11M8 5h0"/></g></symbol>
+  </defs>
+</svg>
+
+<main class="doc">
+  <h1>Live popup</h1>
+  <p>Mockup for <code>docs/design/specs/live-popup.md</code> (GLIM-31). State IDs match the spec. Popups are 1:1; the native material isn't simulated (the 90% veil sits on the stand-in content directly). The on-screen corner ticks and region tag are drawn natively in the product; here they are CSS stand-ins.</p>
+
+  <div class="toolbar" role="group" aria-label="Preview options">
+    <fieldset><legend>Theme</legend>
+      <label><input type="radio" name="theme" value="both" checked>Both</label>
+      <label><input type="radio" name="theme" value="light">Light</label>
+      <label><input type="radio" name="theme" value="dark">Dark</label></fieldset>
+    <fieldset><legend>OS</legend>
+      <label><input type="radio" name="os" value="macos" checked>macOS</label>
+      <label><input type="radio" name="os" value="windows">Windows 11</label>
+      <label><input type="radio" name="os" value="win10">Windows 10</label></fieldset>
+    <fieldset><legend>Mirror layout (copy stays English; see the RTL states for real RTL copy)</legend>
+      <label><input type="radio" name="dir" value="ltr" checked>LTR</label>
+      <label><input type="radio" name="dir" value="rtl">RTL</label></fieldset>
+    <label><input type="checkbox" id="solid">Reduce transparency</label>
+    <label><input type="checkbox" id="rm">Reduced motion</label>
+  </div>
+
+  <h2>Pinned dialogue box (interactive)</h2>
+  <p>A game dialogue box is pinned at the bottom of the screen, so the popup docks above it, centred. Use <b>Next line</b> to simulate a settled change: only the changed block flashes, decays to the resting tint over 1.6 s, and keeps its mark until the next change. The popup's own Pause, Private and Stop buttons work; <b>Hide popup</b> shows the region tag. Hover a block to light its box on screen.</p>
+  <div class="cols" id="demoCols">
+    <div class="col light" data-solid><p class="col-head">Light</p><div class="game" data-ui-dir></div></div>
+    <div class="col dark dark" data-solid><p class="col-head">Dark</p><div class="game" data-ui-dir></div></div>
+  </div>
+
+  <h2>Docking (spec §3)</h2>
+  <p>Computed with the spec's <code>placeLivePopup</code> rules on a 1440 × 900 display, drawn at 1:5. The side is chosen once at pin time and kept for the session.</p>
+  <div class="place" id="place"></div>
+
+  <h2>States</h2>
+  <div class="cols" id="states">
+    <div class="col light" data-solid><p class="col-head">Light</p><div class="grid"></div></div>
+    <div class="col dark dark" data-solid><p class="col-head">Dark</p><div class="grid"></div></div>
+  </div>
+</main>
+
+<!-- ===== Shared strip fragments are written out in full per state, as the builder sees them ===== -->
+<template data-state>
+  <div class="state"><h3><span class="id">L1</span>Running, local (wide ≥ 360)</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir role="region" aria-label="Live translation">
+      <div class="strip"><span class="status"><span class="dot"></span>Live</span><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-pressed="false" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="list"><div class="block"><p class="tr">The north door is locked.</p></div><div class="block changed"><p class="tr">Talk to the guard first.</p></div></div>
+    </div></div><p>The last change set keeps its resting tint and 6px mark. All Live blocks have 20px inline-start padding, so the mark never moves text.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L4</span>Changed: the frame it happens</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot"></span>Live</span><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-pressed="false" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="list"><div class="block"><p class="tr">The north door is locked.</p></div><div class="block changed flash"><p class="tr">Look for the key in the tower.</p></div></div>
+    </div></div><p><code>change-flash</code> at once (no fade-in), then a linear 1.6 s decay to <code>change-rest</code>. Reduced motion: straight to rest.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L3</span>Updating (processing &gt; 1 s)</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot"></span>Updating</span><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="list"><div class="block"><p class="tr">The north door is locked.</p></div><div class="block"><p class="tr">Look for the key in the tower.</p></div></div>
+    </div></div><p>Only the label changes; text stays until the new result arrives. Settling (pixels still moving) shows nothing at all.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L5</span>Paused, stale</h3>
+    <div class="scene bg-game"><div class="popup live w400 stale" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot hollow"></span>Paused</span><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Resume"><svg class="ico"><use href="#i-play"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="staterow">Showing text from 4 min ago</div>
+      <div class="list"><div class="block"><p class="tr">The north door is locked.</p></div><div class="block"><p class="tr">Look for the key in the tower.</p></div></div>
+    </div></div><p>Hollow dot, dimmed text and the age of what's shown. The age updates every 30 s. Frame ticks turn white at 60%.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L7</span>Empty for 5 s</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot"></span>Live</span><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="staterow">No text in this area right now. Watching for changes.</div>
+    </div></div><p>Shorter gaps (between subtitle lines) keep the last lines in place.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L8</span>Private on, regular width (320)</h3>
+    <div class="scene bg-game"><div class="popup live w320" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot"></span>Live · Private</span><span class="local" aria-label="On device"><svg class="ico"><use href="#i-chip"/></svg></span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-pressed="true" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="list"><div class="block"><p class="tr">Your appointment is confirmed for Monday.</p></div></div>
+    </div></div><p>Toggle pressed and "· Private" in the label. Below 360px the local indicator is icon-only (with an accessible name).</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L21</span>Compact (240, the minimum)</h3>
+    <div class="scene bg-game"><div class="popup live w240" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot hollow"></span>Paused</span><span class="local" aria-label="On device"><svg class="ico"><use href="#i-chip"/></svg></span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-pressed="true" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Resume"><svg class="ico"><use href="#i-play"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="staterow">Showing text from just now</div>
+      <div class="list stale"><div class="block"><p class="tr">Continue?</p></div></div>
+    </div></div><p>Paused with Private on: the label drops "· Private"; the pressed toggle still says it.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L9</span>Cloud in use</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot"></span>Live</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="cloudrow"><span class="egress" title="Changes in this area are sent to Google Cloud Translation as text"><svg class="ico"><use href="#i-cloud"/></svg>Sent to Google Cloud Translation</span></div>
+      <div class="list"><div class="block"><p class="tr">The north door is locked.</p></div><div class="block changed"><p class="tr">Look for the key in the tower.</p></div></div>
+    </div></div><p>The cloud row is present for the whole session, paused or not. The local indicator is gone.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L10</span>First cloud session: consent</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot hollow"></span>Live</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="staterow err"><h4><svg class="ico muted"><use href="#i-cloud"/></svg>Live will send text to Google Cloud Translation</h4><p>While this area is pinned, its text is sent to Google Cloud Translation each time it changes, using your API key.</p>
+        <div class="btnrow"><button class="btn primary">Pin with Google Cloud Translation</button><button class="btn secondary">Use on-device</button><button class="btn secondary">Cancel</button></div>
+        <label class="check"><input type="checkbox">Don't ask again for Live</label></div>
+    </div></div><p>No capture until answered. The only state where the popup takes focus; focus returns to the game after.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L12</span>Pack missing, session continues</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot"></span>Live</span><span class="local"><svg class="ico"><use href="#i-chip"/></svg>On device</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="list"><div class="packrow">Greek isn't downloaded yet.<div class="btnrow"><button class="btn secondary">Download (31 MB)</button></div></div>
+        <div class="block"><p class="src" lang="el">Η πόρτα είναι κλειδωμένη.</p></div><div class="block"><p class="tr">Talk to the guard first.</p></div></div>
+    </div></div><p>Blocks in the missing language show their source text; others keep translating.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L13</span>Cloud: retrying</h3>
+    <div class="scene bg-game"><div class="popup live w400" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot"></span>Can't reach Google</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="cloudrow"><span class="egress"><svg class="ico"><use href="#i-cloud"/></svg>Sent to Google Cloud Translation</span></div>
+      <div class="list"><div class="block"><p class="tr">The north door is locked.</p></div><div class="block changed"><p class="src" lang="es">Busca la llave en la torre.</p></div></div>
+    </div></div><p>The changed block shows its new source while retries run (2 s, 5 s, 10 s). Secondary text on the tint stays ≥ 4.5:1.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L14</span>Error: paused</h3>
+    <div class="scene bg-game"><div class="popup live w400 stale" data-ui-dir>
+      <div class="strip"><span class="status"><span class="dot danger"></span>Paused</span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Resume"><svg class="ico"><use href="#i-play"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="cloudrow"><span class="egress"><svg class="ico"><use href="#i-cloud"/></svg>Sent to Google Cloud Translation</span></div>
+      <div class="staterow err"><h4><svg class="ico danger"><use href="#i-alert"/></svg>Google Cloud Translation rejected the API key</h4><p>Live is paused. Nothing more will be sent until you fix the key.</p><div class="btnrow"><button class="btn primary">Check key…</button><button class="btn secondary">Use on-device</button></div></div>
+      <div class="list"><div class="block"><p class="tr">The north door is locked.</p></div></div>
+    </div></div><p>Danger dot, heading for the title, recovery first. Other errors (screen access, area gone, OCR stopped) use the same row.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L20</span>Chat pane docked to the side, skipped blocks</h3>
+    <div class="scene bg-white"><div class="chatpane" data-ui-dir>
+      <div class="chatsrc"><span>Lucía: ¿vienes esta noche?</span><span>21:02</span><span>Pablo: voy de camino</span><span>Lucía: trae el libro, por favor</span><span>Oma: Bis morgen!</span>
+        <div class="ticks" style="inset:0"><i></i><i></i><i></i><i></i></div></div>
+      <div class="popup live w320">
+        <div class="strip"><span class="status"><span class="dot"></span>Live</span><span class="local" aria-label="On device"><svg class="ico"><use href="#i-chip"/></svg></span><span class="spacer"></span>
+          <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+        <div class="list"><div class="block"><p class="tr">Lucía: are you coming tonight?</p></div><div class="block"><p class="src">21:02</p></div><div class="block"><p class="tr">Pablo: I'm on my way</p></div><div class="block changed"><p class="tr">Lucía: bring the book, please</p></div>
+          <button class="skipped-line" aria-expanded="false"><svg class="ico s12"><use href="#i-chevron"/></svg>1 block skipped · German</button></div>
+      </div></div></div><p>A tall pane docks to its inline-end side. Neutral "21:02" never flashes; the skipped count updates silently.</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L19</span>Popup hidden: region tag</h3>
+    <div class="scene bg-game" style="block-size:150px"><div style="position:relative;margin:40px 0 0 20px;inline-size:340px;padding:10px 14px;border-radius:6px;background:#0B0F16E6;color:#F7F1DE;box-shadow:inset 0 0 0 2px #C9B27A">Busca la llave en la torre.
+      <div class="ticks" style="inset:0"><i></i><i></i><i></i><i></i><span class="hud tagchip"><span class="egress-hud"><svg class="ico"><use href="#i-cloud"/></svg>Live · Google</span></span></div></div>
+    </div><p>Only while the popup is hidden. With a cloud provider the tag names the company, so sending is never invisible. Local: "Live".</p></div>
+</template>
+
+<template data-state>
+  <div class="state"><h3><span class="id">L10r</span>RTL UI (Hebrew), English target</h3>
+    <div class="scene bg-game" dir="rtl"><div class="popup live w320" dir="rtl" lang="he">
+      <div class="strip"><span class="status"><span class="dot"></span>חי</span><span class="local" aria-label="On device"><svg class="ico"><use href="#i-chip"/></svg></span><span class="spacer"></span>
+        <span class="ibtns"><button class="ib" aria-label="Private"><svg class="ico"><use href="#i-eyeoff"/></svg></button><button class="ib" aria-label="Pause"><svg class="ico"><use href="#i-pause"/></svg></button><button class="ib" aria-label="Pick a new area"><svg class="ico"><use href="#i-repin"/></svg></button><button class="ib" aria-label="Stop Live"><svg class="ico"><use href="#i-stop"/></svg></button></span></div>
+      <div class="list"><div class="block"><p class="tr" lang="en" dir="auto">The north door is locked.</p></div><div class="block changed"><p class="tr" lang="en" dir="auto">Look for the key in the tower.</p></div></div>
+    </div></div><p>Strip mirrors; the change mark sits at the inline-start (right) edge; English lines keep their own direction. Hebrew UI string is illustrative.</p></div>
+</template>
+
+<script>
+// Shared mockup helpers: toolbar wiring and light/dark duplication of <template data-state>.
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const ico = (id, cls = '') => `<svg class="ico ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+function wireToolbar() {
+  const root = document.documentElement;
+  const set = () => {
+    const theme = $('input[name=theme]:checked')?.value ?? 'both';
+    root.dataset.os = $('input[name=os]:checked')?.value ?? 'macos';
+    root.dataset.motion = $('#rm')?.checked ? 'reduced' : 'full';
+    const dir = $('input[name=dir]:checked')?.value ?? 'ltr';
+    $$('[data-ui-dir]').forEach((el) => el.setAttribute('dir', dir));
+    $$('.col.light').forEach((c) => (c.hidden = theme === 'dark'));
+    $$('.col.dark').forEach((c) => (c.hidden = theme === 'light'));
+    $$('.cols').forEach((c) => c.classList.toggle('one', theme !== 'both'));
+    $$('[data-solid]').forEach((el) => el.classList.toggle('solid', $('#solid')?.checked));
+    document.dispatchEvent(new CustomEvent('toolbar'));
+  };
+  $$('.toolbar input').forEach((i) => i.addEventListener('change', set));
+  const q = new URLSearchParams(location.search);
+  for (const [k, v] of q) {
+    const r = $(`input[name=${k}][value=${v}]`); if (r) r.checked = true;
+    if (k === 'rm') $('#rm').checked = v === '1';
+  }
+  set();
+}
+
+// Render every <template data-state> into both the light and the dark column.
+function renderStates(host) {
+  const templates = $$('template[data-state]');
+  for (const col of $$('.col', host)) {
+    const grid = col.querySelector('.grid');
+    if (!grid) continue;
+    for (const t of templates) {
+      const node = t.content.cloneNode(true);
+      grid.appendChild(node);
+    }
+  }
+}
+
+
+function placeLivePopup(r, wa, uiDir = 'ltr') {
+  const GAP = 8, M = 8, COMFORT = 160, MIN = 80;
+  const W = Math.min(Math.max(r.w, 240), 640, wa.w - 16);
+  const below = wa.y + wa.h - (r.y + r.h) - GAP - M, above = r.y - wa.y - GAP - M;
+  const right = wa.x + wa.w - (r.x + r.w) - GAP - M, left = r.x - wa.x - GAP - M;
+  const cx = Math.min(Math.max(r.x + r.w / 2 - W / 2, wa.x + M), wa.x + wa.w - M - W);
+  const vh = (s) => Math.min(0.4 * wa.h, s);
+  if (below >= COMFORT) return { side: 'below', x: cx, y: r.y + r.h + GAP, w: W, h: vh(below) };
+  if (above >= COMFORT) { const h = vh(above); return { side: 'above', x: cx, y: r.y - GAP - h, w: W, h }; }
+  const sides = uiDir === 'ltr' ? [['inline-end', right, true], ['inline-start', left, false]] : [['inline-end', left, false], ['inline-start', right, true]];
+  for (const [name, s, isRight] of sides) if (s >= 240) {
+    const w = Math.min(Math.max(s, 240), 400), h = Math.min(0.8 * wa.h, wa.h - 16);
+    return { side: name, x: isRight ? r.x + r.w + GAP : r.x - GAP - w, y: Math.min(Math.max(r.y, wa.y + M), wa.y + wa.h - M - h), w, h };
+  }
+  if (Math.max(below, above) >= MIN) {
+    if (below >= above) return { side: 'below', x: cx, y: r.y + r.h + GAP, w: W, h: vh(below) };
+    const h = vh(above); return { side: 'above', x: cx, y: r.y - GAP - h, w: W, h };
+  }
+  return { side: 'inside', x: r.x + r.w - 8 - W, y: r.y + 8, w: W, h: MIN };
+}
+function drawPlacement() {
+  const wa = { x: 0, y: 0, w: 1440, h: 852 }, S = 0.2;
+  const cases = [
+    ['Subtitle strip at the bottom: <b>above</b>, centred', { x: 220, y: 720, w: 1000, h: 90 }],
+    ['Dialogue box mid-screen: <b>below</b>', { x: 420, y: 300, w: 600, h: 140 }],
+    ['Chat pane on the left: <b>inline-end side</b>', { x: 40, y: 60, w: 360, h: 760 }],
+    ['Narrow label: width clamps up to <b>240</b>', { x: 700, y: 120, w: 90, h: 30 }],
+    ['Whole screen pinned: <b>inside</b>, top corner', { x: 0, y: 0, w: 1440, h: 852 }],
+  ];
+  const host = $('#place');
+  for (const [label, r] of cases) {
+    const p = placeLivePopup(r, wa);
+    const el = document.createElement('div'); el.className = 'pd';
+    el.innerHTML = `<div class="screen"><div class="bar"></div>
+      <div class="p" style="left:${p.x * S}px;top:${p.y * S}px;width:${p.w * S}px;height:${p.h * S}px"></div>
+      <div class="r" style="left:${r.x * S}px;top:${r.y * S}px;width:${r.w * S}px;height:${r.h * S}px"></div></div><span>${label} · ${Math.round(p.w)} wide, max ${Math.round(p.h)} tall</span>`;
+    host.appendChild(el);
+  }
+}
+
+// ---- Interactive game scene ----
+const LINES = [
+  ['La puerta del norte está cerrada.', 'The north door is locked.'],
+  ['Habla primero con el guardia.', 'Talk to the guard first.'],
+  ['Busca la llave en la torre.', 'Look for the key in the tower.'],
+  ['¿Quién anda ahí?', 'Who goes there?'],
+  ['Identifícate.', 'Identify yourself.'],
+  ['El guardia te deja pasar.', 'The guard lets you through.'],
+];
+function strip(state) {
+  const paused = state.paused;
+  const label = (paused ? 'Paused' : 'Live') + (state.priv ? ' · Private' : '');
+  return `<div class="strip"><span class="status" role="status"><span class="dot ${paused ? 'hollow' : ''}"></span>${label}</span><span class="local">${ico('chip')}On device</span><span class="spacer"></span>
+    <span class="ibtns"><button class="ib" data-act="priv" aria-pressed="${state.priv}" title="${state.priv ? "Private is on. This session's translations are forgotten when it ends." : "Turn on Private to forget this session's translations when it ends"}" aria-label="Private">${ico('eyeoff')}</button>
+    <button class="ib" data-act="pause" title="${paused ? 'Resume' : 'Pause'} (Ctrl+Shift+P)" aria-label="${paused ? 'Resume' : 'Pause'}">${ico(paused ? 'play' : 'pause')}</button>
+    <button class="ib" data-act="repin" title="Pick a new area" aria-label="Pick a new area">${ico('repin')}</button>
+    <button class="ib" data-act="stop" title="Stop Live (Ctrl+W)" aria-label="Stop Live">${ico('stop')}</button></span></div>`;
+}
+function setupGame(g) {
+  const st = { i: 0, paused: false, priv: false, hidden: false, stopped: false, pausedAt: 0 };
+  g.innerHTML = `<span class="hpbar">HP 82/100</span><div class="hill"></div>
+    <div class="dialog"><span class="who">Mara</span><span class="l1"></span><br><span class="l2"></span></div>
+    <div class="ticks"><i></i><i></i><i></i><i></i></div>
+    <div class="controls"><button class="btn secondary" data-ext="next">Next line</button><button class="btn secondary" data-ext="hide">Hide popup</button><button class="btn secondary" data-ext="reset">Reset</button></div>
+    <div class="popup live" role="region" aria-label="Live translation"></div><div class="sr-only" role="log" aria-live="polite"></div>`;
+  const dlg = g.querySelector('.dialog'), ticks = g.querySelector('.ticks'), pop = g.querySelector('.popup'), log = g.querySelector('[role=log]');
+  const layout = () => {
+    const gr = g.getBoundingClientRect(), dr = dlg.getBoundingClientRect();
+    Object.assign(ticks.style, { left: dr.left - gr.left + 'px', top: dr.top - gr.top + 'px', width: dr.width + 'px', height: dr.height + 'px' });
+    const w = Math.min(Math.max(dr.width, 240), 640);
+    pop.style.width = w + 'px';
+    pop.style.left = dr.left - gr.left + dr.width / 2 - w / 2 + 'px';
+    pop.style.bottom = gr.bottom - dr.top + 8 + 'px';
+    pop.style.transformOrigin = 'center bottom';
+    pop.setAttribute('dir', $('input[name=dir]:checked').value);
+  };
+  const render = (changedIdx = []) => {
+    const a = LINES[st.i % LINES.length], b = LINES[(st.i + 1) % LINES.length];
+    dlg.querySelector('.l1').textContent = a[0]; dlg.querySelector('.l2').textContent = b[0];
+    pop.classList.toggle('stale', st.paused);
+    const prevBlocks = $$('.block', pop).map((x) => x.textContent);
+    pop.innerHTML = strip(st) + (st.paused ? `<div class="staterow">Showing text from just now</div>` : '') +
+      `<div class="list" role="list">${[a, b].map((l, k) => `<div class="block ${changedIdx.includes(k) ? 'changed flash' : ''}" role="listitem" data-k="${k}" tabindex="${k ? -1 : 0}"${changedIdx.includes(k) ? ' aria-description="Changed"' : ''}><p class="tr">${l[1]}</p></div>`).join('')}</div>`;
+    requestAnimationFrame(() => requestAnimationFrame(() => $$('.block.flash', pop).forEach((x) => { x.classList.remove('flash'); x.classList.add('decay'); })));
+    ticks.classList.toggle('paused', st.paused);
+    pop.hidden = st.hidden || st.stopped; ticks.hidden = st.stopped;
+    const tag = ticks.querySelector('.tagchip'); tag?.remove();
+    if (st.hidden && !st.stopped) ticks.insertAdjacentHTML('beforeend', `<span class="hud tagchip">${st.paused ? 'Live · Paused' : 'Live'}</span>`);
+    g.querySelector('[data-ext=hide]').textContent = st.hidden ? 'Show popup' : 'Hide popup';
+    if (changedIdx.length) log.insertAdjacentHTML('beforeend', `<p>${changedIdx.map((k) => [a, b][k][1]).join('. ')}</p>`);
+  };
+  render([1]); layout();
+  g.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act, ext = e.target.closest('[data-ext]')?.dataset.ext;
+    if (act === 'priv') { st.priv = !st.priv; render(); }
+    if (act === 'pause') { const was = st.paused; st.paused = !st.paused; if (was) { st.i += 2; render([0, 1]); } else render(); }
+    if (act === 'stop') { st.stopped = true; render(); }
+    if (act === 'repin') { alert('Re-pin opens the picker in Live mode with this area pre-drawn (spec L18).'); }
+    if (ext === 'next' && !st.paused && !st.stopped) { st.i += 1; render([1]); }
+    if (ext === 'hide') { st.hidden = !st.hidden; render(); }
+    if (ext === 'reset') setupGame(g);
+  });
+  g.addEventListener('pointerover', (e) => {
+    g.querySelector('.linkbox')?.remove();
+    const blk = e.target.closest('.block[data-k]'); if (!blk) return;
+    const gr = g.getBoundingClientRect(), line = dlg.querySelector(blk.dataset.k === '0' ? '.l1' : '.l2').getBoundingClientRect();
+    g.insertAdjacentHTML('beforeend', `<div class="linkbox" style="left:${line.left - gr.left - 3}px;top:${line.top - gr.top - 1}px;width:${line.width + 6}px;height:${line.height + 2}px"></div>`);
+  });
+}
+
+renderStates(document);
+wireToolbar();
+drawPlacement();
+$$('.game').forEach(setupGame);
+document.addEventListener('toolbar', () => $$('.game').forEach(setupGame));
+</script>
+</body>
+</html>
