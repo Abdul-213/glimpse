@@ -20,6 +20,7 @@ import type { OcrImage } from "../providers/ocr.ts";
 import { type ChangeDecision, ChangeDetector, shouldProcess } from "./change-detection.ts";
 import type { PipelineEvent, PipelineListener, PipelineResult, RecognisedBlock } from "./events.ts";
 import { FrameRing, frameKey } from "./frame-ring.ts";
+import { LIVE_QUIET_FOCUS, LiveBudget, type LiveBudgetOptions, type LiveBudgetState } from "./live-budget.ts";
 import type {
 	LiveError,
 	LiveErrorKind,
@@ -74,6 +75,21 @@ export interface LiveRunnerOptions extends LiveSettingsParams {
 	readonly unavailableAfter?: number;
 	/** A grab this late means the machine slept: re-check at once. Default 5000 ms. */
 	readonly sleepGapMs?: number;
+	/**
+	 * GLIM-66: the CPU budget (live-budget.ts). `false` turns the adaptive back-off off.
+	 * Default: 15 % of one core over 20 s.
+	 */
+	readonly budget?: Partial<LiveBudgetOptions> | false;
+	/**
+	 * Cumulative CPU time in ms the budget measures (the app: process CPU, which includes the
+	 * OCR and translation Workers). Default: the runner's own estimate, change detection plus
+	 * the wall time of each OCR run.
+	 */
+	readonly cpuNow?: () => number;
+	/** The budget changed level (for the log). */
+	readonly onBudget?: (state: LiveBudgetState) => void;
+	/** Over a moving background with still text, drop to `LIVE_QUIET_FOCUS.fps` (default true). */
+	readonly quietFocusBackoff?: boolean;
 }
 
 export interface LiveCacheInfo {
@@ -111,6 +127,10 @@ export interface LiveRunnerStats {
 	/** Grabs decided in text focus over a moving background, and how often focus started (GLIM-114). */
 	readonly focusedGrabs: number;
 	readonly focusEntered: number;
+	/** GLIM-66: budget level (0 = no back-off), its limits, the measured share of one core. */
+	readonly budget: LiveBudgetState | null;
+	/** The runner's own cost estimate so far: change detection + OCR wall time, ms. */
+	readonly costMs: number;
 }
 
 const ERROR_FOR_CODE: Readonly<Record<string, LiveErrorKind>> = {
@@ -150,6 +170,14 @@ export class LiveRunner {
 	#cachedBlocks = 0;
 	#settleMs = 0;
 	#settleCount = 0;
+	readonly #budget: LiveBudget | null;
+	#userFps: number;
+	/** Wall time of OCR runs, ms (part of the cost estimate). */
+	#ocrMs = 0;
+	#lastOcrAt: number | null = null;
+	/** Last grab whose decision wasn't `same` (something moved that matters). */
+	#activeAt = 0;
+	#quiet = false;
 	readonly #decisions: Record<ChangeDecision["kind"], number> = {
 		first: 0,
 		same: 0,
@@ -169,6 +197,8 @@ export class LiveRunner {
 			},
 			this.#perf,
 		);
+		this.#budget = options.budget === false ? null : new LiveBudget(options.budget ?? {});
+		this.#userFps = options.fps;
 		this.#loop = new LiveCaptureLoop({
 			source: options.source,
 			timers: options.timers,
@@ -216,6 +246,7 @@ export class LiveRunner {
 		// A user pause wins over an automatic one, and an automatic resume never undoes a user pause.
 		if (this.#status === "paused" && this.#reason === "user") return;
 		this.#halt();
+		this.#budget?.restart();
 		this.#setStatus("paused", reason);
 	}
 
@@ -243,7 +274,10 @@ export class LiveRunner {
 
 	/** Settings › Live changed (applies without restarting). */
 	setParams(params: Partial<LiveSettingsParams>): void {
-		if (params.fps !== undefined) this.#loop.setFps(params.fps);
+		if (params.fps !== undefined) {
+			this.#userFps = params.fps;
+			this.#applyBudget();
+		}
 		this.#detector.setOptions({
 			...(params.diffThreshold === undefined ? {} : { diffThreshold: params.diffThreshold }),
 			...(params.stabilityMs === undefined ? {} : { stabilityMs: params.stabilityMs }),
@@ -280,6 +314,8 @@ export class LiveRunner {
 			loop: this.#loop.stats(),
 			focusedGrabs: this.#detector.stats().focusedGrabs,
 			focusEntered: this.#detector.stats().focusEntered,
+			budget: this.#budget?.state() ?? null,
+			costMs: this.#costMs(),
 		};
 	}
 
@@ -295,9 +331,11 @@ export class LiveRunner {
 		} else if (info.lateMs > (this.#o.sleepGapMs ?? 5000)) {
 			this.#detector.resume();
 		}
+		this.#sampleBudget(frame.capturedAt);
 		const t0 = this.#perf();
 		const decision = this.#detector.feed(frame);
 		this.#decisions[decision.kind]++;
+		this.#trackQuiet(frame.capturedAt, decision);
 		let action: LiveTrace["action"] = "none";
 		if (shouldProcess(decision)) action = this.#settle(frame);
 		const detectMs = this.#perf() - t0;
@@ -358,6 +396,9 @@ export class LiveRunner {
 		this.#inFlight++;
 		const epoch = this.#epoch;
 		const startedAt = this.#perf();
+		this.#lastOcrAt = frame.capturedAt;
+		const gap = this.#budget?.state().limits.ocrGapMs ?? 0;
+		if (gap > 0) this.#detector.holdUntil(frame.capturedAt + gap);
 		this.#armUpdating(epoch);
 		let ids: Map<string, string> | null = null;
 		const onEvent = (event: PipelineEvent) => {
@@ -391,6 +432,7 @@ export class LiveRunner {
 				this.#fail({ kind: "ocrFailed", message: error instanceof Error ? error.message : String(error) });
 			})
 			.finally(() => {
+				this.#ocrMs += this.#perf() - startedAt;
 				this.#inFlight = Math.max(0, this.#inFlight - 1);
 				if (epoch !== this.#epoch) return;
 				if (this.#inFlight === 0) {
@@ -544,6 +586,45 @@ export class LiveRunner {
 	}
 
 	/** Stop capturing and drop work in flight (pause, error). */
+	// ---- CPU budget (GLIM-66) ------------------------------------------------------------
+
+	#costMs(): number {
+		return this.#detectMs + this.#ocrMs;
+	}
+
+	#sampleBudget(now: number): void {
+		const budget = this.#budget;
+		if (!budget) return;
+		const changed = budget.sample(now, this.#o.cpuNow ? this.#o.cpuNow() : this.#costMs());
+		if (!changed) return;
+		this.#applyBudget();
+		this.#o.onBudget?.(changed);
+	}
+
+	/**
+	 * A moving background whose text hasn't changed for a while costs a diff per grab for
+	 * nothing: capture it at the idle rate until something changes (a change is still seen
+	 * within half a second).
+	 */
+	#trackQuiet(now: number, decision: ChangeDecision): void {
+		if (decision.kind !== "same" || !this.#detector.focused) this.#activeAt = now;
+		const quiet =
+			this.#o.quietFocusBackoff !== false && this.#detector.focused && now - this.#activeAt >= LIVE_QUIET_FOCUS.afterMs;
+		if (quiet === this.#quiet) return;
+		this.#quiet = quiet;
+		this.#applyBudget();
+	}
+
+	/** Frame rate = the user's, capped by the budget level and quiet focus; OCR gap from the level. */
+	#applyBudget(): void {
+		const limits = this.#budget?.state().limits;
+		let fps = limits ? Math.min(this.#userFps, limits.fpsCap) : this.#userFps;
+		if (this.#quiet) fps = Math.min(fps, LIVE_QUIET_FOCUS.fps);
+		this.#loop.setFps(fps);
+		const gap = limits?.ocrGapMs ?? 0;
+		this.#detector.holdUntil(this.#lastOcrAt === null || gap === 0 ? 0 : this.#lastOcrAt + gap);
+	}
+
 	#halt(): void {
 		this.#loop.pause();
 		this.#epoch++;

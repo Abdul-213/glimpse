@@ -193,6 +193,8 @@ export class ChangeDetector {
 	#lastAt: number | null = null;
 	/** Text focus: the pending change includes new still content outside the text boxes. */
 	#elsewhere = false;
+	/** GLIM-66: no settle before this time (the CPU budget's gap between OCR runs). */
+	#holdUntil = 0;
 
 	constructor(options: ChangeDetectionOptions, perfNow: () => number = () => 0) {
 		this.#o = { ...CHANGE_DETECTION_DEFAULTS, ...options };
@@ -217,6 +219,14 @@ export class ChangeDetector {
 		this.#map = null;
 		this.#areas = [];
 		this.#leaveFocus();
+	}
+
+	/**
+	 * GLIM-66: don't call anything settled before `t` (frame time). A change that settles
+	 * earlier waits (`settling`, reason `waiting`, woken at `t`) and is compared then.
+	 */
+	holdUntil(t: number): void {
+		this.#holdUntil = t;
 	}
 
 	/** True while deciding in text focus (a moving background, GLIM-114). */
@@ -328,14 +338,9 @@ export class ChangeDetector {
 		}
 		if (!this.#pending) return { kind: "same" };
 		const stableForMs = now - this.#stableSince;
-		if (stableForMs < this.#o.stabilityMs) {
-			return {
-				kind: "settling",
-				reason: "waiting",
-				stableForMs,
-				wakeInMs: this.#o.stabilityMs - stableForMs,
-				motion,
-			};
+		const wait = Math.max(this.#o.stabilityMs - stableForMs, this.#holdUntil - now);
+		if (wait > 0) {
+			return { kind: "settling", reason: "waiting", stableForMs, wakeInMs: wait, motion };
 		}
 		this.#pending = false;
 		return this.#compare(frame, baseline, stableForMs, "stable");
@@ -362,15 +367,9 @@ export class ChangeDetector {
 		}
 		if (!this.#pending) return { kind: "same" };
 		const stableForMs = now - this.#stableSince;
-		if (stableForMs < o.stabilityMs) {
-			return {
-				kind: "settling",
-				reason: "waiting",
-				stableForMs,
-				wakeInMs: o.stabilityMs - stableForMs,
-				motion: c.motion,
-				scope: "text",
-			};
+		const wait = Math.max(o.stabilityMs - stableForMs, this.#holdUntil - now);
+		if (wait > 0) {
+			return { kind: "settling", reason: "waiting", stableForMs, wakeInMs: wait, motion: c.motion, scope: "text" };
 		}
 		this.#pending = false;
 		const t0 = this.#perf();

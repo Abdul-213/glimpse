@@ -319,7 +319,12 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   read), and the settle compares only pixels still for 2x `stabilityMs` with the processed
   frame. Moving text is never still, so typewriters and scrolls still never get read half-way;
   when the region stops moving it is whole-region detection again. Traces carry `scope: "text"`;
-  `bun run harness live-session --scenario moving-video` replays subtitles over a moving video. **Frame ring** (`pipeline/frame-ring.ts`, GLIM-20): the last 8
+  `bun run harness live-session --scenario moving-video` replays subtitles over a moving video.
+  **CPU budget (GLIM-66)** (`pipeline/live-budget.ts`, `docs/benchmarks/live-cpu.md`): the runner
+  reads process CPU (`cpuNow`; LiveService passes `process.cpuUsage`) every grab; over 35 % of
+  one core averaged over 30 s it steps up a back-off level (fps cap 3/2/2, minimum gap between
+  OCR runs 1/2/3 s via `ChangeDetector.holdUntil`), and steps down after 60 s under half. In
+  text focus with nothing to read for 2 s, capture drops to 2 fps. **Frame ring** (`pipeline/frame-ring.ts`, GLIM-20): the last 8
   processed frames by exact 64-bit hash → `PipelineResult`, so A → B → A reuses A's result.
 - **Live runner** (`pipeline/live-runner.ts`): one pinned region end to end over ports (frame
   source, `Timers`, `LiveProcessor` = `LivePipelineSession`): loop → detector → ring → pipeline

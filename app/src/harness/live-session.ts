@@ -222,5 +222,11 @@ export function liveSessionLines(r: LiveSessionReport, frameName?: (t: number) =
 			`${s.maxDetectMs.toFixed(2)} ms max; settle → frame event ${s.meanSettleToFrameMs.toFixed(1)} ms` +
 			(r.cpuMsPerGrab === null ? "" : `; process CPU ${r.cpuMsPerGrab.toFixed(2)} ms/grab`),
 	);
+	// GLIM-66: the runner's own cost (change detection + OCR wall time) per minute of Live, and the budget.
+	const perMinute = (s.costMs / Math.max(1, r.durationMs)) * 60_000;
+	out.push(
+		`  cost: ${(perMinute / 1000).toFixed(2)} s per minute of Live (${((perMinute / 60_000) * 100).toFixed(1)} % of a core); ` +
+			`text focus ${s.focusedGrabs} grabs; budget ${s.budget ? `level ${s.budget.level}` : "off"}`,
+	);
 	return out;
 }

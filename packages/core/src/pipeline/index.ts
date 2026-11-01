@@ -8,6 +8,7 @@ export * from "./events.ts";
 export * from "./frame-ring.ts";
 export * from "./group-lines.ts";
 export * from "./live.ts";
+export * from "./live-budget.ts";
 export * from "./live-events.ts";
 export * from "./live-loop.ts";
 export * from "./live-runner.ts";
