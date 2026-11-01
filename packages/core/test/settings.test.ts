@@ -41,6 +41,7 @@ describe("settings defaults", () => {
 			providers: { ocr: "paddleocr", translation: ["bergamot", "small100"], options: {} },
 			appearance: { theme: "system", motion: "system" },
 			snip: { copyAfterSnip: true, showOriginalUnder: false, alwaysShowLanguages: false },
+			picker: { showLoupe: true, confirmOnRelease: true },
 			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300 },
 			privacy: { privateByDefault: false, clearCacheAfterIdleMinutes: 15, clearCacheOnLock: true },
 			system: { launchAtLogin: false },

@@ -1,6 +1,18 @@
 // GLIM-44: the picker window controller with headless overlays, plus hotkeys.
 import { describe, expect, test } from "bun:test";
-import { type Display, NO_MODIFIERS, nullLogger, type PickerOutcome, type RegionSelected, rect } from "@glimpse/core";
+import {
+	DEFAULT_HOTKEYS,
+	type Display,
+	defaultSettings,
+	languageCode,
+	NO_MODIFIERS,
+	nullLogger,
+	type PickerOutcome,
+	ProviderRegistry,
+	type RegionSelected,
+	rect,
+	type SettingsEnv,
+} from "@glimpse/core";
 import { FakePointer, RecordingFocusKeeper, SolidPixelSampler, StaticWindowList } from "@glimpse/core/testing";
 import { createFileCaptureSource } from "../src/bun/services/capture/file.ts";
 import { SAMPLE_FRAMES_DIR } from "../src/bun/services/capture/index.ts";
@@ -12,9 +24,17 @@ import {
 	EXIT_FADE_MS,
 	overlayMismatch,
 	PickerController,
+	type PickerSettings,
+	pickerSettingsFrom,
 } from "../src/bun/windows/picker-controller.ts";
 import { FakeOverlayFactory, ManualScheduler } from "../src/harness/overlays.ts";
 import { dragSteps, runPick } from "../src/harness/pick.ts";
+
+const env: SettingsEnv = {
+	hotkeys: DEFAULT_HOTKEYS.windows,
+	providers: new ProviderRegistry<unknown>().configSchema(),
+	targetLanguage: languageCode("en"),
+};
 
 const d = (id: number, x: number, scale = 1): Display => ({
 	id,
@@ -24,7 +44,14 @@ const d = (id: number, x: number, scale = 1): Display => ({
 	isPrimary: id === 1,
 });
 
-function setup(opts: { displays?: Display[]; at?: { x: number; y: number }; reducedMotion?: boolean } = {}) {
+function setup(
+	opts: {
+		displays?: Display[];
+		at?: { x: number; y: number };
+		reducedMotion?: boolean;
+		settings?: () => PickerSettings;
+	} = {},
+) {
 	let displays = opts.displays ?? [d(1, 0), d(2, 1280, 2)];
 	const factory = new FakeOverlayFactory();
 	const scheduler = new ManualScheduler();
@@ -41,7 +68,9 @@ function setup(opts: { displays?: Display[]; at?: { x: number; y: number }; redu
 		log: nullLogger,
 		now: scheduler.now,
 		scheduler,
-		settings: () => ({ confirmOnRelease: true, showLoupe: true, reducedMotion: opts.reducedMotion ?? false }),
+		settings:
+			opts.settings ??
+			(() => ({ confirmOnRelease: true, showLoupe: true, reducedMotion: opts.reducedMotion ?? false })),
 	});
 	const regions: RegionSelected[] = [];
 	const outcomes: PickerOutcome[] = [];
@@ -116,6 +145,30 @@ describe("PickerController", () => {
 		expect(factory.created.every((o) => !o.visible)).toBe(true);
 		expect(factory.created.every((o) => !o.closed)).toBe(true); // hidden, kept for next time
 		expect(controller.isOpen).toBe(false);
+	});
+
+	test("Show magnifier and Translate on release are read on every open (GLIM-105)", () => {
+		let current = defaultSettings(env);
+		const { controller, factory, regions } = setup({ settings: () => pickerSettingsFrom(current) });
+		controller.onRegionSelected((r) => {
+			regions.push(r);
+			return undefined;
+		});
+		controller.open("snip");
+		expect(factory.created[0]?.resets.at(-1)).toMatchObject({ showLoupe: true });
+		controller.cancel();
+
+		current = { ...current, picker: { showLoupe: false, confirmOnRelease: false } };
+		controller.open("snip");
+		expect(factory.created[0]?.resets.at(-1)).toMatchObject({ showLoupe: false });
+		controller.viewPointer(ptr(1, "down", 600, 200));
+		controller.viewPointer(ptr(1, "move", 700, 300));
+		controller.viewPointer(ptr(1, "up", 800, 400));
+		// Release lands in adjusting: nothing selected until Enter.
+		expect(regions).toHaveLength(0);
+		expect(controller.isOpen).toBe(true);
+		controller.viewKey({ displayId: 1, key: "Enter", down: true, repeat: false, mods: NO_MODIFIERS });
+		expect(regions).toHaveLength(1);
 	});
 
 	test("a Snip listener can keep the overlays as the results layer until dismiss()", () => {
