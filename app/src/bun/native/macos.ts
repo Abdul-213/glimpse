@@ -3,6 +3,7 @@
 // NSWindow* that window controllers already hold (BrowserWindow.ptr).
 import { FFIType, JSCallback, type Pointer, ptr } from "bun:ffi";
 import type { Rect, RgbaImage } from "@glimpse/core";
+import type { NativeMaterial, ThemeSetting, WindowChromeNative } from "./chrome.ts";
 import type { FrameHandle, FrameNativeBinding, FrameNativeStyle } from "./frame.ts";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
 import {
@@ -79,6 +80,14 @@ const symbols = {
 	glim_session_simulate: { args: [FFIType.i32], returns: FFIType.i32 },
 	glim_session_pump: { args: [FFIType.i32], returns: FFIType.i32 },
 	glim_session_info: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	// GLIM-116 / GLIM-110 window chrome (material.m)
+	glim_window_set_material: { args: [FFIType.ptr, FFIType.i32, FFIType.f64], returns: FFIType.i32 },
+	glim_window_set_appearance: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	glim_window_set_frame: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+	glim_reduce_transparency: { args: [], returns: FFIType.i32 },
+	glim_window_material_info: { args: [FFIType.ptr, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	glim_window_test_create: { args: [FFIType.ptr], returns: FFIType.i32 },
+	glim_window_test_destroy: { args: [FFIType.ptr], returns: FFIType.i32 },
 } as const;
 
 /** A display as CoreGraphics reports it: global points + backing scale. */
@@ -160,6 +169,14 @@ export interface MacPickerBinding {
 	streamSample(handle: StreamHandle, x: number, y: number, size: number, out: Uint8Array): number | null;
 }
 
+/** Smoke tests only (native-smoke.ts): a hidden NSWindow to check the chrome calls on CI. */
+export interface MacChromeTestBinding {
+	testWindowCreate(): Pointer;
+	testWindowDestroy(window: Pointer): void;
+	/** What the window reports: effect view, material, shadow, appearance, frame (global top-left points). */
+	materialInfo(window: Pointer): Record<string, number> | null;
+}
+
 /** Carbon hot keys (GLIM-44). Status returns are OSStatus values (0 ok, -9878 taken). */
 export interface MacHotkeyBinding {
 	/** Install the handler once; `onPress(id)` runs on the Bun worker for each press. Returns OSStatus. */
@@ -179,7 +196,9 @@ class LibGlimpse
 		MacPickerBinding,
 		MacHotkeyBinding,
 		FrameNativeBinding,
-		SessionNativeBinding
+		SessionNativeBinding,
+		WindowChromeNative,
+		MacChromeTestBinding
 {
 	private hotkeyCallback: JSCallback | null = null;
 	private sessionCallback: JSCallback | null = null;
@@ -430,6 +449,55 @@ class LibGlimpse
 		this.hotkeyCallback = null;
 	}
 
+	// ---- GLIM-116 / GLIM-110 window chrome ----
+
+	reduceTransparency(): boolean {
+		return this.sym.glim_reduce_transparency() === 1;
+	}
+
+	systemDark(): boolean | null {
+		// A window with appearance nil follows the system by itself; nothing to read.
+		return null;
+	}
+
+	windowsBuild(): number | null {
+		return null;
+	}
+
+	setMaterial(window: Pointer, material: NativeMaterial): void {
+		const r =
+			material.kind === "mac-effect"
+				? this.sym.glim_window_set_material(window, material.material, material.radius)
+				: this.sym.glim_window_set_material(window, -1, 0);
+		if (r !== 0) this.fail("setting the window material", r);
+	}
+
+	setAppearance(window: Pointer, theme: ThemeSetting, _dark: boolean): void {
+		const r = this.sym.glim_window_set_appearance(window, theme === "light" ? 1 : theme === "dark" ? 2 : 0);
+		if (r !== 0) this.fail("setting the window appearance", r);
+	}
+
+	setFrame(window: Pointer, frame: Rect): void {
+		const r = this.sym.glim_window_set_frame(window, ptr(Float64Array.of(frame.x, frame.y, frame.width, frame.height)));
+		if (r !== 0) this.fail("NSWindow setFrame", r);
+	}
+
+	testWindowCreate(): Pointer {
+		const out = new BigUint64Array(1);
+		const r = this.sym.glim_window_test_create(ptr(out));
+		if (r !== 0) this.fail("creating a test window", r);
+		return Number(out[0] ?? 0n) as Pointer;
+	}
+
+	testWindowDestroy(window: Pointer): void {
+		this.sym.glim_window_test_destroy(window);
+	}
+
+	materialInfo(window: Pointer): Record<string, number> | null {
+		const json = readNativeString((b, c) => this.sym.glim_window_material_info(window, ptr(b), c), 512);
+		return json.startsWith("{") ? (JSON.parse(json) as Record<string, number>) : null;
+	}
+
 	// ---- GLIM-119 lock / sleep notifications ----
 
 	sessionStart(onEvent: (kind: SessionEventKind, source: string) => void): number {
@@ -549,7 +617,9 @@ export function loadMacNative(): {
 				MacPickerBinding &
 				MacHotkeyBinding &
 				FrameNativeBinding &
-				SessionNativeBinding)
+				SessionNativeBinding &
+				WindowChromeNative &
+				MacChromeTestBinding)
 		| null;
 } {
 	if (!lib) {

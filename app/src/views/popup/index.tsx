@@ -26,8 +26,9 @@ document.addEventListener("contextmenu", (e) => e.preventDefault());
 rpc.request
 	.getSnipInit()
 	.then((i) => {
-		// Solid veil until native materials are wired (popup.ts).
-		applyPlatform(i.os, { material: "none" });
+		// data-material (native / none) comes from the window's chrome (window-chrome.ts):
+		// the solid veil until it says a material is behind the webview.
+		applyPlatform(i.os);
 		document.documentElement.lang = i.uiLang;
 		document.documentElement.dir = i.uiDir;
 		setInit(i);

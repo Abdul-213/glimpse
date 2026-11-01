@@ -12,12 +12,13 @@ import { loadAnnounceNative } from "../src/bun/native/announce.ts";
 import { FRAME_PALETTE_ORDER, type FrameNativeBinding, rgbaOf } from "../src/bun/native/frame.ts";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import type { SessionEventKind, SessionNativeBinding } from "../src/bun/native/session.ts";
-import { loadWindowsCapture } from "../src/bun/native/windows.ts";
+import { loadWindowsCapture, loadWindowsChrome } from "../src/bun/native/windows.ts";
 import { MacCaptureSource } from "../src/bun/services/capture/macos.ts";
 import { displaysFromMac, displaysFromWindows } from "../src/bun/services/capture/native-displays.ts";
 import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
 import { FRAME_COLORS } from "../src/bun/services/live/frame-layout.ts";
 import { macWindows, windowsWindows } from "../src/bun/services/picker/window-list.ts";
+import { planChrome } from "../src/bun/windows/window-chrome.ts";
 
 // Picker helpers (GLIM-91): cheap, no permission needed, so failures here fail the job.
 function pickerSmoke(binding: { listWindows(): unknown[]; focusSave(): number }, logical: () => unknown[]): void {
@@ -86,6 +87,79 @@ async function sessionSmoke(binding: SessionNativeBinding): Promise<void> {
 	}
 }
 
+function fail(problems: string[], what: string): void {
+	if (problems.length === 0) return;
+	console.log(`${what} problems: ${problems.join("; ")}`);
+	process.exit(1);
+}
+
+// Window chrome (GLIM-116 / GLIM-110) on a hidden test window: material, appearance, frame.
+function macChromeSmoke(binding: NonNullable<ReturnType<typeof loadMacNative>["binding"]>): void {
+	const w = binding.testWindowCreate();
+	const problems: string[] = [];
+	try {
+		console.log("reduce transparency:", binding.reduceTransparency());
+		const plan = planChrome("popup", { os: "macos", windowsBuild: null, reduceTransparency: false });
+		binding.setMaterial(w, plan.native);
+		const fx = binding.materialInfo(w);
+		console.log("popup material:", JSON.stringify(fx));
+		if (fx?.["effectView"] !== 1) problems.push("no NSVisualEffectView");
+		if (fx?.["material"] !== 6) problems.push(`material ${fx?.["material"]} (want popover 6)`);
+		if (fx?.["masked"] !== 1) problems.push("no rounded mask");
+		if (fx?.["below"] !== 1) problems.push("effect view is not the bottom subview");
+		if (fx?.["hasShadow"] !== 1) problems.push("no shadow");
+		binding.setAppearance(w, "dark", true);
+		const dark = binding.materialInfo(w);
+		if (dark?.["dark"] !== 1 || dark["forced"] !== 1)
+			problems.push(`dark appearance not applied: ${JSON.stringify(dark)}`);
+		binding.setAppearance(w, "light", false);
+		if (binding.materialInfo(w)?.["dark"] !== 0) problems.push("light appearance not applied");
+		binding.setAppearance(w, "system", false);
+		if (binding.materialInfo(w)?.["forced"] !== 0) problems.push("system appearance still forced");
+		binding.setFrame?.(w, rect(200, 150, 300, 100));
+		const at = binding.materialInfo(w);
+		console.log("after set_frame(200,150 300x100):", JSON.stringify(at));
+		if (at?.["x"] !== 200 || at["y"] !== 150 || at["w"] !== 300 || at["h"] !== 100)
+			problems.push("frame not where asked");
+		binding.setMaterial(w, { kind: "none" });
+		if (binding.materialInfo(w)?.["effectView"] !== 0) problems.push("effect view not removed");
+	} finally {
+		binding.testWindowDestroy(w);
+	}
+	fail(problems, "window chrome");
+}
+
+function windowsChromeSmoke(binding: NonNullable<ReturnType<typeof loadWindowsCapture>["binding"]>): void {
+	const chrome = loadWindowsChrome();
+	const build = chrome.windowsBuild();
+	console.log(
+		`windows build ${build}, transparency effects off: ${chrome.reduceTransparency()}, apps dark: ${chrome.systemDark()}`,
+	);
+	const problems: string[] = [];
+	const w = binding.testWindowCreate();
+	try {
+		// A point on the left sizing border of the 320 x 120 window at (100, 100).
+		const before = binding.testHitTest(w, 101, 160);
+		chrome.disableResize(w);
+		const after = binding.testHitTest(w, 101, 160);
+		const corner = binding.testHitTest(w, 101, 101);
+		console.log(`hit test left edge: ${before} -> ${after}; top-left corner after: ${corner}`);
+		if (after >= 10 && after <= 17) problems.push(`left edge still a sizing hit (${after})`);
+		if (corner >= 10 && corner <= 17) problems.push(`corner still a sizing hit (${corner})`);
+		chrome.setAppearance(w, "dark", true);
+		chrome.setCloaked(w, true);
+		console.log("cloaked:", chrome.cloaked(w));
+		chrome.setCloaked(w, false);
+		const plan = planChrome("popup", { os: "windows", windowsBuild: build, reduceTransparency: false });
+		console.log("popup plan:", JSON.stringify(plan));
+		if (plan.native.kind === "win-backdrop") chrome.setMaterial(w, plan.native);
+		chrome.setMaterial(w, { kind: "none" });
+	} finally {
+		binding.testWindowDestroy(w);
+	}
+	fail(problems, "window chrome");
+}
+
 const tryCapture = Bun.argv.includes("--try-capture");
 
 async function attempt(label: string, run: () => Promise<{ width: number; height: number }>): Promise<void> {
@@ -128,6 +202,7 @@ if (process.platform === "win32") {
 	console.log("monitors:", JSON.stringify(physical));
 	pickerSmoke(binding, () => windowsWindows(binding.listWindows(), displaysFromWindows(physical), physical));
 	await sessionSmoke(binding);
+	windowsChromeSmoke(binding);
 	frameSmoke(binding, (info) => {
 		const problems: string[] = [];
 		const ex = info["exStyle"] ?? 0;
@@ -168,6 +243,7 @@ if (process.platform === "win32") {
 	binding.setExcludedWindows([]);
 	pickerSmoke(binding, () => macWindows(binding.listWindows()));
 	await sessionSmoke(binding);
+	macChromeSmoke(binding);
 	frameSmoke(binding, (info) => {
 		const problems: string[] = [];
 		if (info["ignoresMouseEvents"] !== 1) problems.push("ignoresMouseEvents is off");

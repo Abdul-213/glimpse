@@ -3,6 +3,7 @@
 // Nothing outside app/src/bun/native/ sees a raw pointer from here.
 import { dlopen, FFIType, JSCallback, type Pointer, ptr } from "bun:ffi";
 import type { CapturePiece, Rect, RgbaImage } from "@glimpse/core";
+import type { NativeMaterial, ThemeSetting, WindowChromeNative } from "./chrome.ts";
 import type { FrameHandle, FrameNativeBinding, FrameNativeStyle } from "./frame.ts";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
 import {
@@ -47,6 +48,11 @@ const glimpseSymbols = {
 	glim_session_simulate: { args: [FFIType.i32], returns: FFIType.i32 },
 	glim_session_pump: { args: [FFIType.i32], returns: FFIType.i32 },
 	glim_session_info: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	// GLIM-116 popup edges (window.cpp)
+	glim_window_disable_resize: { args: [FFIType.ptr], returns: FFIType.i32 },
+	glim_window_test_create: { args: [FFIType.ptr], returns: FFIType.i32 },
+	glim_window_test_hit_test: { args: [FFIType.ptr, FFIType.i32, FFIType.i32], returns: FFIType.i32 },
+	glim_window_test_destroy: { args: [FFIType.ptr], returns: FFIType.i32 },
 } as const;
 
 export type WindowsBackend = "gdi" | "dxgi";
@@ -70,6 +76,17 @@ export interface WindowsCaptureBinding {
 	release(backend: WindowsBackend | "all"): void;
 }
 
+/** Window procedure helpers in glimpse.dll (GLIM-116). */
+export interface WindowsWindowBinding {
+	/** The hiddenInset frame's sizing border acts as client area (no edge resize). Throws CaptureError. */
+	disableResize(hwnd: Pointer): void;
+	/** Smoke tests: a hidden WS_POPUP | WS_THICKFRAME window at (100, 100), 320 x 120, on this thread. */
+	testWindowCreate(): Pointer;
+	/** Smoke tests: WM_NCHITTEST at a screen point (HTLEFT = 10, HTCLIENT = 1). */
+	testHitTest(hwnd: Pointer, x: number, y: number): number;
+	testWindowDestroy(hwnd: Pointer): void;
+}
+
 /** What the region picker needs from glimpse.dll (GLIM-91). Faked in tests. */
 export interface WindowsPickerBinding {
 	/** Visible top-level windows of other processes, front to back, in PHYSICAL px. Throws CaptureError. */
@@ -82,7 +99,9 @@ export interface WindowsPickerBinding {
 
 type GlimpseSymbols = NonNullable<ReturnType<typeof loadNativeLibrary<typeof glimpseSymbols>>["symbols"]>;
 
-class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding, FrameNativeBinding, SessionNativeBinding {
+class GlimpseDll
+	implements WindowsCaptureBinding, WindowsPickerBinding, FrameNativeBinding, SessionNativeBinding, WindowsWindowBinding
+{
 	private readonly geom = new Int32Array(10);
 	private sessionCallback: JSCallback | null = null;
 	private readonly seq = new BigUint64Array(1);
@@ -144,6 +163,28 @@ class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding, FrameNa
 		const r = this.sym.glim_focus_restore(ptr(out));
 		if (r !== 0) throw captureErrorFor("windows", "SetForegroundWindow", r, this.lastError());
 		return out[0] === 1;
+	}
+
+	// ---- GLIM-116 popup edges ----
+
+	disableResize(hwnd: Pointer): void {
+		const r = this.sym.glim_window_disable_resize(hwnd);
+		if (r !== 0) throw captureErrorFor("windows", "subclassing the popup window", r, this.lastError());
+	}
+
+	testWindowCreate(): Pointer {
+		const out = new BigUint64Array(1);
+		const r = this.sym.glim_window_test_create(ptr(out));
+		if (r !== 0) throw captureErrorFor("windows", "creating a test window", r, this.lastError());
+		return Number(out[0] ?? 0n) as Pointer;
+	}
+
+	testHitTest(hwnd: Pointer, x: number, y: number): number {
+		return this.sym.glim_window_test_hit_test(hwnd, x, y);
+	}
+
+	testWindowDestroy(hwnd: Pointer): void {
+		this.sym.glim_window_test_destroy(hwnd);
 	}
 
 	// ---- GLIM-119 lock / sleep notifications ----
@@ -256,7 +297,9 @@ let dll: GlimpseDll | { status: NativeStatus } | undefined;
 /** Load glimpse.dll once. `binding` is null when it is missing or broken (see `status`). */
 export function loadWindowsCapture(): {
 	status: NativeStatus;
-	binding: (WindowsCaptureBinding & WindowsPickerBinding & FrameNativeBinding & SessionNativeBinding) | null;
+	binding:
+		| (WindowsCaptureBinding & WindowsPickerBinding & FrameNativeBinding & SessionNativeBinding & WindowsWindowBinding)
+		| null;
 } {
 	if (!dll) {
 		if (process.platform !== "win32") {
@@ -381,4 +424,150 @@ export function raiseTopmost(hwnd: Pointer, extraFlags = 0): void {
 		0,
 		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS | extraFlags,
 	);
+}
+
+// ---- dwmapi / ntdll / advapi32: window materials, cloak, dark mode (GLIM-116, GLIM-110) ----
+//
+// DwmSetWindowAttribute and DwmExtendFrameIntoClientArea talk to DWM, not to the window
+// procedure, so the Bun worker calls them directly on Electrobun's HWND
+// (spikes/window-materials/FINDINGS.md §3, ARCHITECTURE.md §3). The sizing-border fix needs
+// a window procedure and lives in glimpse.dll (`disableResize`).
+
+const DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+const DWMWA_CLOAK = 13;
+const DWMWA_CLOAKED = 14;
+const DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+const DWMWA_BORDER_COLOR = 34;
+const DWMWA_SYSTEMBACKDROP_TYPE = 38;
+const DWMWA_COLOR_NONE = 0xfffffffe;
+const DWMWA_COLOR_DEFAULT = 0xffffffff;
+// HKEY_CURRENT_USER is ((HKEY)(ULONG_PTR)((LONG)0x80000001)): sign-extended on x64.
+const HKCU = -2147483647;
+const RRF_RT_REG_DWORD = 0x00000010;
+const PERSONALIZE = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+
+const chromeSymbols = {
+	dwm: {
+		DwmSetWindowAttribute: { args: [FFIType.ptr, FFIType.u32, FFIType.ptr, FFIType.u32], returns: FFIType.i32 },
+		DwmGetWindowAttribute: { args: [FFIType.ptr, FFIType.u32, FFIType.ptr, FFIType.u32], returns: FFIType.i32 },
+		DwmExtendFrameIntoClientArea: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+	},
+	ntdll: { RtlGetVersion: { args: [FFIType.ptr], returns: FFIType.i32 } },
+	advapi: {
+		RegGetValueW: {
+			args: [FFIType.i64, FFIType.ptr, FFIType.ptr, FFIType.u32, FFIType.ptr, FFIType.ptr, FFIType.ptr],
+			returns: FFIType.i32,
+		},
+	},
+} as const;
+
+function openChromeLibs() {
+	return {
+		dwm: dlopen("dwmapi.dll", chromeSymbols.dwm).symbols,
+		ntdll: dlopen("ntdll.dll", chromeSymbols.ntdll).symbols,
+		advapi: dlopen("advapi32.dll", chromeSymbols.advapi).symbols,
+	};
+}
+
+const wide = (s: string): Uint8Array => new Uint8Array(Buffer.from(`${s}\0`, "utf16le"));
+const hresult = (hr: number): string => `0x${(hr >>> 0).toString(16).padStart(8, "0")}`;
+
+/** Window chrome on Windows over DWM (+ glimpse.dll for the sizing border, when loaded). */
+class WindowsChrome implements WindowChromeNative {
+	private libs: ReturnType<typeof openChromeLibs> | null = null;
+	private build: number | null | undefined;
+
+	constructor(private readonly dll: WindowsWindowBinding | null) {}
+
+	private w() {
+		this.libs ??= openChromeLibs();
+		return this.libs;
+	}
+
+	private setDword(hwnd: Pointer, attr: number, value: number): number {
+		return this.w().dwm.DwmSetWindowAttribute(hwnd, attr, ptr(Uint32Array.of(value >>> 0)), 4);
+	}
+
+	private personalize(name: string): number | null {
+		const data = new Uint32Array(1);
+		const size = Uint32Array.of(4);
+		const rc = this.w().advapi.RegGetValueW(
+			HKCU,
+			ptr(wide(PERSONALIZE)),
+			ptr(wide(name)),
+			RRF_RT_REG_DWORD,
+			null,
+			ptr(data),
+			ptr(size),
+		);
+		return rc === 0 ? (data[0] ?? null) : null;
+	}
+
+	/** Settings › Personalization › Colors › Transparency effects (missing = on). */
+	reduceTransparency(): boolean {
+		return this.personalize("EnableTransparency") === 0;
+	}
+
+	/** Settings › Personalization › Colors › app mode (missing = light). */
+	systemDark(): boolean | null {
+		return this.personalize("AppsUseLightTheme") === 0;
+	}
+
+	windowsBuild(): number | null {
+		if (this.build === undefined) {
+			// OSVERSIONINFOW: size, major, minor, build, platform, WCHAR[128] = 276 bytes.
+			const info = new Uint32Array(69);
+			info[0] = 276;
+			this.build = this.w().ntdll.RtlGetVersion(ptr(info)) === 0 ? (info[3] ?? null) : null;
+		}
+		return this.build;
+	}
+
+	setMaterial(hwnd: Pointer, material: NativeMaterial): void {
+		const build = this.windowsBuild() ?? 0;
+		if (material.kind === "win-backdrop") {
+			// The glass sheet: the backdrop shows wherever the webview is transparent.
+			const margins = Int32Array.of(-1, -1, -1, -1);
+			const hr = this.w().dwm.DwmExtendFrameIntoClientArea(hwnd, ptr(margins));
+			if (hr !== 0) throw new Error(`DwmExtendFrameIntoClientArea failed: ${hresult(hr)}`);
+			const backdrop = this.setDword(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, material.backdrop);
+			if (backdrop !== 0) throw new Error(`DWMWA_SYSTEMBACKDROP_TYPE failed: ${hresult(backdrop)}`);
+			this.setDword(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, material.corner);
+			this.setDword(hwnd, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE);
+			return;
+		}
+		// Solid: no backdrop (22H2+), DWM's own border back; Windows 11 keeps its round corners.
+		if (build >= 22621) this.setDword(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, 1);
+		if (build >= 22000) this.setDword(hwnd, DWMWA_BORDER_COLOR, DWMWA_COLOR_DEFAULT);
+	}
+
+	setAppearance(hwnd: Pointer, _theme: ThemeSetting, dark: boolean): void {
+		// Switches Acrylic / Mica between their light and dark tints. Electrobun sets it from the
+		// registry at creation and on WM_SETTINGCHANGE; Glimpse re-applies after a theme change.
+		this.setDword(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, dark ? 1 : 0);
+	}
+
+	setCloaked(hwnd: Pointer, cloaked: boolean): void {
+		const hr = this.setDword(hwnd, DWMWA_CLOAK, cloaked ? 1 : 0);
+		if (hr !== 0) throw new Error(`DWMWA_CLOAK failed: ${hresult(hr)}`);
+	}
+
+	/** Diagnostics / smoke tests: DWMWA_CLOAKED (0 = shown, 1 = cloaked by the app). */
+	cloaked(hwnd: Pointer): number | null {
+		const out = new Uint32Array(1);
+		return this.w().dwm.DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, ptr(out), 4) === 0 ? (out[0] ?? null) : null;
+	}
+
+	disableResize(hwnd: Pointer): void {
+		if (!this.dll) throw new Error("glimpse.dll is not loaded");
+		this.dll.disableResize(hwnd);
+	}
+}
+
+let windowsChrome: WindowsChrome | null = null;
+
+/** Window chrome over DWM (Windows only); the sizing-border fix needs glimpse.dll. */
+export function loadWindowsChrome(): WindowsChrome {
+	windowsChrome ??= new WindowsChrome(loadWindowsCapture().binding);
+	return windowsChrome;
 }
