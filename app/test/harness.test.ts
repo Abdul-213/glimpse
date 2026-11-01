@@ -96,7 +96,7 @@ describe("harness pipeline: frames -> OCR -> language -> translation -> result",
 		expect(blocks[1]?.find((b) => b.id === "caption")?.translation).toBe("ありがとう [ja>en]");
 		// OCR saw the real captured pixels: 720x240 RGBA at 2x.
 		expect(ocr.calls[0]?.image).toMatchObject({ width: 720, height: 240, format: "rgba8" });
-		expect(translation.calls.map((c) => c.segments.map((s) => s.id))).toEqual([["caption"], ["caption"]]);
+		expect(translation.calls.map((c) => c.segments.map((s) => s.id))).toEqual([["caption#0"], ["caption#0"]]);
 	});
 });
 

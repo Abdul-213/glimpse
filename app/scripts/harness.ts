@@ -5,6 +5,8 @@
 //   bun run harness live --rect 190,0,150,60 --fps 4 --count 6
 //   bun run harness live --frames path/to/recording --realtime
 //   bun run harness snip --native --rect 0,0,400,200 --out out    (real capture on Windows/macOS)
+//   bun run harness snip --pipeline                                 (OCR -> detect -> cache -> translate, fakes)
+//   bun run harness snip --pipeline --translator bergamot --to de --ocr-text "明日の会議は午後三時に始まります。"
 //
 // Without --native it uses the file-based capture backend over --frames (default: the
 // sample recording in app/test/fixtures/capture/sample). --json prints the full report.
@@ -12,7 +14,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { type CaptureSource, isCaptureError, parseRect, type Rect } from "@glimpse/core";
+import {
+	type CaptureSource,
+	isCaptureError,
+	type LanguageCode,
+	parseLanguageCode,
+	parseRect,
+	type Rect,
+	TranslationCache,
+} from "@glimpse/core";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import { loadWindowsCapture } from "../src/bun/native/windows.ts";
 import { createFileCaptureSource } from "../src/bun/services/capture/file.ts";
@@ -21,7 +31,21 @@ import { MacCaptureSource } from "../src/bun/services/capture/macos.ts";
 import { displaysFromMac, displaysFromWindows } from "../src/bun/services/capture/native-displays.ts";
 import { encodePng } from "../src/bun/services/capture/png.ts";
 import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
-import { type FrameReport, runLive, runSnip } from "../src/harness/run.ts";
+import {
+	bergamotTranslator,
+	defaultPackRoot,
+	fakeTranslator,
+	type HarnessTranslator,
+	scriptedOcr,
+} from "../src/harness/providers.ts";
+import {
+	type FrameReport,
+	type HarnessStage,
+	type PipelineStageReport,
+	pipelineStage,
+	runLive,
+	runSnip,
+} from "../src/harness/run.ts";
 
 const USAGE = `usage: bun run harness <displays|snip|live> [options]
   --frames <path>   frame folder or PNG for the file backend (default: sample recording)
@@ -32,7 +56,15 @@ const USAGE = `usage: bun run harness <displays|snip|live> [options]
   --count <n>       Live frames to pull (default: frame count of the recording, else 8)
   --realtime        Live: sleep 1/fps between frames; file backend switches to timed advance
   --out <dir>       save each frame as PNG
-  --json            print the full JSON report`;
+  --json            print the full JSON report
+  --pipeline        run the translation pipeline (GLIM-102) on every frame
+  --ocr-text <t>    pipeline: what the scripted OCR "reads", blocks separated by |
+                    (default: a Japanese sentence pair, a number and an English label)
+  --translator <t>  pipeline: fake (default) or bergamot (real WASM + installed packs, no network)
+  --packs <dir>     bergamot: model folder with installed packs (default ${defaultPackRoot()})
+  --to <lang>       pipeline target language (default en)
+  --sources <a,b>   pipeline source-language subset (default: every language)
+  --private         pipeline: Private mode (nothing cached)`;
 
 const { values, positionals } = parseArgs({
 	args: Bun.argv.slice(2),
@@ -47,6 +79,13 @@ const { values, positionals } = parseArgs({
 		realtime: { type: "boolean", default: false },
 		out: { type: "string" },
 		json: { type: "boolean", default: false },
+		pipeline: { type: "boolean", default: false },
+		"ocr-text": { type: "string" },
+		translator: { type: "string", default: "fake" },
+		packs: { type: "string" },
+		to: { type: "string", default: "en" },
+		sources: { type: "string" },
+		private: { type: "boolean", default: false },
 		help: { type: "boolean", short: "h", default: false },
 	},
 });
@@ -99,6 +138,58 @@ const onFrame = values.out
 		}
 	: undefined;
 
+const lang = (v: string, name: string): LanguageCode => {
+	const code = parseLanguageCode(v);
+	if (!code) throw new Error(`--${name}: not a language code: ${v}`);
+	return code;
+};
+const DEFAULT_OCR_TEXT = "設定を保存しました。次へ進みます。|100|Settings";
+
+let translator: HarnessTranslator | null = null;
+const stages: HarnessStage[] = [];
+if (values.pipeline) {
+	const to = lang(values.to ?? "en", "to");
+	const sources = (values.sources ?? "")
+		.split(",")
+		.filter(Boolean)
+		.map((s) => lang(s, "sources"));
+	if (values.translator !== "fake" && values.translator !== "bergamot") {
+		throw new Error(`--translator must be fake or bergamot, not ${values.translator}`);
+	}
+	const lines = (values["ocr-text"] ?? DEFAULT_OCR_TEXT).split("|");
+	const ocr = scriptedOcr(lines);
+	await ocr.init();
+	translator =
+		values.translator === "bergamot"
+			? await bergamotTranslator(values.packs ? resolve(values.packs) : defaultPackRoot())
+			: await fakeTranslator();
+	stages.push(
+		pipelineStage({
+			ocr,
+			translation: translator.provider,
+			to,
+			sources,
+			private: values.private,
+			cache: new TranslationCache({ store: !values.private, name: "harness" }),
+		}),
+	);
+}
+
+const pipelineLines = (r: FrameReport): string[] => {
+	const p = r.stages["pipeline"] as PipelineStageReport | undefined;
+	if (!p) return [];
+	const out = [
+		`    pipeline: ${p.done}/${p.total} translated${p.error ? `, error ${p.error}` : ""} in ${p.timings.totalMs} ms (${p.events.join(" → ")})`,
+	];
+	for (const b of p.blocks) {
+		const what = b.translation ?? (b.error ? `[${b.error}]` : `[${b.cls}]`);
+		out.push(
+			`      ${b.id} ${b.cls} ${b.from ?? "-"}: ${JSON.stringify(b.text)} → ${JSON.stringify(what)}${b.remembered ? " (remembered)" : ""}`,
+		);
+	}
+	return out;
+};
+
 const line = (r: FrameReport) =>
 	`#${r.index} ${r.width}x${r.height} @${r.scale}x seq ${r.sequence}${r.sequenceChanged ? " (new)" : " (same)"} ` +
 	`hash ${r.hash}${r.partial ? " partial" : ""} ${r.ms} ms`;
@@ -112,10 +203,11 @@ try {
 	} else if (!rect) {
 		throw new Error("no displays and no --rect");
 	} else if (command === "snip") {
-		const r = await runSnip(source, rect, { ...(scale ? { scale } : {}), ...(onFrame ? { onFrame } : {}) });
+		const r = await runSnip(source, rect, { stages, ...(scale ? { scale } : {}), ...(onFrame ? { onFrame } : {}) });
 		console.log(
 			values.json ? JSON.stringify(r, null, 2) : `snip ${source.backend} ${values.rect ?? "primary"}: ${line(r.frame)}`,
 		);
+		if (!values.json) for (const l of pipelineLines(r.frame)) console.log(l);
 	} else {
 		const fps = num(values.fps, "fps") ?? 4;
 		const count = num(values.count, "count") ?? source.frameCount ?? 8;
@@ -123,6 +215,7 @@ try {
 			fps,
 			count,
 			realtime: values.realtime,
+			stages,
 			...(scale ? { scale } : {}),
 			...(onFrame ? { onFrame } : {}),
 		});
@@ -130,7 +223,10 @@ try {
 			console.log(JSON.stringify(r, null, 2));
 		} else {
 			console.log(`live ${source.backend} ${values.rect ?? "primary"} at ${fps} fps:`);
-			for (const f of r.frames) console.log(`  ${line(f)}`);
+			for (const f of r.frames) {
+				console.log(`  ${line(f)}`);
+				for (const l of pipelineLines(f)) console.log(l);
+			}
 			console.log(`  ${r.summary.captured} frames, ${r.summary.changed} new, ${r.summary.unchanged} unchanged`);
 		}
 	}
@@ -139,5 +235,6 @@ try {
 	console.error(`[harness] ${isCaptureError(e) ? `${e.code}: ` : ""}${e instanceof Error ? e.message : String(e)}`);
 	process.exitCode = 1;
 } finally {
+	await translator?.dispose();
 	source.dispose();
 }

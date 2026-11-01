@@ -3,16 +3,24 @@
 // webview, so Snip and Live flows run end to end on Linux and in CI.
 //
 // Stages are the extension point: a stage gets every captured frame and returns plain
-// data for the report. GLIM-48 / GLIM-56 / GLIM-58 add OCR, detection, translation and
-// change-detection stages here; today the harness reports what capture produced.
+// data for the report. `pipelineStage` runs the core pipeline (GLIM-102: OCR, grouping,
+// detection, cache, translation); change detection (GLIM-58) plugs in the same way.
 import {
+	type BlockClass,
+	type BlockGrouper,
 	type CaptureFrame,
 	type CaptureSource,
-	collectTranslations,
+	functionDetector,
 	type LanguageCode,
+	type LanguageDetector,
 	type OcrProvider,
+	type PipelineErrorKind,
+	type PipelineListener,
+	type PipelineResult,
 	type Rect,
 	rgbaHash,
+	TranslationCache,
+	TranslationPipeline,
 	type TranslationProvider,
 	toOcrImage,
 } from "@glimpse/core";
@@ -24,46 +32,109 @@ export interface PipelineBlock {
 	readonly text: string;
 	/** Detected source language, or null when the detector gave none (block not translated). */
 	readonly from: LanguageCode | null;
+	/** GLIM-21 class: translate / skip / neutral / target. */
+	readonly cls: BlockClass;
+	/** The translation, the text itself for target-language blocks, else null. */
 	readonly translation: string | null;
 	readonly error: string | null;
+	/** Served entirely from the translation cache. */
+	readonly remembered: boolean;
+	readonly provider: string | null;
+}
+
+export interface PipelineStageReport {
+	readonly blocks: PipelineBlock[];
+	/** Whole-run error kind (snip-popup.md E1-E7), or null. */
+	readonly error: PipelineErrorKind | null;
+	/** Event types in order, consecutive repeats collapsed (`translation x3`). */
+	readonly events: string[];
+	readonly done: number;
+	readonly total: number;
+	readonly cloud: boolean;
+	readonly timings: PipelineResult["timings"];
 }
 
 export interface PipelineStageOptions {
 	readonly ocr: OcrProvider;
-	/** Language detection (GLIM-39 supplies the real one). Null: leave the block untranslated. */
-	readonly detect: (text: string) => LanguageCode | null;
-	readonly translation: TranslationProvider;
+	/**
+	 * Language detection: a `LanguageDetector` (GLIM-49 supplies the real one) or a per-text
+	 * function (null: leave the block untranslated). Default: core's script-table detector.
+	 */
+	readonly detect?: LanguageDetector | ((text: string) => LanguageCode | null);
+	/** The translation chain (or one provider). */
+	readonly translation: TranslationProvider | readonly TranslationProvider[];
 	readonly to: LanguageCode;
+	readonly sources?: readonly LanguageCode[];
+	/** Shared across frames (default: one app-wide cache for the stage's life). */
+	readonly cache?: TranslationCache;
+	readonly private?: boolean;
+	readonly grouper?: BlockGrouper;
+	/** Every pipeline event (for tests and --json). */
+	readonly onEvent?: PipelineListener;
 }
 
 /**
- * The text pipeline as a harness stage: frame -> OCR -> language detection -> translation
- * -> blocks. A stand-in until the core pipeline (GLIM-48) exists; then the harness runs that
- * instead, through the same stage hook.
+ * The core pipeline (GLIM-102) as a harness stage: frame -> OCR -> grouping -> language
+ * detection -> cache / translation -> blocks.
  */
 export function pipelineStage(options: PipelineStageOptions): HarnessStage {
+	const chain: readonly TranslationProvider[] = Array.isArray(options.translation)
+		? options.translation
+		: [options.translation as TranslationProvider];
+	const detect = options.detect;
+	const detector = typeof detect === "function" ? functionDetector(detect) : detect;
+	const pipeline = new TranslationPipeline({
+		ocr: () => options.ocr,
+		chain: () => chain,
+		...(detector ? { detector } : {}),
+		...(options.grouper ? { grouper: options.grouper } : {}),
+	});
+	const cache = options.cache ?? new TranslationCache({ name: "harness" });
 	return {
 		name: "pipeline",
-		async run(frame): Promise<{ blocks: PipelineBlock[] }> {
-			const { blocks } = await options.ocr.recognise({ image: toOcrImage(frame) });
-			const detected = blocks.map((b) => ({ block: b, from: options.detect(b.text) }));
-			const segments = detected.flatMap(({ block, from }) =>
-				from && from !== options.to ? [{ id: block.id, text: block.text, from }] : [],
-			);
-			const outcomes =
-				segments.length > 0 ? await collectTranslations(options.translation, { segments, to: options.to }) : new Map();
+		async run(frame, ctx): Promise<PipelineStageReport> {
+			const events: string[] = [];
+			let last = "";
+			let repeat = 1;
+			const result = await pipeline.run(toOcrImage(frame), {
+				mode: ctx.mode,
+				target: options.to,
+				sources: options.sources ?? [],
+				cache,
+				private: options.private ?? false,
+				onEvent: (event) => {
+					options.onEvent?.(event);
+					if (event.type === last) {
+						repeat++;
+						events[events.length - 1] = `${event.type} x${repeat}`;
+					} else {
+						last = event.type;
+						repeat = 1;
+						events.push(event.type);
+					}
+				},
+			});
 			return {
-				blocks: detected.map(({ block, from }) => {
-					const outcome = outcomes.get(block.id);
+				blocks: result.blocks.map((b): PipelineBlock => {
+					const t = result.translations[b.id];
 					return {
-						id: block.id,
-						box: block.box,
-						text: block.text,
-						from,
-						translation: outcome?.ok ? outcome.translation.text : from === options.to ? block.text : null,
-						error: outcome && !outcome.ok ? outcome.error.message : null,
+						id: b.id,
+						box: b.box,
+						text: b.text,
+						from: b.lang,
+						cls: b.cls,
+						translation: t && !t.failure ? t.text : b.cls === "target" ? b.text : null,
+						error: t?.failure ? `${t.failure.kind}: ${t.failure.error.message}` : null,
+						remembered: t?.provider?.remembered === true,
+						provider: t?.provider?.id ?? null,
 					};
 				}),
+				error: result.error?.kind ?? null,
+				events,
+				done: result.done,
+				total: result.total,
+				cloud: result.cloud,
+				timings: result.timings,
 			};
 		},
 	};
