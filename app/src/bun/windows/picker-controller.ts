@@ -192,6 +192,8 @@ export class PickerController {
 			this.deps.log.warn("picker: no displays");
 			return;
 		}
+		// Spec 7.1: remember the foreground app before anything shows.
+		this.deps.focus.save();
 		const settings = this.deps.settings?.() ?? DEFAULT_SETTINGS;
 		const session = new PickerSession({
 			env: { displays, os: this.deps.os, confirmOnRelease: settings.confirmOnRelease },
@@ -207,6 +209,7 @@ export class PickerController {
 			onLoupe: (p) => this.sendLoupe(p),
 			onDone: (o) => this.finish(o, settings),
 			log: (m) => this.deps.log.debug(m),
+			displaysNow: this.deps.displays,
 		});
 		this.session = session;
 		this.lastReset = { mode, reducedMotion: settings.reducedMotion, showLoupe: settings.showLoupe };
@@ -229,7 +232,7 @@ export class PickerController {
 		this.session?.cancel(reason);
 	}
 
-	/** Snip popup closed: take the results layer down (no focus restore, the popup had it). */
+	/** Snip popup closed: take the results layer down (no focus restore here: the popup does it, snip-popup.md 7). */
 	dismiss(): void {
 		if (!this.keeping) return;
 		this.keeping = false;
@@ -267,8 +270,9 @@ export class PickerController {
 		this.session?.key(m);
 	}
 
-	viewFocus(_displayId: number, _focused: boolean): void {
-		// Focus-loss cancel lands with GLIM-55.
+	viewFocus(displayId: number, focused: boolean): void {
+		if (!this.overlays.has(displayId)) return;
+		this.session?.focus(displayId, focused);
 	}
 
 	modeClicked(mode: PickerMode): void {
@@ -337,6 +341,10 @@ export class PickerController {
 		if (outcome.kind === "cancelled") {
 			this.deps.log.info("picker cancelled", { reason: outcome.reason });
 			this.hideAll(animate);
+			// Spec 7.4 / 7.7: give focus back, unless the user moved it elsewhere themselves.
+			if (outcome.reason !== "focus-lost") this.restoreFocus();
+			// Overlays sized for displays that changed or vanished go now, not on the next open.
+			if (outcome.reason === "display-change") this.prepareAfterHide(animate);
 			return;
 		}
 		const region = outcome.region;
@@ -356,12 +364,29 @@ export class PickerController {
 			}
 		}
 		if (region.mode === "snip" && keep) {
-			// Results layer: scrim gone, selection edge stays, under the Snip popup (spec 7.5, 9.1).
+			// Results layer: scrim gone, selection edge stays, under the Snip popup, which takes
+			// focus itself (spec 7.5, 9.1).
 			this.keeping = true;
 			for (const o of this.overlays.values()) o.setLevel("belowPopup");
 			return;
 		}
 		this.hideAll(animate);
+		// Live confirm (spec 7.6): focus goes straight back so a game keeps its frame budget.
+		// A Snip nobody kept (no popup yet) is treated the same way.
+		this.restoreFocus();
+	}
+
+	private restoreFocus(): void {
+		const restored = this.deps.focus.restore();
+		this.deps.log.debug("focus restore", { restored });
+	}
+
+	private prepareAfterHide(animate: boolean): void {
+		const run = () => {
+			if (!this.isOpen) this.prepare();
+		};
+		if (animate) this.scheduler.later(EXIT_FADE_MS + 1, run);
+		else run();
 	}
 
 	/** A new open while the results layer is up replaces it. */

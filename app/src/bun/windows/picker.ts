@@ -68,6 +68,9 @@ class ElectrobunOverlay implements OverlayWindow {
 			activate: false,
 			rpc: this.rpc,
 		});
+		// Native focus events back up the view's window focus/blur (GLIM-55: focus loss cancels).
+		this.win.on("focus", () => c()?.viewFocus(id, true));
+		this.win.on("blur", () => c()?.viewFocus(id, false));
 		const handle = this.win.ptr;
 		if (process.platform === "win32") this.win.setAlwaysOnTop(true);
 		if (deps.ops && handle) {

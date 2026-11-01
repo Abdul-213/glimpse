@@ -30,6 +30,13 @@ export interface PointerProbe {
 export const LOUPE_INTERVAL_MS = 33;
 /** Poll the cursor when no view event arrived for this long (spec 4.1). */
 export const POLL_QUIET_MS = 100;
+/**
+ * Focus loss cancels once no overlay has had focus for this long (spec 7.7). Clicking from
+ * one display's overlay to another's blurs one and focuses the other within a few ms.
+ */
+export const FOCUS_LOSS_GRACE_MS = 150;
+/** Re-read the display list at most this often (spec 7.8: "at most once per second"). */
+export const DISPLAY_CHECK_MS = 1000;
 
 /** A pointer event from an overlay, in its own display-local CSS px. */
 export interface ViewPointer {
@@ -68,6 +75,11 @@ export interface PickerSessionOptions {
 	readonly liveRunning?: boolean;
 	/** Diagnostics (window list failures). */
 	readonly log?: (message: string) => void;
+	/**
+	 * The current display list (Electrobun has no display-change event). Polled at most
+	 * once a second; a change cancels with "display-change" (spec 7.8).
+	 */
+	readonly displaysNow?: () => readonly Display[];
 }
 
 export class PickerSession {
@@ -82,10 +94,17 @@ export class PickerSession {
 	private readonly hintSizes = new Map<number, Size>();
 	private readoutSize: { text: string; size: Size } | null = null;
 	private readonly overHint = new Set<number>();
+	private readonly focused = new Set<number>();
+	private hadFocus = false;
+	private unfocusedSince: number | null = null;
+	private lastDisplayCheck: number;
+	private readonly displayKey: string;
 
 	constructor(private readonly o: PickerSessionOptions) {
 		const cursor = o.probe.cursor();
 		this.state = initialPickerState({ ...o.env, windows: [] }, o.mode, cursor);
+		this.displayKey = displaysKey(o.env.displays);
+		this.lastDisplayCheck = o.now();
 	}
 
 	get phase() {
@@ -184,10 +203,40 @@ export class PickerSession {
 		this.publish();
 	}
 
+	/**
+	 * An overlay gained or lost OS focus. Once one has had focus, losing it everywhere for
+	 * FOCUS_LOSS_GRACE_MS cancels with "focus-lost": the user went to another app on purpose,
+	 * so focus is not handed back (spec 7.7). If no overlay ever gets focus (Windows refused
+	 * the foreground), the picker keeps working with the pointer (spec 7.3).
+	 */
+	focus(displayId: number, focused: boolean): void {
+		if (this.finished) return;
+		if (focused) {
+			this.focused.add(displayId);
+			this.hadFocus = true;
+			this.unfocusedSince = null;
+		} else {
+			this.focused.delete(displayId);
+			if (this.hadFocus && this.focused.size === 0) this.unfocusedSince = this.o.now();
+		}
+	}
+
 	/** Called by the window controller at ~60 Hz while the picker is visible. */
 	tick(): void {
 		if (this.finished) return;
 		const now = this.o.now();
+		if (this.unfocusedSince !== null && now - this.unfocusedSince >= FOCUS_LOSS_GRACE_MS) {
+			this.cancel("focus-lost");
+			return;
+		}
+		if (this.o.displaysNow && now - this.lastDisplayCheck >= DISPLAY_CHECK_MS) {
+			this.lastDisplayCheck = now;
+			if (displaysKey(this.o.displaysNow()) !== this.displayKey) {
+				this.o.log?.("display layout changed while picking");
+				this.cancel("display-change");
+				return;
+			}
+		}
 		this.pollCursor(now);
 		if (this.finished) return;
 		this.sampleLoupe(now);
@@ -276,6 +325,9 @@ export class PickerSession {
 		return !!d && this.overHint.has(d.id);
 	}
 }
+
+const displaysKey = (displays: readonly Display[]): string =>
+	JSON.stringify(displays.map((d) => [d.id, d.bounds, d.scaleFactor]));
 
 /** Narrow an outcome to its region, for Snip / Live consumers. */
 export const regionOf = (o: PickerOutcome): RegionSelected | null => (o.kind === "confirmed" ? o.region : null);
