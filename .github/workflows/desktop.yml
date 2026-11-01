@@ -254,13 +254,20 @@ jobs:
             done
           done) || true
 
+          set -x
           ditto -c -k --keepParent "$app" "$dist/$base.zip"
 
           stage="$RUNNER_TEMP/dmg"
           mkdir -p "$stage"
           ditto "$app" "$stage/$(basename "$app")"
           ln -s /Applications "$stage/Applications"
-          hdiutil create -quiet -volname Glimpse -srcfolder "$stage" -format UDZO -ov "$dist/$base.dmg"
+          # hdiutil is flaky on hosted runners ("Resource busy"); retry, and ship the zip regardless.
+          dmg_ok=0
+          for attempt in 1 2 3; do
+            if hdiutil create -volname Glimpse -srcfolder "$stage" -format UDZO -ov "$dist/$base.dmg"; then dmg_ok=1; break; fi
+            echo "hdiutil attempt $attempt failed; retrying"; sleep 5
+          done
+          [ "$dmg_ok" = 1 ] || echo "::warning::DMG not created; the .zip is still uploaded"
 
           ls -la "$dist"
           echo "zip=$dist/$base.zip" >> "$GITHUB_OUTPUT"
@@ -279,3 +286,4 @@ jobs:
           path: ${{ steps.package.outputs.dmg }}
           archive: false
           retention-days: 14
+          if-no-files-found: warn
