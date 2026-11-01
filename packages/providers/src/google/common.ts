@@ -392,3 +392,20 @@ export async function readGoogleKey(
 	}
 	return key.trim();
 }
+
+/**
+ * A pasted key, cleaned (surrounding whitespace and quotes dropped), or a problem a user can
+ * fix. Google Cloud API keys are 39 characters (`AIza` + 35 of `[A-Za-z0-9_-]`); the check is
+ * looser than that so a future key format still saves, and "Test key" has the last word.
+ */
+export function cleanGoogleKey(input: string): { readonly key: string } | { readonly problem: string } {
+	const key = input.trim().replace(/^["']|["']$/g, "");
+	if (key === "") return { problem: "Paste your API key first." };
+	if (/\s/.test(key)) return { problem: "An API key has no spaces or line breaks. Copy only the key." };
+	if (!/^[A-Za-z0-9_-]+$/.test(key) || key.length < 30 || key.length > 128) {
+		return {
+			problem: "That doesn't look like a Google Cloud API key. Keys start with AIza and are 39 characters long.",
+		};
+	}
+	return { key };
+}

@@ -156,6 +156,7 @@ function handlers(overrides: Partial<SettingsDeps> = {}) {
 		hotkeys: registrar,
 		loginItem,
 		models: {} as never,
+		cloud: {} as never,
 		installedPairs: () => [{ source: languageCode("ja"), target: languageCode("en") }],
 		providers: () => ({ ocr: null, translation: [] }),
 		dispatch: async (c) => {

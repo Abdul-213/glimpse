@@ -30,6 +30,7 @@ import {
 } from "../../shared/settings-rpc.ts";
 import type { Command, CommandSource } from "../commands.ts";
 import type { AppSettings } from "../services/app-settings.ts";
+import type { CloudSettingsApi } from "../services/cloud-settings.ts";
 import { HOTKEY_ACTIONS, type HotkeyRegistrar } from "../services/hotkeys-port.ts";
 import type { LoginItem } from "../services/login-item.ts";
 import type { ModelsSettings } from "../services/models/models-settings.ts";
@@ -40,6 +41,8 @@ export interface SettingsDeps {
 	readonly hotkeys: HotkeyRegistrar;
 	readonly loginItem: LoginItem;
 	readonly models: ModelsSettings;
+	/** Cloud providers and API keys (GLIM-75). Keys never come back through it. */
+	readonly cloud: CloudSettingsApi;
 	/** Installed translation packs as pairs (for "pack installed" hints in Languages). */
 	readonly installedPairs: () => readonly LanguagePair[];
 	readonly providers: () => SettingsSnapshot["providers"];
@@ -214,6 +217,19 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 			(await deps.dispatch("diagnostics.copy", "settings")) ? { ok: true } : bad("Couldn't copy diagnostics."),
 		openLogs: async (): Promise<ActionResult> =>
 			(await deps.dispatch("logs.open", "settings")) ? { ok: true } : bad("Couldn't open the logs folder."),
+
+		// Cloud providers and API keys (GLIM-75). Params are checked by CloudSettings.
+		getCloud: () => deps.cloud.snapshot(),
+		saveApiKey: (params: unknown) =>
+			isPlainObject(params)
+				? deps.cloud.saveKey(params["secretId"], params["key"])
+				: deps.cloud.saveKey(undefined, undefined),
+		removeApiKey: (params: unknown) => deps.cloud.removeKey(isPlainObject(params) ? params["secretId"] : undefined),
+		testApiKey: (params: unknown) => deps.cloud.testKey(isPlainObject(params) ? params["secretId"] : undefined),
+		setProvider: (params: unknown) => deps.cloud.setProvider(isPlainObject(params) ? params : null),
+		resetLiveConsent: () => deps.cloud.resetLiveConsent(),
+		openCloudLink: (params: unknown): ActionResult =>
+			deps.cloud.openLink(isPlainObject(params) ? params["link"] : undefined),
 	};
 }
 

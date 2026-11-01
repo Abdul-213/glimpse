@@ -50,6 +50,13 @@ export class SettingsWindow {
 					clearCache: h.clearCache,
 					copyDiagnostics: h.copyDiagnostics,
 					openLogs: h.openLogs,
+					getCloud: h.getCloud,
+					saveApiKey: h.saveApiKey,
+					removeApiKey: h.removeApiKey,
+					testApiKey: h.testApiKey,
+					setProvider: h.setProvider,
+					resetLiveConsent: h.resetLiveConsent,
+					openCloudLink: h.openCloudLink,
 				},
 				messages: {
 					closeSettings: () => this.window?.close(),
@@ -68,6 +75,7 @@ export class SettingsWindow {
 			this.deps.settings.subscribe((s) => rpc.send.settingsChanged(s)),
 			this.deps.hotkeys.subscribe((s) => rpc.send.hotkeysChanged(s)),
 			this.deps.models.subscribe((s) => rpc.send.modelsChanged(s)),
+			this.deps.cloud.subscribe((s) => rpc.send.cloudChanged(s)),
 		];
 		win.on("close", () => {
 			for (const u of this.unsubscribe) u();

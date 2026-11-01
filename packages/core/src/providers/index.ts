@@ -1,3 +1,4 @@
+export * from "./consent.ts";
 export * from "./errors.ts";
 export * from "./language-map.ts";
 export * from "./lifecycle.ts";

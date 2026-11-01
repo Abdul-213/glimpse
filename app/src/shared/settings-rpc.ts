@@ -127,6 +127,88 @@ export interface LoginItemStatus {
 	readonly error?: string;
 }
 
+// ── Cloud providers and API keys (GLIM-75) ──────────────────────────────────────────────
+//
+// Keys go one way: the view sends a pasted key once (`saveApiKey`), main stores it in the OS
+// keychain, and from then on the view only ever sees status (saved or not, the last four
+// characters, the last test result). Nothing here carries a key back.
+
+export type CloudTask = "ocr" | "translation";
+
+/** One API's verdict from "Test key". `problem` is a GoogleProblem (`api-disabled`, ...). */
+export type ApiKeyCheck =
+	| { readonly api: "vision" | "translate"; readonly name: string; readonly ok: true }
+	| {
+			readonly api: "vision" | "translate";
+			readonly name: string;
+			readonly ok: false;
+			readonly problem: string;
+			/** What to do about it, in words for the user. */
+			readonly message: string;
+	  };
+
+export interface ApiKeyTestResult {
+	/** When it ran (ms since epoch), for "checked just now". */
+	readonly at: number;
+	readonly ok: boolean;
+	readonly checks: readonly ApiKeyCheck[];
+}
+
+export interface ApiKeyStatus {
+	/** Keychain entry id (`google-cloud`). */
+	readonly secretId: string;
+	/** "Google". */
+	readonly vendor: string;
+	/** "Google Cloud API key". */
+	readonly label: string;
+	readonly saved: boolean;
+	/** "…3f2a": the last four characters of a saved key, or null. Never more. */
+	readonly hint: string | null;
+	/** The last "Test key" result this session, or null. Cleared when the key changes. */
+	readonly lastTest: ApiKeyTestResult | null;
+	/** The providers that use this key, by name ("Google Cloud Vision", ...). */
+	readonly usedBy: readonly string[];
+}
+
+export interface CloudProviderStatus {
+	readonly id: string;
+	/** "Google Cloud Translation". */
+	readonly name: string;
+	readonly vendor: string;
+	readonly task: CloudTask;
+	/** What leaves the device when it is used (GLIM-22 indicator: image vs text). */
+	readonly sends: "image" | "text";
+	readonly secretId: string;
+	/** Picked for its task in settings. */
+	readonly selected: boolean;
+}
+
+export interface CloudSnapshot {
+	/** The OS keychain can be used. When it can't, keys can't be saved (no plaintext fallback). */
+	readonly keychain: { readonly available: true } | { readonly available: false; readonly message: string };
+	readonly keys: readonly ApiKeyStatus[];
+	readonly providers: readonly CloudProviderStatus[];
+	/** On-device providers per task (what "On this computer" means), from the registry. */
+	readonly local: { readonly ocr: ProviderSummary | null; readonly translation: readonly ProviderSummary[] };
+	/** Cloud translators Live won't ask about again (`settings.cloud.liveConsent`). */
+	readonly liveConsent: readonly string[];
+}
+
+export interface SetProviderParams {
+	readonly task: CloudTask;
+	/** A cloud provider id, or null for "On this computer". */
+	readonly id: string | null;
+	/** The user confirmed "Translate with ‹Provider›?". Required for cloud providers. */
+	readonly confirmed?: boolean;
+}
+
+/** Fixed links main opens in the browser (the view can't pass a URL). */
+export type CloudLink = "console" | "credentials" | "terms" | "pricing";
+
+export type CloudActionResult =
+	| { readonly ok: true; readonly cloud: CloudSnapshot }
+	| { readonly ok: false; readonly message: string; readonly cloud: CloudSnapshot };
+
 // ── The snapshot ────────────────────────────────────────────────────────────────────────
 
 export interface SettingsSnapshot {
@@ -136,7 +218,7 @@ export interface SettingsSnapshot {
 	readonly defaultHotkeys: HotkeyBindings;
 	readonly hotkeys: HotkeyStatus;
 	readonly loginItem: LoginItemStatus;
-	/** Translation and OCR providers in use (local only until GLIM-75). */
+	/** Translation and OCR providers in use. Cloud details and keys: `getCloud` (GLIM-75). */
 	readonly providers: {
 		readonly ocr: ProviderSummary | null;
 		readonly translation: readonly ProviderSummary[];
@@ -180,6 +262,13 @@ export type SettingsRPC = {
 			clearCache: { params: undefined; response: ActionResult };
 			copyDiagnostics: { params: undefined; response: ActionResult };
 			openLogs: { params: undefined; response: ActionResult };
+			getCloud: { params: undefined; response: CloudSnapshot };
+			saveApiKey: { params: { secretId: string; key: string }; response: CloudActionResult };
+			removeApiKey: { params: { secretId: string }; response: CloudActionResult };
+			testApiKey: { params: { secretId: string }; response: CloudActionResult };
+			setProvider: { params: SetProviderParams; response: CloudActionResult };
+			resetLiveConsent: { params: undefined; response: CloudActionResult };
+			openCloudLink: { params: { link: CloudLink }; response: ActionResult };
 		};
 		messages: {
 			closeSettings: undefined;
@@ -191,6 +280,7 @@ export type SettingsRPC = {
 			settingsChanged: Settings;
 			hotkeysChanged: HotkeyStatus;
 			modelsChanged: ModelsSnapshot;
+			cloudChanged: CloudSnapshot;
 		};
 	}>;
 };

@@ -101,6 +101,42 @@ describe("TranslationService", () => {
 		await service.dispose();
 	});
 
+	test("keyChanged (GLIM-75): wipes the cache and re-inits the providers waiting for that key", async () => {
+		let hasKey = false;
+		const registry = new ProviderRegistry<unknown>();
+		registry.register(fakeOcrFactory({ id: "fake-ocr", blocks: [ocrBlock("b1", "こんにちは", rect(0, 0, 50, 20))] }));
+		registry.register(fakeTranslationFactory({ id: "fake-translation" }));
+		registry.register(
+			fakeTranslationFactory({
+				id: "cloud:fake",
+				kind: "cloud",
+				initStatus: () => (hasKey ? { state: "ready" } : { state: "needs-key" }),
+			}),
+		);
+		const env = settingsEnvFor("windows", "en-US", registry);
+		const settings = applySettingsPatch(
+			defaultSettings(env),
+			{ providers: { ocr: "fake-ocr", translation: ["cloud:fake", "fake-translation"] } },
+			env,
+		).settings;
+		const service = new TranslationService({
+			registry,
+			ctx: {},
+			settings: () => settings,
+			log: createLogger({ sinks: [] }),
+		});
+		await service.start();
+		const cloud = service.chain[0];
+		expect(cloud?.status.state).toBe("needs-key");
+		await service.snip(capture, rect(0, 0, 100, 40), () => {});
+		expect(service.caches.app.stats().entries).toBe(1);
+		hasKey = true;
+		await service.keyChanged("fake-cloud");
+		expect(cloud?.status.state).toBe("ready");
+		expect(service.caches.app.stats().entries).toBe(0);
+		await service.dispose();
+	});
+
 	test("privateByDefault starts in Private", () => {
 		const { service } = setup({ privacy: { privateByDefault: true } });
 		expect(service.private).toBe(true);

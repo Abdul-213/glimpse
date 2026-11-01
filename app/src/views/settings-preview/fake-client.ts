@@ -16,6 +16,8 @@ import {
 	sourceLanguageChoices,
 } from "@glimpse/core";
 import type {
+	CloudActionResult,
+	CloudSnapshot,
 	HotkeyStatus,
 	ModelRow,
 	ModelsSnapshot,
@@ -26,7 +28,11 @@ import type { SettingsClient, SettingsPushHandlers, SettingsRequests } from "../
 
 export interface PreviewOptions {
 	os: "macos" | "windows";
-	/** `conflict`: Live's shortcut is taken by another app. `any`: no source subset. `idle`: pack list not loaded. */
+	/**
+	 * `conflict`: Live's shortcut is taken by another app. `any`: no source subset. `idle`: pack list not loaded.
+	 * `cloud`: a Google key saved, cloud translation picked, last test found Vision not enabled.
+	 * `no-keychain`: the OS keychain can't be used.
+	 */
 	scenario: string;
 }
 
@@ -162,6 +168,81 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 		moving: false,
 	};
 
+	// Settings › Providers (GLIM-75). The fake never holds a key either: only "saved" and a hint.
+	const cloudScenario = opts.scenario === "cloud";
+	if (cloudScenario) {
+		settings = applySettingsPatch(
+			settings,
+			{ providers: { translation: ["cloud:google-translate-v2", "bergamot"] }, cloud: { liveConsent: [] } },
+			env,
+		).settings;
+	}
+	let keySaved = cloudScenario;
+	let lastTest: CloudSnapshot["keys"][number]["lastTest"] = cloudScenario
+		? {
+				at: Date.now(),
+				ok: false,
+				checks: [
+					{ api: "translate", name: "Cloud Translation API", ok: true },
+					{
+						api: "vision",
+						name: "Cloud Vision API",
+						ok: false,
+						problem: "api-disabled",
+						message:
+							"The Cloud Vision API isn't enabled for this key's project. Enable it in the Google Cloud console, wait a minute, then try again.",
+					},
+				],
+			}
+		: null;
+	const cloud = (): CloudSnapshot => ({
+		keychain:
+			opts.scenario === "no-keychain"
+				? { available: false, message: "No system password store is available, so API keys can't be saved." }
+				: { available: true },
+		keys: [
+			{
+				secretId: "google-cloud",
+				vendor: "Google",
+				label: "Google Cloud API key",
+				saved: keySaved,
+				hint: keySaved ? "…3f2a" : null,
+				lastTest: keySaved ? lastTest : null,
+				usedBy: ["Google Cloud Vision", "Google Cloud Translation"],
+			},
+		],
+		providers: [
+			{
+				id: "cloud:google-vision",
+				name: "Google Cloud Vision",
+				vendor: "Google",
+				task: "ocr",
+				sends: "image",
+				secretId: "google-cloud",
+				selected: settings.providers.ocr === "cloud:google-vision",
+			},
+			{
+				id: "cloud:google-translate-v2",
+				name: "Google Cloud Translation",
+				vendor: "Google",
+				task: "translation",
+				sends: "text",
+				secretId: "google-cloud",
+				selected: settings.providers.translation[0] === "cloud:google-translate-v2",
+			},
+		],
+		local: {
+			ocr: { id: "paddleocr", name: "PaddleOCR (PP-OCRv5)", kind: "local" },
+			translation: [{ id: "bergamot", name: "Firefox Translations (Bergamot)", kind: "local" }],
+		},
+		liveConsent: settings.cloud.liveConsent,
+	});
+	const cloudResult = (message?: string): CloudActionResult => {
+		const c = cloud();
+		handlers?.cloudChanged(c);
+		return message === undefined ? { ok: true, cloud: c } : { ok: false, message, cloud: c };
+	};
+
 	const snapshot = (): SettingsSnapshot => ({
 		app: { name: "Glimpse", version: "0.1.0", platform: opts.os, electrobun: "2.0.6-beta.2", bun: "1.3.4" },
 		settings,
@@ -242,6 +323,44 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 		clearCache: async () => ok,
 		copyDiagnostics: async () => ok,
 		openLogs: async () => ok,
+		getCloud: async () => cloud(),
+		saveApiKey: async ({ key }) => {
+			if (!/^[A-Za-z0-9_-]{30,128}$/.test(key.trim())) {
+				return cloudResult(
+					"That doesn't look like a Google Cloud API key. Keys start with AIza and are 39 characters long.",
+				);
+			}
+			keySaved = true;
+			lastTest = null;
+			return cloudResult();
+		},
+		removeApiKey: async () => {
+			keySaved = false;
+			lastTest = null;
+			update({ providers: { ocr: "paddleocr", translation: ["bergamot"] } });
+			return cloudResult();
+		},
+		testApiKey: async () => {
+			lastTest = {
+				at: Date.now(),
+				ok: true,
+				checks: [
+					{ api: "translate", name: "Cloud Translation API", ok: true },
+					{ api: "vision", name: "Cloud Vision API", ok: true },
+				],
+			};
+			return cloudResult();
+		},
+		setProvider: async ({ task, id }) => {
+			if (task === "ocr") update({ providers: { ocr: id ?? "paddleocr" } });
+			else update({ providers: { translation: id ? [id, "bergamot"] : ["bergamot"] } });
+			return cloudResult();
+		},
+		resetLiveConsent: async () => {
+			update({ cloud: { liveConsent: [] } });
+			return cloudResult();
+		},
+		openCloudLink: async () => ok,
 	};
 
 	return {

@@ -19,6 +19,7 @@ import { overlayOpsFor } from "./native/overlay.ts";
 import { platform } from "./platform.ts";
 import { AppSettings } from "./services/app-settings.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
+import { CloudSettings } from "./services/cloud-settings.ts";
 import { buildDiagnostics } from "./services/diagnostics.ts";
 import { HotkeyService } from "./services/hotkeys.ts";
 import { CarbonHotkeyBackend } from "./services/hotkeys-carbon.ts";
@@ -185,6 +186,15 @@ const modelsSettings = new ModelsSettings({
 	},
 	uiLocale: locale,
 });
+// Cloud providers and API keys (GLIM-75): keys go to the keychain and never back to a view;
+// a key change drops the translation cache and re-checks the providers that use it.
+const cloudSettings = new CloudSettings({
+	registry: providers,
+	secrets,
+	settings: appSettings,
+	onKeyChanged: (secretId) => translation.keyChanged(secretId),
+	openUrl: (url) => Utils.openExternal(url),
+});
 const settings = new SettingsWindow(
 	{
 		appInfo,
@@ -192,6 +202,7 @@ const settings = new SettingsWindow(
 		hotkeys: hotkeyRegistrar,
 		loginItem,
 		models: modelsSettings,
+		cloud: cloudSettings,
 		installedPairs: () => bergamotPacks.installed(),
 		providers: () =>
 			providerSummaries(appSettings.current.providers, (id) => {

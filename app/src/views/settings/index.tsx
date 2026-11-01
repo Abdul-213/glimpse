@@ -16,6 +16,7 @@ const rpc = connect<SettingsRPC>(
 			settingsChanged: (s) => handlers?.settingsChanged(s),
 			hotkeysChanged: (s) => handlers?.hotkeysChanged(s),
 			modelsChanged: (s) => handlers?.modelsChanged(s),
+			cloudChanged: (s) => handlers?.cloudChanged(s),
 		},
 	},
 	// Moving the models folder between disks can take minutes.

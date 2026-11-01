@@ -1,6 +1,6 @@
 // What the Settings view needs from the main process. index.tsx implements it over RPC; the
 // dev-only preview (views/settings-preview) implements it with fake data for screenshots.
-import type { HotkeyStatus, ModelsSnapshot, SettingsRPC } from "../../shared/settings-rpc.ts";
+import type { CloudSnapshot, HotkeyStatus, ModelsSnapshot, SettingsRPC } from "../../shared/settings-rpc.ts";
 
 type Requests = SettingsRPC["bun"]["requests"];
 
@@ -15,6 +15,7 @@ export interface SettingsPushHandlers {
 	settingsChanged: (s: import("@glimpse/core").Settings) => void;
 	hotkeysChanged: (s: HotkeyStatus) => void;
 	modelsChanged: (s: ModelsSnapshot) => void;
+	cloudChanged: (s: CloudSnapshot) => void;
 }
 
 export interface SettingsClient {
