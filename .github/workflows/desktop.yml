@@ -254,7 +254,6 @@ jobs:
             done
           done) || true
 
-          set -x
           ditto -c -k --keepParent "$app" "$dist/$base.zip"
 
           stage="$RUNNER_TEMP/dmg"
@@ -262,9 +261,11 @@ jobs:
           ditto "$app" "$stage/$(basename "$app")"
           ln -s /Applications "$stage/Applications"
           # hdiutil is flaky on hosted runners ("Resource busy"); retry, and ship the zip regardless.
+          # -srcfolder's own size estimate is too small for this bundle ("No space left on device").
+          dmg_mb=$(( $(du -sm "$stage" | cut -f1) * 2 + 64 ))
           dmg_ok=0
           for attempt in 1 2 3; do
-            if hdiutil create -volname Glimpse -srcfolder "$stage" -format UDZO -ov "$dist/$base.dmg"; then dmg_ok=1; break; fi
+            if hdiutil create -volname Glimpse -srcfolder "$stage" -size "${dmg_mb}m" -format UDZO -ov "$dist/$base.dmg"; then dmg_ok=1; break; fi
             echo "hdiutil attempt $attempt failed; retrying"; sleep 5
           done
           [ "$dmg_ok" = 1 ] || echo "::warning::DMG not created; the .zip is still uploaded"
