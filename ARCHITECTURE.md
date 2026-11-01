@@ -193,6 +193,27 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   library: config must be **repaired field by field** (bad value → default + an `Issue`), never
   rejected whole. See the header of `packages/core/src/schema/index.ts`.
 
+### Settings (GLIM-53)
+
+- **Schema** (`packages/core/src/settings/schema.ts`): `Settings` = language (target, source
+  subset; empty = all), hotkeys (canonical `Alt+Shift+S` strings, GLIM-23 defaults per OS),
+  providers (`ProvidersConfig`), appearance (theme, motion), live (fps, diff threshold, stability
+  ms), privacy (Private by default, idle cache wipe, wipe on lock), system (launch at login),
+  onboarding (completed). Every field has a default; machine-dependent defaults come in through
+  `SettingsEnv` (built by `app/src/bun/services/settings-env.ts`).
+- **File**: `<Utils.paths.userData>/settings.json`, `{ "version": N, ...settings }`, no secrets
+  (keys live in the keychain). `FileSettingsStore` implements the core `SettingsStore` port:
+  temp file + fsync + rename (retried on Windows), directory fsync on POSIX, backups as
+  `settings.json.<reason>-<stamp>.bak` (newest 3 per reason).
+- **Policy** (`loadSettings`, pure): no file → defaults; unreadable JSON or a failed migration →
+  back up, write defaults, warn; older version → back up, run `SETTINGS_MIGRATIONS` in order,
+  rewrite; newer version → back up, load what we understand; bad field → default for that field
+  and a warning, file untouched until the next save.
+- **Changing settings**: views send a patch; main applies it with `applySettingsPatch` (deep
+  merge, re-validate, invalid fields keep their current value) and saves with `saveSettings`.
+  Adding a field with a default needs no migration; renaming or reshaping one does (bump
+  `SETTINGS_VERSION`, add a `Migration`, add a fixture test).
+
 ## 5. Views and RPC
 
 **Build.** `app/scripts/build-views.ts` builds every `app/src/views/<name>/index.html` with
