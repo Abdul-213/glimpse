@@ -81,6 +81,9 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 						if (typeof m?.requestId !== "string" || !SNIP_ACTIONS.includes(m.action as SnipAction)) return;
 						c()?.action(m.requestId, m.action, typeof m.lang === "string" ? m.lang : undefined);
 					},
+					snipOriginal: (m) => {
+						if (typeof m?.requestId === "string") c()?.toggleOriginal(m.requestId, !!m.on);
+					},
 					snipRetryBlock: (m) => {
 						if (typeof m?.requestId === "string" && typeof m.blockId === "string") {
 							c()?.retryBlock(m.requestId, m.blockId);

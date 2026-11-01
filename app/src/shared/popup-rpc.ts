@@ -11,6 +11,7 @@
 //                snipSkipped    expand / collapse the skipped line
 //                snipAction     an error-body, pack-row or skipped-line button (§4.1, §12)
 //                snipRetryBlock "Retry" on one failed block
+//                snipOriginal   original view on/off (Ctrl/⌘⇧O or the footer toggle)
 import type { PopupSide, SnipPopupState } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { Platform } from "./rpc.ts";
@@ -80,6 +81,7 @@ export type SnipPopupRPC = {
 			snipSkipped: { requestId: string; expanded: boolean };
 			snipAction: { requestId: string; action: SnipAction; lang?: string };
 			snipRetryBlock: { requestId: string; blockId: string };
+			snipOriginal: { requestId: string; on: boolean };
 		};
 	}>;
 	webview: RPCSchema<{

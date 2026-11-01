@@ -375,7 +375,33 @@ export const ERROR_SCENARIOS: readonly Scenario[] = [
 	},
 ];
 
-export const ALL_SCENARIOS: readonly Scenario[] = [...SCENARIOS, ...ERROR_SCENARIOS];
+const RTL_SOURCE: readonly B[] = [
+	["الاجتماع غداً الساعة 3 PM في المكتب", "ar", "translate", "The meeting is tomorrow at 3 PM in the office"],
+	["شكراً جزيلاً", "ar", "translate", "Thank you very much"],
+	["09:14", null, "neutral"],
+];
+
+/** Show original (GLIM-74). */
+export const ORIGINAL_SCENARIOS: readonly Scenario[] = [
+	{
+		name: "s5-original-under",
+		caption: "S5 show original under translation, mixed languages",
+		state: () => ({
+			...run([
+				["Nos vemos mañana a las tres en la oficina", "es", "translate", "See you tomorrow at three in the office"],
+				...RTL_SOURCE.slice(0, 2),
+			]),
+			showOriginalUnder: true,
+		}),
+	},
+	{
+		name: "s6-original-view",
+		caption: "S6 original view, RTL source",
+		state: () => run(RTL_SOURCE, { extra: [{ type: "toggleOriginal", on: true }] }),
+	},
+];
+
+export const ALL_SCENARIOS: readonly Scenario[] = [...SCENARIOS, ...ORIGINAL_SCENARIOS, ...ERROR_SCENARIOS];
 
 export function scenarioMessage(s: Scenario, reducedMotion = true): SnipStateMessage {
 	return {

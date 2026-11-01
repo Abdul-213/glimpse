@@ -97,6 +97,10 @@ export interface SnipPopupState {
 	readonly followUps: number;
 	/** Per-block language tags: the region mixes source languages, or the setting is on. */
 	readonly alwaysShowLanguages: boolean;
+	/** Original view (Ctrl/⌘⇧O, §4 S6): every block shows its OCR text as the content. */
+	readonly view: "translation" | "original";
+	/** Settings › "Show original under translation" (§4 S5). */
+	readonly showOriginalUnder: boolean;
 	readonly skippedExpanded: boolean;
 }
 
@@ -107,9 +111,12 @@ export type SnipAction =
 			readonly requestId: string;
 			readonly private?: boolean;
 			readonly alwaysShowLanguages?: boolean;
+			readonly showOriginalUnder?: boolean;
 	  }
 	| { readonly type: "pipeline"; readonly event: PipelineEvent }
 	| { readonly type: "toggleSkipped"; readonly expanded?: boolean }
+	/** Flip between the translation and the original (`on` sets it). */
+	| { readonly type: "toggleOriginal"; readonly on?: boolean }
 	/** A pack's install state changed (the model manager's states for that row's resources). */
 	| { readonly type: "packInstall"; readonly lang: LanguageCode; readonly states: readonly InstallState[] }
 	/**
@@ -127,7 +134,10 @@ export type SnipAction =
 /** S0: two static skeleton bars. */
 export const OPENED_SKELETONS: readonly number[] = [70, 45];
 
-export function initialSnipState(requestId: string, opts: { private?: boolean; alwaysShowLanguages?: boolean } = {}) {
+export function initialSnipState(
+	requestId: string,
+	opts: { private?: boolean; alwaysShowLanguages?: boolean; showOriginalUnder?: boolean } = {},
+) {
 	const state: SnipPopupState = {
 		requestId,
 		phase: "opened",
@@ -141,6 +151,8 @@ export function initialSnipState(requestId: string, opts: { private?: boolean; a
 		packs: [],
 		followUps: 0,
 		alwaysShowLanguages: opts.alwaysShowLanguages ?? false,
+		view: "translation",
+		showOriginalUnder: opts.showOriginalUnder ?? false,
 		skippedExpanded: false,
 	};
 	return state;
@@ -160,7 +172,13 @@ export function reduceSnip(state: SnipPopupState, action: SnipAction): SnipPopup
 			return initialSnipState(action.requestId, {
 				...(action.private !== undefined ? { private: action.private } : {}),
 				...(action.alwaysShowLanguages !== undefined ? { alwaysShowLanguages: action.alwaysShowLanguages } : {}),
+				...(action.showOriginalUnder !== undefined ? { showOriginalUnder: action.showOriginalUnder } : {}),
 			});
+		case "toggleOriginal": {
+			const on = action.on ?? state.view === "translation";
+			const view = on ? "original" : "translation";
+			return view === state.view ? state : { ...state, view };
+		}
 		case "toggleSkipped":
 			return { ...state, skippedExpanded: action.expanded ?? !state.skippedExpanded };
 		case "pipeline":
@@ -409,9 +427,12 @@ export type SnipStatus =
 	| { readonly kind: "translating"; readonly done: number; readonly total: number }
 	| { readonly kind: "partial"; readonly done: number; readonly total: number }
 	/** Errors never touch the clipboard (§6). */
-	| { readonly kind: "clipboardUnchanged" };
+	| { readonly kind: "clipboardUnchanged" }
+	/** Original view is on (§4 S6). */
+	| { readonly kind: "original" };
 
 export function snipStatus(s: SnipPopupState): SnipStatus {
+	if (s.view === "original" && s.phase !== "error" && s.blocks.length > 0) return { kind: "original" };
 	switch (s.phase) {
 		case "opened":
 		case "detected":

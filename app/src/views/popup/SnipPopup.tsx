@@ -51,6 +51,7 @@ export interface SnipPopupIntents {
 	skipped(requestId: string, expanded: boolean): void;
 	action(requestId: string, action: SnipAction, lang?: string): void;
 	retryBlock(requestId: string, blockId: string): void;
+	original(requestId: string, on: boolean): void;
 }
 
 export interface SnipPopupProps {
@@ -120,7 +121,18 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 			props.intents.dismiss(id(), "esc");
 			return;
 		}
+		// Ctrl+Shift+O / ⌘⇧O: original view (§11). Popup-local, never global.
+		const mod = props.init.os === "macos" ? e.metaKey : e.ctrlKey;
+		if (mod && e.shiftKey && !e.altKey && e.key.toLowerCase() === "o") {
+			e.preventDefault();
+			toggleOriginal();
+			return;
+		}
 		if (e.key === "Tab" && shell) trapTab(shell, list, e);
+	};
+	const original = () => state().view === "original";
+	const toggleOriginal = () => {
+		if (state().blocks.length > 0) props.intents.original(id(), !original());
 	};
 
 	const status = () => snipStatus(state());
@@ -229,6 +241,8 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 								tags={tags()}
 								uiLang={uiLang()}
 								plain={!!error()}
+								view={state().view}
+								showSource={state().showOriginalUnder}
 								onRetry={() => props.intents.retryBlock(id(), b.id)}
 							/>
 						)}
@@ -288,6 +302,14 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 				</span>
 				<Toolbar label={COPY.actions} class="snip-actions electrobun-webkit-app-region-no-drag">
 					<IconButton
+						icon="original"
+						label={original() ? COPY.showTranslation : COPY.showOriginal}
+						shortcut={props.init.keys.original}
+						pressed={original()}
+						disabled={state().blocks.length === 0}
+						onClick={toggleOriginal}
+					/>
+					<IconButton
 						icon="close"
 						label={COPY.close}
 						shortcut={props.init.keys.close}
@@ -326,6 +348,8 @@ function Block(props: {
 	uiLang: string;
 	/** Error states list the original text plainly (E2, E3). */
 	plain: boolean;
+	view: "translation" | "original";
+	showSource: boolean;
 	onRetry: () => void;
 }): JSX.Element {
 	const b = () => props.block;
@@ -353,6 +377,8 @@ function Block(props: {
 			targetLang={target()}
 			tag={tag()}
 			tagLang={props.uiLang}
+			view={props.view}
+			showSource={props.showSource}
 			failedLabel={COPY.failed}
 			retryLabel={COPY.retry}
 			onRetry={props.onRetry}

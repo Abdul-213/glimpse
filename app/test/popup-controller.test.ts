@@ -485,3 +485,22 @@ describe("loading and error states (GLIM-73)", () => {
 		h.controller.dispose();
 	});
 });
+
+describe("show original (GLIM-74)", () => {
+	test("the toggle round-trips through main; a new Snip starts in the translation view", async () => {
+		const { runner } = await realPipeline(["明日の会議"]);
+		const h = popupHarness({ displays, runner, settings: { showOriginalUnder: true } });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.window.last?.state.showOriginalUnder).toBe(true);
+		h.controller.toggleOriginal("snip-1", true);
+		await settle();
+		expect(h.window.last?.state.view).toBe("original");
+		h.controller.toggleOriginal("snip-0", false);
+		await settle();
+		expect(h.window.last?.state.view).toBe("original");
+		h.controller.open(rect(20, 15, 160, 40));
+		expect(h.window.last?.state.view).toBe("translation");
+		h.controller.dispose();
+	});
+});

@@ -54,6 +54,7 @@ render(
 								action: (requestId, action, lang) =>
 									rpc.send.snipAction({ requestId, action, ...(lang ? { lang } : {}) }),
 								retryBlock: (requestId, blockId) => rpc.send.snipRetryBlock({ requestId, blockId }),
+								original: (requestId, on) => rpc.send.snipOriginal({ requestId, on }),
 							}}
 						/>
 					)}

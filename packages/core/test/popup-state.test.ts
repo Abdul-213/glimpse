@@ -391,3 +391,39 @@ describe("clipboardText (snip-popup.md §6)", () => {
 		expect(clipboardText(s, "original", "\r\n")).toBe("¿Nos vemos a las ocho?\r\n12:45\r\nDanke dir!\r\nSee you");
 	});
 });
+
+describe("original view (GLIM-74, §4 S5/S6)", () => {
+	test("toggle flips the view, keeps every block in its slot, status says 'Showing original'", () => {
+		const s0 = fold([
+			started,
+			{ type: "recognised", runId: RUN, blocks: MIXED },
+			translation("a", "See you at eight?"),
+			translation("c", "Thanks!", true, "de"),
+			{ type: "done", runId: RUN, result: result({ blocks: MIXED }) },
+		]);
+		const s1 = reduceSnip(s0, { type: "toggleOriginal" });
+		expect(s1.view).toBe("original");
+		expect(s1.blocks).toBe(s0.blocks);
+		expect(snipStatus(s1)).toEqual({ kind: "original" });
+		const s2 = reduceSnip(s1, { type: "toggleOriginal" });
+		expect(s2.view).toBe("translation");
+		expect(snipStatus(s2)).toEqual({ kind: "none" });
+		expect(reduceSnip(s2, { type: "toggleOriginal", on: false })).toBe(s2);
+	});
+
+	test("errors keep 'Clipboard not changed' even in the original view", () => {
+		const s = reduceSnip(
+			fold([started, { type: "done", runId: RUN, result: result({ error: { kind: "noText", message: "" } }) }]),
+			{ type: "toggleOriginal", on: true },
+		);
+		expect(snipStatus(s)).toEqual({ kind: "clipboardUnchanged" });
+	});
+
+	test("show original under translation comes from settings at open", () => {
+		expect(initialSnipState(RUN).showOriginalUnder).toBe(false);
+		expect(initialSnipState(RUN, { showOriginalUnder: true }).showOriginalUnder).toBe(true);
+		const opened = reduceSnip(initialSnipState("x"), { type: "open", requestId: RUN, showOriginalUnder: true });
+		expect(opened.showOriginalUnder).toBe(true);
+		expect(opened.view).toBe("translation");
+	});
+});

@@ -47,6 +47,7 @@ function Frame(props: { scenario: (typeof SCENARIOS)[number] }) {
 					skipped: () => {},
 					action: () => {},
 					retryBlock: () => {},
+					original: () => {},
 				}}
 			/>
 		</div>

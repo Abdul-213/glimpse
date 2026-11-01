@@ -43,10 +43,16 @@ export const VARIANTS: readonly ShotVariant[] = [
 			"e3-offline",
 			"e4w-capture-blank",
 			"s16-partial-pack-row",
+			"s6-original-view",
 		],
 	},
 	{ suffix: "macos-dark", query: "os=macos", colorScheme: "dark", only: ["s4-done", "s8-mixed-languages"] },
-	{ suffix: "macos-light-rtl-ui", query: "os=macos&dir=rtl", colorScheme: "light", only: ["s10-rtl-target"] },
+	{
+		suffix: "macos-light-rtl-ui",
+		query: "os=macos&dir=rtl",
+		colorScheme: "light",
+		only: ["s10-rtl-target", "s6-original-view"],
+	},
 	{ suffix: "win10-light", query: "os=win10", colorScheme: "light", only: ["s4-done"] },
 ];
 
