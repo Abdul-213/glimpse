@@ -227,7 +227,29 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 			return [opened(), status("starting"), frame(lines), status("live"), frame([...lines, added], ["C4"])];
 		},
 	},
+	{
+		name: "l11-skipped",
+		note: "Skipped blocks (outside the source subset): one quiet line, never translated",
+		width: 400,
+		events: () => skippedEvents(false),
+	},
+	{
+		name: "l11-skipped-expanded",
+		note: "Expanded: the original text of the skipped blocks, with their language",
+		width: 400,
+		events: () => skippedEvents(true),
+	},
 ];
+
+function skippedEvents(expanded: boolean): (LiveSessionEvent | LivePopupAction)[] {
+	seq = 0;
+	const lines: B[] = [
+		DOOR,
+		["K1", "Oma: Bis morgen!", null, "skip", "de"],
+		["K2", "Opa: Gute Nacht.", null, "skip", "de"],
+	];
+	return [opened(), status("starting"), frame(lines), status("live"), { type: "skipped", expanded }];
+}
 
 export function liveScenarioState(s: LiveScenario): LivePopupState {
 	let state = initialLivePopupState;
