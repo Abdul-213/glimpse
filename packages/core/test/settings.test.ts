@@ -348,3 +348,24 @@ describe("loadSettings", () => {
 		expect(loaded.warnings).toEqual([]);
 	});
 });
+
+describe("source-language subset (GLIM-68)", () => {
+	test("sources are stored as catalogue tags; unsupported codes are dropped", () => {
+		const { settings, issues } = parseSettings({ language: { sources: ["zh-TW", "pt-BR", "tlh", "ja"] } }, env);
+		expect(settings.language.sources).toEqual([languageCode("zh-Hant"), languageCode("pt"), languageCode("ja")]);
+		expect(issues.map((i) => i.path)).toEqual(["language.sources[2]"]);
+	});
+
+	test("a patch with an unsupported source keeps the current list", () => {
+		const current = applySettingsPatch(defaultSettings(env), { language: { sources: [languageCode("ja")] } }, env);
+		const bad = applySettingsPatch(current.settings, { language: { sources: ["ko", "qqq"] as never } }, env);
+		expect(bad.settings.language.sources).toEqual([languageCode("ja")]);
+		expect(bad.issues).toHaveLength(1);
+	});
+
+	test("a version-1 file without the new fields loads without warnings", async () => {
+		const loaded = await loadSettings(new MemorySettingsStore('{"version":1,"language":{"sources":["ja"]}}'), env);
+		expect(loaded.warnings).toEqual([]);
+		expect(loaded.settings.language.sources).toEqual([languageCode("ja")]);
+	});
+});

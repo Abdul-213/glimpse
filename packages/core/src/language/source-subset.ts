@@ -1,5 +1,6 @@
-// Which languages Settings offers (GLIM-69; the source-language subset, GLIM-68, builds on
-// it) and how a picker groups them by script. Pure.
+// The source-language subset (GLIM-68): which languages a user can pick in Settings and how the
+// picker groups them by script. The filter itself is the pipeline's `classifyBlock`
+// (pipeline/pipeline.ts: empty subset = every language, loose matching). Pure.
 //
 // - Settings stores catalogue tags (`language.sources`); an empty list means every language.
 // - A language is offered when Glimpse can do something useful with it: detect it (ELD or

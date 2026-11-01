@@ -28,6 +28,8 @@ export const SETTINGS_VARIANTS: GalleryVariant[] = [
 	v("general-macos-light", "os=macos&pane=general", "light"),
 	v("general-macos-dark", "os=macos&pane=general", "dark"),
 	v("general-windows-light", "os=windows&pane=general", "light"),
+	v("languages-macos-light", "os=macos&pane=languages", "light"),
+	v("languages-windows-dark", "os=windows&pane=languages", "dark"),
 	v("shortcuts-macos-light-conflict", "os=macos&pane=shortcuts&scenario=conflict", "light"),
 	v("shortcuts-windows-light", "os=windows&pane=shortcuts", "light"),
 	v("providers-macos-light", "os=macos&pane=providers", "light", 560),
@@ -39,7 +41,7 @@ export const SETTINGS_VARIANTS: GalleryVariant[] = [
 	v("privacy-windows-light", "os=windows&pane=privacy", "light"),
 	v("about-macos-light", "os=macos&pane=about", "light", 560),
 	v("about-windows-dark", "os=windows&pane=about", "dark", 560),
-	v("general-macos-light-rtl", "os=macos&pane=general&dir=rtl", "light"),
+	v("languages-macos-light-rtl", "os=macos&pane=languages&dir=rtl", "light"),
 ];
 
 if (import.meta.main) {

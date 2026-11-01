@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { groupSourceLanguages, languageCode, sourceLanguageChoices, sourceLanguageFor } from "../src/index.ts";
 
-describe("language choices for Settings", () => {
+describe("source-language subset (GLIM-68)", () => {
 	const choices = sourceLanguageChoices("en");
 
 	test("offers detectable or locally translatable languages, sorted by name", () => {

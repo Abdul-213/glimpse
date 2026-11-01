@@ -148,6 +148,15 @@ describe("settings handlers", () => {
 		expect((await h.updateSettings("nope")).issues).toHaveLength(1);
 	});
 
+	test("source languages are validated against the language module (GLIM-68)", async () => {
+		const { h, settings } = handlers();
+		await h.updateSettings({ language: { sources: ["ja", "zh-TW"] } });
+		expect(settings.current.language.sources).toEqual([languageCode("ja"), languageCode("zh-Hant")]);
+		const bad = await h.updateSettings({ language: { sources: ["ko", "klingon!"] } });
+		expect(bad.issues).toHaveLength(1);
+		expect(settings.current.language.sources).toEqual([languageCode("ja"), languageCode("zh-Hant")]);
+	});
+
 	test("getSourceLanguages groups by script and knows installed routes", () => {
 		const { h } = handlers();
 		const s = h.getSourceLanguages();

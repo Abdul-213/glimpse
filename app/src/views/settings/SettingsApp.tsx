@@ -3,6 +3,7 @@ import { createEffect, createSignal, For, type JSX, Match, onMount, Show, Switch
 import type { SettingsClient } from "./client.ts";
 import { AboutPane } from "./panes/AboutPane.tsx";
 import { GeneralPane } from "./panes/GeneralPane.tsx";
+import { LanguagesPane } from "./panes/LanguagesPane.tsx";
 import { ModelsPane } from "./panes/ModelsPane.tsx";
 import { PrivacyPane } from "./panes/PrivacyPane.tsx";
 import { ProvidersPane } from "./panes/ProvidersPane.tsx";
@@ -11,6 +12,7 @@ import { createSettingsState } from "./state.ts";
 
 export const SECTIONS = [
 	{ id: "general", label: "General" },
+	{ id: "languages", label: "Languages" },
 	{ id: "shortcuts", label: "Shortcuts" },
 	{ id: "providers", label: "Providers" },
 	{ id: "models", label: "Models" },
@@ -110,6 +112,9 @@ export function SettingsApp(props: SettingsAppProps): JSX.Element {
 						<Switch>
 							<Match when={section() === "general"}>
 								<GeneralPane state={state} />
+							</Match>
+							<Match when={section() === "languages"}>
+								<LanguagesPane state={state} onManagePacks={() => select("models")} />
 							</Match>
 							<Match when={section() === "shortcuts"}>
 								<ShortcutsPane state={state} />

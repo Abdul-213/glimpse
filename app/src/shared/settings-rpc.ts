@@ -135,7 +135,7 @@ export interface ProviderSummary {
 	readonly kind: "local" | "cloud";
 }
 
-/** Languages Settings offers, grouped by script, and which can be translated offline now. */
+/** One source-language choice with what the app knows right now (GLIM-68). */
 export interface SourceLanguagesSnapshot {
 	readonly groups: readonly SourceLanguageGroup[];
 	/** Languages whose local translation pack into the target language is installed. */

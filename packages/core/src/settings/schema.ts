@@ -8,7 +8,7 @@
 // Changing the shape: bump SETTINGS_VERSION and add a migration (migrations.ts) when old
 // files would otherwise lose data. Adding a field with a default needs no migration.
 
-import { type LanguageCode, languageCode, parseLanguageCode } from "../language.ts";
+import { type LanguageCode, languageCode, parseLanguageCode, sourceLanguageFor } from "../language.ts";
 import { LOG_LEVELS, type LogLevel } from "../logging/types.ts";
 import type { ProvidersConfig } from "../providers/registry.ts";
 import {
@@ -16,10 +16,12 @@ import {
 	boolean,
 	type Issue,
 	languageCodeSchema,
+	map,
 	number,
 	object,
 	oneOf,
 	parseOrDefault,
+	refine,
 	type Schema,
 	withDefault,
 } from "../schema/index.ts";
@@ -84,7 +86,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 	return object({
 		language: object({
 			target: withDefault(languageCodeSchema(), env.targetLanguage),
-			sources: withDefault(array(languageCodeSchema(), { maxLength: 256, uniqueBy: (c) => c }), []),
+			sources: withDefault(array(sourceLanguageSchema(), { maxLength: 256, uniqueBy: (c) => c }), []),
 		}),
 		hotkeys: hotkeyBindingsSchema(env.hotkeys),
 		providers: env.providers,
@@ -113,6 +115,18 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		}),
 	});
 }
+
+/**
+ * A source language for the subset (GLIM-68): a valid tag that the language module offers
+ * (detectable or locally translatable), stored as the catalogue's tag (`zh-TW` -> `zh-Hant`).
+ */
+export const sourceLanguageSchema = (): Schema<LanguageCode> =>
+	map(
+		refine(languageCodeSchema(), (code) =>
+			sourceLanguageFor(code) ? null : `${code} is not a supported source language`,
+		),
+		(code) => sourceLanguageFor(code) ?? code,
+	);
 
 /** Settings for a first run. */
 export const defaultSettings = (env: SettingsEnv): Settings => parseOrDefault(settingsSchema(env), {}).value;
