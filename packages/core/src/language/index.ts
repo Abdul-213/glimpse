@@ -9,3 +9,4 @@ export * from "./lookup.ts";
 export * from "./ocr.ts";
 export * from "./route.ts";
 export * from "./script.ts";
+export * from "./script-count.ts";
