@@ -31,7 +31,7 @@ import { ModelManager } from "../src/bun/services/models/model-manager.ts";
 import { folderSize, ModelsSettings } from "../src/bun/services/models/models-settings.ts";
 import { ModelManagerPackSource } from "../src/bun/services/translation/bergamot-packs.ts";
 import { createSettingsHandlers, providerSummaries, type SettingsDeps } from "../src/bun/windows/settings-handlers.ts";
-import type { HotkeyStatus } from "../src/shared/settings-rpc.ts";
+import { type HotkeyStatus, isSettingsSection, SETTINGS_SECTIONS } from "../src/shared/settings-rpc.ts";
 
 const env: SettingsEnv = {
 	hotkeys: DEFAULT_HOTKEYS.windows,
@@ -216,6 +216,39 @@ describe("settings handlers", () => {
 		expect(settings.current.hotkeys.snip).toBe("Alt+Shift+S");
 		expect(settings.current.system.launchAtLogin).toBe(false);
 		expect((await h.updateSettings("nope")).issues).toHaveLength(1);
+	});
+
+	test("Snip options are editable from Settings (GLIM-117)", async () => {
+		const { h, settings } = handlers();
+		expect(settings.current.snip).toEqual({
+			copyAfterSnip: true,
+			showOriginalUnder: false,
+			alwaysShowLanguages: false,
+		});
+		const r = await h.updateSettings({
+			snip: { copyAfterSnip: false, showOriginalUnder: true, alwaysShowLanguages: true },
+		});
+		expect(r.issues).toEqual([]);
+		expect(settings.current.snip).toEqual({ copyAfterSnip: false, showOriginalUnder: true, alwaysShowLanguages: true });
+		const bad = await h.updateSettings({ snip: { copyAfterSnip: "yes" } } as never);
+		expect(bad.issues.map((i) => i.path)).toEqual(["snip.copyAfterSnip"]);
+		expect(settings.current.snip.copyAfterSnip).toBe(false);
+	});
+
+	test("the snapshot names the pane Settings was opened at (GLIM-117)", async () => {
+		expect((await handlers().h.getSnapshot()).section).toBeNull();
+		let section: "providers" | "languages" | null = "providers";
+		const { h } = handlers({ initialSection: () => section });
+		expect((await h.getSnapshot()).section).toBe("providers");
+		section = "languages";
+		expect((await h.getSnapshot()).section).toBe("languages");
+	});
+
+	test("isSettingsSection accepts the sidebar's panes only", () => {
+		expect(SETTINGS_SECTIONS).toContain("providers");
+		expect(isSettingsSection("languages")).toBe(true);
+		expect(isSettingsSection("hotkeys")).toBe(false);
+		expect(isSettingsSection(3)).toBe(false);
 	});
 
 	test("source languages are validated against the language module (GLIM-68)", async () => {

@@ -354,8 +354,8 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   applies, notifies subscribers (log level, tray, open Settings windows) and saves in order,
   so changes apply without a restart. Adding a field with a default needs no migration;
   renaming or reshaping one does (bump `SETTINGS_VERSION`, add a `Migration`, add a fixture test).
-- **Settings window (GLIM-69)**: `app/src/shared/settings-rpc.ts` is the contract. The view
-  may patch only `language`, `appearance`, `live`, `privacy`, `diagnostics`; hotkeys go
+- **Settings window (GLIM-69)**: `app/src/shared/settings-rpc.ts` is the contract. `SettingsWindow.open(section)` opens at a pane (popup deep links, GLIM-117). The view
+  may patch only `language`, `appearance`, `snip`, `live`, `privacy`, `diagnostics`; hotkeys go
   through `setHotkey` (Glimpse conflict check, then the `HotkeyRegistrar` port in
   `services/hotkeys-port.ts`; an OS refusal keeps the old binding), launch at login through
   `LoginItem` (`services/login-item.ts`, GLIM-77 decision), the models folder through

@@ -261,6 +261,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 					lastCheckAt: Date.UTC(2026, 10, 1, 9, 30),
 				}
 			: { state: "off" },
+		section: null,
 	});
 
 	const update = (patch: SettingsPatch) => {

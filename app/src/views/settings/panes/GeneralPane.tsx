@@ -71,6 +71,33 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 				</SettingsRow>
 			</SettingsGroup>
 
+			<SettingsGroup title="Snip">
+				<SettingsControlRow>
+					<Switch
+						label="Copy the translation after a Snip"
+						description="Live never uses the clipboard."
+						checked={s().snip.copyAfterSnip}
+						onChange={(v) => void props.state.update({ snip: { copyAfterSnip: v } })}
+					/>
+				</SettingsControlRow>
+				<SettingsControlRow>
+					<Switch
+						label="Show the original under each translation"
+						description="The text Glimpse read, in smaller type below what it says."
+						checked={s().snip.showOriginalUnder}
+						onChange={(v) => void props.state.update({ snip: { showOriginalUnder: v } })}
+					/>
+				</SettingsControlRow>
+				<SettingsControlRow>
+					<Switch
+						label="Always show languages"
+						description="Otherwise only when a Snip mixes languages."
+						checked={s().snip.alwaysShowLanguages}
+						onChange={(v) => void props.state.update({ snip: { alwaysShowLanguages: v } })}
+					/>
+				</SettingsControlRow>
+			</SettingsGroup>
+
 			<SettingsGroup title="Startup">
 				<SettingsControlRow>
 					<Switch

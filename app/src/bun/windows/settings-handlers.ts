@@ -25,6 +25,7 @@ import {
 	type ProviderSummary,
 	type SetHotkeyResult,
 	type SettingsEdit,
+	type SettingsSection,
 	type SettingsSnapshot,
 	type SourceLanguagesSnapshot,
 	type UpdateResult,
@@ -55,6 +56,8 @@ export interface SettingsDeps {
 	readonly uiLocale: string;
 	/** Update notification (GLIM-70); absent = never any update to show. */
 	readonly updates?: UpdatesApi;
+	/** The pane the window was asked to open at (GLIM-117); read when the view loads. */
+	readonly initialSection?: () => SettingsSection | null;
 }
 
 /** What Settings needs from the update checker (services/update-check.ts). */
@@ -96,6 +99,7 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 		providers: deps.providers(),
 		settingsWarnings: deps.settingsWarnings,
 		update: deps.updates?.status() ?? { state: "current", lastCheckAt: null },
+		section: deps.initialSection?.() ?? null,
 	});
 
 	/** Apply bindings with the OS; on refusal for `action`, put the old ones back. */
