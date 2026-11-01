@@ -135,6 +135,43 @@ Don't create packages for grouping alone; use folders.
 | Shared UI components | `packages/ui/src/components/` | GLIM-42. Tokens only, no raw colours or off-scale sizes. |
 | Surface UI | `app/src/views/<surface>/` | Thin: render state from main, send intents back. |
 
+### Provider contracts (GLIM-32, GLIM-33)
+
+`packages/core/src/providers/` defines what every OCR and translation engine looks like. The
+rules every implementation follows (contract checks in `@glimpse/core/testing` enforce them):
+
+- **Lifecycle.** `status` + `onStatusChange`, `init(signal)` (idempotent; ends in `ready`,
+  `model-missing` with the missing `ModelResource`s, `needs-key`, or `error`), optional `warmup`,
+  `dispose`. Providers never download models: they report what is missing, and the model manager
+  fetches it with consent (GLIM-57, GLIM-85).
+- **Cancellation.** Every call takes an `AbortSignal`. Aborting rejects with
+  `ProviderError("cancelled")` promptly, even when the engine call itself can't be interrupted
+  (`abortable()`). Cancelled work is never cached.
+- **OCR** is one call per image: `recognise({ image, languages?, regions? }, { signal,
+  onProgress })` → blocks in region-local device pixels. Progressive engines emit `detected`
+  boxes, then each `block` (Snip shows boxes before text). Whole-request failures throw a typed
+  `ProviderError`. `languageSupport(lang)` reports per-language readiness, since PP-OCRv5 needs
+  one recognition model per script family (spikes/inference/FINDINGS.md).
+- **Warmup.** GLIM-17 measured a slow first call per Bergamot pack (0.3–0.8 s) and per ORT
+  session; implementations do a dummy run in `warmup()`, which the app calls after `init()`.
+- **Translation** is a batch of segments, each with its own source language (GLIM-21), and one
+  target: `translate(request)` returns an `AsyncIterable` of `partial` (cumulative text, streaming
+  engines only) and exactly one `done` or `error` per segment. Per-segment and request-level
+  failures (pack missing, bad key, offline) are `error` events; the stream only rejects on
+  cancellation. `pairSupport(from, to)` says `ready` / `missing` / `unsupported` and gives the
+  route as hops (`ja→en→de` for the Bergamot pivot), each with its own fingerprint so the cache
+  can key per hop (GLIM-20).
+- **Capabilities** are static data: `kind` (local/cloud), `needsNetwork`, `secretId` (keychain
+  entry, shared by Vision and Translation v2), languages, `pivot`, `streaming`,
+  `contextSensitive`, request limits (callers split with `chunkSegments`), `progressive`,
+  `regions`, `maxImagePixels`.
+- **Provenance on every result** (`Provenance`: id, name, kind, model revision, options hash).
+  The cloud indicator reads it; the cache keys on it; only the cache sets `remembered`.
+- **Errors** share one vocabulary (`ProviderErrorCode`), plain-data `ProviderErrorInfo` for RPC.
+- **Language codes** at the interface are BCP-47 `LanguageCode`s. A provider maps to its own
+  scheme at its edge through a `LanguageCodeMap` (`providers/language-map.ts`); GLIM-39 supplies
+  the real FLORES/Bergamot/Google tables.
+
 ## 5. Views and RPC
 
 **Build.** `app/scripts/build-views.ts` builds every `app/src/views/<name>/index.html` with
@@ -211,10 +248,13 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
    Linux: geometry, language rules, pipeline orchestration, cache, settings migrations. Inputs are
    plain data and fakes; no timers or randomness without an injected `Clock`/seed.
 2. **Fakes for every port.** Each port in core ships a fake next to it
-   (`packages/core/src/testing/`, exported as `@glimpse/core/testing` once the first one exists):
-   a `CaptureSource` that replays PNG frames, a scripted `OcrProvider`, a deterministic
-   `TranslationProvider`, an in-memory `SecretStore`, a manual `Clock`. Tests in other packages use
-   these instead of hand-rolled mocks.
+   (`packages/core/src/testing/`, exported as `@glimpse/core/testing`): `FakeOcrProvider`
+   (scripted blocks), `FakeTranslationProvider` (deterministic `text [ja>en]` output, pivots,
+   missing packs, scripted failures, a `manualGate` to hold segments), and later a
+   `CaptureSource` that replays PNG frames, an in-memory `SecretStore`, a manual `Clock`. Tests in
+   other packages use these instead of hand-rolled mocks. Provider implementations also run the
+   contract checks: `for (const c of translationProviderContract(make, fixture)) test(c.name, c.run)`
+   (same for `ocrProviderContract`).
 3. **App modules:** test what doesn't import `electrobun/main` (mappers, controllers' pure parts,
    config). `app/test/views.test.ts` builds the real webviews and checks the Solid, Tailwind and
    devkit wiring. Never import `electrobun/main` in a test: it loads the native core.
