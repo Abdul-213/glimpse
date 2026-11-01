@@ -7,6 +7,7 @@ import type {
 	LanguageCode,
 	Logger,
 	Rect,
+	ResultsLayerState,
 	SnipPopupPlacement,
 	SnipPopupState,
 	TranslationPipeline,
@@ -68,6 +69,8 @@ export interface PopupHarness {
 	readonly clipboard: string[];
 	/** Every action target call: `snipAgain`, `settings:providers`, `url:...`. */
 	readonly targets: string[];
+	/** Every results-layer box push (GLIM-115), null = cleared. */
+	readonly boxes: (ResultsLayerState | null)[];
 }
 
 export interface PopupHarnessOptions {
@@ -88,6 +91,7 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 	let dismissed = 0;
 	const clipboard: string[] = [];
 	const targets: string[] = [];
+	const boxes: (ResultsLayerState | null)[] = [];
 	const controller = new SnipPopupController({
 		window,
 		displays: o.displays,
@@ -99,7 +103,7 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 				return true;
 			},
 		},
-		results: { dismiss: () => dismissed++ },
+		results: { dismiss: () => dismissed++, showBoxes: (s) => boxes.push(s) },
 		clipboard: { writeText: (text) => clipboard.push(text) },
 		...(o.eol ? { eol: o.eol } : {}),
 		...(o.packs ? { packs: o.packs } : {}),
@@ -125,6 +129,7 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 		resultsDismissed: () => dismissed,
 		clipboard,
 		targets,
+		boxes,
 	};
 }
 

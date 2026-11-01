@@ -13,6 +13,7 @@
 //                snipRetryBlock "Retry" on one failed block
 //                snipOriginal   original view on/off (Ctrl/⌘⇧O or the footer toggle)
 //                snipCopy       copy again (Ctrl/⌘C, Copy button) or the original (Ctrl/⌘⇧C)
+//                snipHoverBlock a block is hovered or focused (null: none); its box lights on screen (GLIM-115)
 import type { PopupSide, SnipPopupState } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { Platform } from "./rpc.ts";
@@ -91,6 +92,7 @@ export type SnipPopupRPC = {
 			snipRetryBlock: { requestId: string; blockId: string };
 			snipOriginal: { requestId: string; on: boolean };
 			snipCopy: { requestId: string; what: "translation" | "original" };
+			snipHoverBlock: { requestId: string; blockId: string | null };
 		};
 	}>;
 	webview: RPCSchema<{

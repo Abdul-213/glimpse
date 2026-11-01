@@ -1,6 +1,6 @@
 // Headless picker overlays (GLIM-44): record what the controller tells them, so tests and
 // the harness drive the real PickerController without Electrobun. Plus a hand-advanced scheduler.
-import type { Display, PickerViewState } from "@glimpse/core";
+import type { Display, PickerViewState, ResultsLayerState } from "@glimpse/core";
 import type { OverlayFactory, OverlayWindow, Scheduler } from "../bun/windows/picker-controller.ts";
 import type { PickerLoupeMessage, PickerOpenInfo } from "../shared/rpc.ts";
 
@@ -13,6 +13,8 @@ export class FakeOverlay implements OverlayWindow {
 	states: PickerViewState[] = [];
 	loupes: PickerLoupeMessage[] = [];
 	fades: boolean[] = [];
+	/** Results-layer pushes (GLIM-115), null = cleared. */
+	resultsSent: (ResultsLayerState | null)[] = [];
 	shows = 0;
 
 	constructor(readonly display: Display) {}
@@ -39,6 +41,9 @@ export class FakeOverlay implements OverlayWindow {
 	}
 	setLevel(level: "picking" | "belowPopup") {
 		this.level = level;
+	}
+	results(state: ResultsLayerState | null) {
+		this.resultsSent.push(state);
 	}
 	close() {
 		this.closed = true;

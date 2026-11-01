@@ -1,7 +1,7 @@
 // Picker overlay view entry (GLIM-44). One instance per display, loaded hidden at launch;
 // main pushes reset/state/loupe/hide, the view sends raw input back.
 
-import type { PickerViewState } from "@glimpse/core";
+import type { PickerViewState, ResultsLayerState } from "@glimpse/core";
 import { applyPlatform } from "@glimpse/ui";
 import { createSignal, Show } from "solid-js";
 import { render } from "solid-js/web";
@@ -14,6 +14,8 @@ const [state, setState] = createSignal<PickerViewState | null>(null);
 const [loupe, setLoupe] = createSignal<PickerLoupeMessage | null>(null);
 const [hidden, setHidden] = createSignal<{ animate: boolean } | null>({ animate: false });
 const [init, setInit] = createSignal<PickerViewInit | null>(null);
+// Results layer under the Snip popup (GLIM-115): detection boxes and the linked one.
+const [results, setResults] = createSignal<ResultsLayerState | null>(null);
 
 const rpc = connect<PickerRPC>({
 	requests: {},
@@ -21,6 +23,7 @@ const rpc = connect<PickerRPC>({
 		pickerReset: (info) => {
 			setLoupe(null);
 			setState(null);
+			setResults(null);
 			setHidden(null);
 			setOpen(info);
 			document.documentElement.dataset["motion"] = info.reducedMotion ? "reduced" : "full";
@@ -32,9 +35,11 @@ const rpc = connect<PickerRPC>({
 			setState(s);
 		},
 		pickerLoupe: (m) => setLoupe(m),
+		pickerResults: (m) => setResults(m?.results ?? null),
 		pickerHide: (h) => {
 			setHidden(h);
 			setOpen(null);
+			setResults(null);
 		},
 	},
 });
@@ -65,7 +70,7 @@ render(
 			{(i) => (
 				<PickerOverlay
 					init={i()}
-					store={{ open, state, loupe, hidden }}
+					store={{ open, state, loupe, hidden, results }}
 					input={{
 						pointer: (m) => rpc.send.pickerPointer(m),
 						key: (m) => rpc.send.pickerKey(m),

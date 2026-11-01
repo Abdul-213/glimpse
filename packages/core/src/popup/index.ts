@@ -8,4 +8,6 @@ export * from "./egress.ts";
 // announcementText join it with GLIM-79/81.
 export * from "./live-diff.ts";
 export * from "./placement.ts";
+// Detection boxes on screen under the Snip popup (GLIM-115).
+export * from "./results-layer.ts";
 export * from "./snip-state.ts";

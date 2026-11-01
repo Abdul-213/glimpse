@@ -92,6 +92,9 @@ class ElectrobunOverlay implements OverlayWindow {
 	reset(info: PickerOpenInfo): void {
 		this.send(() => this.rpc.send.pickerReset(info));
 	}
+	results(state: Parameters<OverlayWindow["results"]>[0]): void {
+		this.send(() => this.rpc.send.pickerResults({ results: state }));
+	}
 	state(view: Parameters<OverlayWindow["state"]>[0]): void {
 		this.send(() => this.rpc.send.pickerState(view));
 	}
