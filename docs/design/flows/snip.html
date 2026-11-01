@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glimpse lo-fi: Snip flow</title>
+<meta name="viewport" content="width=1720">
+<style>/* Glimpse lo-fi wireframe kit. Greys only. Not the visual design (see DESIGN.md, separate ticket). */
+*{box-sizing:border-box}
+html{background:#ececec}
+body{margin:0;color:#222;font:14px/1.4 system-ui,-apple-system,"Segoe UI","Noto Sans","Noto Sans Arabic","Noto Sans Hebrew","Noto Sans CJK JP","DejaVu Sans",sans-serif}
+.page{width:1720px;margin:0 auto;padding:24px 24px 48px}
+.top{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:8px}
+.top h1{font-size:22px;margin:0}
+.top .tag{font-size:12px;border:1px solid #666;padding:1px 6px;color:#444}
+.top a{margin-left:auto;font-size:13px;color:#333}
+.lede{max-width:1100px;color:#444;margin:8px 0 18px}
+h2.sec{font-size:15px;margin:26px 0 10px;padding:4px 0;border-bottom:1px solid #aaa;text-transform:uppercase;letter-spacing:.04em;color:#333}
+h2.sec small{text-transform:none;letter-spacing:0;font-weight:400;color:#666;margin-left:8px}
+.row{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
+.arr{flex:none;align-self:center;font-size:22px;color:#777;margin-top:-30px}
+.frame{flex:none;width:520px}
+.frame.w360{width:360px}.frame.w400{width:400px}.frame.w440{width:440px}.frame.w640{width:640px}.frame.w760{width:760px}.frame.w300{width:300px}
+.cap{font-size:13px;font-weight:600;margin:0 0 6px;display:flex;gap:6px;align-items:baseline}
+.cap .n{font-weight:700;border:1.5px solid #333;padding:0 5px;font-size:11px;background:#fff}
+.note{font-size:12px;color:#555;margin:6px 0 0}
+.note b{color:#222}
+.os{font-size:10px;border:1px solid #888;padding:0 4px;color:#555;font-weight:400;margin-left:auto}
+
+/* fake desktop */
+.screen{position:relative;width:520px;height:340px;background:#d6d6d6;border:1px solid #888;overflow:hidden}
+.screen.tall{height:400px}
+.appwin{position:absolute;background:#efefef;border:1px solid #a9a9a9}
+.appwin .bar{height:16px;background:#cfcfcf;border-bottom:1px solid #b5b5b5;font-size:9px;color:#666;padding:1px 6px}
+.bub{position:absolute;background:#fff;border:1px solid #bbb;border-radius:8px;padding:3px 8px;font-size:12px;white-space:nowrap}
+.bub.me{background:#e2e2e2}
+.ts{position:absolute;font-size:10px;color:#777}
+.ghost{position:absolute;background:#c9c9c9;height:8px;border-radius:2px}
+
+/* picker */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.42)}
+.sel{position:absolute;border:1.5px solid #fff;outline:1px dashed #222;box-shadow:0 0 0 2000px rgba(0,0,0,.42)}
+.sel.live{outline-style:solid;outline-width:2px}
+.xh{position:absolute;background:rgba(255,255,255,.85)}
+.xh.h{left:0;right:0;height:1px}.xh.v{top:0;bottom:0;width:1px}
+.loupe{position:absolute;width:96px;height:96px;border-radius:50%;border:2px solid #fff;outline:1px solid #333;overflow:hidden;
+  background:#bdbdbd repeating-linear-gradient(0deg,transparent 0 7px,rgba(0,0,0,.18) 7px 8px),repeating-linear-gradient(90deg,#c8c8c8 0 7px,rgba(0,0,0,.18) 7px 8px)}
+.loupe::after{content:"";position:absolute;left:44px;top:44px;width:8px;height:8px;border:2px solid #111;background:#fff}
+.loupe-cap{position:absolute;font:10px/1.2 ui-monospace,Menlo,Consolas,monospace;background:#222;color:#fff;padding:2px 5px;white-space:nowrap}
+.size{position:absolute;font:11px/1.2 ui-monospace,Menlo,Consolas,monospace;background:#222;color:#fff;padding:2px 6px;white-space:nowrap}
+.hint{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;background:#222;color:#eee;font-size:11px;padding:4px 10px;border-radius:12px;white-space:nowrap}
+.hint b{color:#fff}
+.mode{display:inline-flex;border:1px solid #888;border-radius:10px;overflow:hidden;margin-right:6px;vertical-align:middle}
+.mode span{padding:0 7px;font-size:10px}.mode .on{background:#eee;color:#111;font-weight:700}
+.snapwin{position:absolute;outline:2px solid #fff;box-shadow:0 0 0 2000px rgba(0,0,0,.42)}
+.dbox{position:absolute;border:1.5px solid #333;background:rgba(255,255,255,.25)}
+.dbox i{position:absolute;left:-1px;top:-13px;font:9px/12px system-ui,sans-serif;font-style:normal;background:#333;color:#fff;padding:0 3px}
+.dbox.skip{border-style:dashed;border-color:#777}
+.dbox.neutral{border-style:dotted;border-color:#777}
+.keycap{display:inline-block;border:1px solid #555;border-bottom-width:3px;border-radius:5px;background:#fafafa;padding:1px 7px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.press{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid #555;padding:10px 16px;font-size:13px;text-align:center;box-shadow:0 2px 0 #999}
+
+/* Glimpse windows (popups, settings, onboarding) */
+.win{background:#fff;border:1.5px solid #444;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.pop{position:absolute;width:220px;font-size:12px}
+.pop.static{position:relative;width:340px;font-size:13px}
+.ph{display:flex;align-items:center;gap:5px;padding:5px 7px;border-bottom:1px solid #ccc;background:#f5f5f5}
+.ph .t{font-weight:700}
+.ph .sp{flex:1}
+.ib{border:1px solid #999;background:#fff;font-size:11px;padding:0 5px;border-radius:3px;line-height:17px;white-space:nowrap}
+.ib.on{background:#ddd;border-color:#555}
+.ib.x{border-color:transparent}
+.chip{font-size:10px;border:1px solid #777;border-radius:8px;padding:0 6px;color:#333;white-space:nowrap;background:#fff}
+.chip.solid{background:#333;color:#fff;border-color:#333}
+.chip.cloud{border-width:1.5px;border-style:dashed;font-weight:700}
+.pb{padding:4px 0}
+.blk{position:relative;padding:4px 8px 4px 22px;border-left:3px solid transparent}
+.blk .k{position:absolute;left:6px;top:5px;font-size:9px;color:#777}
+.blk .lang{font-size:9px;color:#888;margin-left:4px}
+.blk .src{color:#888}
+.blk .pending{color:#999}
+.blk .bar{display:inline-block;height:8px;background:#ddd;border-radius:2px;vertical-align:middle}
+.blk.changed{border-left-color:#222;background:#ececec}
+.blk.changed::after{content:"changed";position:absolute;right:6px;top:4px;font-size:9px;border:1px solid #555;padding:0 3px;background:#fff}
+.blk.fading{border-left-color:#999;background:#f6f6f6}
+.blk.neutral .v{font-family:ui-monospace,Menlo,Consolas,monospace}
+.caret{display:inline-block;width:6px;height:12px;background:#555;vertical-align:-2px;margin-left:1px}
+.rtl{direction:rtl;text-align:right;unicode-bidi:isolate}
+.skipped{margin:2px 8px 4px;padding:3px 6px;border:1px dashed #999;color:#555;font-size:11px}
+.skipped .row2{padding:3px 0 2px 12px;color:#666;border-top:1px dotted #ccc;margin-top:3px}
+.pf{display:flex;align-items:center;gap:6px;border-top:1px solid #ccc;padding:4px 8px;font-size:10px;color:#666;background:#fafafa}
+.pf .sp{flex:1}
+.pf.ok{background:#e9e9e9;color:#222;font-weight:600}
+.err{padding:12px 12px 10px}
+.err .h{font-weight:700;margin-bottom:4px}
+.err .b{color:#555;font-size:12px;margin-bottom:8px}
+.err .acts{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-block;border:1px solid #777;background:#fff;padding:3px 10px;font-size:12px;border-radius:3px;white-space:nowrap}
+.btn.pri{background:#333;color:#fff;border-color:#333}
+.btn.ghost2{border-color:transparent;text-decoration:underline;color:#444}
+.btn.sm{font-size:11px;padding:1px 7px}
+.icon-x{font-size:16px;color:#888}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.muted{color:#777}
+.small{font-size:11px}
+.toast{position:absolute;background:#222;color:#fff;font-size:11px;padding:4px 10px;border-radius:3px}
+.pin{position:absolute;font-size:9px;background:#222;color:#fff;padding:1px 5px;white-space:nowrap}
+.region{position:absolute;outline:2px solid #333;outline-offset:0}
+.region.paused{outline-style:dashed;outline-color:#666}
+.status{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#444}
+.dot{width:7px;height:7px;border-radius:50%;background:#333;display:inline-block}
+.dot.hollow{background:#fff;border:1.5px solid #333}
+.dot.half{background:linear-gradient(90deg,#333 50%,#fff 50%);border:1px solid #333}
+
+/* forms */
+.field{margin:0 0 12px}
+.field>label,.lbl{display:block;font-size:12px;font-weight:600;margin-bottom:4px}
+.help{font-size:11px;color:#666;margin-top:3px}
+.input{border:1px solid #888;background:#fff;padding:4px 8px;font-size:12px;min-height:26px;display:flex;align-items:center;gap:6px;border-radius:3px}
+.input.focus{outline:2px solid #333;outline-offset:1px}
+.select::after{content:"▾";margin-left:auto;color:#555}
+.cb{display:inline-block;width:12px;height:12px;border:1px solid #555;background:#fff;vertical-align:-2px;margin-right:6px;text-align:center;font-size:10px;line-height:10px}
+.cb.on::after{content:"✓"}
+.rd{display:inline-block;width:12px;height:12px;border:1px solid #555;border-radius:50%;background:#fff;vertical-align:-2px;margin-right:6px;position:relative}
+.rd.on::after{content:"";position:absolute;inset:2px;border-radius:50%;background:#333}
+.tog{display:inline-block;width:28px;height:15px;border:1px solid #555;border-radius:8px;background:#fff;position:relative;vertical-align:middle}
+.tog::after{content:"";position:absolute;left:2px;top:2px;width:9px;height:9px;border-radius:50%;background:#777}
+.tog.on{background:#444}.tog.on::after{left:15px;background:#fff}
+.slider{position:relative;height:18px;margin:4px 0}
+.slider::before{content:"";position:absolute;left:0;right:0;top:8px;height:2px;background:#999}
+.slider .th{position:absolute;top:2px;width:14px;height:14px;border-radius:50%;border:1.5px solid #333;background:#fff;margin-left:-7px}
+.ticks{display:flex;justify-content:space-between;font-size:10px;color:#777}
+.prog{height:8px;border:1px solid #777;background:#fff;border-radius:4px;overflow:hidden}
+.prog i{display:block;height:100%;background:#555}
+.tag2{display:inline-flex;align-items:center;gap:3px;border:1px solid #777;border-radius:10px;padding:0 7px;font-size:11px;background:#f2f2f2}
+.list{border:1px solid #aaa;background:#fff;font-size:12px}
+.list div{padding:3px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:4px}
+.list div.hl{background:#e6e6e6}
+.list div .r{margin-left:auto;font-size:10px;color:#777}
+.warnbox{border:1.5px solid #333;background:#f1f1f1;padding:6px 8px;font-size:12px;margin-top:6px}
+.warnbox b:first-child::before{content:"⚠ "}
+.infobox{border:1px dashed #777;background:#fafafa;padding:6px 8px;font-size:12px;margin-top:6px}
+.okline::before{content:"✓ ";font-weight:700}
+.badline::before{content:"✕ ";font-weight:700}
+
+/* settings / onboarding windows */
+.appframe{display:flex;flex-direction:column;border:1.5px solid #444;background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.tbar{height:26px;display:flex;align-items:center;gap:6px;padding:0 8px;background:#e9e9e9;border-bottom:1px solid #bbb;font-size:12px;color:#444}
+.tbar .lights{display:flex;gap:5px}.tbar .lights i{width:10px;height:10px;border-radius:50%;border:1px solid #888;background:#fff}
+.tbar .wctl{margin-left:auto;letter-spacing:10px;color:#666}
+.tbar .ttl{flex:1;text-align:center}
+.sbody{display:flex;min-height:360px}
+.side{width:150px;border-right:1px solid #ccc;background:#f4f4f4;padding:8px 0;font-size:12px}
+.side div{padding:4px 12px}.side .on{background:#d9d9d9;font-weight:700;border-left:3px solid #333;padding-left:9px}
+.main{flex:1;padding:14px 16px}
+.main h3{margin:0 0 12px;font-size:15px}
+.steps{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid #ddd;font-size:11px;color:#777}
+.steps span{flex:1;border-top:3px solid #ccc;padding-top:3px}
+.steps .done{border-color:#777;color:#555}.steps .cur{border-color:#222;color:#111;font-weight:700}
+.obody{padding:18px 22px;min-height:300px}
+.obody h3{margin:0 0 6px;font-size:17px}
+.obody p{margin:0 0 10px;font-size:13px;color:#333}
+.ofoot{display:flex;gap:8px;align-items:center;padding:10px 16px;border-top:1px solid #ddd;background:#fafafa}
+.ofoot .sp{flex:1}
+.kv{display:grid;grid-template-columns:110px 1fr auto;gap:6px 10px;align-items:center;font-size:12px}
+
+/* tray */
+.menu{background:#fff;border:1px solid #777;box-shadow:0 3px 0 rgba(0,0,0,.2);font-size:13px;padding:4px 0;width:280px}
+.menu.mac{border-radius:7px;padding:5px}
+.menu .mi{display:flex;gap:8px;padding:4px 12px;align-items:center}
+.menu.mac .mi{padding:3px 10px;border-radius:4px}
+.menu .mi .kb{margin-left:auto;color:#777;font-size:12px}
+.menu .mi.hl{background:#ddd}
+.menu .mi.dis{color:#999}
+.menu .mi.hdr{font-size:11px;color:#666;font-weight:600}
+.menu .mi.sub::after{content:"›";margin-left:auto;color:#777}
+.menu hr{border:0;border-top:1px solid #ddd;margin:4px 0}
+.menu .mi .ck{width:12px;display:inline-block}
+.taskbar{height:34px;background:#cfcfcf;border-top:1px solid #999;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:0 10px;font-size:11px;color:#444}
+.menubar{height:22px;background:#e4e4e4;border-bottom:1px solid #aaa;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 10px;font-size:11px;color:#444}
+.ticon{position:relative;width:18px;height:18px;border:1.5px solid #333;border-radius:4px;background:#fff;display:inline-block}
+.ticon.act{background:#bbb}
+.ticon .bd{position:absolute;right:-7px;bottom:-7px;font-size:9px;line-height:13px;min-width:14px;height:14px;border-radius:7px;font-weight:700;background:#222;color:#fff;text-align:center;padding:0 2px}
+.ticon .bd.hollow{background:#fff;color:#222;border:1px solid #222}
+
+table.t{border-collapse:collapse;font-size:12px;width:100%}
+table.t td,table.t th{border:1px solid #bbb;padding:4px 8px;text-align:left;vertical-align:top}
+table.t th{background:#e8e8e8}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top"><h1>Snip flow</h1><span class="tag">GLIM-25 · low-fidelity · greyscale</span><a href="index.html">← All flows</a></div>
+  <p class="lede">One-shot: hotkey, drag a region, read the translation, it's on the clipboard, press Esc and you're back. Example scene: a chat in a messaging app. Target language <b>English</b>; source-language subset <b>Spanish, Arabic</b>. Screens are schematic; popups in the lower rows are drawn at roughly 1:1. Keys are shown for Windows, with macOS in the notes.</p>
+
+  <template id="chat">
+    <div class="appwin" style="left:16px;top:14px;width:300px;height:312px"><div class="bar">Messages · Lucía</div></div>
+    <div class="bub" style="left:30px;top:44px">¿Nos vemos a las ocho?</div>
+    <div class="ts" style="left:196px;top:50px">12:45</div>
+    <div class="bub" style="left:30px;top:78px">Traje el libro que me pediste</div>
+    <div class="bub" style="left:30px;top:112px">Увидимся завтра</div>
+    <div class="bub me" style="left:250px;top:146px">OK</div>
+    <div class="bub" style="left:30px;top:180px">Danke dir!</div>
+    <div class="bub" style="left:30px;top:214px">Está en la mesa de la cocina</div>
+    <div class="ghost" style="left:30px;top:300px;width:270px;height:14px;background:#fff;border:1px solid #bbb"></div>
+    <div class="appwin" style="left:330px;top:30px;width:176px;height:270px"><div class="bar">Browser</div></div>
+    <div class="ghost" style="left:342px;top:60px;width:150px"></div>
+    <div class="ghost" style="left:342px;top:76px;width:120px"></div>
+    <div class="ghost" style="left:342px;top:92px;width:140px"></div>
+    <div class="ghost" style="left:342px;top:124px;width:150px;height:60px"></div>
+    <div class="ghost" style="left:342px;top:196px;width:110px"></div>
+  </template>
+  <template id="boxes">
+    <div class="dbox" style="left:27px;top:42px;width:158px;height:24px"><i>1</i></div>
+    <div class="dbox neutral" style="left:192px;top:47px;width:34px;height:18px"><i>2</i></div>
+    <div class="dbox" style="left:27px;top:76px;width:194px;height:24px"><i>3</i></div>
+    <div class="dbox skip" style="left:27px;top:110px;width:120px;height:24px"><i>4</i></div>
+    <div class="dbox neutral" style="left:248px;top:144px;width:32px;height:24px"><i>5</i></div>
+    <div class="dbox skip" style="left:27px;top:178px;width:78px;height:24px"><i>6</i></div>
+    <div class="dbox" style="left:27px;top:212px;width:188px;height:24px"><i>7</i></div>
+  </template>
+
+  <h2 class="sec">1 · Main path <small>hotkey → picker → popup → streaming → copied → dismiss</small></h2>
+  <div class="row">
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S1</span> Hotkey pressed in another app</div>
+      <div class="screen" data-scene="chat">
+        <div class="press"><span class="keycap">Alt</span> + <span class="keycap">Shift</span> + <span class="keycap">S</span><div class="small muted" style="margin-top:6px">(shown here for illustration, not in the product)</div></div>
+      </div>
+      <p class="note">Works while any app is focused, including fullscreen games. macOS: <b>⌃⇧S</b>. Tray item <b>Snip</b> does the same. No Glimpse window is visible before this.</p>
+    </figure>
+    <div class="arr">→</div>
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S2</span> Picker open: crosshair, loupe, dimmed screen</div>
+      <div class="screen" data-scene="chat">
+        <div class="dim"></div>
+        <div class="xh h" style="top:38px"></div><div class="xh v" style="left:24px"></div>
+        <div class="loupe" style="left:40px;top:54px"></div>
+        <div class="loupe-cap" style="left:40px;top:154px">x 824 · y 312</div>
+        <div class="hint"><span class="mode"><span class="on">Snip</span><span>Live</span></span>Drag to select · Click a window to snap · <b>Esc</b> cancel</div>
+      </div>
+      <p class="note">Appears over the current screen in under 100 ms (pre-created window). Loupe sits beside the cursor and flips at screen edges. <b>Tab</b> switches Snip / Live before confirming.</p>
+    </figure>
+    <div class="arr">→</div>
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S3</span> Hover: snap to window</div>
+      <div class="screen" data-scene="chat">
+        <div class="snapwin" style="left:16px;top:14px;width:300px;height:312px"></div>
+        <div class="size" style="left:16px;top:330px;transform:translateY(-100%)">Messages · 300 × 312 · click to select</div>
+        <div class="xh h" style="top:150px"></div><div class="xh v" style="left:200px"></div>
+        <div class="hint" style="left:auto;right:6px;transform:none">Click: whole window · Drag: custom</div>
+      </div>
+      <p class="note">Hovering a window highlights its edges. Click takes the whole window; dragging overrides the snap. Readout shows window name and size.</p>
+    </figure>
+  </div>
+  <div class="row">
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S4</span> Dragging: size readout</div>
+      <div class="screen tall" data-scene="chat">
+        <div class="sel" style="left:24px;top:38px;width:278px;height:204px"></div>
+        <div class="size" style="left:240px;top:246px">278 × 204</div>
+        <div class="loupe" style="left:318px;top:250px;width:72px;height:72px"></div>
+        <div class="hint" style="left:390px;bottom:6px;font-size:10px">Release to translate · <b>Enter</b> confirm</div>
+      </div>
+      <p class="note">Size readout follows the dragged corner (logical px; physical px on mixed-DPI shown as an open question). Keyboard: <b>Arrows</b> move, <b>Alt+Arrows</b> resize (<b>Shift</b> = 10 px), <b>Enter</b> confirm. macOS: <b>⌥</b> for resize, <b>Return</b>.</p>
+    </figure>
+    <div class="arr">→</div>
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S5</span> Popup: detected boxes</div>
+      <div class="screen tall" data-scene="chat">
+        <div class="region" style="left:24px;top:38px;width:278px;height:204px;outline-width:1px"></div>
+        <div data-scene="boxes"></div>
+        <div class="win pop" style="left:314px;top:38px;width:198px">
+          <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib x">×</span></div>
+          <div class="pb">
+            <div class="blk"><span class="k">1</span><span class="src">¿Nos vemos a las ocho?</span><br><span class="bar" style="width:110px"></span></div>
+            <div class="blk"><span class="k">2</span><span class="src mono">12:45</span></div>
+            <div class="blk"><span class="k">3</span><span class="src">Traje el libro que me pediste</span><br><span class="bar" style="width:130px"></span></div>
+            <div class="blk"><span class="k">5</span><span class="src mono">OK</span></div>
+            <div class="blk"><span class="k">7</span><span class="src">Está en la mesa de la cocina</span><br><span class="bar" style="width:120px"></span></div>
+            <div class="skipped">▸ 2 blocks skipped</div>
+          </div>
+          <div class="pf">7 blocks found · translating 3</div>
+        </div>
+      </div>
+      <p class="note">Popup opens beside the region, never over it. First real content: the OCR'd original text (grey) in reading order, with grey bars where translations will land. Thin outlines on screen mark each block: solid = translate, dotted = neutral, dashed = skipped.</p>
+    </figure>
+    <div class="arr">→</div>
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S6</span> Streaming translation</div>
+      <div class="screen tall" data-scene="chat">
+        <div class="region" style="left:24px;top:38px;width:278px;height:204px;outline-width:1px"></div>
+        <div data-scene="boxes"></div>
+        <div class="win pop" style="left:314px;top:38px;width:198px">
+          <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib x">×</span></div>
+          <div class="pb">
+            <div class="blk"><span class="k">1</span>See you at eight?</div>
+            <div class="blk neutral"><span class="k">2</span><span class="v">12:45</span></div>
+            <div class="blk"><span class="k">3</span>I brought the book you<span class="caret"></span></div>
+            <div class="blk neutral"><span class="k">5</span><span class="v">OK</span></div>
+            <div class="blk"><span class="k">7</span><span class="src">Está en la mesa de la cocina</span><br><span class="bar" style="width:120px"></span></div>
+            <div class="skipped">▸ 2 blocks skipped</div>
+          </div>
+          <div class="pf">Translating 2 of 3</div>
+        </div>
+      </div>
+      <p class="note">Each block's original is replaced by its translation as tokens stream in. The popup grows downward only; finished blocks never move. Reduced motion: no caret blink, text appears in chunks.</p>
+    </figure>
+  </div>
+  <div class="row">
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S7</span> Done: copied to clipboard</div>
+      <div class="screen" data-scene="chat">
+        <div class="region" style="left:24px;top:38px;width:278px;height:204px;outline-width:1px;outline-color:#777"></div>
+        <div class="win pop" style="left:314px;top:38px;width:198px">
+          <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib">Copy</span><span class="ib x">×</span></div>
+          <div class="pb">
+            <div class="blk"><span class="k">1</span>See you at eight?</div>
+            <div class="blk neutral"><span class="k">2</span><span class="v">12:45</span></div>
+            <div class="blk"><span class="k">3</span>I brought the book you asked for</div>
+            <div class="blk neutral"><span class="k">5</span><span class="v">OK</span></div>
+            <div class="blk"><span class="k">7</span>It's on the kitchen table</div>
+            <div class="skipped">▸ 2 blocks skipped</div>
+          </div>
+          <div class="pf ok">✓ Copied translation<span class="sp"></span><span style="font-weight:400">Esc to close</span></div>
+        </div>
+      </div>
+      <p class="note">Translation goes to the clipboard automatically when the last block finishes (translated + neutral blocks, in reading order, one per line; skipped blocks excluded). Block outlines clear; region outline stays faint until dismiss.</p>
+    </figure>
+    <div class="arr">→</div>
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S8</span> Dismissed: back in the app</div>
+      <div class="screen" data-scene="chat"></div>
+      <p class="note"><b>Esc</b>, clicking outside, or × closes the popup and returns focus to Messages. Nothing of Glimpse stays on screen. Clipboard now holds:<br><span class="mono small">See you at eight?⏎12:45⏎I brought the book you asked for⏎OK⏎It's on the kitchen table</span></p>
+    </figure>
+    <div class="arr" style="visibility:hidden">→</div>
+    <figure class="frame" style="margin:0">
+      <div class="cap"><span class="n">S8b</span> Popup placement when there's no room</div>
+      <div class="screen" data-scene="chat">
+        <div class="region" style="left:16px;top:14px;width:490px;height:250px;outline-width:1px"></div>
+        <div class="win pop" style="left:150px;top:270px;width:220px">
+          <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib">Copy</span><span class="ib x">×</span></div>
+          <div class="pf ok">✓ Copied translation · 3 blocks</div>
+        </div>
+      </div>
+      <p class="note">Placement order: right of region → left → below → above. If nothing fits, the popup goes inside the region's bottom edge and can be dragged. The popup is excluded from capture, so it never feeds OCR.</p>
+    </figure>
+  </div>
+
+  <h2 class="sec">2 · Popup content details <small>drawn at ~1:1</small></h2>
+  <div class="row">
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">D1</span> Neutral blocks and "N blocks skipped"</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib">Original</span><span class="ib">Copy</span><span class="ib x">×</span></div>
+        <div class="pb">
+          <div class="blk">See you at eight?<span class="lang">Spanish</span></div>
+          <div class="blk neutral"><span class="v">12:45</span><span class="lang">as-is</span></div>
+          <div class="blk">I brought the book you asked for<span class="lang">Spanish</span></div>
+          <div class="blk neutral"><span class="v">OK</span><span class="lang">as-is</span></div>
+          <div class="blk">It's on the kitchen table<span class="lang">Spanish</span></div>
+          <div class="skipped">▸ 2 blocks skipped · Russian, German</div>
+        </div>
+        <div class="pf">Copied<span class="sp"></span>Ctrl+C copy · Ctrl+Shift+O original</div>
+      </div>
+      <p class="note"><b>Neutral</b> (numbers, times, <span class="mono">OK</span>, <span class="mono">F5</span>, versions): shown as-is in place, never translated, never counted as skipped. Language tags are small and muted; hover shows confidence (open question).</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">D2</span> Skipped expander open</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib">Original</span><span class="ib">Copy</span><span class="ib x">×</span></div>
+        <div class="pb">
+          <div class="blk">See you at eight?<span class="lang">Spanish</span></div>
+          <div class="blk muted">… 4 more</div>
+          <div class="skipped">▾ 2 blocks skipped · not in your source languages
+            <div class="row2">Увидимся завтра <span class="lang">Russian</span></div>
+            <div class="row2">Danke dir! <span class="lang">German</span></div>
+            <div style="margin-top:5px;display:flex;gap:6px"><span class="btn sm">Translate these</span><span class="btn sm ghost2">Edit source languages…</span></div>
+          </div>
+        </div>
+        <div class="pf">Click or Enter to expand · Esc collapses first</div>
+      </div>
+      <p class="note">Expanded rows show the original text and detected language. <b>Translate these</b> translates the skipped blocks once, without changing settings (assumption). Copy does not include skipped blocks unless they were translated.</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">D3</span> RTL source (Arabic), translation view</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib">Original</span><span class="ib">Copy</span><span class="ib x">×</span></div>
+        <div class="pb">
+          <div class="blk">The meeting is tomorrow at 3 PM in the office<span class="lang">Arabic</span></div>
+          <div class="blk">Thank you very much<span class="lang">Arabic</span></div>
+          <div class="blk neutral"><span class="v">09:14</span><span class="lang">as-is</span></div>
+        </div>
+        <div class="pf ok">✓ Copied translation</div>
+      </div>
+      <p class="note">Target is English, so the popup is LTR. If the target were Arabic or Hebrew, the whole popup (header, buttons, blocks) mirrors.</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">D4</span> RTL source, original view (Ctrl+Shift+O)</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib on">Original</span><span class="ib">Copy</span><span class="ib x">×</span></div>
+        <div class="pb">
+          <div class="blk rtl" dir="rtl">الاجتماع غداً الساعة 3 PM في المكتب</div>
+          <div class="blk rtl" dir="rtl">شكراً جزيلاً</div>
+          <div class="blk neutral"><span class="v">09:14</span></div>
+        </div>
+        <div class="pf">Showing original · Ctrl+Shift+C copies it</div>
+      </div>
+      <p class="note">Each block gets its own direction (<span class="mono">dir</span> from its script) and is right-aligned; embedded Latin/numbers ("3 PM") keep correct bidi order. Toggling never moves the popup.</p>
+    </figure>
+  </div>
+  <div class="row">
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">D5</span> Target-language block</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib">Original</span><span class="ib">Copy</span><span class="ib x">×</span></div>
+        <div class="pb">
+          <div class="blk">Where did you leave it?<span class="lang">Spanish</span></div>
+          <div class="blk">On the shelf, I think<span class="lang">already English</span></div>
+        </div>
+        <div class="pf ok">✓ Copied translation</div>
+      </div>
+      <p class="note">Blocks already in the target language are shown as-is with a muted tag, not counted as skipped (GLIM-21 open question 4: recommended as-is).</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">D6</span> Cloud provider in use</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip cloud">☁ Cloud · ‹Provider›</span><span class="sp"></span><span class="ib">Copy</span><span class="ib x">×</span></div>
+        <div class="pb">
+          <div class="blk">See you at eight?<span class="lang">Spanish</span></div>
+          <div class="blk">I brought the book you asked for<span class="lang">Spanish</span></div>
+        </div>
+        <div class="pf">Text from this region was sent to ‹Provider›<span class="sp"></span><u>Change</u></div>
+      </div>
+      <p class="note">Whenever a cloud provider handled the request, the header chip says so and the footer says what was sent. Local results show <span class="chip">Local</span>. Provider names are placeholders (open decision).</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">D7</span> Low-confidence OCR (assumption)</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib">Original</span><span class="ib">Copy</span><span class="ib x">×</span></div>
+        <div class="pb">
+          <div class="blk">I brought the book you asked for<span class="lang">Spanish</span></div>
+          <div class="blk">[?] the kitchen table<span class="lang">Spanish · unclear text</span></div>
+        </div>
+        <div class="pf ok">✓ Copied translation</div>
+      </div>
+      <p class="note">Not in the brief; included to raise the question of whether unclear OCR should be flagged per block.</p>
+    </figure>
+  </div>
+
+  <h2 class="sec">3 · Error states <small>the popup replaces its body; Esc still closes</small></h2>
+  <div class="row">
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">E1</span> No text found</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib x">×</span></div>
+        <div class="err">
+          <div class="h">No text found</div>
+          <div class="b">Glimpse couldn't find any text in this region. Try a bigger region, or zoom in so the text is larger.</div>
+          <div class="acts"><span class="btn pri">Snip again</span><span class="btn">Close</span></div>
+        </div>
+        <div class="pf">Clipboard not changed</div>
+      </div>
+      <p class="note"><b>Snip again</b> reopens the picker with the last region pre-drawn. Also used when every block is neutral? Open question.</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">E2</span> Translation model missing</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip">Local</span><span class="sp"></span><span class="ib x">×</span></div>
+        <div class="err" style="padding-bottom:6px">
+          <div class="h">Translation model not downloaded</div>
+          <div class="b">Text was read, but Glimpse can't translate it until the model is on this computer. Showing the original text.</div>
+          <div class="acts"><span class="btn pri">Download model…</span><span class="btn">Copy original</span></div>
+        </div>
+        <div class="pb" style="border-top:1px solid #ddd">
+          <div class="blk src">¿Nos vemos a las ocho?</div>
+          <div class="blk src">Traje el libro que me pediste</div>
+        </div>
+        <div class="pf">Clipboard not changed</div>
+      </div>
+      <p class="note">OCR is bundled, so the original is still useful. <b>Download model…</b> opens Settings › Models (or onboarding if setup was skipped). Same pattern for a missing language pack: "Arabic pack not downloaded".</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">E3</span> Cloud provider error</div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="chip cloud">☁ Cloud · ‹Provider›</span><span class="sp"></span><span class="ib x">×</span></div>
+        <div class="err" style="padding-bottom:6px">
+          <div class="h">‹Provider› rejected the request</div>
+          <div class="b">Your API key was not accepted (401). Nothing was translated.</div>
+          <div class="acts"><span class="btn pri">Retry</span><span class="btn">Translate on this computer</span><span class="btn ghost2">Check key…</span></div>
+        </div>
+        <div class="pb" style="border-top:1px solid #ddd">
+          <div class="blk src">¿Nos vemos a las ocho?</div>
+          <div class="blk src">Traje el libro que me pediste</div>
+        </div>
+        <div class="pf">Clipboard not changed</div>
+      </div>
+      <p class="note">Message names the provider and the reason in plain words (timeout, no connection, quota, bad key). Glimpse never switches provider silently; local fallback is a button. Other copy: "‹Provider› didn't answer within 10 s." / "You're offline."</p>
+    </figure>
+    <figure class="frame w360" style="margin:0">
+      <div class="cap"><span class="n">E4</span> Screen access lost <span class="os">macOS</span></div>
+      <div class="win pop static">
+        <div class="ph"><span class="t">Snip</span><span class="sp"></span><span class="ib x">×</span></div>
+        <div class="err">
+          <div class="h">Glimpse can't see your screen</div>
+          <div class="b">Screen Recording permission is off or was reset by an update. The capture came back blank.</div>
+          <div class="acts"><span class="btn pri">Open System Settings</span><span class="btn ghost2">Why does this happen?</span></div>
+        </div>
+      </div>
+      <p class="note">Not requested, but likely with unsigned builds: macOS can drop the grant after each update. Shown instead of a misleading "No text found".</p>
+    </figure>
+  </div>
+
+  <h2 class="sec">Keys in this flow <small>from GLIM-23</small></h2>
+  <table class="t" style="width:900px">
+    <tr><th>Action</th><th>Windows</th><th>macOS</th><th>Where</th></tr>
+    <tr><td>Start Snip</td><td>Alt+Shift+S</td><td>⌃⇧S</td><td>Global</td></tr>
+    <tr><td>Cancel picker / close popup</td><td>Esc</td><td>Esc</td><td>Picker, popup</td></tr>
+    <tr><td>Confirm keyboard selection</td><td>Enter</td><td>Return</td><td>Picker</td></tr>
+    <tr><td>Move / resize selection (1 px, Shift = 10 px)</td><td>Arrows / Alt+Arrows</td><td>Arrows / ⌥+Arrows</td><td>Picker</td></tr>
+    <tr><td>Switch Snip ↔ Live</td><td>Tab</td><td>Tab</td><td>Picker</td></tr>
+    <tr><td>Copy translation / copy original</td><td>Ctrl+C / Ctrl+Shift+C</td><td>⌘C / ⌘⇧C</td><td>Popup</td></tr>
+    <tr><td>Toggle original view</td><td>Ctrl+Shift+O</td><td>⌘⇧O</td><td>Popup</td></tr>
+  </table>
+</div>
+<script>
+  // Fill each [data-scene] with its template so the scene markup is written once.
+  document.querySelectorAll('[data-scene]').forEach(el => {
+    const t = document.getElementById(el.dataset.scene);
+    if (!t) return;
+    if (el.classList.contains('screen')) el.prepend(t.content.cloneNode(true));
+    else el.replaceWith(t.content.cloneNode(true));
+  });
+</script>
+</body>
+</html>
