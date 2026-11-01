@@ -4,8 +4,10 @@
 
 export * from "./catalog.ts";
 export * from "./code.ts";
+export * from "./detect/index.ts";
 export * from "./display.ts";
 export * from "./lookup.ts";
 export * from "./ocr.ts";
 export * from "./route.ts";
 export * from "./script.ts";
+export * from "./script-count.ts";

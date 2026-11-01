@@ -2,13 +2,13 @@
 // script outside the subset, single-language scripts) and a simple fallback for ambiguous
 // scripts (the OCR engine's language hint, else the subset's language for that script, else
 // the script's most common language). No statistical model; the real detector (ELD /
-// fastText, rules 4-5) replaces it through the `LanguageDetector` port.
+// fastText, rules 4-5) replaces it through the `BlockLanguageDetector` port.
 
 import type { BlockLanguage, OcrBlock } from "../block.ts";
 import { type LanguageCode, languageCode } from "../language/code.ts";
 import { sameLanguage, scriptOf } from "../language/lookup.ts";
 import { isHanScript, type ScriptCode } from "../language/script.ts";
-import type { DetectionContext, LanguageDetector } from "./ports.ts";
+import type { BlockLanguageDetector, DetectionContext } from "./ports.ts";
 
 /** Scripts we can name from code points, with Unicode property regexes. */
 const SCRIPTS: readonly (readonly [ScriptCode, RegExp])[] = [
@@ -124,7 +124,7 @@ export interface ScriptDetectorOptions {
 	readonly fallbacks?: Readonly<Record<string, string>>;
 }
 
-export function scriptLanguageDetector(options: ScriptDetectorOptions = {}): LanguageDetector {
+export function scriptLanguageDetector(options: ScriptDetectorOptions = {}): BlockLanguageDetector {
 	const fallbacks = { ...FALLBACK, ...options.fallbacks };
 	const decide = (block: OcrBlock, ctx: DetectionContext): BlockLanguage => {
 		const stripped = block.text.normalize("NFKC").trim();

@@ -4,7 +4,7 @@
 //   detection -> source-subset filter -> translation routing (pivot) -> per-block results
 //
 // Pure orchestration over ports (ARCHITECTURE.md §4): `CaptureSource`, `OcrProvider`, the
-// translation provider chain, `BlockGrouper`, `LanguageDetector`, a `TranslationCache` and
+// translation provider chain, `BlockGrouper`, `BlockLanguageDetector`, a `TranslationCache` and
 // a `Clock`. Progress is a typed event stream (events.ts) the popups render in order;
 // every run ends with exactly one `done` event, unless it is cancelled (then it rejects
 // with `ProviderError("cancelled")` and emits nothing more).
@@ -42,7 +42,7 @@ import type {
 	PipelineResult,
 	RecognisedBlock,
 } from "./events.ts";
-import { type BlockGrouper, type Clock, identityGrouper, type LanguageDetector, systemClock } from "./ports.ts";
+import { type BlockGrouper, type BlockLanguageDetector, type Clock, identityGrouper, systemClock } from "./ports.ts";
 import { scriptLanguageDetector } from "./script-detector.ts";
 import { executeTranslation, planTranslation } from "./translate.ts";
 
@@ -52,7 +52,7 @@ export interface PipelineDeps {
 	/** The translation chain in settings order (GLIM-43). */
 	readonly chain: () => readonly TranslationProvider[];
 	readonly grouper?: BlockGrouper;
-	readonly detector?: LanguageDetector;
+	readonly detector?: BlockLanguageDetector;
 	/**
 	 * Download state of pairs that need packs (the app's `TranslationPacks.readiness`).
 	 * Default: the chain's routing, with every missing pack reported as downloadable.
@@ -140,7 +140,7 @@ const newRunId = () => `run-${Date.now().toString(36)}-${(++runCounter).toString
 export class TranslationPipeline {
 	readonly #deps: PipelineDeps;
 	readonly #grouper: BlockGrouper;
-	readonly #detector: LanguageDetector;
+	readonly #detector: BlockLanguageDetector;
 	readonly #clock: Clock;
 	readonly #readinessOf: (from: LanguageCode, to: LanguageCode) => TranslationReadiness;
 

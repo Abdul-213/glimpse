@@ -12,10 +12,10 @@
 
 import {
 	type BlockGrouper,
+	type BlockLanguageDetector,
 	type CacheClearReason,
 	type CaptureSource,
 	type LanguageCode,
-	type LanguageDetector,
 	LivePipelineSession,
 	type Logger,
 	type OcrProvider,
@@ -41,7 +41,7 @@ export interface TranslationServiceOptions<Ctx> {
 	/** Pack download state for pack rows (the app's `TranslationPacks.readiness`). */
 	readonly readinessOf?: (from: LanguageCode, to: LanguageCode) => TranslationReadiness;
 	readonly grouper?: BlockGrouper;
-	readonly detector?: LanguageDetector;
+	readonly detector?: BlockLanguageDetector;
 	/** Called when Private changes (the tray mirrors it). */
 	readonly onPrivateChange?: (on: boolean) => void;
 }

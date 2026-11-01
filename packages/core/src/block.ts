@@ -20,6 +20,26 @@ export interface OcrBlock {
 	 * the engine reports none.
 	 */
 	readonly languageHints?: readonly LanguageHint[];
+	/**
+	 * The text lines the block was grouped from (GLIM-56), in reading order. Omitted by
+	 * engines that only report blocks. The overlay can use them to lay text out per line.
+	 */
+	readonly lines?: readonly OcrLine[];
+	/** `vertical-rl` for vertical CJK columns (read top to bottom, columns right to left). */
+	readonly writing?: WritingMode;
+}
+
+export type WritingMode = "horizontal-tb" | "vertical-rl";
+
+/** One detected text line (or vertical column), as an engine reports it before grouping. */
+export interface OcrLine {
+	/** Region-local device pixels, like `OcrBlock.box`. */
+	readonly box: Rect;
+	readonly text: string;
+	/** 0..1. */
+	readonly confidence: number;
+	/** Vertical text (a tall box read top to bottom). Default: inferred from the box shape. */
+	readonly vertical?: boolean;
 }
 
 export interface LanguageHint {

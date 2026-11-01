@@ -8,11 +8,11 @@
 import {
 	type BlockClass,
 	type BlockGrouper,
+	type BlockLanguageDetector,
 	type CaptureFrame,
 	type CaptureSource,
 	functionDetector,
 	type LanguageCode,
-	type LanguageDetector,
 	type OcrProvider,
 	type PipelineErrorKind,
 	type PipelineListener,
@@ -57,10 +57,10 @@ export interface PipelineStageReport {
 export interface PipelineStageOptions {
 	readonly ocr: OcrProvider;
 	/**
-	 * Language detection: a `LanguageDetector` (GLIM-49 supplies the real one) or a per-text
+	 * Language detection: a `BlockLanguageDetector` (GLIM-109 adapts the GLIM-49 one) or a per-text
 	 * function (null: leave the block untranslated). Default: core's script-table detector.
 	 */
-	readonly detect?: LanguageDetector | ((text: string) => LanguageCode | null);
+	readonly detect?: BlockLanguageDetector | ((text: string) => LanguageCode | null);
 	/** The translation chain (or one provider). */
 	readonly translation: TranslationProvider | readonly TranslationProvider[];
 	readonly to: LanguageCode;

@@ -4,6 +4,7 @@
 export * from "./capture.ts";
 export * from "./contract.ts";
 export * from "./fake-factories.ts";
+export * from "./fake-language-detector.ts";
 export * from "./fake-ocr-provider.ts";
 export * from "./fake-translation-provider.ts";
 export * from "./memory-log-sink.ts";

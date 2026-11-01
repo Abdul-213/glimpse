@@ -37,6 +37,8 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 │   └── test/                    tests for the app's pure modules and the view build; fixtures/capture/ recordings
 ├── packages/
 │   ├── core/                    @glimpse/core: pure TypeScript domain logic (see section 4)
+│   ├── providers/               @glimpse/providers: provider implementations (Bun APIs, onnxruntime, WASM; no Electrobun)
+│   │   └── src/ocr/paddle/      PaddleOCR PP-OCRv5 on onnxruntime-node: engine (pure) + inference Worker + OcrProvider (GLIM-46)
 │   └── ui/                      @glimpse/ui: shared Solid components + Tailwind theme from DESIGN.md
 │       ├── scripts/             generate-tokens.ts: DESIGN.md frontmatter -> src/styles/tokens.css
 │       └── src/                 components/, styles/theme.css, styles/tokens.css (generated), platform.ts

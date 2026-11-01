@@ -45,6 +45,18 @@ jobs:
       - name: Lint and format check
         run: bun run lint:ci
 
+      # Bundled OCR models + Bergamot runtime (app/models/manifest.json, ~29 MB download), used by
+      # the real-model OCR tests and the preBuild hook. Cached by manifest hash so most runs
+      # download nothing.
+      - name: Cache bundled models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/models
+          key: glimpse-models-${{ hashFiles('app/models/manifest.json') }}
+
+      - name: Fetch bundled models
+        run: bun run models
+
       - name: Unit tests
         run: bun test
 
@@ -70,14 +82,6 @@ jobs:
           name: gallery
           path: ${{ runner.temp }}/gallery
           retention-days: 7
-
-      # Bundled OCR models + Bergamot runtime (app/models/manifest.json, ~29 MB download), fetched
-      # by the preBuild hook. Cached by manifest hash so most runs download nothing.
-      - name: Cache bundled models
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/glimpse/models
-          key: glimpse-models-${{ hashFiles('app/models/manifest.json') }}
 
       - name: Build the app (Linux)
         working-directory: app

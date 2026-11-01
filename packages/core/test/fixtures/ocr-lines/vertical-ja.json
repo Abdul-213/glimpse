@@ -1,0 +1,32 @@
+[
+	{
+		"box": {
+			"x": 55,
+			"y": 16,
+			"width": 35,
+			"height": 238
+		},
+		"text": "どこで生れたか",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 114,
+			"y": 14,
+			"width": 37,
+			"height": 240
+		},
+		"text": "名前はまだ無い",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 177,
+			"y": 15,
+			"width": 33,
+			"height": 238
+		},
+		"text": "吾輩は猫である",
+		"confidence": 1
+	}
+]

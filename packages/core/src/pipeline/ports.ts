@@ -1,7 +1,7 @@
 // Narrow ports the pipeline needs from stages that are built elsewhere:
 //
 // - `BlockGrouper` (GLIM-56): OCR lines -> paragraph-level blocks.
-// - `LanguageDetector` (GLIM-49, GLIM-21 rules): one decision per block.
+// - `BlockLanguageDetector` (GLIM-49, GLIM-21 rules): one decision per block.
 //
 // The pipeline ships simple defaults (`identityGrouper`, `scriptLanguageDetector`) so it runs
 // end to end before those land; the real implementations plug in through these interfaces
@@ -40,7 +40,7 @@ export interface DetectionContext {
 	readonly memo?: Map<string, BlockLanguage>;
 }
 
-export interface LanguageDetector {
+export interface BlockLanguageDetector {
 	readonly id: string;
 	/**
 	 * One decision per block, same order and length as `blocks`. Batch API because GLIM-21
@@ -54,7 +54,10 @@ export interface LanguageDetector {
 }
 
 /** A detector from a per-text function (tests, harness). `null` means "can't tell": skipped. */
-export function functionDetector(detect: (text: string) => LanguageCode | null, id = "function"): LanguageDetector {
+export function functionDetector(
+	detect: (text: string) => LanguageCode | null,
+	id = "function",
+): BlockLanguageDetector {
 	return {
 		id,
 		detect: (blocks) =>
