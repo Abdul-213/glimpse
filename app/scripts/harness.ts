@@ -28,6 +28,7 @@ import {
 	parseRect,
 	type Rect,
 	TranslationCache,
+	TranslationPipeline,
 } from "@glimpse/core";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import { loadWindowsCapture } from "../src/bun/native/windows.ts";
@@ -40,6 +41,7 @@ import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
 import { createPickerNatives } from "../src/bun/services/picker/index.ts";
 import { pipelineStages } from "../src/bun/services/translation/pipeline-stages.ts";
 import { dragSteps, type PickStep, runPick } from "../src/harness/pick.ts";
+import { popupLines, runSnipPopup } from "../src/harness/popup.ts";
 import {
 	bergamotTranslator,
 	defaultPackRoot,
@@ -78,6 +80,8 @@ const USAGE = `usage: bun run harness <displays|snip|live|pick|windows|loupe> [o
   --to <lang>       pipeline target language (default en)
   --sources <a,b>   pipeline source-language subset (default: every language)
   --private         pipeline: Private mode (nothing cached)
+  --popup           snip --pipeline: run the Snip popup controller too (GLIM-65) and print
+                    its placement, status sequence and final blocks
   --drag x1,y1,x2,y2  pick: press, drag and release (global logical)
   --click x,y       pick: click (selects the window or display under it)
   --keys a,b,...    pick: key presses (DOM key names: ArrowRight, Enter, Escape, Tab)
@@ -105,6 +109,7 @@ const { values, positionals } = parseArgs({
 		to: { type: "string", default: "en" },
 		sources: { type: "string" },
 		private: { type: "boolean", default: false },
+		popup: { type: "boolean", default: false },
 		at: { type: "string" },
 		drag: { type: "string" },
 		click: { type: "string" },
@@ -172,6 +177,8 @@ const DEFAULT_OCR_TEXT = "設定を保存しました。次へ進みます。|10
 let translator: HarnessTranslator | null = null;
 let ocrProvider: { dispose(): Promise<void> } | null = null;
 const stages: HarnessStage[] = [];
+let popupPipeline: { pipeline: TranslationPipeline; to: LanguageCode; sources: LanguageCode[] } | null = null;
+if (values.popup && !values.pipeline) throw new Error("--popup needs --pipeline");
 if (values.pipeline) {
 	const to = lang(values.to ?? "en", "to");
 	const sources = (values.sources ?? "")
@@ -198,6 +205,10 @@ if (values.pipeline) {
 					sources.filter((from) => from !== to).map((from) => ({ from, to })),
 				)
 			: await fakeTranslator();
+	const chain = [translator.provider];
+	if (values.popup) {
+		popupPipeline = { pipeline: new TranslationPipeline({ ocr: () => ocr, chain: () => chain }), to, sources };
+	}
 	stages.push(
 		pipelineStage({
 			ocr,
@@ -317,6 +328,10 @@ try {
 		}
 	} else if (!rect) {
 		throw new Error("no displays and no --rect");
+	} else if (command === "snip" && popupPipeline) {
+		const r = await runSnipPopup(source, rect, { ...popupPipeline, private: values.private });
+		for (const l of popupLines(r)) console.log(l);
+		if (!r.state || !r.shown) process.exitCode = 1;
 	} else if (command === "snip") {
 		const r = await runSnip(source, rect, { stages, ...(scale ? { scale } : {}), ...(onFrame ? { onFrame } : {}) });
 		console.log(

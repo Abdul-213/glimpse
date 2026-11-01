@@ -231,9 +231,12 @@ export class TranslationService<Ctx> {
 		rect: Rect,
 		onEvent: PipelineListener,
 		signal?: AbortSignal,
+		/** The Snip popup's request id, so its events are recognisable (GLIM-65). */
+		runId?: string,
 	): Promise<PipelineResult> {
 		const settings = this.#opts.settings();
 		return this.pipeline.snip(capture, rect, {
+			...(runId ? { runId } : {}),
 			target: settings.language.target,
 			sources: settings.language.sources,
 			cache: this.caches.forSnip(this.#private),
