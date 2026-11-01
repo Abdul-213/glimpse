@@ -448,6 +448,68 @@ GLIM_EXPORT int32_t glim_capture_stream_read(uint64_t handle, const int32_t *des
   }
 }
 
+// Copy a size x size px patch with top-left (x, y) in the stream's output pixels from
+// the latest frame into `out` (tightly packed RGBA, size * size * 4 bytes). Pixels
+// outside the frame are opaque black. For the picker's loupe (GLIM-91): a full-display
+// stream at 30 fps stays warm while the picker is open and each sample reads 900 bytes,
+// instead of a ScreenCaptureKit screenshot per pointer move. Returns GLIM_E_NO_FRAME
+// (without waiting) until the first frame has arrived.
+GLIM_EXPORT int32_t glim_capture_stream_sample(uint64_t handle, int32_t x, int32_t y, int32_t size, uint8_t *out,
+                                               uint64_t len, uint64_t *seqOut) {
+  if (!out || size <= 0 || size > 64 || len < (uint64_t)size * (uint64_t)size * 4) {
+    glim_set_error("bad sample size or buffer");
+    return GLIM_E_ARGS;
+  }
+  GlimStream *gs = nil;
+  @synchronized(glim_state_lock()) {
+    gs = glim_streams()[@(handle)];
+  }
+  if (!gs) {
+    glim_set_error("unknown stream %llu", (unsigned long long)handle);
+    return GLIM_E_ARGS;
+  }
+  CVPixelBufferRef pb = NULL;
+  uint64_t seq = 0;
+  int32_t stop = [gs latest:&pb seq:&seq];
+  if (!pb) {
+    if (stop != 0) {
+      glim_set_error("SCStream stopped (%d)", stop);
+      return stop;
+    }
+    glim_set_error("SCStream: no frame yet");
+    return GLIM_E_NO_FRAME;
+  }
+  int32_t r = GLIM_OK;
+  if (CVPixelBufferGetPixelFormatType(pb) != kCVPixelFormatType_32BGRA) {
+    glim_set_error("unexpected pixel format %u", (unsigned)CVPixelBufferGetPixelFormatType(pb));
+    r = GLIM_E_UNSUPPORTED;
+  } else {
+    CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
+    const uint8_t *base = (const uint8_t *)CVPixelBufferGetBaseAddress(pb);
+    size_t bpr = CVPixelBufferGetBytesPerRow(pb);
+    int32_t fw = (int32_t)CVPixelBufferGetWidth(pb), fh = (int32_t)CVPixelBufferGetHeight(pb);
+    for (int32_t row = 0; row < size; row++) {
+      for (int32_t col = 0; col < size; col++) {
+        uint8_t *d = out + ((size_t)row * (size_t)size + (size_t)col) * 4;
+        int32_t sx = x + col, sy = y + row;
+        if (!base || sx < 0 || sy < 0 || sx >= fw || sy >= fh) {
+          d[0] = d[1] = d[2] = 0;
+        } else {
+          const uint8_t *s = base + (size_t)sy * bpr + (size_t)sx * 4;
+          d[0] = s[2];
+          d[1] = s[1];
+          d[2] = s[0];
+        }
+        d[3] = 255;
+      }
+    }
+    CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
+  }
+  CVPixelBufferRelease(pb);
+  if (seqOut) *seqOut = seq;
+  return r;
+}
+
 GLIM_EXPORT int32_t glim_capture_stream_close(uint64_t handle) {
   GlimStream *gs = nil;
   @synchronized(glim_state_lock()) {

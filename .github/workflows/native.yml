@@ -15,6 +15,7 @@ on:
       - app/native/**
       - app/src/bun/native/**
       - app/src/bun/services/capture/**
+      - app/src/bun/services/picker/**
       - app/scripts/native-smoke.ts
       - .github/workflows/native.yml
   workflow_dispatch:
@@ -49,7 +50,7 @@ jobs:
         run: |
           $exports = dumpbin /nologo /exports app/native/windows/build/glimpse.dll | Out-String
           Write-Host $exports
-          foreach ($s in "glim_abi_version", "glim_last_error", "glim_capture_displays_json", "glim_capture_piece", "glim_capture_release") {
+          foreach ($s in "glim_abi_version", "glim_last_error", "glim_capture_displays_json", "glim_capture_piece", "glim_capture_release", "glim_list_windows", "glim_focus_save", "glim_focus_restore") {
             if ($exports -notmatch "\b$s\b") { throw "missing export $s" }
           }
 
@@ -84,7 +85,9 @@ jobs:
           nm -gU app/native/macos/build/libglimpse.dylib | tee exports.txt
           for s in glim_abi_version glim_last_error glim_window_exclude_from_capture glim_window_number \
             glim_capture_set_excluded_windows glim_capture_shot glim_capture_stream_open glim_capture_stream_read \
-            glim_capture_stream_close glim_capture_reset glim_capture_preflight glim_capture_displays_json; do
+            glim_capture_stream_close glim_capture_reset glim_capture_preflight glim_capture_displays_json \
+            glim_capture_stream_sample glim_list_windows glim_focus_save glim_focus_restore glim_window_configure \
+            glim_window_set_level; do
             grep -q "_$s\$" exports.txt || { echo "missing export $s"; exit 1; }
           done
 

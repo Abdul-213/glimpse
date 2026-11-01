@@ -8,11 +8,14 @@ The single Windows helper library, per [GLIM-26](../../../docs/decisions/GLIM-26
 | `glimpse.h` | Status codes (mirrored in `app/src/bun/native/status.ts`), ABI version, export macro |
 | `glimpse.cpp` | `glim_abi_version`, `glim_last_error` |
 | `capture.cpp` | Screen capture (GLIM-36): GDI `BitBlt` (Snip, fallback) and DXGI Desktop Duplication (Live), per-monitor-DPI-aware physical pixels, BGRA→RGBA into the caller's buffer, bilinear resampling for mixed-DPI pieces. `glim_capture_displays_json`, `glim_capture_piece`, `glim_capture_release`. |
+| `picker.cpp` | Region-picker helpers (GLIM-91): `glim_list_windows` (`EnumWindows` + `DWMWA_EXTENDED_FRAME_BOUNDS`, cloaked and shell windows and our own process dropped, app name from the exe's `FileDescription`; physical px, front to back), `glim_focus_save` / `glim_focus_restore` (`GetForegroundWindow` / `SetForegroundWindow`). Links `dwmapi` and `version`. |
 
 WGC from the capture spike is not ported: it draws a border round the monitor that an
 unpackaged app can't remove. Self-capture exclusion needs nothing here:
 `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` is a plain user32 call made from
-TypeScript (`app/src/bun/native/windows.ts`).
+TypeScript (`app/src/bun/native/windows.ts`), and so are the picker overlay's ex-style
+(`WS_EX_TOOLWINDOW`) and `HWND_TOPMOST`. Loupe pixels need no export either: they are GDI
+one-shots through the capture service.
 
 ## Build
 

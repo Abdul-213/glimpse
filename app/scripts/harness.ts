@@ -7,6 +7,8 @@
 //   bun run harness snip --native --rect 0,0,400,200 --out out    (real capture on Windows/macOS)
 //   bun run harness snip --pipeline                                 (OCR -> detect -> cache -> translate, fakes)
 //   bun run harness snip --pipeline --translator bergamot --to de --ocr-text "明日の会議は午後三時に始まります。"
+//   bun run harness windows --native                               (picker window list, GLIM-91)
+//   bun run harness loupe --native --at 400,300 --count 60         (loupe sampling rate, GLIM-91)
 //
 // Without --native it uses the file-based capture backend over --frames (default: the
 // sample recording in app/test/fixtures/capture/sample). --json prints the full report.
@@ -31,6 +33,7 @@ import { MacCaptureSource } from "../src/bun/services/capture/macos.ts";
 import { displaysFromMac, displaysFromWindows } from "../src/bun/services/capture/native-displays.ts";
 import { encodePng } from "../src/bun/services/capture/png.ts";
 import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
+import { createPickerNatives } from "../src/bun/services/picker/index.ts";
 import {
 	bergamotTranslator,
 	defaultPackRoot,
@@ -47,7 +50,7 @@ import {
 	runSnip,
 } from "../src/harness/run.ts";
 
-const USAGE = `usage: bun run harness <displays|snip|live> [options]
+const USAGE = `usage: bun run harness <displays|snip|live|windows|loupe> [options]
   --frames <path>   frame folder or PNG for the file backend (default: sample recording)
   --native          use the real capture backend (Windows/macOS only)
   --rect x,y,w,h    global logical rect (default: the primary display)
@@ -64,7 +67,8 @@ const USAGE = `usage: bun run harness <displays|snip|live> [options]
   --packs <dir>     bergamot: model folder with installed packs (default ${defaultPackRoot()})
   --to <lang>       pipeline target language (default en)
   --sources <a,b>   pipeline source-language subset (default: every language)
-  --private         pipeline: Private mode (nothing cached)`;
+  --private         pipeline: Private mode (nothing cached)
+  --at x,y          loupe: global logical point to sample (default: primary display centre)`;
 
 const { values, positionals } = parseArgs({
 	args: Bun.argv.slice(2),
@@ -86,12 +90,13 @@ const { values, positionals } = parseArgs({
 		to: { type: "string", default: "en" },
 		sources: { type: "string" },
 		private: { type: "boolean", default: false },
+		at: { type: "string" },
 		help: { type: "boolean", short: "h", default: false },
 	},
 });
 
 const command = positionals[0] ?? "snip";
-if (values.help || !["displays", "snip", "live"].includes(command)) {
+if (values.help || !["displays", "snip", "live", "windows", "loupe"].includes(command)) {
 	console.log(USAGE);
 	process.exit(values.help ? 0 : 2);
 }
@@ -200,6 +205,39 @@ try {
 			values.json ? JSON.stringify({ backend: source.backend, displays }, null, 2) : `backend ${source.backend}`,
 		);
 		if (!values.json) for (const d of displays) console.log(JSON.stringify(d));
+	} else if (command === "windows" || command === "loupe") {
+		const natives = createPickerNatives({ capture: source, shellDisplays: () => source.displays() });
+		console.log(natives.status);
+		if (command === "windows") {
+			const windows = await natives.windows.list();
+			if (values.json) console.log(JSON.stringify(windows, null, 2));
+			else for (const w of windows) console.log(`z${w.z} ${w.appName} (pid ${w.pid}) ${JSON.stringify(w.rect)}`);
+		} else {
+			const [ax, ay] = (values.at ?? "").split(",").map(Number);
+			const at =
+				ax !== undefined && ay !== undefined && Number.isFinite(ax) && Number.isFinite(ay)
+					? { x: ax, y: ay }
+					: primary
+						? { x: primary.bounds.x + primary.bounds.width / 2, y: primary.bounds.y + primary.bounds.height / 2 }
+						: { x: 0, y: 0 };
+			const count = num(values.count, "count") ?? 30;
+			const times: number[] = [];
+			let last = null;
+			for (let i = 0; i < count; i++) {
+				const t0 = performance.now();
+				last = await natives.sampler.sample(at, 15);
+				times.push(performance.now() - t0);
+				if (values.realtime) await Bun.sleep(33);
+			}
+			natives.sampler.stop();
+			const sorted = [...times].sort((a, b) => a - b);
+			const p = (q: number) => (sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0).toFixed(1);
+			const c = last ? [...last.rgba.subarray((7 * 15 + 7) * 4, (7 * 15 + 7) * 4 + 3)] : null;
+			console.log(
+				`loupe at ${at.x},${at.y}: ${last ? `display ${last.displayId}, centre rgb(${c?.join(", ")})` : "no pixels"}; ` +
+					`${count} samples, p50 ${p(0.5)} ms, p95 ${p(0.95)} ms`,
+			);
+		}
 	} else if (!rect) {
 		throw new Error("no displays and no --rect");
 	} else if (command === "snip") {
