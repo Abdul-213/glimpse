@@ -14,6 +14,7 @@ import type {
 import { nullLogger, snipStatus, TranslationCache } from "@glimpse/core";
 import type { Scheduler } from "../bun/windows/picker-controller.ts";
 import {
+	type PackPort,
 	type PopupWindowPort,
 	SnipPopupController,
 	type SnipPopupSettings,
@@ -61,6 +62,10 @@ export interface PopupHarness {
 	readonly scheduler: ManualScheduler;
 	readonly focusRestores: () => number;
 	readonly resultsDismissed: () => number;
+	/** Every clipboard write, in order. */
+	readonly clipboard: string[];
+	/** Every action target call: `snipAgain`, `settings:providers`, `url:...`. */
+	readonly targets: string[];
 }
 
 export interface PopupHarnessOptions {
@@ -69,6 +74,8 @@ export interface PopupHarnessOptions {
 	readonly settings?: Partial<SnipPopupSettings>;
 	readonly scheduler?: Scheduler & ManualScheduler;
 	readonly log?: Logger;
+	readonly packs?: PackPort;
+	readonly eol?: "\n" | "\r\n";
 }
 
 export function popupHarness(o: PopupHarnessOptions): PopupHarness {
@@ -76,6 +83,8 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 	const scheduler = o.scheduler ?? new ManualScheduler();
 	let restores = 0;
 	let dismissed = 0;
+	const clipboard: string[] = [];
+	const targets: string[] = [];
 	const controller = new SnipPopupController({
 		window,
 		displays: o.displays,
@@ -88,6 +97,14 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 			},
 		},
 		results: { dismiss: () => dismissed++ },
+		clipboard: { writeText: (text) => clipboard.push(text) },
+		...(o.eol ? { eol: o.eol } : {}),
+		...(o.packs ? { packs: o.packs } : {}),
+		targets: {
+			snipAgain: () => targets.push("snipAgain"),
+			openSettings: (section) => targets.push(`settings:${section}`),
+			openExternal: (url) => targets.push(`url:${url}`),
+		},
 		settings: () => ({ ...DEFAULT_POPUP_SETTINGS, ...o.settings }),
 		scheduler,
 		log: o.log ?? nullLogger,
@@ -96,7 +113,15 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 			return () => `snip-${++n}`;
 		})(),
 	});
-	return { controller, window, scheduler, focusRestores: () => restores, resultsDismissed: () => dismissed };
+	return {
+		controller,
+		window,
+		scheduler,
+		focusRestores: () => restores,
+		resultsDismissed: () => dismissed,
+		clipboard,
+		targets,
+	};
 }
 
 /** A SnipRunner over a capture source and a core pipeline (what TranslationService.snip does). */
@@ -116,6 +141,17 @@ export function pipelineRunner(
 				private: opts.private ?? false,
 				onEvent,
 				signal,
+			}),
+		translate: (blocks, onEvent, signal, runId, extra) =>
+			pipeline.translate(blocks, {
+				runId,
+				target: opts.to,
+				sources: opts.sources ?? [],
+				cache,
+				private: opts.private ?? false,
+				onEvent,
+				signal,
+				...extra,
 			}),
 	};
 }

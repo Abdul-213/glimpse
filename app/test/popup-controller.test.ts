@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	type CaptureSource,
+	type InstallState,
 	languageCode,
 	type PipelineEvent,
 	type PipelineListener,
+	type RecognisedBlock,
 	rect,
 	snipPopupFrame,
 	TranslationPipeline,
@@ -15,6 +17,9 @@ import {
 	BLUR_GRACE_MS,
 	INITIAL_CONTENT_HEIGHT,
 	PAINT_TIMEOUT_MS,
+	type PackPort,
+	SCREEN_RECORDING_HELP_URL,
+	SCREEN_RECORDING_SETTINGS_URL,
 	type SnipRunner,
 } from "../src/bun/windows/popup-controller.ts";
 import { macFlipOffset, snipViewInit } from "../src/bun/windows/popup-init.ts";
@@ -307,5 +312,176 @@ describe("popup window helpers", () => {
 	test("view init: OS-specific shortcut labels", () => {
 		expect(snipViewInit("macos").keys).toEqual({ copy: "⌘C", copyOriginal: "⌘⇧C", original: "⌘⇧O", close: "Esc" });
 		expect(snipViewInit("windows").keys.original).toBe("Ctrl+Shift+O");
+	});
+});
+
+describe("loading and error states (GLIM-73)", () => {
+	test("E1 no text: Snip again closes without restoring focus and reopens the picker", async () => {
+		const { runner } = await realPipeline([]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.window.last?.state.error).toBe("noText");
+		h.controller.action("snip-1", "snipAgain");
+		expect(h.controller.isOpen).toBe(false);
+		expect(h.focusRestores()).toBe(0);
+		expect(h.targets).toEqual(["snipAgain"]);
+	});
+
+	test("error actions lead to Settings and the macOS Screen Recording pane", async () => {
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		h.controller.action("snip-1", "checkKey");
+		h.controller.action("snip-1", "editSources");
+		h.controller.action("snip-1", "openSystemSettings");
+		h.controller.action("snip-1", "why");
+		expect(h.targets).toEqual([
+			"settings:providers",
+			"settings:languages",
+			`url:${SCREEN_RECORDING_SETTINGS_URL}`,
+			`url:${SCREEN_RECORDING_HELP_URL}`,
+		]);
+		h.controller.action("snip-1", "close");
+		expect(h.focusRestores()).toBe(1);
+	});
+
+	test("Copy original writes every non-skipped block's text with the OS line ends", async () => {
+		const { runner } = await realPipeline(["明日の会議", "100"]);
+		const h = popupHarness({ displays, runner, eol: "\r\n" });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		h.controller.action("snip-1", "copyOriginal");
+		expect(h.clipboard).toEqual(["明日の会議\r\n100"]);
+		h.controller.dispose();
+	});
+
+	test("Retry on a failed block re-translates it, bypassing the cache", async () => {
+		let failures = 1;
+		const source = createFileCaptureSource(SAMPLE_FRAMES_DIR);
+		const ocr = scriptedOcr(["明日の会議は午後三時に始まります。"]);
+		await ocr.init();
+		const tr = new FakeTranslationProvider({
+			pivot: "en",
+			capabilities: { streaming: false },
+			fail: () => (failures-- > 0 ? "timeout" : null),
+		});
+		await tr.init();
+		const pipeline = new TranslationPipeline({ ocr: () => ocr, chain: () => [tr] });
+		const h = popupHarness({ displays, runner: pipelineRunner(source, pipeline, { to: L("en") }) });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.controller.state?.blocks[0]?.state).toBe("failed");
+		expect(h.controller.state?.error).toBe("providerTimeout");
+		h.controller.retryBlock("snip-1", "b1");
+		await settle();
+		expect(h.controller.state?.blocks[0]?.state).toBe("done");
+		expect(h.controller.state?.phase).toBe("done");
+		expect(h.controller.state?.error).toBeNull();
+		h.controller.dispose();
+	});
+
+	test("Translate these translates the skipped blocks in place", async () => {
+		const source = createFileCaptureSource(SAMPLE_FRAMES_DIR);
+		const ocr = scriptedOcr(["明日の会議", "안녕하세요"]);
+		await ocr.init();
+		const tr = new FakeTranslationProvider({ pivot: "en", capabilities: { streaming: false } });
+		await tr.init();
+		const pipeline = new TranslationPipeline({ ocr: () => ocr, chain: () => [tr] });
+		const h = popupHarness({
+			displays,
+			runner: pipelineRunner(source, pipeline, { to: L("en"), sources: [L("ja")] }),
+		});
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.controller.state?.blocks[1]?.cls).toBe("skip");
+		h.controller.action("snip-1", "translateSkipped");
+		await settle();
+		expect(h.controller.state?.blocks[1]).toMatchObject({ cls: "translate", promoted: true, state: "done" });
+		expect(h.controller.state?.phase).toBe("done");
+		h.controller.dispose();
+	});
+
+	test("Download: consent goes to the pack port; when the pack lands its blocks translate in place", async () => {
+		const states = new Map<string, InstallState>();
+		let notify: (id: string, s: InstallState) => void = () => {};
+		const downloads: string[][] = [];
+		const packs: PackPort = {
+			download: async (ids) => {
+				downloads.push([...ids]);
+			},
+			state: (id) => states.get(id) ?? { status: "missing" },
+			subscribe: (l) => {
+				notify = l;
+				return () => {};
+			},
+		};
+		const waiting: RecognisedBlock = {
+			id: "g1",
+			order: 0,
+			box: rect(0, 0, 100, 20),
+			text: "Προσφορά",
+			confidence: 1,
+			language: { kind: "language", lang: L("el"), confidence: 1 },
+			lang: L("el"),
+			cls: "translate",
+			direction: "ltr",
+			waitingForPack: true,
+		};
+		const translated: string[] = [];
+		const runner: SnipRunner = {
+			snip: async (_r, onEvent, _s, runId) => {
+				onEvent({ type: "recognised", runId, blocks: [waiting] });
+				onEvent({
+					type: "packs",
+					runId,
+					rows: [
+						{
+							lang: L("el"),
+							state: "missing",
+							resourceIds: ["bergamot-elen"],
+							bytes: 31_000_000,
+							progress: null,
+							segmentIds: ["g1"],
+						},
+					],
+				});
+			},
+			translate: async (blocks, onEvent, _s, runId) => {
+				for (const b of blocks) {
+					translated.push(b.id);
+					onEvent({
+						type: "translation",
+						runId,
+						translation: {
+							blockId: b.id,
+							text: "Offer",
+							final: true,
+							failure: null,
+							from: L("el"),
+							to: L("en"),
+							via: [],
+							provider: null,
+						},
+					});
+				}
+			},
+		};
+		const h = popupHarness({ displays, runner, packs });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.controller.state?.packs[0]?.state).toBe("missing");
+		h.controller.action("snip-1", "download", "el");
+		expect(downloads).toEqual([["bergamot-elen"]]);
+		states.set("bergamot-elen", { status: "downloading", receivedBytes: 10, totalBytes: 100 });
+		notify("bergamot-elen", { status: "downloading", receivedBytes: 10, totalBytes: 100 });
+		expect(h.controller.state?.packs[0]).toMatchObject({ state: "downloading", received: 10, total: 100 });
+		states.set("bergamot-elen", { status: "installed", version: "1", bundled: false });
+		notify("bergamot-elen", { status: "installed", version: "1", bundled: false });
+		await settle();
+		expect(translated).toEqual(["g1"]);
+		expect(h.controller.state?.packs).toEqual([]);
+		expect(h.controller.state?.blocks[0]).toMatchObject({ state: "done", translation: "Offer" });
+		h.controller.dispose();
 	});
 });

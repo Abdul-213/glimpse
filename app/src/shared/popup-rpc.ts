@@ -9,6 +9,8 @@
 //                snipResized    natural content height, at most once per frame
 //                snipDismiss    Esc or Close
 //                snipSkipped    expand / collapse the skipped line
+//                snipAction     an error-body, pack-row or skipped-line button (§4.1, §12)
+//                snipRetryBlock "Retry" on one failed block
 import type { PopupSide, SnipPopupState } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { Platform } from "./rpc.ts";
@@ -38,6 +40,32 @@ export interface SnipStateMessage {
 	reducedMotion: boolean;
 }
 
+/** Buttons the popup offers (snip-popup.md §12). `download` carries the pack's language. */
+export type SnipAction =
+	| "snipAgain"
+	| "close"
+	| "download"
+	| "copyOriginal"
+	| "retry"
+	| "checkKey"
+	| "openSystemSettings"
+	| "why"
+	| "translateSkipped"
+	| "editSources";
+
+export const SNIP_ACTIONS: readonly SnipAction[] = [
+	"snipAgain",
+	"close",
+	"download",
+	"copyOriginal",
+	"retry",
+	"checkKey",
+	"openSystemSettings",
+	"why",
+	"translateSkipped",
+	"editSources",
+];
+
 export type SnipDismissReason = "esc" | "close" | "outside" | "blur" | "hotkey";
 
 export type SnipPopupRPC = {
@@ -50,6 +78,8 @@ export type SnipPopupRPC = {
 			snipResized: { requestId: string; contentHeight: number };
 			snipDismiss: { requestId: string; reason: "esc" | "close" };
 			snipSkipped: { requestId: string; expanded: boolean };
+			snipAction: { requestId: string; action: SnipAction; lang?: string };
+			snipRetryBlock: { requestId: string; blockId: string };
 		};
 	}>;
 	webview: RPCSchema<{

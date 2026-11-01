@@ -28,6 +28,7 @@ import {
 	type PipelineResult,
 	type ProviderRegistry,
 	type ProviderStatus,
+	type RecognisedBlock,
 	type Rect,
 	type Settings,
 	sameLanguage,
@@ -243,6 +244,29 @@ export class TranslationService<Ctx> {
 			private: this.#private,
 			onEvent,
 			...(signal ? { signal } : {}),
+		});
+	}
+
+	/**
+	 * Follow-up translation for a Snip's recognised blocks, with its run id: Retry
+	 * (`bypassCache`), a pack that just landed, "Translate these" (`includeSkipped`).
+	 */
+	translateBlocks(
+		blocks: readonly RecognisedBlock[],
+		onEvent: PipelineListener,
+		opts: { runId: string; signal?: AbortSignal; bypassCache?: boolean; includeSkipped?: boolean },
+	): Promise<unknown> {
+		const settings = this.#opts.settings();
+		return this.pipeline.translate(blocks, {
+			runId: opts.runId,
+			target: settings.language.target,
+			sources: settings.language.sources,
+			cache: this.caches.forSnip(this.#private),
+			private: this.#private,
+			onEvent,
+			...(opts.signal ? { signal: opts.signal } : {}),
+			...(opts.bypassCache ? { bypassCache: true } : {}),
+			...(opts.includeSkipped ? { includeSkipped: true } : {}),
 		});
 	}
 

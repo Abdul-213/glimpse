@@ -100,7 +100,17 @@ export function TextBlock(props: TextBlockProps): JSX.Element {
 				<Match when={props.state === "skeleton"}>
 					<span class="glim-skeleton" aria-hidden="true" style={{ width: `${props.skeletonWidth ?? 70}%` }} />
 				</Match>
-				<Match when={kind() === "neutral"}>{sourceLine("glim-source")}</Match>
+				<Match when={kind() === "neutral"}>
+					{/* Skipped blocks (inside SkippedLine) are neutral with a language tag. */}
+					<p class="glim-text glim-source" dir="auto" lang={props.sourceLang}>
+						{props.source}
+						<Show when={props.tag}>
+							<span class="glim-tag" lang={props.tagLang} dir="auto">
+								{props.tag}
+							</span>
+						</Show>
+					</p>
+				</Match>
 				<Match when={props.view === "original"}>{sourceLine("glim-translation")}</Match>
 				<Match when={props.state === "pending"}>{sourceLine("glim-source")}</Match>
 				<Match when={props.state === "failed"}>

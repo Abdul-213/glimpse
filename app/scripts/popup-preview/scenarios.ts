@@ -5,6 +5,8 @@ import {
 	type BlockClass,
 	initialSnipState,
 	languageCode,
+	type PackRow,
+	type PipelineErrorKind,
 	type PipelineEvent,
 	type PipelineResult,
 	type PopupSide,
@@ -12,6 +14,7 @@ import {
 	type RecognisedBlock,
 	rect,
 	reduceSnip,
+	type SegmentFailureKind,
 	type SnipAction,
 	type SnipPopupState,
 } from "@glimpse/core";
@@ -123,6 +126,62 @@ function run(
 	for (const event of events) s = reduceSnip(s, { type: "pipeline", event });
 	for (const a of o.extra ?? []) s = reduceSnip(s, a);
 	return s;
+}
+
+function fold(events: readonly PipelineEvent[], extra: readonly SnipAction[] = []): SnipPopupState {
+	let s = initialSnipState(RUN);
+	for (const event of events) s = reduceSnip(s, { type: "pipeline", event });
+	for (const a of extra) s = reduceSnip(s, a);
+	return s;
+}
+
+function failed(id: string, kind: SegmentFailureKind, from: string): PipelineEvent {
+	return {
+		type: "translation",
+		runId: RUN,
+		translation: {
+			blockId: id,
+			text: "",
+			final: true,
+			failure: { kind, error: { code: "internal", message: kind, providerId: "bergamot", retryable: true } },
+			from: L(from),
+			to: L("en"),
+			via: [],
+			provider: null,
+		},
+	};
+}
+
+/** A finished run with a whole-run error (E1-E7). */
+function errorRun(
+	kind: PipelineErrorKind,
+	list: readonly B[],
+	o: { cloud?: boolean; before?: (rs: RecognisedBlock[]) => PipelineEvent[]; extra?: SnipAction[] } = {},
+): SnipPopupState {
+	const rs = blocks(list);
+	return fold(
+		[
+			started("en", false, o.cloud),
+			...(list.length > 0 ? [{ type: "recognised", runId: RUN, blocks: rs } as const] : []),
+			...(o.before?.(rs) ?? []),
+			done(rs, { error: { kind, message: kind }, ...(o.cloud ? { translators: [GOOGLE], cloud: true } : {}) }),
+		],
+		o.extra,
+	);
+}
+
+const GREEK: readonly B[] = [
+	["Προσφορά ελεύθερης αποστολής", "el", "translate"],
+	["Παραλαβή από το κατάστημα", "el", "translate"],
+];
+
+function packRow(
+	lang: string,
+	ids: string[],
+	state: PackRow["state"] = "missing",
+	progress: number | null = null,
+): PackRow {
+	return { lang: L(lang), state, resourceIds: [`bergamot-${lang}en`], bytes: 31_000_000, progress, segmentIds: ids };
 }
 
 const MAIN: readonly B[] = [
@@ -240,6 +299,84 @@ export const SCENARIOS: readonly Scenario[] = [
 	},
 ];
 
+/** Loading and error states (GLIM-73). */
+export const ERROR_SCENARIOS: readonly Scenario[] = [
+	{ name: "e1-no-text", caption: "E1 no text found", state: () => errorRun("noText", []) },
+	{
+		name: "e2-pack-missing",
+		caption: "E2 language pack missing",
+		state: () =>
+			errorRun("packMissing", GREEK, {
+				before: () => [{ type: "packs", runId: RUN, rows: [packRow("el", ["b1", "b2"])] }],
+			}),
+	},
+	{
+		name: "e2-downloading",
+		caption: "E2 downloading the pack",
+		state: () =>
+			errorRun("packMissing", GREEK, {
+				before: () => [{ type: "packs", runId: RUN, rows: [packRow("el", ["b1", "b2"], "downloading", 0.38)] }],
+			}),
+	},
+	{
+		name: "e3-offline",
+		caption: "E3 offline (cloud provider)",
+		state: () =>
+			errorRun("offline", [["¿Nos vemos a las ocho?", "es", "translate"]], {
+				cloud: true,
+				before: () => [failed("b1", "offline", "es")],
+			}),
+	},
+	{
+		name: "e3-key",
+		caption: "E3 rejected key (cloud provider)",
+		state: () =>
+			errorRun("providerKey", [["¿Nos vemos a las ocho?", "es", "translate"]], {
+				cloud: true,
+				before: () => [failed("b1", "providerKey", "es")],
+			}),
+	},
+	{ name: "e4-screen-access", caption: "E4 Screen Recording off (macOS)", state: () => errorRun("screenAccess", []) },
+	{ name: "e4w-capture-blank", caption: "E4 blank capture", state: () => errorRun("captureBlank", []) },
+	{
+		name: "e5-nothing-to-translate",
+		caption: "E5 every block skipped (expanded)",
+		state: () =>
+			errorRun("nothingToTranslate", [
+				["Увидимся завтра", "ru", "skip"],
+				["Danke dir!", "de", "skip"],
+				["До встречи", "ru", "skip"],
+			]),
+	},
+	{ name: "e7-ocr-failed", caption: "E7 text recognition failed", state: () => errorRun("ocrFailed", []) },
+	{
+		name: "s16-partial-pack-row",
+		caption: "S16 partial failure + pack row",
+		state: () => {
+			const list: readonly B[] = [
+				["Envío gratis en pedidos de más de 50 euros", "es", "translate"],
+				["Προσφορά ελεύθερης αποστολής", "el", "translate"],
+				["Oferta válida hasta agotar existencias", "es", "translate"],
+			];
+			const rs = blocks(list);
+			return fold([
+				started(),
+				{
+					type: "recognised",
+					runId: RUN,
+					blocks: rs.map((b) => (b.lang === "el" ? { ...b, waitingForPack: true } : b)),
+				},
+				{ type: "packs", runId: RUN, rows: [packRow("el", ["b2"])] },
+				translationEvent("b1", "Free shipping on orders over 50 euros", "es", "en"),
+				failed("b3", "failed", "es"),
+				done(rs),
+			]);
+		},
+	},
+];
+
+export const ALL_SCENARIOS: readonly Scenario[] = [...SCENARIOS, ...ERROR_SCENARIOS];
+
 export function scenarioMessage(s: Scenario, reducedMotion = true): SnipStateMessage {
 	return {
 		requestId: RUN,
@@ -249,4 +386,4 @@ export function scenarioMessage(s: Scenario, reducedMotion = true): SnipStateMes
 	};
 }
 
-export const scenarioNames = (): string[] => SCENARIOS.map((s) => s.name);
+export const scenarioNames = (): string[] => ALL_SCENARIOS.map((s) => s.name);

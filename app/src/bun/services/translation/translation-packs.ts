@@ -64,6 +64,11 @@ export class TranslationPacks {
 		for (const id of resourceIds) this.#opts.manager.cancel(id);
 	}
 
+	/** A resource's install state right now. */
+	state(id: string): InstallState {
+		return this.#opts.manager.state(id);
+	}
+
 	/** Install-state changes for language packs. */
 	subscribe(listener: (id: string, state: InstallState) => void): () => void {
 		return this.#opts.manager.subscribe((id, state) => {

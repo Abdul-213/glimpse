@@ -256,6 +256,20 @@ snipPopup = new SnipPopupController({
 	displays: readDisplays,
 	runner: {
 		snip: (rect, onEvent, signal, runId) => translation.snip(capture.source, rect, onEvent, signal, runId),
+		translate: (blocks, onEvent, signal, runId, opts) =>
+			translation.translateBlocks(blocks, onEvent, { runId, signal, ...opts }),
+	},
+	// Pack rows and the E2 Download button: the user's consent to fetch (GLIM-57).
+	packs: translationPacks,
+	clipboard: { writeText: (text) => Utils.clipboardWriteText(text) },
+	eol: platform === "windows" ? "\r\n" : "\n",
+	targets: {
+		snipAgain: () => picker?.toggle("snip"),
+		// Settings sections arrive with GLIM-69; until then Settings opens at its first pane.
+		openSettings: () => settings.open(),
+		openExternal: (url) => {
+			if (!Utils.openExternal(url)) popupLog.warn("could not open a link", { url });
+		},
 	},
 	focus: pickerNatives.focus,
 	results: { dismiss: () => picker?.dismiss() },
