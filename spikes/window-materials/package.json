@@ -1,0 +1,11 @@
+{
+	"name": "glimpse-window-materials-spike",
+	"version": "0.0.1",
+	"private": true,
+	"description": "GLIM-19 throwaway spike: native window materials and frameless popups on Electrobun",
+	"type": "module",
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "~5.9.3"
+	}
+}
