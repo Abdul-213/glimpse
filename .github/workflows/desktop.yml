@@ -244,14 +244,15 @@ jobs:
           inner="$RUNNER_TEMP/inner"
           mkdir -p "$inner"
           tar -xf "$app"/Contents/Resources/*.tar.zst -C "$inner"
-          find "$inner" -maxdepth 4 | head -40
+          # Reporting only: never fail the packaging on it (pipefail + grep -q/head SIGPIPE).
+          (set +e +o pipefail
           for bundle in "$inner"/*.app; do
             codesign --verify --deep --strict --verbose=2 "$bundle" || echo "::warning::inner app bundle seal does not verify (GLIM-113)"
             find "$bundle" -type f | while read -r f; do
               file -b "$f" | grep -q Mach-O || continue
               printf '%s: %s\n' "${f#"$bundle"/}" "$(codesign -dv "$f" 2>&1 | grep -E '^Signature|flags=' | tr '\n' ' ')"
             done
-          done
+          done) || true
 
           ditto -c -k --keepParent "$app" "$dist/$base.zip"
 

@@ -22,8 +22,12 @@ afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
 describe("resolveOcrWorker", () => {
 	test("override, then the bundled file next to the main bundle, else the provider default", () => {
-		expect(resolveOcrWorker("/app/bun", { GLIMPSE_OCR_WORKER: "/x/w.js" }, () => false)).toBe("/x/w.js");
-		expect(resolveOcrWorker("/app/bun", {}, (p) => p === "/app/bun/ocr-worker.js")).toBe("/app/bun/ocr-worker.js");
+		// Paths come back OS-native (on Windows "/x" resolves to "D:\\x"); compare them POSIX-style.
+		const posix = (p: string | null) => p?.replace(/^[A-Za-z]:/, "").replaceAll("\\", "/") ?? null;
+		expect(posix(resolveOcrWorker("/app/bun", { GLIMPSE_OCR_WORKER: "/x/w.js" }, () => false))).toBe("/x/w.js");
+		expect(posix(resolveOcrWorker("/app/bun", {}, (p) => posix(p) === "/app/bun/ocr-worker.js"))).toBe(
+			"/app/bun/ocr-worker.js",
+		);
 		expect(resolveOcrWorker("/app/src/bun", {}, () => false)).toBeNull();
 		expect(ocrSpawner("/app/src/bun", {}, () => false).spawn).toBeUndefined();
 	});
