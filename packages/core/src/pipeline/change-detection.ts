@@ -14,9 +14,22 @@
 //
 // Frames whose backend `sequence` didn't move are identical by contract (DXGI / SCStream
 // report no new content), so they cost no diff at all.
+//
+// GLIM-114, moving backgrounds: when the whole region has been moving on every grab for
+// `backgroundMs` (1.5 s: longer than a typewriter line or a scroll, shorter than any video),
+// the detector switches to *text focus*: it stops measuring the whole region and watches only
+// what holds still (stillness.ts): overlay text that changed, or new overlay text that has
+// been up for `stabilityMs`, inside the last OCR result's text boxes (`setTextAreas`; the
+// whole region before anything was read). Once that has been quiet for `stabilityMs`, the
+// still pixels are compared with the processed frame and only a real difference re-runs OCR.
+// Moving text is never still, so it can't trigger a read: the GLIM-58 guarantees (no OCR of
+// half-typed lines, none while scrolling) hold in focus too. As soon as the region stops
+// moving, the detector is back to whole-region detection; static backgrounds never enter
+// focus, so their behaviour is exactly GLIM-58's.
 
 import type { CaptureFrame } from "../capture/port.ts";
 import { type Rect, rect } from "../geometry.ts";
+import { type StillnessCounts, StillnessMap } from "./stillness.ts";
 
 export interface DiffOptions {
 	/** A pixel counts as changed when any RGB channel moves by more than this (0-255). */
@@ -86,6 +99,14 @@ export interface ChangeDetectionOptions {
 	/** Fraction of pixels changing between two grabs that counts as motion. Default 0.002. */
 	readonly motionThreshold?: number;
 	readonly tolerance?: number;
+	/** GLIM-114: switch to text focus over a moving background. Default true. */
+	readonly textFocus?: boolean;
+	/** Whole-region motion on every grab for this long = a moving background. Default 1500. */
+	readonly backgroundMs?: number;
+	/** In focus: watched pixels that must move (or arrive) to count as motion. Default 0.005. */
+	readonly focusMotionThreshold?: number;
+	/** Text boxes are grown by this many logical px to make the watch mask. Default 16. */
+	readonly textMargin?: number;
 }
 
 export const CHANGE_DETECTION_DEFAULTS = {
@@ -93,7 +114,14 @@ export const CHANGE_DETECTION_DEFAULTS = {
 	stabilityMs: 300,
 	motionThreshold: 0.002,
 	tolerance: DIFF_TOLERANCE_DEFAULT,
+	textFocus: true,
+	backgroundMs: 1500,
+	focusMotionThreshold: 0.005,
+	textMargin: 16,
 } as const;
+
+/** What a decision measured: the whole region (GLIM-58) or the still text over a moving background (GLIM-114). */
+export type DetectionScope = "region" | "text";
 
 /**
  * What to do with a frame. `first` and `settled` mean "process this frame" (and the detector
@@ -112,6 +140,8 @@ export type ChangeDecision =
 			/** When the region will have been still long enough, if nothing moves (a wake hint for the loop). */
 			readonly wakeInMs: number;
 			readonly motion: FrameDiff | null;
+			/** Present (`text`) only in text focus. */
+			readonly scope?: DetectionScope;
 	  }
 	/** Stable and different enough from the processed frame: re-run OCR. */
 	| {
@@ -119,9 +149,10 @@ export type ChangeDecision =
 			readonly trigger: "stable" | "resume";
 			readonly diff: FrameDiff;
 			readonly stableForMs: number;
+			readonly scope?: DetectionScope;
 	  }
 	/** Stable, but within `diffThreshold` of the processed frame (caret blink, flicker that came back). */
-	| { readonly kind: "below-threshold"; readonly diff: FrameDiff };
+	| { readonly kind: "below-threshold"; readonly diff: FrameDiff; readonly scope?: DetectionScope };
 
 export const shouldProcess = (d: ChangeDecision): boolean => d.kind === "first" || d.kind === "settled";
 
@@ -132,6 +163,9 @@ export interface ChangeDetectorStats {
 	readonly diffMs: number;
 	readonly settled: number;
 	readonly belowThreshold: number;
+	/** Grabs decided in text focus (GLIM-114), and how often focus was entered. */
+	readonly focusedGrabs: number;
+	readonly focusEntered: number;
 }
 
 type Frame = Pick<CaptureFrame, "width" | "height" | "data" | "sequence" | "capturedAt" | "scale">;
@@ -149,6 +183,16 @@ export class ChangeDetector {
 	#diffMs = 0;
 	#settled = 0;
 	#below = 0;
+	#map: StillnessMap | null = null;
+	#areas: readonly Rect[] = [];
+	/** Since when every new grab has been moving (whole region), or null. */
+	#movingSince: number | null = null;
+	#focused = false;
+	#focusedGrabs = 0;
+	#focusEntered = 0;
+	#lastAt: number | null = null;
+	/** Text focus: the pending change includes new still content outside the text boxes. */
+	#elsewhere = false;
 
 	constructor(options: ChangeDetectionOptions, perfNow: () => number = () => 0) {
 		this.#o = { ...CHANGE_DETECTION_DEFAULTS, ...options };
@@ -170,6 +214,23 @@ export class ChangeDetector {
 		this.#previous = null;
 		this.#pending = false;
 		this.#resume = false;
+		this.#map = null;
+		this.#areas = [];
+		this.#leaveFocus();
+	}
+
+	/** True while deciding in text focus (a moving background, GLIM-114). */
+	get focused(): boolean {
+		return this.#focused;
+	}
+
+	/**
+	 * GLIM-114: the text boxes of the last OCR result (region-local device px, the frame's
+	 * space). Text focus watches them; an empty list watches the whole region.
+	 */
+	setTextAreas(areas: readonly Rect[]): void {
+		this.#areas = areas.map((a) => ({ ...a }));
+		this.#map?.setWatch(this.#areas, this.#o.textMargin * this.#map.stride);
 	}
 
 	/**
@@ -188,12 +249,17 @@ export class ChangeDetector {
 			diffMs: this.#diffMs,
 			settled: this.#settled,
 			belowThreshold: this.#below,
+			focusedGrabs: this.#focusedGrabs,
+			focusEntered: this.#focusEntered,
 		};
 	}
 
 	feed(frame: Frame): ChangeDecision {
 		this.#frames++;
 		const now = frame.capturedAt;
+		// The previous grab's time (a same-sequence frame keeps its original capturedAt).
+		const previousAt = this.#lastAt ?? now;
+		this.#lastAt = now;
 		const baseline = this.#baseline;
 		const previous = this.#previous;
 		if (!baseline || !previous) {
@@ -205,16 +271,54 @@ export class ChangeDetector {
 			this.#previous = frame;
 			this.#stableSince = now;
 			this.#pending = false;
+			// What was still before the pause says nothing about now.
+			this.#leaveFocus();
+			this.#mapFor(frame).restart(now);
 			return this.#compare(frame, baseline, 0, "resume");
 		}
 		// Same backend sequence within a session = identical pixels (CaptureFrame contract).
 		const sameSequence =
 			frame.sequence === previous.sequence && frame.width === previous.width && frame.height === previous.height;
 		let motion: FrameDiff | null = null;
+		// No new content from the backend for a stability window: whatever was moving stopped.
+		// (A grab soon after the last one can see the same video frame; that says nothing.)
+		if (sameSequence && now - previous.capturedAt >= this.#o.stabilityMs) {
+			if (this.#focused) {
+				// Back to the whole region, as if the region had just come to rest.
+				this.#leaveFocus();
+				this.#pending = true;
+				this.#stableSince = previous.capturedAt;
+			}
+			this.#movingSince = null;
+		}
+		if (sameSequence && this.#focused) {
+			// A quick re-grab (wake hint) that saw the same video frame: nothing new to count.
+			const none = { fraction: 0, sampled: frame.width * frame.height, box: null };
+			const zero = { motion: none, watched: 1, stillChanged: 0, arrivals: 0, arrivalsOutside: 0 };
+			return this.#feedFocused(frame, baseline, zero, now);
+		}
 		if (!sameSequence) {
-			motion = this.#diff(frame, previous);
+			const counts = this.#track(frame, previous, previousAt);
+			motion = counts.motion;
 			this.#previous = frame;
-			if (motion.fraction >= this.#o.motionThreshold) {
+			const moving = motion.fraction >= this.#o.motionThreshold;
+			if (moving) {
+				this.#movingSince ??= now;
+				if (!this.#focused && this.#o.textFocus && now - this.#movingSince >= this.#o.backgroundMs) {
+					this.#focused = true;
+					this.#focusEntered++;
+					this.#pending = true;
+					this.#stableSince = now;
+				}
+			} else if (this.#focused) {
+				this.#leaveFocus();
+				this.#pending = true;
+				this.#stableSince = previousAt;
+			} else {
+				this.#movingSince = null;
+			}
+			if (this.#focused) return this.#feedFocused(frame, baseline, counts, now);
+			if (moving) {
 				this.#stableSince = now;
 				this.#pending = true;
 				return { kind: "settling", reason: "moving", stableForMs: 0, wakeInMs: this.#o.stabilityMs, motion };
@@ -237,6 +341,101 @@ export class ChangeDetector {
 		return this.#compare(frame, baseline, stableForMs, "stable");
 	}
 
+	/** One grab in text focus (GLIM-114). */
+	#feedFocused(frame: Frame, baseline: Frame, c: StillnessCounts, now: number): ChangeDecision {
+		this.#focusedGrabs++;
+		const o = this.#o;
+		const textMotion = (c.stillChanged + c.arrivals) / Math.max(1, c.watched);
+		const elsewhere = c.arrivalsOutside / Math.max(1, c.motion.sampled);
+		if (textMotion >= o.focusMotionThreshold || elsewhere >= o.diffThreshold) {
+			this.#stableSince = now;
+			this.#pending = true;
+			if (elsewhere >= o.diffThreshold) this.#elsewhere = true;
+			return {
+				kind: "settling",
+				reason: "moving",
+				stableForMs: 0,
+				wakeInMs: o.stabilityMs,
+				motion: c.motion,
+				scope: "text",
+			};
+		}
+		if (!this.#pending) return { kind: "same" };
+		const stableForMs = now - this.#stableSince;
+		if (stableForMs < o.stabilityMs) {
+			return {
+				kind: "settling",
+				reason: "waiting",
+				stableForMs,
+				wakeInMs: o.stabilityMs - stableForMs,
+				motion: c.motion,
+				scope: "text",
+			};
+		}
+		this.#pending = false;
+		const t0 = this.#perf();
+		const d = this.#mapFor(frame).compareStill(frame, baseline, now, 2 * o.stabilityMs, o.tolerance);
+		this.#diffMs += this.#perf() - t0;
+		this.#diffs++;
+		// With text boxes, judge by them: a patch of video that happens to hold still elsewhere
+		// isn't text. New text that appeared outside them (`elsewhere`) is judged on the region.
+		const fraction = this.#watching() && !this.#elsewhere ? d.watchedFraction : d.fraction;
+		this.#elsewhere = false;
+		const diff: FrameDiff = { fraction, sampled: d.sampled, box: d.box };
+		if (fraction >= o.diffThreshold && d.box) {
+			this.#take(frame);
+			this.#settled++;
+			return { kind: "settled", trigger: "stable", diff, stableForMs, scope: "text" };
+		}
+		this.#below++;
+		return { kind: "below-threshold", diff, scope: "text" };
+	}
+
+	#leaveFocus(): void {
+		this.#focused = false;
+		this.#movingSince = null;
+		this.#elsewhere = false;
+	}
+
+	#watching(): boolean {
+		return this.#map?.watching ?? false;
+	}
+
+	/** The stillness map for this frame size (a new one when the size or scale changed). */
+	#mapFor(frame: Frame): StillnessMap {
+		const stride = Math.max(1, Math.floor(frame.scale));
+		let map = this.#map;
+		if (!map || map.width !== frame.width || map.height !== frame.height || map.stride !== stride) {
+			map = new StillnessMap(frame.width, frame.height, stride, frame.capturedAt);
+			map.setWatch(this.#areas, this.#o.textMargin * stride);
+			this.#map = map;
+		}
+		return map;
+	}
+
+	/** The motion diff against the previous grab, recording per-pixel stillness on the way. */
+	#track(frame: Frame, previous: Frame, previousAt: number): StillnessCounts {
+		const t0 = this.#perf();
+		let counts: StillnessCounts;
+		if (frame.width !== previous.width || frame.height !== previous.height) {
+			this.#map = null;
+			this.#mapFor(frame);
+			counts = { motion: diffFrames(frame, previous), watched: 1, stillChanged: 0, arrivals: 0, arrivalsOutside: 0 };
+		} else {
+			counts = this.#mapFor(frame).track(
+				frame,
+				previous,
+				frame.capturedAt,
+				previousAt,
+				this.#o.stabilityMs,
+				this.#o.tolerance,
+			);
+		}
+		this.#diffMs += this.#perf() - t0;
+		this.#diffs++;
+		return counts;
+	}
+
 	#compare(frame: Frame, baseline: Frame, stableForMs: number, trigger: "stable" | "resume"): ChangeDecision {
 		const diff = this.#diff(frame, baseline);
 		if (diff.fraction >= this.#o.diffThreshold && diff.box) {
@@ -253,6 +452,7 @@ export class ChangeDetector {
 		this.#previous = frame;
 		this.#stableSince = frame.capturedAt;
 		this.#pending = false;
+		this.#mapFor(frame);
 	}
 
 	#diff(a: Frame, b: Frame): FrameDiff {

@@ -50,6 +50,8 @@ import {
 	LIVE_SCENARIO_DIR,
 	LIVE_SCENARIO_LINES,
 	LIVE_SCENARIO_RECT,
+	MOVING_VIDEO_DIR,
+	MOVING_VIDEO_TIMELINE,
 } from "../src/harness/live-scenario.ts";
 import { liveSessionLines, runLiveSession } from "../src/harness/live-session.ts";
 import { dragSteps, type PickStep, runPick } from "../src/harness/pick.ts";
@@ -62,6 +64,7 @@ import {
 	type HarnessTranslator,
 	paddleOcr,
 	scriptedOcr,
+	subtitleOcr,
 } from "../src/harness/providers.ts";
 import {
 	type FrameReport,
@@ -87,8 +90,11 @@ const USAGE = `usage: bun run harness <displays|snip|live|live-session|pick|wind
   live-session      a whole Live session (GLIM-58): loop -> change detection -> frame ring ->
                     pipeline -> block diff, on virtual time (default frames: the live-scenario
                     recording, rect 0,150,800,90 = its subtitle strip; default --fps 3)
+  --scenario <s>    live-session recording: static (default, GLIM-58) or moving-video (GLIM-114:
+                    subtitles A, gap, B, C, A over a background that changes every 125 ms)
   --ocr <kind>      live-session OCR: frame (default: each distinct image "reads" as the next
-                    --ocr-text line) or paddle (real PaddleOCR from the dev model cache; use --realtime)
+                    --ocr-text line), subtitle (moving-video default: the white subtitle's box,
+                    keyed by its mask) or paddle (real PaddleOCR from the dev model cache; use --realtime)
   --diff <f>        live-session diff threshold, fraction of pixels (default 0.02)
   --stable <ms>     live-session stability window (default 300)
   --out <dir>       save each frame as PNG
@@ -143,6 +149,7 @@ const { values, positionals } = parseArgs({
 		click: { type: "string" },
 		keys: { type: "string" },
 		mode: { type: "string", default: "snip" },
+		scenario: { type: "string", default: "static" },
 		help: { type: "boolean", short: "h", default: false },
 	},
 });
@@ -174,9 +181,15 @@ function nativeSource(): CaptureSource {
 // file backend shows each frame for its holdMs on that clock.
 // live-session (GLIM-58) does the same, by default over the live-scenario recording.
 const liveSession = command === "live-session";
+if (values.scenario !== "static" && values.scenario !== "moving-video") {
+	throw new Error(`--scenario must be static or moving-video, not ${values.scenario}`);
+}
+const movingVideo = liveSession && values.scenario === "moving-video";
 const virtual = (values.loop || liveSession) && !values.realtime ? new ManualTimers() : null;
 const timers: Timers = virtual ?? systemTimers;
-const framesDir = resolve(values.frames ?? (liveSession ? LIVE_SCENARIO_DIR : SAMPLE_FRAMES_DIR));
+const framesDir = resolve(
+	values.frames ?? (movingVideo ? MOVING_VIDEO_DIR : liveSession ? LIVE_SCENARIO_DIR : SAMPLE_FRAMES_DIR),
+);
 const source: CaptureSource & { frameCount?: number; durationMs?: number } = values.native
 	? nativeSource()
 	: createFileCaptureSource(
@@ -384,14 +397,17 @@ try {
 	} else if (liveSession) {
 		const fps = num(values.fps, "fps") ?? 3;
 		const durationMs = num(values.duration, "duration") ?? (source.durationMs ?? 8000) + 2000;
-		const lines = (values["ocr-text"] ?? Object.values(LIVE_SCENARIO_LINES).join("|")).split("|");
+		const scenarioLines = movingVideo
+			? MOVING_VIDEO_TIMELINE.flatMap((s) => (s.key === "none" ? [] : [LIVE_SCENARIO_LINES[s.key]]))
+			: Object.values(LIVE_SCENARIO_LINES);
+		const lines = (values["ocr-text"] ?? [...new Set(scenarioLines)].join("|")).split("|");
 		let ocr: OcrProvider;
-		const ocrKind = values.ocr ?? "frame";
+		const ocrKind = values.ocr ?? (movingVideo ? "subtitle" : "frame");
 		if (ocrKind === "paddle") ocr = await paddleOcr();
-		else if (ocrKind === "frame") {
-			ocr = frameKeyedOcr(lines);
+		else if (ocrKind === "frame" || ocrKind === "subtitle") {
+			ocr = ocrKind === "frame" ? frameKeyedOcr(lines) : subtitleOcr(lines);
 			await ocr.init();
-		} else throw new Error(`--ocr must be frame or paddle, not ${ocrKind}`);
+		} else throw new Error(`--ocr must be frame, subtitle or paddle, not ${ocrKind}`);
 		translator =
 			values.translator === "bergamot"
 				? await bergamotTranslator(values.packs ? resolve(values.packs) : defaultPackRoot())

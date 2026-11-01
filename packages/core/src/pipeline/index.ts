@@ -15,4 +15,5 @@ export * from "./pipeline.ts";
 export * from "./ports.ts";
 export * from "./script-detector.ts";
 export * from "./stages.ts";
+export * from "./stillness.ts";
 export * from "./translate.ts";

@@ -68,6 +68,48 @@ export function frameKeyedOcr(lines: readonly string[], id = "harness-frame-ocr"
 }
 
 /**
+ * An OCR provider for burned-in subtitles (GLIM-114 harness): the subtitle is the only pure
+ * white in the moving-video recording, so its box is the white pixels' bounding box and its
+ * identity their mask. The first distinct mask reads as `lines[0]`, the next as `lines[1]`...;
+ * no white, no text. Unlike `frameKeyedOcr`, a different video frame behind the same subtitle
+ * reads the same, and the block has the subtitle's real box (text focus watches it).
+ */
+export function subtitleOcr(lines: readonly string[], id = "harness-subtitle-ocr"): FakeOcrProvider {
+	const seen = new Map<string, string>();
+	return new FakeOcrProvider({
+		id,
+		name: "Subtitle OCR",
+		blocks: (req): OcrBlock[] => {
+			const { width, height, stride, data } = req.image;
+			let minX = width;
+			let minY = height;
+			let maxX = -1;
+			let maxY = -1;
+			let hash = 0x811c9dc5;
+			for (let y = 0; y < height; y++) {
+				for (let x = 0; x < width; x++) {
+					const o = y * stride + x * 4;
+					if ((data[o] ?? 0) < 250 || (data[o + 1] ?? 0) < 250 || (data[o + 2] ?? 0) < 250) continue;
+					hash = Math.imul(hash ^ (y * width + x), 0x01000193) >>> 0;
+					if (x < minX) minX = x;
+					if (x > maxX) maxX = x;
+					if (y < minY) minY = y;
+					if (y > maxY) maxY = y;
+				}
+			}
+			if (maxX < 0) return [];
+			const key = hash.toString(16);
+			let text = seen.get(key);
+			if (text === undefined) {
+				text = lines[seen.size % Math.max(1, lines.length)] ?? "";
+				seen.set(key, text);
+			}
+			return [{ id: "b1", text, box: rect(minX, minY, maxX + 1 - minX, maxY + 1 - minY), confidence: 0.99 }];
+		},
+	});
+}
+
+/**
  * Real PaddleOCR (GLIM-46) over the dev model cache (`bun run models`), in its Worker, loaded
  * and warmed. Throws when the models aren't there.
  */

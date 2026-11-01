@@ -121,6 +121,8 @@ export interface LiveTrace {
 	readonly reason?: "moving" | "waiting" | "stable" | "resume";
 	/** Changed fraction of the motion diff (settling) or the baseline diff (settled / below). */
 	readonly fraction?: number;
+	/** `text`: decided in text focus over a moving background (GLIM-114). */
+	readonly scope?: "region" | "text";
 	/** ocr: OCR ran; reused: frame ring hit; blank: an all-black frame, nothing to read. */
 	readonly action: "none" | "ocr" | "reused" | "blank";
 	readonly grabMs: number;
