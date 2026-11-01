@@ -1,0 +1,12 @@
+@import "@glimpse/ui/theme.css";
+@source "./";
+
+/* Gallery-only: hold a Live change at its flash frame so a still shows it. */
+[data-freeze-flash] .glim-change-tint {
+	animation-play-state: paused;
+}
+
+/* Gallery-only: show the settled (rest) frame. */
+[data-settled] .glim-change-tint {
+	animation: none;
+}

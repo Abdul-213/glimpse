@@ -6,8 +6,9 @@
 // Why not Electrobun's own `build.views`: Hutch bundles those with esbuild and offers
 // no plugin hook, so it cannot run the Solid compiler or Tailwind.
 //
-//   bun scripts/build-views.ts           production build (minified)
-//   bun scripts/build-views.ts --dev     unminified, inline source maps
+//   bun scripts/build-views.ts           production build (minified), no dev-only views
+//   bun scripts/build-views.ts --dev     unminified, inline source maps, plus the gallery
+//   bun scripts/gallery.ts               gallery only, served locally (see that file)
 //
 // scripts/prebuild.ts runs it as Electrobun's preBuild hook (electrobun.config.ts), so
 // `hutch electrobun build|dev` always ships fresh views.
@@ -45,10 +46,17 @@ export function electrobunDevkitPlugin(root = devkitRoot): BunPlugin {
 	};
 }
 
-export function listViews(): string[] {
+/**
+ * Views that only exist for development: the component gallery and font/RTL test page
+ * (GLIM-42, GLIM-51). Built by dev builds and `--gallery`, never shipped in canary/stable.
+ */
+export const DEV_ONLY_VIEWS: ReadonlySet<string> = new Set(["gallery"]);
+
+export function listViews(options: { includeDevOnly?: boolean } = {}): string[] {
 	return readdirSync(viewsSrc, { withFileTypes: true })
 		.filter((d) => d.isDirectory() && existsSync(join(viewsSrc, d.name, "index.html")))
 		.map((d) => d.name)
+		.filter((name) => options.includeDevOnly || !DEV_ONLY_VIEWS.has(name))
 		.sort();
 }
 
@@ -61,7 +69,7 @@ export interface BuildViewsOptions {
 export async function buildViews(options: BuildViewsOptions = {}): Promise<string[]> {
 	const dev = options.dev ?? false;
 	const outDir = options.outDir ?? viewsOut;
-	const views = options.views ?? listViews();
+	const views = options.views ?? listViews({ includeDevOnly: dev });
 	rmSync(outDir, { recursive: true, force: true });
 
 	for (const name of views) {

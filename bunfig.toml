@@ -2,3 +2,5 @@
 # spikes/ are throwaway references with their own setups; .hutch/ holds the Electrobun
 # devkit, which ships its own tests.
 pathIgnorePatterns = ["spikes/**", "**/.hutch/**", "**/build/**", "**/dist/**"]
+# Compiles Solid .tsx for component tests and points solid-js at its browser build.
+preload = ["./packages/ui/test/preload.ts"]

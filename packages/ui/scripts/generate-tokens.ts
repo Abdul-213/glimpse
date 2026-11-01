@@ -2,7 +2,7 @@
 //   bun run tokens            write the file
 //   bun run tokens --check    exit 1 if the file is stale (used by tests/CI)
 import { join } from "node:path";
-import { generateTokensCss, type MotionToken, parseDesignFrontmatter } from "./tokens.ts";
+import { generateTokensCss, parseDesignFrontmatter, type SidecarExtensions } from "./tokens.ts";
 
 export const repoRoot = join(import.meta.dir, "..", "..", "..");
 export const tokensCssPath = join(import.meta.dir, "..", "src", "styles", "tokens.css");
@@ -10,9 +10,14 @@ export const tokensCssPath = join(import.meta.dir, "..", "src", "styles", "token
 export async function renderTokens(): Promise<string> {
 	const design = parseDesignFrontmatter(await Bun.file(join(repoRoot, "DESIGN.md")).text());
 	const sidecar = (await Bun.file(join(repoRoot, ".impeccable", "design.json")).json()) as {
-		extensions?: { motion?: MotionToken[] };
+		extensions?: SidecarExtensions;
 	};
-	return generateTokensCss(design, sidecar.extensions?.motion ?? []);
+	const ext = sidecar.extensions ?? {};
+	return generateTokensCss(design, {
+		motion: ext.motion ?? [],
+		shadows: ext.shadows ?? [],
+		scriptTypography: ext.scriptTypography ?? [],
+	});
 }
 
 if (import.meta.main) {
