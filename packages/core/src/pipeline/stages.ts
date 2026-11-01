@@ -101,7 +101,13 @@ export function glim21Detector(options: Glim21DetectorOptions): Glim21Detector {
 		libraries: readonly LanguageDetector[],
 	): BlockLanguage[] => {
 		const { detector } = planDetector(ctx.sources, libraries);
-		const inputs = blocks.map((b) => ({ id: b.id, text: b.text, confidence: b.confidence }));
+		// OCR language hints (Vision's detectedLanguages) go in as a prior (GLIM-22, GLIM-60).
+		const inputs = blocks.map((b) => ({
+			id: b.id,
+			text: b.text,
+			confidence: b.confidence,
+			...(b.languageHints && b.languageHints.length > 0 ? { hints: b.languageHints } : {}),
+		}));
 		// The block's language doesn't depend on the target (only GLIM-49's `translate` flag
 		// does, and the pipeline classifies target blocks itself), so a target change keeps
 		// the Live session's decisions.

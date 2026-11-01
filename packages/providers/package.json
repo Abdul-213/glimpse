@@ -6,7 +6,9 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./google": "./src/google/index.ts",
 		"./language-detect": "./src/language-detect/index.ts",
+		"./ocr/google-vision": "./src/ocr/google-vision/index.ts",
 		"./ocr/paddle": "./src/ocr/paddle/index.ts",
 		"./translation/bergamot": "./src/translation/bergamot/index.ts",
 		"./testing": "./src/testing.ts"

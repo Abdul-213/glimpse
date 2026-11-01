@@ -258,3 +258,47 @@ describe("Live session: text cache and hysteresis", () => {
 		expect(s.detect([block("k1", "Merci")]).get("k1")?.language).toMatchObject({ lang: "en" });
 	});
 });
+
+describe("OCR language hints (Google Vision detectedLanguages) as a prior", () => {
+	const hinted = (text: string, lang: string, confidence = 0.9): DetectInput => ({
+		id: "b",
+		text,
+		confidence: 0.95,
+		hints: [{ lang: L(lang), confidence }],
+	});
+
+	test("never decide on their own: a confident detector still wins (rule 4)", () => {
+		const detector = new FakeLanguageDetector({ "Gracias por todo amigos": [["es", 0.9]] });
+		const r = detectCaptureLanguages([hinted("Gracias por todo amigos", "pt")], {
+			subset: [],
+			target: L("en"),
+			detector,
+		});
+		expect(r.get("b")).toMatchObject({ rule: "4", language: { lang: "es" } });
+	});
+
+	test("stand in when the detector has nothing (short text, no subset)", () => {
+		const r = detectCaptureLanguages([hinted("Ok sim", "pt")], { subset: [], target: L("en"), detector: null });
+		expect(r.get("b")).toMatchObject({ rule: "5c", language: { kind: "language", lang: "pt" } });
+	});
+
+	test("tried first in 5c when they name a subset language", () => {
+		const detector = new FakeLanguageDetector({
+			Salut: [
+				["fr", 0.4],
+				["de", 0.3],
+			],
+		});
+		const r = detectCaptureLanguages([hinted("Salut", "de", 0.7)], {
+			subset: subset("fr", "de"),
+			target: L("en"),
+			detector,
+		});
+		expect(r.get("b")).toMatchObject({ rule: "5c", language: { lang: "de" } });
+	});
+
+	test("a hint for another script is ignored", () => {
+		const r = detectCaptureLanguages([hinted("Ok sim", "ja")], { subset: [], target: L("en"), detector: null });
+		expect(r.get("b")?.language).toMatchObject({ kind: "skipped" });
+	});
+});

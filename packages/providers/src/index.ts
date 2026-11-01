@@ -3,6 +3,8 @@
 // (ARCHITECTURE.md section 4). One folder per engine: src/ocr/<engine>, src/translation/<engine>,
 // plus language detectors behind core's LanguageDetector port in src/language-detect/.
 
+export * from "./google/index.ts";
 export * from "./language-detect/index.ts";
+export * from "./ocr/google-vision/index.ts";
 export * from "./ocr/paddle/index.ts";
 export * from "./translation/bergamot/index.ts";

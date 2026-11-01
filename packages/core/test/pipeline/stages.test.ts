@@ -168,6 +168,24 @@ describe("glim21Detector in the pipeline (GLIM-21 per block)", () => {
 		// Latin text with a Japanese-only subset is skipped by rule 2 whatever the library says.
 		expect(r.blocks.map((b) => b.cls)).toEqual(["translate", "skip", "neutral", "skip", "skip"]);
 	});
+
+	test("OCR language hints (Vision detectedLanguages) reach detection as a prior", async () => {
+		// Too short for the detector; without the hint it would be skipped (nothing to go on).
+		// Vision blocks come already grouped (with `lines`), so the grouper keeps them and their hints.
+		const box = rect(10, 10, 80, 24);
+		const hinted: OcrBlock[] = [
+			{
+				...ocrBlock("h", "Ok sim", box),
+				lines: [{ box, text: "Ok sim", confidence: 0.9 }],
+				languageHints: [{ lang: L("pt"), confidence: 0.8 }],
+			},
+		];
+		const { ocr, translator, pipeline } = pipelineWith(() => hinted, glim21Detector({ detectors: [] }));
+		await ocr.init();
+		await translator.init();
+		const r = await snip(pipeline, "en", []);
+		expect(r.blocks[0]).toMatchObject({ cls: "translate", lang: "pt" });
+	});
 });
 
 describe("glim21Detector in Live (hysteresis over stable block ids)", () => {

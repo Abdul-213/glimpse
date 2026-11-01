@@ -1,7 +1,13 @@
 // The provider registry and the context provider factories get (GLIM-43, GLIM-101, GLIM-103).
 // Every implementation in @glimpse/providers registers here; the composition root builds the
 // context from app services. No Electrobun imports: tested on Linux.
-import type { Logger, ProviderRegistry } from "@glimpse/core";
+//
+// Cloud providers (GLIM-60 Google Cloud Vision) are registered too, but registering never
+// selects them: they have no default rank, and the registry drops a cloud translator listed
+// after a local one. They run only after the user picks them in Settings › Providers.
+import type { Logger, ProviderRegistry, SecretStore } from "@glimpse/core";
+import type { FetchLike, GoogleCloudContext } from "@glimpse/providers/google";
+import { googleVisionFactory } from "@glimpse/providers/ocr/google-vision";
 import { type PaddleOcrContext, paddleOcrFactory } from "@glimpse/providers/ocr/paddle";
 import { type BergamotContext, bergamotFactory, type EngineEvent } from "@glimpse/providers/translation/bergamot";
 import { paddleModelSource } from "./ocr/paddle-models.ts";
@@ -10,11 +16,12 @@ import type { ModelManagerPackSource } from "./translation/bergamot-packs.ts";
 import { bergamotSpawner } from "./translation/bergamot-worker.ts";
 
 /** What provider factories may use. Grows with each provider (cloud: fetch, secrets). */
-export type AppProviderContext = BergamotContext & PaddleOcrContext;
+export type AppProviderContext = BergamotContext & PaddleOcrContext & GoogleCloudContext;
 
 export function registerProviders(registry: ProviderRegistry<AppProviderContext>): void {
 	registry.register(paddleOcrFactory<AppProviderContext>());
 	registry.register(bergamotFactory<AppProviderContext>());
+	registry.register(googleVisionFactory<AppProviderContext>());
 }
 
 export interface ProviderContextOptions {
@@ -26,6 +33,10 @@ export interface ProviderContextOptions {
 	readonly warmPairs: NonNullable<BergamotContext["bergamot"]["warmPairs"]>;
 	readonly log: Logger;
 	readonly env?: Record<string, string | undefined>;
+	/** The OS keychain (GLIM-40): cloud providers read their API key through it. */
+	readonly secrets: SecretStore;
+	/** Default: the global `fetch` (tests pass a fake). */
+	readonly fetch?: FetchLike;
 }
 
 export function providerContext(options: ProviderContextOptions): {
@@ -50,6 +61,7 @@ export function providerContext(options: ProviderContextOptions): {
 			},
 			models: paddleModelSource(options.models),
 			...(ocr.spawn ? { spawnWorker: ocr.spawn } : {}),
+			google: { secrets: options.secrets, ...(options.fetch ? { fetch: options.fetch } : {}) },
 		},
 		bergamotWorker: path,
 		ocrWorker: ocr.path,
