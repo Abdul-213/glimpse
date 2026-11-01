@@ -1,7 +1,7 @@
 // Dev-only Settings preview (GLIM-69): the real SettingsApp over a fake main process, so the
 // window can be opened in a browser and screenshotted headlessly (scripts/settings-shots.ts).
-//   ?os=macos|windows  &pane=general|shortcuts|providers|models|privacy|about
-//   &scenario=conflict|idle  &dir=rtl   (appearance follows the browser's colour scheme)
+//   ?os=macos|windows  &pane=general|languages|shortcuts|providers|models|privacy|about
+//   &scenario=conflict|any|idle  &dir=rtl   (appearance follows the browser's colour scheme)
 import { applyPlatform } from "@glimpse/ui";
 import { render } from "solid-js/web";
 import { SECTIONS, type SectionId, SettingsApp } from "../settings/SettingsApp.tsx";

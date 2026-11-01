@@ -278,8 +278,10 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   `views/settings/state.ts` holds what main sent. `views/settings-preview` (dev-only) renders
   it over a fake client; `bun app/scripts/settings-shots.ts --shots docs/design/screens/settings`
   regenerates the committed screenshots.
-  The languages it offers and their script groups come from
-  `packages/core/src/language/source-subset.ts` (detectable or locally translatable).
+- **Source-language subset (GLIM-68)**: `packages/core/src/language/source-subset.ts`: the
+  languages offered (detectable or locally translatable) and script grouping; the pipeline's
+  `classifyBlock` applies the subset (empty = all). Settings stores catalogue tags only (`sourceLanguageSchema` rejects others). UI:
+  `LanguageMultiSelect` in `@glimpse/ui` (search, script groups, chips).
 
 ### Capture (GLIM-36)
 

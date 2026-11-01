@@ -17,6 +17,12 @@ export { HotkeyRecorder, type HotkeyRecorderProps } from "./components/HotkeyRec
 export { Icon, type IconName, type IconProps } from "./components/Icon.tsx";
 export { IconButton, type IconButtonProps } from "./components/IconButton.tsx";
 export { Kbd, type KbdProps } from "./components/Kbd.tsx";
+export {
+	LanguageMultiSelect,
+	type LanguageMultiSelectProps,
+	type LanguageOptionGroup,
+	type MultiLanguageOption,
+} from "./components/LanguageMultiSelect.tsx";
 export { type PopupFacing, type PopupKind, PopupShell, type PopupShellProps } from "./components/PopupShell.tsx";
 export { ProgressBar, type ProgressBarProps } from "./components/ProgressBar.tsx";
 export {

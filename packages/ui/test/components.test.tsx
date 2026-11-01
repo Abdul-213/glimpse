@@ -5,6 +5,7 @@ import { render } from "solid-js/web";
 import { BlockList } from "../src/components/BlockList.tsx";
 import { HotkeyRecorder } from "../src/components/HotkeyRecorder.tsx";
 import { IconButton } from "../src/components/IconButton.tsx";
+import { LanguageMultiSelect } from "../src/components/LanguageMultiSelect.tsx";
 import { PopupShell } from "../src/components/PopupShell.tsx";
 import { ProgressBar } from "../src/components/ProgressBar.tsx";
 import { SkippedLine } from "../src/components/SkippedLine.tsx";
@@ -304,5 +305,70 @@ describe("Switch and ProgressBar", () => {
 		expect(bar?.getAttribute("aria-valuenow")).toBe("412000000");
 		expect(bar?.getAttribute("aria-valuetext")).toBe("412 MB of 1.2 GB · about 3 min left");
 		expect((root.querySelector(".glim-progress-fill") as HTMLElement).style.width).toBe("34.333333333333336%");
+	});
+});
+
+describe("LanguageMultiSelect (GLIM-68)", () => {
+	const groups = [
+		{
+			key: "Latn",
+			label: "Latin",
+			options: [
+				{ code: "fr", name: "French", nativeName: "français" },
+				{ code: "es", name: "Spanish", nativeName: "español" },
+			],
+		},
+		{
+			key: "other",
+			label: "Other scripts",
+			options: [{ code: "ja", name: "Japanese", nativeName: "日本語", note: "Pack not downloaded" }],
+		},
+	];
+
+	function setup(initial: string[] = []) {
+		const [value, setValue] = createSignal<string[]>(initial);
+		const root = mount(() => <LanguageMultiSelect groups={groups} value={value()} onChange={setValue} />);
+		const input = root.querySelector("input") as HTMLInputElement;
+		return { root, input, value };
+	}
+
+	test("groups by script with a listbox, options carry selection state", () => {
+		const { root } = setup(["ja"]);
+		const list = root.querySelector('[role="listbox"]');
+		expect(list?.getAttribute("aria-multiselectable")).toBe("true");
+		expect(root.querySelectorAll('[role="group"]')).toHaveLength(2);
+		const ja = [...root.querySelectorAll('[role="option"]')].find((o) => o.textContent?.includes("Japanese"));
+		expect(ja?.getAttribute("aria-selected")).toBe("true");
+		expect(ja?.textContent).toContain("Pack not downloaded");
+		expect(root.querySelector(".glim-chip")?.textContent).toContain("Japanese");
+	});
+
+	test("search matches own names without accents; Enter toggles the highlighted one", async () => {
+		const { root, input, value } = setup();
+		input.value = "espanol";
+		input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+		await tick();
+		const options = root.querySelectorAll('[role="option"]');
+		expect(options).toHaveLength(1);
+		expect(input.getAttribute("aria-activedescendant")).toBe(options[0]?.id ?? "");
+		keydown(input, { key: "Enter" });
+		expect(value()).toEqual(["es"]);
+	});
+
+	test("arrows move, Space toggles with an empty search, Backspace removes the last chip", () => {
+		const { input, value } = setup(["fr"]);
+		keydown(input, { key: "ArrowDown" });
+		keydown(input, { key: "ArrowDown" });
+		keydown(input, { key: " " });
+		expect(value()).toEqual(["fr", "es"]);
+		keydown(input, { key: "Backspace" });
+		expect(value()).toEqual(["fr"]);
+	});
+
+	test("chips have a labelled remove button", () => {
+		const { root, value } = setup(["fr", "ja"]);
+		const remove = root.querySelector('button[aria-label="Remove French"]') as HTMLButtonElement;
+		remove.click();
+		expect(value()).toEqual(["ja"]);
 	});
 });

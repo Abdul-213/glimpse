@@ -26,7 +26,7 @@ import type { SettingsClient, SettingsPushHandlers, SettingsRequests } from "../
 
 export interface PreviewOptions {
 	os: "macos" | "windows";
-	/** `conflict`: Live's shortcut is taken by another app. `subset`: three source languages chosen. */
+	/** `conflict`: Live's shortcut is taken by another app. `any`: no source subset. `idle`: pack list not loaded. */
 	scenario: string;
 }
 
@@ -48,7 +48,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 		{
 			providers: { ocr: "paddleocr", translation: ["bergamot"], options: {} },
 			language: {
-				sources: [],
+				sources: opts.scenario === "any" ? [] : [code("ja"), code("ko"), code("zh-Hans")],
 			},
 		},
 		env,
