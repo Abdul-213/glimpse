@@ -7,13 +7,23 @@
 // loads onnxruntime from that folder. The same check runs on a built Linux app
 // (app/build/<env>-linux-x64/..., when `bun run build` has been run).
 import { afterAll, describe, expect, test } from "bun:test";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import config from "../electrobun.config.ts";
 import { buildWorkers, ORT_BINDING_REQUIRE } from "../scripts/build-workers.ts";
 import { defaultCacheDir, loadManifest, stageBundled } from "../scripts/model-cache.ts";
-import { ORT_BINDING, ortBinDir, ortFilesFor, ortTarget, stageOnnxRuntime } from "../scripts/onnxruntime.ts";
+import {
+	findVcRuntimeDir,
+	ORT_BINDING,
+	ortBinDir,
+	ortFilesFor,
+	ortTarget,
+	stageOnnxRuntime,
+	stageVcRuntime,
+	vcRuntimeImports,
+} from "../scripts/onnxruntime.ts";
+import { peImports } from "../scripts/pe-imports.ts";
 import { appModelManifest, paddleModelSource } from "../src/bun/services/ocr/paddle-models.ts";
 import { OCR_WORKER_FILE, ocrSpawner, resolveOcrWorker } from "../src/bun/services/ocr/paddle-worker.ts";
 
@@ -73,6 +83,80 @@ describe("onnxruntime files per target (CPU only)", () => {
 		expect(readdirSync(dir)).toEqual([]);
 		expect(ortTarget({ GLIMPSE_ORT_TARGET: "darwin-x64" })).toEqual({ os: "darwin", arch: "x64" });
 		expect(ortTarget({})).toEqual({ os: process.platform, arch: process.arch });
+	});
+});
+
+describe("Visual C++ runtime for Windows (GLIM-111)", () => {
+	const X64_CRT = [
+		"msvcp140.dll",
+		"msvcp140_1.dll",
+		"msvcp140_atomic_wait.dll",
+		"vcruntime140.dll",
+		"vcruntime140_1.dll",
+	];
+
+	test("reads the import tables of the npm package's Windows binaries", () => {
+		const imports = peImports(readFileSync(join(ortBinDir(), "win32", "x64", ORT_BINDING)));
+		expect(imports).toContain("onnxruntime.dll");
+		expect(imports).toContain("VCRUNTIME140.dll");
+		expect(() => peImports(new Uint8Array(64))).toThrow(/not a PE file/);
+	});
+
+	test("the staged Windows files need the CRT; arm64 has no vcruntime140_1; Linux/macOS need none", () => {
+		const x64 = join(tmp, "stage-win32-x64");
+		expect(vcRuntimeImports(x64, stageOnnxRuntime({ os: "win32", arch: "x64" }, x64) ?? [])).toEqual(X64_CRT);
+		const arm64 = join(tmp, "stage-win32-arm64");
+		expect(vcRuntimeImports(arm64, stageOnnxRuntime({ os: "win32", arch: "arm64" }, arm64) ?? [])).toEqual(
+			X64_CRT.filter((f) => f !== "vcruntime140_1.dll"),
+		);
+		const linux = join(tmp, "stage-linux-x64");
+		expect(vcRuntimeImports(linux, stageOnnxRuntime({ os: "linux", arch: "x64" }, linux) ?? [])).toEqual([]);
+	});
+
+	test("copies exactly the imported DLLs from the redist folder; a missing one fails the build", () => {
+		const crt = join(tmp, "Microsoft.VC143.CRT");
+		mkdirSync(crt, { recursive: true });
+		for (const f of [
+			"MSVCP140.dll",
+			"msvcp140_1.dll",
+			"msvcp140_2.dll",
+			"msvcp140_atomic_wait.dll",
+			"vcruntime140.dll",
+		]) {
+			writeFileSync(join(crt, f), f);
+		}
+		const out = join(tmp, "stage-crt");
+		const files = stageOnnxRuntime({ os: "win32", arch: "x64" }, out) ?? [];
+		expect(() => stageVcRuntime(out, files, crt)).toThrow(/vcruntime140_1\.dll/);
+		writeFileSync(join(crt, "vcruntime140_1.dll"), "x");
+		expect(stageVcRuntime(out, files, crt)).toEqual(X64_CRT);
+		expect(readdirSync(out).sort()).toEqual([...files, ...X64_CRT].sort());
+		expect(readFileSync(join(out, "msvcp140.dll"), "utf8")).toBe("MSVCP140.dll");
+		expect(readdirSync(out)).not.toContain("msvcp140_2.dll");
+	});
+
+	test("finds the redist folder: override, then VCToolsRedistDir, then a Visual Studio install", () => {
+		const tree: Record<string, string[]> = {
+			"R/x64": ["Microsoft.VC142.CRT", "Microsoft.VC143.CRT", "Microsoft.VC143.OpenMP"],
+			"PF/Microsoft Visual Studio": ["2022", "Installer"],
+			"PF/Microsoft Visual Studio/2022": ["BuildTools", "Community"],
+			"PF/Microsoft Visual Studio/2022/Installer": [],
+			"PF/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC": ["14.44.35112", "v143"],
+			"PF/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/14.44.35112/arm64": ["Microsoft.VC143.CRT"],
+		};
+		const norm = (p: string) => p.replaceAll("\\", "/");
+		const lookup = (env: Record<string, string>) => ({
+			env,
+			exists: (p: string) => norm(p) in tree,
+			list: (p: string) => tree[norm(p)] ?? [],
+		});
+		expect(findVcRuntimeDir("x64", lookup({ GLIMPSE_VCRT_DIR: "C:/crt", VCToolsRedistDir: "R" }))).toBe("C:/crt");
+		expect(norm(findVcRuntimeDir("x64", lookup({ VCToolsRedistDir: "R" })) ?? "")).toBe("R/x64/Microsoft.VC143.CRT");
+		expect(norm(findVcRuntimeDir("arm64", lookup({ VCToolsRedistDir: "R", ProgramFiles: "PF" })) ?? "")).toBe(
+			"PF/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/14.44.35112/arm64/Microsoft.VC143.CRT",
+		);
+		expect(findVcRuntimeDir("x64", lookup({ ProgramFiles: "PF" }))).toBeNull();
+		expect(findVcRuntimeDir("x64", lookup({}))).toBeNull();
 	});
 });
 

@@ -7,7 +7,7 @@ import { NATIVE_LIBS } from "../electrobun.config.ts";
 import { buildViews, viewsOut } from "./build-views.ts";
 import { buildWorkers, workersOut } from "./build-workers.ts";
 import { defaultCacheDir, loadManifest, modelsOut, stageBundled, writeStagingExtras } from "./model-cache.ts";
-import { ortOut, ortTarget, stageOnnxRuntime } from "./onnxruntime.ts";
+import { findVcRuntimeDir, ortOut, ortTarget, stageOnnxRuntime, stageVcRuntime } from "./onnxruntime.ts";
 
 const dev = process.env["ELECTROBUN_BUILD_ENV"] === "dev";
 const built = await buildViews({ dev });
@@ -20,8 +20,23 @@ console.log(`[prebuild] workers: ${workers.join(", ")} -> ${workersOut}`);
 // onnxruntime-node for the OCR Worker (GLIM-103): this target's binding + runtime only.
 const target = ortTarget();
 const ort = stageOnnxRuntime(target);
-if (ort) console.log(`[prebuild] onnxruntime ${target.os}-${target.arch}: ${ort.join(", ")} -> ${ortOut}`);
-else {
+if (ort) {
+	console.log(`[prebuild] onnxruntime ${target.os}-${target.arch}: ${ort.join(", ")} -> ${ortOut}`);
+	// Windows: ship the Visual C++ runtime it links, app-local (GLIM-111). Release builds must.
+	if (target.os === "win32") {
+		const crtDir = findVcRuntimeDir(target.arch);
+		if (crtDir) {
+			const dlls = stageVcRuntime(ortOut, ort, crtDir);
+			console.log(`[prebuild] Visual C++ runtime from ${crtDir}: ${dlls.join(", ")} -> ${ortOut}`);
+		} else {
+			const msg =
+				"no Visual Studio redist folder found (VCToolsRedistDir, GLIMPSE_VCRT_DIR or a Visual Studio install); " +
+				"local OCR would need the VC++ redistributable on the user's PC (GLIM-111).";
+			if (!dev) throw new Error(`[prebuild] ${msg}`);
+			console.warn(`[prebuild] WARNING: ${msg}`);
+		}
+	}
+} else {
 	console.warn(
 		`[prebuild] WARNING: onnxruntime-node has no ${target.os}-${target.arch} build; local OCR will be unavailable (GLIM-89).`,
 	);

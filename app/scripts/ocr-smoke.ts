@@ -4,8 +4,9 @@
 //
 // <app resources dir> is the folder holding bun/ocr-worker.js, native/onnxruntime/ and models/
 // (in a Linux build: build/<env>-linux-x64/<App>/Resources/app). Prints one JSON line:
-// { text, ms, ortLibs } where ortLibs are the onnxruntime files this process mapped (Linux:
-// /proc/self/maps), so a caller can check they came from inside the bundle. Exits 1 on failure.
+// { text, ms, ortLibs, crtLibs } where ortLibs are the onnxruntime files this process mapped
+// (Linux: /proc/self/maps; Windows: the process's module list) and crtLibs the Visual C++ runtime
+// DLLs it loaded (Windows), so a caller can check they came from inside the bundle. Exits 1 on failure.
 // Run it in its own process: a process that already loaded onnxruntime-node from node_modules
 // would map that copy instead.
 import { existsSync, readFileSync } from "node:fs";
@@ -47,14 +48,34 @@ try {
 	const t0 = performance.now();
 	const result = await provider.recognise({ image });
 	const ms = Math.round(performance.now() - t0);
-	const maps = process.platform === "linux" ? readFileSync("/proc/self/maps", "utf8") : "";
-	const ortLibs = [
-		...new Set(maps.split("\n").flatMap((l) => l.match(/\/\S*onnxruntime\S*\.(?:so[.\d]*|node|dylib|dll)$/g) ?? [])),
-	];
-	console.log(JSON.stringify({ text: result.blocks.map((b) => b.text), ms, ortLibs }));
+	const loaded = loadedLibraries();
+	const ortLibs = loaded.filter((l) => /onnxruntime[^\\/]*\.(?:so[.\d]*|node|dylib|dll)$/i.test(l));
+	// Windows: the Visual C++ runtime DLLs in use, to check they're the app-local copies (GLIM-111).
+	const crtLibs = loaded.filter((l) => /[\\/](?:msvcp140|vcruntime140)[^\\/]*\.dll$/i.test(l));
+	console.log(JSON.stringify({ text: result.blocks.map((b) => b.text), ms, ortLibs, crtLibs }));
 } catch (error) {
 	console.error(error instanceof Error ? error.message : String(error));
 	process.exitCode = 1;
 } finally {
 	await provider.dispose();
+}
+
+/** Full paths of the shared libraries this process has loaded (Linux, Windows; else empty). */
+function loadedLibraries(): string[] {
+	if (process.platform === "linux") {
+		const maps = readFileSync("/proc/self/maps", "utf8").split("\n");
+		return [...new Set(maps.flatMap((l) => l.match(/\/\S+$/g) ?? []))];
+	}
+	if (process.platform === "win32") {
+		const ps = Bun.spawnSync(
+			["powershell", "-NoProfile", "-Command", `(Get-Process -Id ${process.pid}).Modules | ForEach-Object FileName`],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		return ps.stdout
+			.toString()
+			.split(/\r?\n/)
+			.map((l) => l.trim())
+			.filter(Boolean);
+	}
+	return [];
 }

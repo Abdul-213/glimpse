@@ -5,6 +5,7 @@ import { languageCode, type OcrRecognizer } from "@glimpse/core";
 import { convexHull, dbPostprocess, detInputSize, minAreaRect, rectCorners, unclip } from "../../src/ocr/paddle/det.ts";
 import { CancelledError, OcrEngine, type OrtSession, type OrtTensor } from "../../src/ocr/paddle/engine.ts";
 import { type Raster, rasterOf, resizeNormalizeBGR, rgbaRaster, rotate90ccw } from "../../src/ocr/paddle/image.ts";
+import { explainOrtLoadFailure, VC_REDIST_URL } from "../../src/ocr/paddle/load-failure.ts";
 import { quadBounds } from "../../src/ocr/paddle/paddle-provider.ts";
 import { buildCharset, ctcDecode, recWidth, visualToLogicalRtl } from "../../src/ocr/paddle/rec.ts";
 import { fnvCropHash, RecCache } from "../../src/ocr/paddle/rec-cache.ts";
@@ -300,5 +301,15 @@ describe("engine", () => {
 		ok.addRecognizer("ch", fakeRec(charset, "設定", 0.9), charset);
 		const kept = await ok.recognize(img, await ok.detect(img), ["ch"], { onLine: (i) => seen.push(i) });
 		expect(seen.sort()).toEqual(kept.map((l) => l.index).sort());
+	});
+});
+
+describe("onnxruntime load failures (GLIM-111)", () => {
+	test("a missing-DLL error gets the Visual C++ runtime hint; other errors are unchanged", () => {
+		const win =
+			"The specified module could not be found.\r\nC:\\Glimpse\\native\\onnxruntime\\onnxruntime_binding.node";
+		expect(explainOrtLoadFailure(win)).toContain(win);
+		expect(explainOrtLoadFailure(win)).toContain(VC_REDIST_URL);
+		expect(explainOrtLoadFailure("bad model file")).toBe("bad model file");
 	});
 });

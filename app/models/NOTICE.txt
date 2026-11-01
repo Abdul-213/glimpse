@@ -47,3 +47,15 @@ ONNX Runtime (onnxruntime-node and onnxruntime-common), version 1.31.1
   Shipped as the native runtime library and Node-API binding for this platform
   (native/onnxruntime/), with the JavaScript bindings bundled into the OCR worker script.
   Unmodified, except that the bundled binding loader points at native/onnxruntime/.
+
+Microsoft Visual C++ runtime (Windows builds only)
+  Copyright (c) Microsoft Corporation. All rights reserved.
+  Files: msvcp140.dll, msvcp140_1.dll, msvcp140_atomic_wait.dll, vcruntime140.dll and
+  vcruntime140_1.dll (x64), in native/onnxruntime/, needed by ONNX Runtime.
+  Copied unmodified from the Visual Studio 2022 redistributable folder (VC\Redist\MSVC) as
+  "Distributable Code" under the Microsoft Software License Terms for Visual Studio 2022
+  (https://visualstudio.microsoft.com/license-terms/, REDIST list:
+  https://learn.microsoft.com/visualstudio/releases/2022/redistribution). These files are not
+  covered by Glimpse's MIT licence. You may not modify, reverse engineer or redistribute them
+  separately from Glimpse, except as Microsoft's licence terms allow. They are also available as
+  the Visual C++ Redistributable from https://aka.ms/vs/17/release/vc_redist.x64.exe.

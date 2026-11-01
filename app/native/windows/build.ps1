@@ -19,10 +19,12 @@ if (-not $tool) {
 }
 
 if ($tool -eq "msvc") {
+	# /MT: link the C/C++ runtime statically, so glimpse.dll doesn't need VCRUNTIME140.dll on a
+	# PC without the Visual C++ redistributable (GLIM-111).
 	Write-Host "Building glimpse.dll with MSVC cl.exe..."
 	Push-Location $out
 	try {
-		cl /nologo /O2 /EHsc /std:c++17 /W4 /WX /wd4100 /utf-8 /DUNICODE /D_UNICODE /LD @sources /Fe:glimpse.dll /link ($libs | ForEach-Object { "$_.lib" })
+		cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /WX /wd4100 /utf-8 /DUNICODE /D_UNICODE /LD @sources /Fe:glimpse.dll /link ($libs | ForEach-Object { "$_.lib" })
 	} finally { Pop-Location }
 } elseif ($tool -eq "zig") {
 	Write-Host "Building glimpse.dll with zig (x86_64-windows-gnu)..."
