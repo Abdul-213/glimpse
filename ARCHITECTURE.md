@@ -403,6 +403,26 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   usable backend it returns a source whose calls fail with `unavailable`, and the reason goes to
   the startup log.
 
+### Screen access (GLIM-45)
+
+- macOS gates capture behind Screen Recording. Core's `deriveScreenAccess`
+  (`packages/core/src/capture/screen-access.ts`) takes `CGPreflightScreenCaptureAccess` plus what
+  Glimpse remembers (`settings.permissions.screenAccess`: unknown / requested / granted) and
+  returns one of: `not-needed` (Windows), `granted`, `not-determined`, `denied` (asked, then
+  refused, or granted and waiting for a restart) and `lost` (had it, now doesn't: this happens
+  after every update of an ad-hoc signed build, spikes/capture/FINDINGS.md). No public API tells
+  denied from not determined, so the app has to remember.
+- `services/screen-access.ts` (`ScreenAccess`, tested with a fake `ScreenAccessOS`) asks once
+  (the system prompt shows), then opens System Settings on later asks. It polls while the window
+  is open and restarts Glimpse with a detached `open` helper (`relaunchCommand`).
+  `services/screen-access-os.ts` is the real OS side (libglimpse preflight, Electrobun's
+  `Utils.screenCapture.requestAccess`).
+- Without access, `snip.start` / `live.start` open the screen-access window
+  (`windows/onboarding.ts`, mode `screen-access`) instead of the picker. The tray lists
+  "Allow Screen Access…" first (`TrayState.notices`), and a launch that finds the grant `lost`
+  opens the window at once. Capture consumers that see `permission-denied` call
+  `screenAccess.reportCaptureDenied()`.
+
 ## 5. Views and RPC
 
 **Build.** `app/scripts/build-views.ts` builds every `app/src/views/<name>/index.html` with

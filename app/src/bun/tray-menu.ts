@@ -24,6 +24,15 @@ export interface TrayState {
 	readonly hotkeys: { readonly snip: string | null; readonly live: string | null };
 	/** Windows only: the taskbar's theme, which picks the light or dark glyph. */
 	readonly taskbarTheme: TaskbarTheme;
+	/** Things that need the user, listed first (flows/tray.html: "problems are listed first"). */
+	readonly notices?: readonly TrayNotice[];
+}
+
+/** A problem or unfinished step with the command that fixes it ("Allow Screen Access…"). */
+export interface TrayNotice {
+	/** Per OS: Windows menus use sentence case, macOS Title Case. */
+	readonly label: { readonly windows: string; readonly macos: string };
+	readonly action: Command;
 }
 
 /** Electrobun's tray menu item shape (`MenuItemConfig`), restated so this module stays pure. */
@@ -100,7 +109,13 @@ export function buildTrayMenu(state: TrayState): TrayMenuItem[] {
 					item(withShortcut(state.platform, t("Stop Live", "Stop Live"), state.hotkeys.live), "live.stop"),
 				];
 
+	const notices: TrayMenuItem[] = (state.notices ?? []).map((n) =>
+		item(mac ? n.label.macos : n.label.windows, n.action),
+	);
+
 	return [
+		...notices,
+		...(notices.length > 0 ? [{ type: "divider" } as const] : []),
 		status(statusLine(state)),
 		status(providerLine(state)),
 		{ type: "divider" },
