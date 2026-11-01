@@ -101,6 +101,12 @@ export interface SnipPopupState {
 	readonly view: "translation" | "original";
 	/** Settings › "Show original under translation" (§4 S5). */
 	readonly showOriginalUnder: boolean;
+	/** Settings › "Copy translation after Snip" (§6, on by default). */
+	readonly autoCopy: boolean;
+	/** The translation went on the clipboard automatically at least once. */
+	readonly autoCopied: boolean;
+	/** "Copied" shows in the footer for 2 s after a write (§2.4). */
+	readonly copied: "translation" | "original" | null;
 	readonly skippedExpanded: boolean;
 }
 
@@ -112,9 +118,14 @@ export type SnipAction =
 			readonly private?: boolean;
 			readonly alwaysShowLanguages?: boolean;
 			readonly showOriginalUnder?: boolean;
+			readonly autoCopy?: boolean;
 	  }
 	| { readonly type: "pipeline"; readonly event: PipelineEvent }
 	| { readonly type: "toggleSkipped"; readonly expanded?: boolean }
+	/** The clipboard was written (auto-copy, Ctrl/⌘C, Copy original). */
+	| { readonly type: "copied"; readonly what: "translation" | "original"; readonly auto?: boolean }
+	/** The 2 s "Copied" confirmation is over. */
+	| { readonly type: "copiedExpired" }
 	/** Flip between the translation and the original (`on` sets it). */
 	| { readonly type: "toggleOriginal"; readonly on?: boolean }
 	/** A pack's install state changed (the model manager's states for that row's resources). */
@@ -136,7 +147,7 @@ export const OPENED_SKELETONS: readonly number[] = [70, 45];
 
 export function initialSnipState(
 	requestId: string,
-	opts: { private?: boolean; alwaysShowLanguages?: boolean; showOriginalUnder?: boolean } = {},
+	opts: { private?: boolean; alwaysShowLanguages?: boolean; showOriginalUnder?: boolean; autoCopy?: boolean } = {},
 ) {
 	const state: SnipPopupState = {
 		requestId,
@@ -153,6 +164,9 @@ export function initialSnipState(
 		alwaysShowLanguages: opts.alwaysShowLanguages ?? false,
 		view: "translation",
 		showOriginalUnder: opts.showOriginalUnder ?? false,
+		autoCopy: opts.autoCopy ?? true,
+		autoCopied: false,
+		copied: null,
 		skippedExpanded: false,
 	};
 	return state;
@@ -173,7 +187,12 @@ export function reduceSnip(state: SnipPopupState, action: SnipAction): SnipPopup
 				...(action.private !== undefined ? { private: action.private } : {}),
 				...(action.alwaysShowLanguages !== undefined ? { alwaysShowLanguages: action.alwaysShowLanguages } : {}),
 				...(action.showOriginalUnder !== undefined ? { showOriginalUnder: action.showOriginalUnder } : {}),
+				...(action.autoCopy !== undefined ? { autoCopy: action.autoCopy } : {}),
 			});
+		case "copied":
+			return { ...state, copied: action.what, autoCopied: state.autoCopied || action.auto === true };
+		case "copiedExpired":
+			return state.copied === null ? state : { ...state, copied: null };
 		case "toggleOriginal": {
 			const on = action.on ?? state.view === "translation";
 			const view = on ? "original" : "translation";
@@ -429,9 +448,12 @@ export type SnipStatus =
 	/** Errors never touch the clipboard (§6). */
 	| { readonly kind: "clipboardUnchanged" }
 	/** Original view is on (§4 S6). */
-	| { readonly kind: "original" };
+	| { readonly kind: "original" }
+	/** The clipboard was just written: "Copied" with a check, for 2 s. */
+	| { readonly kind: "copied" };
 
 export function snipStatus(s: SnipPopupState): SnipStatus {
+	if (s.copied && s.phase !== "error") return { kind: "copied" };
 	if (s.view === "original" && s.phase !== "error" && s.blocks.length > 0) return { kind: "original" };
 	switch (s.phase) {
 		case "opened":
@@ -450,4 +472,20 @@ export function snipStatus(s: SnipPopupState): SnipStatus {
 		case "error":
 			return { kind: "clipboardUnchanged" };
 	}
+}
+
+/**
+ * Should the translation go on the clipboard now (§6)? The run is done without an error,
+ * at least one block was translated, and auto-copy is on. The controller writes when this
+ * turns true and the text differs from what it last wrote ("Translate these" rewrites
+ * once). Errors never touch the clipboard; Live never uses this.
+ */
+export function shouldAutoCopy(s: SnipPopupState): boolean {
+	return (
+		s.autoCopy &&
+		s.phase === "done" &&
+		s.error === null &&
+		s.followUps === 0 &&
+		s.blocks.some((b) => b.cls === "translate" && b.state === "done")
+	);
 }

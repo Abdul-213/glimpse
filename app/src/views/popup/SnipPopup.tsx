@@ -52,6 +52,7 @@ export interface SnipPopupIntents {
 	action(requestId: string, action: SnipAction, lang?: string): void;
 	retryBlock(requestId: string, blockId: string): void;
 	original(requestId: string, on: boolean): void;
+	copy(requestId: string, what: "translation" | "original"): void;
 }
 
 export interface SnipPopupProps {
@@ -128,9 +129,23 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 			toggleOriginal();
 			return;
 		}
+		// Ctrl/⌘C copies the translation again unless text is selected (then the selection
+		// is copied the normal way); Ctrl/⌘⇧C copies the original (§6, §11).
+		if (mod && !e.altKey && e.key.toLowerCase() === "c") {
+			if (e.shiftKey) {
+				e.preventDefault();
+				props.intents.copy(id(), "original");
+			} else if (!hasSelection(shell)) {
+				e.preventDefault();
+				props.intents.copy(id(), "translation");
+			}
+			return;
+		}
 		if (e.key === "Tab" && shell) trapTab(shell, list, e);
 	};
 	const original = () => state().view === "original";
+	const canCopy = () =>
+		state().blocks.some((b) => b.cls !== "skip") && (!state().error || state().error === "packMissing");
 	const toggleOriginal = () => {
 		if (state().blocks.length > 0) props.intents.original(id(), !original());
 	};
@@ -295,10 +310,13 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 				</Show>
 				<span class="snip-spacer" />
 				<span class="snip-status" aria-hidden="true">
+					<Show when={status().kind === "copied"}>
+						<Icon name="check" />
+					</Show>
 					{statusText(status())}
 				</span>
 				<span class="sr-only" role="status">
-					{error()?.title ?? announcement(status(), translatedCount(), state().phase === "done")}
+					{error()?.title ?? announcement(status(), translatedCount(), state().phase === "done", state().autoCopied)}
 				</span>
 				<Toolbar label={COPY.actions} class="snip-actions electrobun-webkit-app-region-no-drag">
 					<IconButton
@@ -308,6 +326,13 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 						pressed={original()}
 						disabled={state().blocks.length === 0}
 						onClick={toggleOriginal}
+					/>
+					<IconButton
+						icon="copy"
+						label={COPY.copyTranslation}
+						shortcut={props.init.keys.copy}
+						disabled={!canCopy()}
+						onClick={() => props.intents.copy(id(), "translation")}
 					/>
 					<IconButton
 						icon="close"
@@ -384,6 +409,13 @@ function Block(props: {
 			onRetry={props.onRetry}
 		/>
 	);
+}
+
+/** Text selected inside the popup (Ctrl/⌘C then copies the selection, not the translation). */
+function hasSelection(root: HTMLElement | undefined): boolean {
+	const sel = typeof window !== "undefined" ? window.getSelection() : null;
+	if (!sel || sel.isCollapsed || sel.toString().length === 0) return false;
+	return !root || (sel.anchorNode !== null && root.contains(sel.anchorNode));
 }
 
 /** Focus stays inside the popup: Tab wraps from the last control to the first block (§7.6). */

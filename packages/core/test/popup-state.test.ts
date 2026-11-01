@@ -12,6 +12,7 @@ import {
 	rect,
 	reduceSnip,
 	type SnipPopupState,
+	shouldAutoCopy,
 	showLanguageTags,
 	skippedBlocks,
 	skippedLanguages,
@@ -425,5 +426,89 @@ describe("original view (GLIM-74, §4 S5/S6)", () => {
 		const opened = reduceSnip(initialSnipState("x"), { type: "open", requestId: RUN, showOriginalUnder: true });
 		expect(opened.showOriginalUnder).toBe(true);
 		expect(opened.view).toBe("translation");
+	});
+});
+
+describe("clipboard text and auto-copy (GLIM-71, §6)", () => {
+	const finished = () =>
+		fold([
+			started,
+			{ type: "recognised", runId: RUN, blocks: MIXED },
+			translation("a", "See you at eight?"),
+			translation("c", "Thanks!", true, "de"),
+			{ type: "done", runId: RUN, result: result({ blocks: MIXED }) },
+		]);
+
+	test("translation: reading order, translations + neutral + target-language blocks, skipped left out", () => {
+		expect(clipboardText(finished(), "translation")).toBe("See you at eight?\n12:45\nThanks!\nSee you");
+		expect(clipboardText(finished(), "translation", "\r\n")).toBe("See you at eight?\r\n12:45\r\nThanks!\r\nSee you");
+	});
+
+	test("a failed block contributes its source text", () => {
+		const s = fold(
+			[
+				{
+					type: "translation",
+					runId: RUN,
+					translation: {
+						blockId: "c",
+						text: "",
+						final: true,
+						failure: { kind: "failed", error: { code: "internal", message: "x", retryable: false, providerId: null } },
+						from: L("de"),
+						to: L("en"),
+						via: [],
+						provider: null,
+					},
+				},
+			],
+			finished(),
+		);
+		expect(clipboardText(s, "translation")).toBe("See you at eight?\n12:45\nDanke dir!\nSee you");
+	});
+
+	test("skipped blocks join once 'Translate these' promoted and translated them", () => {
+		const s0 = reduceSnip(finished(), { type: "followUp", phase: "start", blockIds: ["e"], promote: true });
+		const s1 = fold([translation("e", "See you tomorrow", true, "ru")], s0);
+		expect(clipboardText(s1, "translation")).toBe("See you at eight?\n12:45\nThanks!\nSee you\nSee you tomorrow");
+	});
+
+	test("RTL text is copied in logical order without bidi marks; multi-line blocks keep their breaks", () => {
+		const rtl = [
+			block("r1", 0, "شكراً جزيلاً\nالساعة 3 PM", "ar", "translate"),
+			block("r2", 1, "09:14", null, "neutral"),
+		];
+		const s = fold([started, { type: "recognised", runId: RUN, blocks: rtl }]);
+		expect(clipboardText(s, "original", "\r\n")).toBe("شكراً جزيلاً\r\nالساعة 3 PM\r\n09:14");
+		expect(clipboardText(s, "original")).not.toMatch(/[‎‏‪-‮⁦-⁩]/);
+		const ar = fold([translation("r1", "مرحبا بكم", true, "ar")], s);
+		expect(clipboardText(ar, "translation")).toBe("مرحبا بكم\n09:14");
+	});
+
+	test("shouldAutoCopy: done, no error, at least one translated block, setting on", () => {
+		expect(shouldAutoCopy(finished())).toBe(true);
+		expect(shouldAutoCopy({ ...finished(), autoCopy: false })).toBe(false);
+		const streaming = fold([started, { type: "recognised", runId: RUN, blocks: MIXED }, translation("a", "x")]);
+		expect(shouldAutoCopy(streaming)).toBe(false);
+		const onlyNeutral = [MIXED[1] as RecognisedBlock, MIXED[3] as RecognisedBlock];
+		const e6 = fold([
+			started,
+			{ type: "recognised", runId: RUN, blocks: onlyNeutral },
+			{ type: "done", runId: RUN, result: result({ blocks: onlyNeutral }) },
+		]);
+		expect(e6.phase).toBe("done");
+		expect(shouldAutoCopy(e6)).toBe(false);
+		const e1 = fold([
+			started,
+			{ type: "done", runId: RUN, result: result({ error: { kind: "noText", message: "" } }) },
+		]);
+		expect(shouldAutoCopy(e1)).toBe(false);
+	});
+
+	test("'Copied' shows until it expires, and never over an error", () => {
+		const s = reduceSnip(finished(), { type: "copied", what: "translation", auto: true });
+		expect(snipStatus(s)).toEqual({ kind: "copied" });
+		expect(s.autoCopied).toBe(true);
+		expect(snipStatus(reduceSnip(s, { type: "copiedExpired" }))).toEqual({ kind: "none" });
 	});
 });

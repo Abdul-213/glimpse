@@ -15,6 +15,7 @@ import { createFileCaptureSource } from "../src/bun/services/capture/file.ts";
 import { SAMPLE_FRAMES_DIR } from "../src/bun/services/capture/index.ts";
 import {
 	BLUR_GRACE_MS,
+	COPIED_MS,
 	INITIAL_CONTENT_HEIGHT,
 	PAINT_TIMEOUT_MS,
 	type PackPort,
@@ -195,7 +196,9 @@ describe("harness: scripted Snip → pipeline → popup state (GLIM-86 + GLIM-65
 		expect(r.shown).toBe(true);
 		expect(r.placement?.side).toBe("below");
 		expect(r.statuses[0]).toBe("reading");
-		expect(r.statuses.at(-1)).toBe("none");
+		expect(r.statuses.at(-1)).toBe("copied");
+		// The final clipboard text: translated + neutral blocks, the skipped Korean one left out.
+		expect(r.harness.clipboard).toEqual(["設定を保存しました。 [ja>en]\n100"]);
 		expect(r.state?.phase).toBe("done");
 		expect(r.state?.blocks.map((b) => [b.cls, b.state])).toEqual([
 			["translate", "done"],
@@ -352,7 +355,8 @@ describe("loading and error states (GLIM-73)", () => {
 		h.controller.open(rect(20, 15, 160, 40));
 		await settle();
 		h.controller.action("snip-1", "copyOriginal");
-		expect(h.clipboard).toEqual(["明日の会議\r\n100"]);
+		expect(h.clipboard.at(-1)).toBe("明日の会議\r\n100");
+		expect(h.controller.state?.copied).toBe("original");
 		h.controller.dispose();
 	});
 
@@ -501,6 +505,86 @@ describe("show original (GLIM-74)", () => {
 		expect(h.window.last?.state.view).toBe("original");
 		h.controller.open(rect(20, 15, 160, 40));
 		expect(h.window.last?.state.view).toBe("translation");
+		h.controller.dispose();
+	});
+});
+
+describe("auto-copy (GLIM-71)", () => {
+	test("the translation is copied once when the run is done; 'Copied' shows for 2 s", async () => {
+		const { runner } = await realPipeline(["明日の会議", "100"]);
+		const h = popupHarness({ displays, runner, eol: "\r\n" });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.clipboard).toEqual(["明日の会議 [ja>en]\r\n100"]);
+		expect(h.controller.state?.copied).toBe("translation");
+		h.controller.toggleOriginal("snip-1", true);
+		h.controller.toggleOriginal("snip-1", false);
+		expect(h.clipboard.length).toBe(1);
+		h.scheduler.advance(COPIED_MS);
+		expect(h.controller.state?.copied).toBeNull();
+		h.controller.dispose();
+	});
+
+	test("nothing is written while streaming, with the setting off, or on an error", async () => {
+		const gate = manualGate();
+		const { runner } = await realPipeline(["明日の会議"], gate);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.clipboard).toEqual([]);
+		gate.open();
+		await settle();
+		expect(h.clipboard.length).toBe(1);
+		h.controller.dispose();
+
+		const off = popupHarness({
+			displays,
+			runner: (await realPipeline(["明日の会議"])).runner,
+			settings: { autoCopy: false },
+		});
+		off.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(off.clipboard).toEqual([]);
+		expect(off.controller.state?.phase).toBe("done");
+		off.controller.dispose();
+
+		const e1 = popupHarness({ displays, runner: (await realPipeline([])).runner });
+		e1.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(e1.controller.state?.error).toBe("noText");
+		e1.controller.copy("snip-1", "translation");
+		expect(e1.clipboard).toEqual([]);
+	});
+
+	test("Ctrl/⌘C copies again, Ctrl/⌘⇧C copies the original", async () => {
+		const { runner } = await realPipeline(["明日の会議", "100"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		h.controller.copy("snip-1", "translation");
+		h.controller.copy("snip-1", "original");
+		expect(h.clipboard).toEqual(["明日の会議 [ja>en]\n100", "明日の会議 [ja>en]\n100", "明日の会議\n100"]);
+		expect(h.controller.state?.copied).toBe("original");
+		h.controller.dispose();
+	});
+
+	test("'Translate these' rewrites the clipboard once with the skipped blocks included", async () => {
+		const source = createFileCaptureSource(SAMPLE_FRAMES_DIR);
+		const ocr = scriptedOcr(["明日の会議", "안녕하세요"]);
+		await ocr.init();
+		const tr = new FakeTranslationProvider({ pivot: "en", capabilities: { streaming: false } });
+		await tr.init();
+		const pipeline = new TranslationPipeline({ ocr: () => ocr, chain: () => [tr] });
+		const h = popupHarness({
+			displays,
+			runner: pipelineRunner(source, pipeline, { to: L("en"), sources: [L("ja")] }),
+		});
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.clipboard).toEqual(["明日の会議 [ja>en]"]);
+		h.controller.action("snip-1", "translateSkipped");
+		await settle();
+		expect(h.clipboard).toEqual(["明日の会議 [ja>en]", "明日の会議 [ja>en]\n안녕하세요 [ko>en]"]);
 		h.controller.dispose();
 	});
 });

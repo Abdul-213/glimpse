@@ -48,6 +48,7 @@ function Frame(props: { scenario: (typeof SCENARIOS)[number] }) {
 					action: () => {},
 					retryBlock: () => {},
 					original: () => {},
+					copy: () => {},
 				}}
 			/>
 		</div>

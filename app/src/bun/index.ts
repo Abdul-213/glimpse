@@ -277,6 +277,8 @@ snipPopup = new SnipPopupController({
 		reducedMotion: loadedSettings.settings.appearance.motion === "reduced",
 		alwaysShowLanguages: loadedSettings.settings.snip.alwaysShowLanguages,
 		showOriginalUnder: loadedSettings.settings.snip.showOriginalUnder,
+		// Snip only: Live never touches the clipboard (GLIM-71).
+		autoCopy: loadedSettings.settings.snip.copyAfterSnip,
 		uiDir: "ltr",
 	}),
 	pointer: () => screenProbe.cursor(),

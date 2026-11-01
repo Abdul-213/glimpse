@@ -34,6 +34,7 @@ export const VARIANTS: readonly ShotVariant[] = [
 			"s0-opened",
 			"s3-streaming",
 			"s4-done",
+			"s4-copied",
 			"s7-skipped-expanded",
 			"s9-rtl-source",
 			"s12-long",

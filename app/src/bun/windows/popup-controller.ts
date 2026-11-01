@@ -24,6 +24,7 @@ import {
 	type SnipAction,
 	type SnipPopupPlacement,
 	type SnipPopupState,
+	shouldAutoCopy,
 	snipPopupFrame,
 } from "@glimpse/core";
 import type {
@@ -42,6 +43,8 @@ export const PAINT_TIMEOUT_MS = 32;
  * "outside" (with focus restore), not as "blur" (spec §7.4 vs §7.5).
  */
 export const BLUR_GRACE_MS = 120;
+/** "Copied" stays in the footer this long (spec §2.4). */
+export const COPIED_MS = 2_000;
 /** Height the window starts at, before the view measures: S0 (two skeleton bars + footer). */
 export const INITIAL_CONTENT_HEIGHT = 124;
 
@@ -107,6 +110,8 @@ export interface SnipPopupSettings {
 	readonly alwaysShowLanguages: boolean;
 	/** Settings › Show original under translation (off by default, owner question 9). */
 	readonly showOriginalUnder?: boolean;
+	/** Settings › Copy translation after Snip (on by default, spec §6). */
+	readonly autoCopy?: boolean;
 	readonly uiDir: "ltr" | "rtl";
 }
 
@@ -138,6 +143,9 @@ interface Request {
 	frame: Rect;
 	cancelPaintTimer: (() => void) | null;
 	cancelBlur: (() => void) | null;
+	cancelCopied: (() => void) | null;
+	/** What auto-copy last wrote, so a follow-up rewrites only when the text changed. */
+	autoCopiedText: string | null;
 	/** The user dragged the popup: it stays where it was dropped (spec §2.4). */
 	dragged: boolean;
 	/** The pipeline's blocks, for follow-up translation. */
@@ -201,12 +209,15 @@ export class SnipPopupController {
 			state: initialSnipState(id, {
 				alwaysShowLanguages: settings.alwaysShowLanguages,
 				showOriginalUnder: settings.showOriginalUnder ?? false,
+				autoCopy: settings.autoCopy ?? true,
 			}),
 			shown: false,
 			contentHeight: INITIAL_CONTENT_HEIGHT,
 			frame,
 			cancelPaintTimer: null,
 			cancelBlur: null,
+			cancelCopied: null,
+			autoCopiedText: null,
 			dragged: false,
 			recognised: [],
 		};
@@ -315,7 +326,7 @@ export class SnipPopupController {
 				this.download(r, lang);
 				return;
 			case "copyOriginal":
-				this.writeClipboard(r, "original");
+				this.copy(requestId, "original");
 				return;
 			case "retry":
 				this.followUp(
@@ -344,6 +355,18 @@ export class SnipPopupController {
 				);
 				return;
 		}
+	}
+
+	/**
+	 * Copy again (Ctrl/⌘C with no selection, the Copy button) or copy the original
+	 * (Ctrl/⌘⇧C). Shows "Copied" for 2 s. Nothing is written in an error state, or when
+	 * there is no text.
+	 */
+	copy(requestId: string, what: "translation" | "original"): void {
+		const r = this.current(requestId);
+		if (!r || r.state.blocks.length === 0) return;
+		if (what === "translation" && r.state.error && r.state.error !== "packMissing") return;
+		if (this.writeClipboard(r, what)) this.confirmCopied(r, what, false);
 	}
 
 	/** "Retry" on one failed block (§2.2). */
@@ -459,6 +482,35 @@ export class SnipPopupController {
 		if (next === r.state) return;
 		r.state = next;
 		this.queuePush();
+		if (action.type !== "copied" && action.type !== "copiedExpired") this.maybeAutoCopy(r);
+	}
+
+	/**
+	 * Spec §6: once every translate-class block is final and at least one was translated,
+	 * the translation goes on the clipboard (if the setting is on). Written once per result:
+	 * a follow-up ("Translate these", Retry, a pack landing) rewrites it only if the text changed.
+	 */
+	private maybeAutoCopy(r: Request): void {
+		if (!shouldAutoCopy(r.state)) return;
+		const text = clipboardText(r.state, "translation", this.deps.eol ?? "\n");
+		if (text === r.autoCopiedText) return;
+		r.autoCopiedText = text;
+		if (this.writeClipboard(r, "translation")) {
+			this.confirmCopied(r, "translation", true);
+			this.deps.log.info("translation copied", { blocks: r.state.blocks.length });
+		}
+	}
+
+	private confirmCopied(r: Request, what: "translation" | "original", auto: boolean): void {
+		r.cancelCopied?.();
+		this.dispatch({ type: "copied", what, auto });
+		const id = r.id;
+		r.cancelCopied = this.scheduler.later(COPIED_MS, () => {
+			const cur = this.current(id);
+			if (!cur) return;
+			cur.cancelCopied = null;
+			this.dispatch({ type: "copiedExpired" });
+		});
 	}
 
 	/** Coalesce pushes to one per microtask: a burst of cache hits sends one message. */
@@ -489,6 +541,7 @@ export class SnipPopupController {
 		this.request = null;
 		r.cancelPaintTimer?.();
 		r.cancelBlur?.();
+		r.cancelCopied?.();
 		r.abort.abort();
 		this.deps.window.hide();
 		this.deps.results?.dismiss();

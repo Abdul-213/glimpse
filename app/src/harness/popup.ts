@@ -54,6 +54,7 @@ export const DEFAULT_POPUP_SETTINGS: SnipPopupSettings = {
 	reducedMotion: true,
 	alwaysShowLanguages: false,
 	showOriginalUnder: false,
+	autoCopy: true,
 	uiDir: "ltr",
 };
 
@@ -239,6 +240,8 @@ export function popupLines(r: SnipPopupReport): string[] {
 			`${f ? `, frame ${f.x},${f.y} ${f.width}x${f.height}` : ""}, ${r.shown ? "shown" : "NOT shown"}, ${r.pushes} pushes`,
 		`    status: ${r.statuses.join(" → ")}`,
 	];
+	const clip = r.harness.clipboard.at(-1);
+	out.push(`    clipboard: ${clip === undefined ? "not written" : JSON.stringify(clip)}`);
 	const s = r.state;
 	if (!s) return out;
 	out.push(
