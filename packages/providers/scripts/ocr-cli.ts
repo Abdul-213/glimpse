@@ -20,11 +20,15 @@ const models = only
 				m.kind === "ocr-detector" || m.recognizer === only ? cacheSource.resolve(m, f) : null,
 		}
 	: cacheSource;
-const p = new PaddleOcrProvider({ threads: 2, ...(only ? { preload: [only] } : {}) }, { models });
+const grouping = args.includes("--lines") ? ("lines" as const) : ("blocks" as const);
+const p = new PaddleOcrProvider({ threads: 2, grouping, ...(only ? { preload: [only] } : {}) }, { models });
 console.log("init", (await p.init()).state);
 for (const f of files) {
 	const r = await p.recognise({ image: await loadPng(f), languages });
 	console.log(`${f}: ${Math.round(p.lastTimings?.total ?? 0)} ms`, JSON.stringify(p.lastTimings));
-	for (const b of r.blocks) console.log(`  [${b.confidence.toFixed(3)}] ${b.text}`);
+	for (const b of r.blocks)
+		console.log(
+			`  ${b.id} [${b.confidence.toFixed(3)}] ${JSON.stringify(b.box)} ${b.writing ?? ""} ${JSON.stringify(b.text)}`,
+		);
 }
 await p.dispose();

@@ -32,6 +32,7 @@ export const paddleOcrOptionsSchema = object({
 		array(oneOf(OCR_RECOGNIZERS as readonly OcrRecognizer[] as [OcrRecognizer, ...OcrRecognizer[]])),
 		d.preload,
 	),
+	grouping: withDefault(oneOf(["blocks", "lines"] as const), d.grouping),
 });
 
 export type PaddleOcrOptionsInput = Infer<typeof paddleOcrOptionsSchema>;

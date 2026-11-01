@@ -14,6 +14,8 @@ warnIfMissing();
 const make = () => new PaddleOcrProvider({ threads: 2 }, { models: cacheSource });
 const fixture = (name: string) => loadPng(join(FIXTURES, name));
 const T = 60_000;
+/** Every recognised line, whatever the grouping. */
+const linesOf = (r: { blocks: readonly { text: string }[] }) => r.blocks.flatMap((b) => b.text.split("\n"));
 
 describe.skipIf(!hasBundled)("PaddleOCR: core OCR provider contract (real models)", async () => {
 	const image = await fixture("region-en.png");
@@ -94,20 +96,20 @@ describe.skipIf(!hasBundled)("PaddleOCR: real models", () => {
 				await p.init();
 				await p.warmup();
 				const ja = await p.recognise({ image: await fixture("region-ja.png"), languages: [languageCode("ja")] });
-				const jaText = ja.blocks.map((b) => b.text);
+				const jaText = linesOf(ja);
 				expect(jaText).toContain("設定を保存しました。");
 				// The full-width ？ comes back as ASCII "?" from the ch recogniser.
 				expect(jaText.map((t) => t.replace("？", "?"))).toContain("このアイテムを使用しますか?");
 
 				const zh = await p.recognise({ image: await fixture("region-zh.png") });
-				expect(zh.blocks.map((b) => b.text)).toContain("请输入您的密码。");
+				expect(linesOf(zh)).toContain("请输入您的密码。");
 
 				// German: `ch` reads first, Latin-script lines are re-read by `latin` (umlauts).
 				const de = await p.recognise({
 					image: toPaddedBgra(await fixture("region-de.png")),
 					languages: [languageCode("ja"), languageCode("de")],
 				});
-				const deText = de.blocks.map((b) => b.text).join("\n");
+				const deText = linesOf(de).join("\n");
 				expect(deText).toContain("Möchten Sie die Änderungen übernehmen?");
 				expect(deText).toContain("Die Datei konnte nicht gespeichert werden.");
 
@@ -116,12 +118,38 @@ describe.skipIf(!hasBundled)("PaddleOCR: real models", () => {
 				expect(events[0]?.type).toBe("detected");
 				const progressBlocks = events.flatMap((e) => (e.type === "block" ? [e.block] : []));
 				expect(progressBlocks.map((b) => b.id).sort()).toEqual(en.blocks.map((b) => b.id).sort());
-				expect(en.blocks.map((b) => b.text)).toContain("Error 404: file not found");
+				expect(linesOf(en)).toContain("Error 404: file not found");
 				// Reading order: top to bottom.
 				const ys = en.blocks.map((b) => b.box.y);
 				expect([...ys].sort((a, b) => a - b)).toEqual(ys);
 			} finally {
 				await p.dispose();
+			}
+		},
+		T,
+	);
+
+	test(
+		"GLIM-56: lines are grouped into blocks (columns, vertical Japanese); grouping: lines keeps one per line",
+		async () => {
+			const p = make();
+			const flat = new PaddleOcrProvider({ threads: 2, grouping: "lines" }, { models: cacheSource });
+			try {
+				await p.init();
+				await flat.init();
+				const cols = await p.recognise({ image: await fixture("columns-en.png"), languages: [languageCode("en")] });
+				expect(cols.blocks.map((b) => b.text.split("\n").length)).toEqual([1, 3, 3, 1, 1]);
+				expect(cols.blocks[1]?.lines).toHaveLength(3);
+				const vert = await p.recognise({ image: await fixture("vertical-ja.png"), languages: [languageCode("ja")] });
+				expect(vert.blocks.map((b) => [b.writing, b.text])).toEqual([
+					["vertical-rl", "吾輩は猫である\n名前はまだ無い\nどこで生れたか"],
+				]);
+				const lines = await flat.recognise({ image: await fixture("columns-en.png"), languages: [languageCode("en")] });
+				expect(lines.blocks).toHaveLength(9);
+				expect(lines.blocks.every((b) => !b.text.includes("\n"))).toBe(true);
+			} finally {
+				await p.dispose();
+				await flat.dispose();
 			}
 		},
 		T,
@@ -183,7 +211,7 @@ describe.skipIf(!hasRecognizer("arabic"))("PaddleOCR: Arabic (on-demand model)",
 			try {
 				await p.init();
 				const ar = await p.recognise({ image: await fixture("region-ar.png"), languages: [languageCode("ar")] });
-				const text = ar.blocks.map((b) => b.text);
+				const text = linesOf(ar);
 				expect(text).toContain("اكتمل التنزيل");
 				expect(text.some((t) => t.startsWith("هل تريد"))).toBe(true);
 			} finally {
@@ -205,7 +233,7 @@ describe.skipIf(!hasRecognizer("korean"))("PaddleOCR: Korean (on-demand model)",
 					image: await fixture("region-ko.png"),
 					languages: [languageCode("ja"), languageCode("ko")],
 				});
-				expect(ko.blocks.map((b) => b.text)).toContain("설정이 저장되었습니다.");
+				expect(linesOf(ko)).toContain("설정이 저장되었습니다.");
 			} finally {
 				await p.dispose();
 			}

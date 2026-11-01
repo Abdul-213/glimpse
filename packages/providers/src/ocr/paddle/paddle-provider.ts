@@ -6,12 +6,13 @@
 //   cache). Nothing is downloaded here: missing files are reported as `ModelResource`s.
 // - Recognisers are loaded lazily: the bundled ones (`preload`) at init, others the first
 //   time a request needs them. After the model manager installs a recogniser, call `rescan()`.
-// - Output: one block per detected text line, in reading order. Grouping lines into
-//   paragraph blocks is GLIM-56.
+// - Output: lines grouped into blocks by core `groupLines` (GLIM-56), in reading order, each
+//   with its `lines`; or one block per line (`grouping: "lines"`).
 
 import { availableParallelism } from "node:os";
 import {
 	abortable,
+	groupLines,
 	hashString,
 	type LanguageCode,
 	type ModelResource,
@@ -88,6 +89,12 @@ export interface PaddleOcrOptions {
 	readonly recCacheSize: number;
 	/** Recognisers loaded at init (when installed). Others load on first use. */
 	readonly preload: readonly OcrRecognizer[];
+	/**
+	 * `blocks` (default): lines grouped into paragraphs/labels by core `groupLines` (GLIM-56);
+	 * progress emits the detected boxes, then the blocks once grouped. `lines`: one block per
+	 * line, each emitted as soon as it is read.
+	 */
+	readonly grouping: "blocks" | "lines";
 }
 
 export const PADDLE_OCR_DEFAULTS: PaddleOcrOptions = {
@@ -97,6 +104,7 @@ export const PADDLE_OCR_DEFAULTS: PaddleOcrOptions = {
 	minTextScore: 0.5,
 	recCacheSize: 512,
 	preload: DEFAULT_RECOGNIZERS,
+	grouping: "blocks",
 };
 
 export interface PaddleOcrContext {
@@ -368,7 +376,7 @@ export class PaddleOcrProvider implements OcrProvider {
 						if (!onProgress || signal?.aborted) return;
 						if (event.type === "detected") {
 							onProgress({ type: "detected", boxes: event.quads.map((q) => quadBounds(q, width, height)) });
-						} else if (event.type === "line") {
+						} else if (event.type === "line" && this.options.grouping === "lines") {
 							onProgress({ type: "block", block: lineBlock(event.index, event.line, width, height) });
 						}
 					},
@@ -378,7 +386,18 @@ export class PaddleOcrProvider implements OcrProvider {
 			if (!result) throw new ProviderError("internal", "OCR worker returned no result", { providerId: id });
 			this.lastTimings = { ...result.timings, total: performance.now() - started };
 			// Lines keep their detection index as id, so progress blocks match the final ones.
-			const blocks = result.lines.map((line) => lineBlock(line.index, line, width, height));
+			const lines = result.lines.map((line) => lineBlock(line.index, line, width, height));
+			if (this.options.grouping === "lines") return { blocks: lines, provider: provenanceOf(this.info, fingerprint) };
+			// GLIM-56: paragraphs, dialogue boxes, menu items and columns, in reading order.
+			const blocks = groupLines(
+				result.lines.map((line, i) => ({
+					box: (lines[i] as OcrBlock).box,
+					text: line.text,
+					confidence: (lines[i] as OcrBlock).confidence,
+					vertical: line.vertical,
+				})),
+			);
+			if (onProgress && !signal?.aborted) for (const block of blocks) onProgress({ type: "block", block });
 			return { blocks, provider: provenanceOf(this.info, fingerprint) };
 		} catch (error) {
 			if (error instanceof WorkerFailure && error.name === "AbortError") {
