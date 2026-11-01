@@ -337,6 +337,8 @@ snipPopup = new SnipPopupController({
 		snip: (rect, onEvent, signal, runId) => translation.snip(screen, rect, onEvent, signal, runId),
 		translate: (blocks, onEvent, signal, runId, opts) =>
 			translation.translateBlocks(blocks, onEvent, { runId, signal, ...opts }),
+		// E3 "Translate on this device" (GLIM-80).
+		canTranslateLocally: (blocks) => translation.canTranslateLocally(blocks),
 	},
 	// Pack rows and the E2 Download button: the user's consent to fetch (GLIM-57).
 	packs: translationPacks,
@@ -361,6 +363,8 @@ snipPopup = new SnipPopupController({
 		uiDir: "ltr",
 	}),
 	pointer: () => screenProbe.cursor(),
+	// "Sent to Google" when the full name doesn't fit (GLIM-80): the registry's vendor.
+	providerShortName: (id) => providers.get(id)?.info.vendor ?? null,
 	log: popupLog,
 });
 // A press on the results layer is a click outside the popup (snip-popup.md §5).
@@ -477,6 +481,12 @@ const firstTranslator = () => {
 	const factory = id ? providers.get(id) : undefined;
 	return factory ? { name: factory.info.name, kind: factory.info.kind } : null;
 };
+// GLIM-80: a cloud OCR provider sends screen images; the tray says so too.
+const cloudOcr = () => {
+	const id = appSettings.current.providers.ocr;
+	const factory = id ? providers.get(id) : undefined;
+	return factory?.info.kind === "cloud" ? factory.info.name : null;
+};
 
 const tray = createTray(
 	{
@@ -485,6 +495,7 @@ const tray = createTray(
 		// App-wide Private state (GLIM-20), owned by the translation service; the Live popup toggle shares it.
 		private: translation.private,
 		translation: firstTranslator(),
+		cloudOcr: cloudOcr(),
 		hotkeys: { snip: loadedSettings.settings.hotkeys.snip, live: loadedSettings.settings.hotkeys.live },
 		taskbarTheme: "dark",
 		notices: trayNotices(),
@@ -529,7 +540,7 @@ appSettings.subscribe((next, previous) => {
 // GLIM-108: providers, languages and the idle wipe apply to the translation service at once.
 appSettings.subscribe((next, previous) => {
 	void translation.applySettings(next, previous);
-	if (next.providers !== previous.providers) tray.update({ translation: firstTranslator() });
+	if (next.providers !== previous.providers) tray.update({ translation: firstTranslator(), cloudOcr: cloudOcr() });
 });
 
 // Settings › Live (fps, diff threshold, stability) and language changes reach a pinned session at once.

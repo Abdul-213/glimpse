@@ -200,6 +200,8 @@ export interface Scenario {
 	readonly width?: number;
 	readonly maxHeight?: number;
 	readonly state: () => SnipPopupState;
+	/** E3 offers "Translate on this device" (GLIM-80). */
+	readonly localAvailable?: boolean;
 }
 
 export const SCENARIOS: readonly Scenario[] = [
@@ -298,6 +300,19 @@ export const SCENARIOS: readonly Scenario[] = [
 		state: () => run([["Su pedido ha sido enviado.", "es", "translate", "Your order has shipped."]], { cloud: true }),
 	},
 	{
+		name: "s14-cloud-narrow",
+		caption: "S14 cloud, narrow popup: the pill takes its own row with the short name",
+		width: 200,
+		state: () => run([["Enviado.", "es", "translate", "Shipped."]], { cloud: true }),
+	},
+	{
+		name: "s14-cloud-private",
+		caption: "S14 cloud + Private: the pill takes its own row",
+		width: 280,
+		state: () =>
+			run([["Su pedido ha sido enviado.", "es", "translate", "Your order has shipped."]], { cloud: true, priv: true }),
+	},
+	{
 		name: "s15-private",
 		caption: "S15 Private on",
 		state: () => run([["Su pedido ha sido enviado.", "es", "translate", "Your order has shipped."]], { priv: true }),
@@ -339,6 +354,26 @@ export const ERROR_SCENARIOS: readonly Scenario[] = [
 			errorRun("providerKey", [["¿Nos vemos a las ocho?", "es", "translate"]], {
 				cloud: true,
 				before: () => [failed("b1", "providerKey", "es")],
+			}),
+	},
+	{
+		name: "e3-quota-local",
+		caption: "E3 quota used up, local packs installed: Translate on this device",
+		localAvailable: true,
+		state: () =>
+			errorRun("providerQuota", [["¿Nos vemos a las ocho?", "es", "translate"]], {
+				cloud: true,
+				before: () => [failed("b1", "providerQuota", "es")],
+			}),
+	},
+	{
+		name: "e3-offline-local",
+		caption: "E3 offline, local packs installed",
+		localAvailable: true,
+		state: () =>
+			errorRun("offline", [["¿Nos vemos a las ocho?", "es", "translate"]], {
+				cloud: true,
+				before: () => [failed("b1", "offline", "es")],
 			}),
 	},
 	{ name: "e4-screen-access", caption: "E4 Screen Recording off (macOS)", state: () => errorRun("screenAccess", []) },
@@ -414,6 +449,8 @@ export function scenarioMessage(s: Scenario, reducedMotion = true): SnipStateMes
 		layout: { side: s.side ?? "below", width: s.width ?? 360, maxHeight: s.maxHeight ?? 511 },
 		state: s.state(),
 		reducedMotion,
+		providerShortName: "Google",
+		localAvailable: s.localAvailable ?? false,
 	};
 }
 

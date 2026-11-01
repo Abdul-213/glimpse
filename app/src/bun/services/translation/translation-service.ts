@@ -254,7 +254,7 @@ export class TranslationService<Ctx> {
 	translateBlocks(
 		blocks: readonly RecognisedBlock[],
 		onEvent: PipelineListener,
-		opts: { runId: string; signal?: AbortSignal; bypassCache?: boolean; includeSkipped?: boolean },
+		opts: { runId: string; signal?: AbortSignal; bypassCache?: boolean; includeSkipped?: boolean; localOnly?: boolean },
 	): Promise<unknown> {
 		const settings = this.#opts.settings();
 		return this.pipeline.translate(blocks, {
@@ -267,7 +267,25 @@ export class TranslationService<Ctx> {
 			...(opts.signal ? { signal: opts.signal } : {}),
 			...(opts.bypassCache ? { bypassCache: true } : {}),
 			...(opts.includeSkipped ? { includeSkipped: true } : {}),
+			...(opts.localOnly ? { localOnly: true } : {}),
 		});
+	}
+
+	/**
+	 * "Translate on this device" is offered (E3, GLIM-80): a local translator in the chain is
+	 * ready and its packs are installed for every pair these blocks need.
+	 */
+	canTranslateLocally(blocks: readonly RecognisedBlock[]): boolean {
+		const target = this.#opts.settings().language.target;
+		const local = this.#chain.filter((p) => p.info.kind === "local" && p.status.state === "ready");
+		if (local.length === 0) return false;
+		const pairs = new Set(
+			blocks.filter((b) => b.cls === "translate" && b.lang && b.lang !== target).map((b) => b.lang as string),
+		);
+		if (pairs.size === 0) return false;
+		return [...pairs].every((from) =>
+			local.some((p) => p.pairSupport(from as LanguageCode, target).status === "ready"),
+		);
 	}
 
 	/** A Live session over the pipeline (GLIM-56/58 feed it frames). Close it when done. */

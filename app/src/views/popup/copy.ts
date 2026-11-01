@@ -91,6 +91,7 @@ export interface ErrorBody {
 }
 
 function providerName(s: SnipPopupState): string {
+	if (s.translatorProvider?.kind === "cloud") return s.translatorProvider.name;
 	return s.provider.kind === "cloud" ? s.provider.name : "The translation provider";
 }
 
@@ -106,8 +107,13 @@ export function errorBody(
 	s: SnipPopupState,
 	os: "macos" | "windows" | "linux",
 	uiLang: string,
+	/** "Translate on this device" is offered: the needed local packs are installed (§12). */
+	localAvailable = false,
 ): ErrorBody {
 	const close: ErrorButton = { action: "close", label: "Close", primary: false };
+	const local: ErrorButton[] = localAvailable
+		? [{ action: "local", label: "Translate on this device", primary: false }]
+		: [];
 	const snipAgain: ErrorButton = { action: "snipAgain", label: "Snip again", primary: true };
 	const provider = providerName(s);
 	switch (kind) {
@@ -156,7 +162,7 @@ export function errorBody(
 				tone: "danger",
 				buttons: [
 					{ action: "checkKey", label: "Check key…", primary: true },
-					{ action: "retry", label: "Retry", primary: false },
+					...(localAvailable ? local : [{ action: "retry" as const, label: "Retry", primary: false }]),
 				],
 				showOriginal: true,
 			};
@@ -165,7 +171,10 @@ export function errorBody(
 				title: `${provider}'s quota for this key is used up`,
 				body: `Nothing was translated. The quota resets on ${provider}'s schedule, or you can translate on this device.`,
 				tone: "danger",
-				buttons: [{ action: "retry", label: "Retry", primary: false }],
+				// Retry would hit the same quota: on-device is the obvious way out when there is one.
+				buttons: localAvailable
+					? [{ action: "local", label: "Translate on this device", primary: true }]
+					: [{ action: "retry", label: "Retry", primary: false }],
 				showOriginal: true,
 			};
 		case "providerTimeout":
@@ -173,7 +182,7 @@ export function errorBody(
 				title: `${provider} didn't answer within 10 seconds`,
 				body: `The text may have reached ${provider}, but no translation came back.`,
 				tone: "danger",
-				buttons: [{ action: "retry", label: "Retry", primary: true }],
+				buttons: [{ action: "retry", label: "Retry", primary: true }, ...local],
 				showOriginal: true,
 			};
 		case "offline":
@@ -181,7 +190,7 @@ export function errorBody(
 				title: "You're offline",
 				body: "Nothing was sent. Connect to the internet, or translate on this device.",
 				tone: "danger",
-				buttons: [{ action: "retry", label: "Retry", primary: true }],
+				buttons: [{ action: "retry", label: "Retry", primary: true }, ...local],
 				showOriginal: true,
 			};
 		case "screenAccess":

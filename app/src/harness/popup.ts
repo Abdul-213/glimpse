@@ -78,6 +78,7 @@ export interface PopupHarnessOptions {
 	readonly log?: Logger;
 	readonly packs?: PackPort;
 	readonly eol?: "\n" | "\r\n";
+	readonly providerShortName?: (id: string) => string | null;
 }
 
 export function popupHarness(o: PopupHarnessOptions): PopupHarness {
@@ -102,6 +103,7 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 		clipboard: { writeText: (text) => clipboard.push(text) },
 		...(o.eol ? { eol: o.eol } : {}),
 		...(o.packs ? { packs: o.packs } : {}),
+		...(o.providerShortName ? { providerShortName: o.providerShortName } : {}),
 		targets: {
 			snipAgain: () => targets.push("snipAgain"),
 			openSettings: (section) => targets.push(`settings:${section}`),

@@ -70,8 +70,10 @@ export interface SnipRunner {
 		onEvent: PipelineListener,
 		signal: AbortSignal,
 		runId: string,
-		opts: { bypassCache?: boolean; includeSkipped?: boolean },
+		opts: { bypassCache?: boolean; includeSkipped?: boolean; localOnly?: boolean },
 	): Promise<unknown>;
+	/** E3 "Translate on this device" is possible for these blocks (GLIM-80). Optional: without it, never offered. */
+	canTranslateLocally?(blocks: readonly RecognisedBlock[]): boolean;
 }
 
 /** Language-pack downloads (the app's TranslationPacks over the model manager). */
@@ -131,6 +133,8 @@ export interface SnipPopupControllerDeps {
 	readonly pointer?: () => Point | null;
 	readonly scheduler?: Scheduler;
 	readonly newId?: () => string;
+	/** Registry short name (vendor) for a provider id: "Sent to Google" in a narrow footer (GLIM-80). */
+	readonly providerShortName?: (id: string) => string | null;
 }
 
 interface Request {
@@ -335,6 +339,14 @@ export class SnipPopupController {
 					{ bypassCache: true },
 				);
 				return;
+			case "local":
+				// One-off: this Snip's blocks through the local translators; settings unchanged.
+				this.followUp(
+					r,
+					r.state.blocks.filter((b) => b.cls === "translate" && b.state !== "done").map((b) => b.id),
+					{ localOnly: true },
+				);
+				return;
 			case "checkKey":
 				t?.openSettings("providers");
 				return;
@@ -385,7 +397,7 @@ export class SnipPopupController {
 	private followUp(
 		r: Request,
 		ids: readonly string[],
-		opts: { bypassCache?: boolean; includeSkipped?: boolean },
+		opts: { bypassCache?: boolean; includeSkipped?: boolean; localOnly?: boolean },
 	): void {
 		const translate = this.deps.runner.translate;
 		if (!translate || ids.length === 0) return;
@@ -527,11 +539,17 @@ export class SnipPopupController {
 		const r = this.request;
 		if (!r) return;
 		const layout: SnipLayout = { side: r.placement.side, width: r.placement.width, maxHeight: r.placement.maxHeight };
+		const badge = r.state.provider;
 		this.deps.window.send({
 			requestId: r.id,
 			layout,
 			state: r.state,
 			reducedMotion: this.deps.settings().reducedMotion,
+			providerShortName: badge.kind === "cloud" ? (this.deps.providerShortName?.(badge.id) ?? null) : null,
+			localAvailable:
+				r.state.error !== null &&
+				r.recognised.length > 0 &&
+				(this.deps.runner.canTranslateLocally?.(r.recognised) ?? false),
 		});
 	}
 
