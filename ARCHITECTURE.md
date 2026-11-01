@@ -134,7 +134,13 @@ Don't create packages for grouping alone; use folders.
   overrides): `build-workers.ts` rewrites onnxruntime-node's package-relative `require`.
   darwin-x64 has no onnxruntime-node build (GLIM-89): the build succeeds without it (with a
   warning) and PaddleOCR's `init()` ends in `error` there. `scripts/ocr-smoke.ts <app dir>` runs one OCR call through a
-  built app's Worker and prints which onnxruntime files were loaded.
+  built app's Worker and prints which onnxruntime files were loaded; `scripts/bundle-smoke.ts`
+  (desktop.yml) runs it over the staged `dist/` files.
+- **onnxruntime telemetry is off (GLIM-112).** The official ORT builds upload usage events with a
+  persistent device id unless `ORT_DISABLE_TELEMETRY=1` is in the *native* process environment
+  before ORT starts. `ocrSpawner` sets it (`services/ocr/ort-telemetry.ts` →
+  `native/process-env.ts`, `setenv` / `SetEnvironmentVariableW`; Bun's `process.env` alone doesn't
+  reach native code). Anything else that loads onnxruntime must go through it.
 - **Windows are pre-created where latency matters** (picker overlays, Snip popup) and hidden
   instead of destroyed; Settings and onboarding are created on demand. The app is a tray app:
   `exitOnLastWindowClosed: false`; only the tray's Quit ends it. On macOS it is an accessory app
@@ -170,7 +176,7 @@ Don't create packages for grouping alone; use folders.
 | App commands (Start Snip, Start/Stop Live, Private, Clear cache, Settings, Quit...) | `app/src/bun/commands.ts` (`CommandBus`) | GLIM-41. Tray, hotkeys, popups and Settings dispatch; the owning feature registers the one handler. |
 | Tray / menu bar | `app/src/bun/tray-menu.ts` (pure: state -> menu + icon, `TrayController`) + `tray.ts` (Electrobun) | GLIM-41. Rebuilt only when the rendered menu changes. Windows icon follows the taskbar theme (`services/taskbar-theme.ts`). |
 | Window controllers (create, position, show/hide, materials, capture exclusion) | `app/src/bun/windows/<surface>.ts` | One class per window type, like `SettingsWindow`. |
-| `bun:ffi` bindings | `app/src/bun/native/macos.ts`, `windows.ts`, `load.ts` | The only `dlopen` calls. Each exported function returns typed results, never raw pointers to callers outside `native/`. |
+| `bun:ffi` bindings | `app/src/bun/native/macos.ts`, `windows.ts`, `load.ts`, `process-env.ts` (setenv, GLIM-112) | The only `dlopen` calls. Each exported function returns typed results, never raw pointers to callers outside `native/`. |
 | Native helper sources | `app/native/macos/`, `app/native/windows/` | See section 6. |
 | Logging and diagnostics | `packages/core/src/logging/` (`Logger` port, `Redactor`, line format, diagnostics bundle) + `app/src/bun/services/log.ts` (rotating file in `Utils.paths.userLogs`), `services/diagnostics.ts` | GLIM-35. Everything logged passes the `Redactor`: no keys, no screen text (wrap it in `sensitive()`), never pixels. |
 | Shared UI components | `packages/ui/src/components/` | GLIM-42. Tokens only, no raw colours or off-scale sizes. |

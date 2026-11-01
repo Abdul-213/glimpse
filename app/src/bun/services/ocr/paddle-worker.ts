@@ -13,6 +13,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { SpawnWorker, WorkerLike } from "@glimpse/providers/ocr/paddle";
+import { disableOrtTelemetry } from "./ort-telemetry.ts";
 
 export const OCR_WORKER_FILE = "ocr-worker.js";
 
@@ -28,12 +29,17 @@ export function resolveOcrWorker(
 	return exists(bundled) ? bundled : null;
 }
 
-/** A spawner for `ctx.spawnWorker`, or undefined to keep the provider's default. */
+/**
+ * A spawner for `ctx.spawnWorker`, or undefined to keep the provider's default. Either way the
+ * Worker runs in this process, so ONNX Runtime's telemetry is switched off here first (GLIM-112).
+ */
 export function ocrSpawner(
 	mainDir: string,
 	env: Record<string, string | undefined> = process.env,
 	exists: (path: string) => boolean = existsSync,
+	disableTelemetry: () => boolean = disableOrtTelemetry,
 ): { readonly spawn: SpawnWorker | undefined; readonly path: string | null } {
+	disableTelemetry();
 	const path = resolveOcrWorker(mainDir, env, exists);
 	if (!path) return { spawn: undefined, path: null };
 	return { spawn: () => new Worker(path) as unknown as WorkerLike, path };
