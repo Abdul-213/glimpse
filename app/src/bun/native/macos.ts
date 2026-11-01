@@ -4,7 +4,8 @@
 import { FFIType, type Pointer, ptr } from "bun:ffi";
 import type { Rect, RgbaImage } from "@glimpse/core";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
-import { captureErrorFor } from "./status.ts";
+import { captureErrorFor, GLIM_E_NO_FRAME } from "./status.ts";
+import { listNativeWindows, type NativeWindowInfo } from "./window-info.ts";
 
 const symbols = {
 	glim_abi_version: { args: [], returns: FFIType.i32 },
@@ -31,6 +32,17 @@ const symbols = {
 	glim_capture_reset: { args: [], returns: FFIType.void },
 	glim_capture_preflight: { args: [], returns: FFIType.i32 },
 	glim_capture_displays_json: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	// GLIM-91 picker helpers (picker.m, window.m)
+	// handle, x, y, size, out, len, seqOut
+	glim_capture_stream_sample: {
+		args: [FFIType.u64, FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr, FFIType.u64, FFIType.ptr],
+		returns: FFIType.i32,
+	},
+	glim_list_windows: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+	glim_focus_save: { args: [FFIType.ptr], returns: FFIType.i32 },
+	glim_focus_restore: { args: [FFIType.ptr], returns: FFIType.i32 },
+	glim_window_configure: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
+	glim_window_set_level: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
 } as const;
 
 /** A display as CoreGraphics reports it: global points + backing scale. */
@@ -68,9 +80,30 @@ export interface MacWindowBinding {
 	windowNumber(nsWindow: Pointer): number;
 }
 
+/** NSWindow levels the picker uses (spec 9.1). */
+export const MAC_LEVEL = { picking: 1000, belowSnipPopup: 100 } as const;
+
+/** What the region picker needs from libglimpse.dylib (GLIM-91). Faked in tests. */
+export interface MacPickerBinding {
+	/** On-screen windows of other apps, front to back, in global points. Throws CaptureError. */
+	listWindows(): NativeWindowInfo[];
+	/** Remember the frontmost app; returns its pid (0 if none). */
+	focusSave(): number;
+	/** Re-activate the saved app; true if it was activated. Throws CaptureError if macOS refused. */
+	focusRestore(): boolean;
+	/** Level, collection behaviour etc. for a picker overlay. Returns the collection behaviour. Throws. */
+	configureOverlay(nsWindow: Pointer): number;
+	setLevel(nsWindow: Pointer, level: number): void;
+	/**
+	 * `size` x `size` px at (x, y) of a running stream's latest frame (stream px), RGBA into
+	 * `out`. Returns the frame sequence, or null while the first frame hasn't arrived.
+	 */
+	streamSample(handle: StreamHandle, x: number, y: number, size: number, out: Uint8Array): number | null;
+}
+
 type Symbols = NonNullable<ReturnType<typeof loadNativeLibrary<typeof symbols>>["symbols"]>;
 
-class LibGlimpse implements MacCaptureBinding, MacWindowBinding {
+class LibGlimpse implements MacCaptureBinding, MacWindowBinding, MacPickerBinding {
 	private readonly src = new Float64Array(4);
 	private readonly dest = new Int32Array(4);
 	private readonly u32 = new Uint32Array(1);
@@ -167,12 +200,54 @@ class LibGlimpse implements MacCaptureBinding, MacWindowBinding {
 		if (r !== 0) this.fail("NSWindow windowNumber", r);
 		return this.u32[0] ?? 0;
 	}
+
+	listWindows(): NativeWindowInfo[] {
+		const { status, windows } = listNativeWindows((buf, cap, counts) =>
+			this.sym.glim_list_windows(ptr(buf), cap, ptr(counts), ptr(counts, 4)),
+		);
+		if (status !== 0) this.fail("CGWindowListCopyWindowInfo", status);
+		return windows;
+	}
+
+	focusSave(): number {
+		const r = this.sym.glim_focus_save(ptr(this.u64));
+		if (r !== 0) this.fail("saving the frontmost app", r);
+		return Number(this.u64[0] ?? 0n);
+	}
+
+	focusRestore(): boolean {
+		const r = this.sym.glim_focus_restore(ptr(this.i32));
+		if (r !== 0) this.fail("re-activating the previous app", r);
+		return this.i32[0] === 1;
+	}
+
+	configureOverlay(nsWindow: Pointer): number {
+		const behavior = new BigInt64Array(1);
+		const r = this.sym.glim_window_configure(nsWindow, 0, ptr(behavior));
+		if (r !== 0) this.fail("configuring the picker overlay", r);
+		return Number(behavior[0] ?? 0n);
+	}
+
+	setLevel(nsWindow: Pointer, level: number): void {
+		const r = this.sym.glim_window_set_level(nsWindow, level);
+		if (r !== 0) this.fail("NSWindow level", r);
+	}
+
+	streamSample(handle: StreamHandle, x: number, y: number, size: number, out: Uint8Array): number | null {
+		const r = this.sym.glim_capture_stream_sample(handle, x, y, size, ptr(out), BigInt(out.length), ptr(this.u64));
+		if (r === GLIM_E_NO_FRAME) return null;
+		if (r !== 0) this.fail("sampling the ScreenCaptureKit stream", r);
+		return Number(this.u64[0] ?? 0n);
+	}
 }
 
 let lib: LibGlimpse | { status: NativeStatus } | undefined;
 
 /** Load libglimpse.dylib once. `binding` is null when it is missing or broken (see `status`). */
-export function loadMacNative(): { status: NativeStatus; binding: (MacCaptureBinding & MacWindowBinding) | null } {
+export function loadMacNative(): {
+	status: NativeStatus;
+	binding: (MacCaptureBinding & MacWindowBinding & MacPickerBinding) | null;
+} {
 	if (!lib) {
 		if (process.platform !== "darwin") {
 			lib = { status: { available: false, reason: "libglimpse.dylib is macOS-only" } };

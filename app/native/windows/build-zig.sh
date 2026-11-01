@@ -7,6 +7,6 @@ here="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$here/build"
 "${ZIG:-zig}" c++ -target x86_64-windows-gnu -O2 -shared -std=c++17 \
 	-Wall -Wextra -Werror -Wno-unused-parameter -Wno-cast-function-type-mismatch \
-	-o "$here/build/glimpse.dll" "$here/glimpse.cpp" "$here/capture.cpp" \
-	-ld3d11 -ldxgi -luser32 -lgdi32
+	-o "$here/build/glimpse.dll" "$here/glimpse.cpp" "$here/capture.cpp" "$here/picker.cpp" \
+	-ld3d11 -ldxgi -luser32 -lgdi32 -ldwmapi -lversion
 echo "OK: $here/build/glimpse.dll"

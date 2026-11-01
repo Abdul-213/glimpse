@@ -5,6 +5,7 @@ import { dlopen, FFIType, type Pointer, ptr } from "bun:ffi";
 import type { CapturePiece, Rect, RgbaImage } from "@glimpse/core";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
 import { captureErrorFor } from "./status.ts";
+import { listNativeWindows, type NativeWindowInfo } from "./window-info.ts";
 
 const glimpseSymbols = {
 	glim_abi_version: { args: [], returns: FFIType.i32 },
@@ -16,6 +17,10 @@ const glimpseSymbols = {
 		returns: FFIType.i32,
 	},
 	glim_capture_release: { args: [FFIType.i32], returns: FFIType.void },
+	// GLIM-91 picker helpers (picker.cpp)
+	glim_list_windows: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+	glim_focus_save: { args: [FFIType.ptr], returns: FFIType.i32 },
+	glim_focus_restore: { args: [FFIType.ptr], returns: FFIType.i32 },
 } as const;
 
 export type WindowsBackend = "gdi" | "dxgi";
@@ -39,9 +44,19 @@ export interface WindowsCaptureBinding {
 	release(backend: WindowsBackend | "all"): void;
 }
 
+/** What the region picker needs from glimpse.dll (GLIM-91). Faked in tests. */
+export interface WindowsPickerBinding {
+	/** Visible top-level windows of other processes, front to back, in PHYSICAL px. Throws CaptureError. */
+	listWindows(): NativeWindowInfo[];
+	/** Remember the foreground window; returns its HWND value (0 if none). */
+	focusSave(): number;
+	/** Give it the foreground back; true if asked to. Throws CaptureError if Windows refused. */
+	focusRestore(): boolean;
+}
+
 type GlimpseSymbols = NonNullable<ReturnType<typeof loadNativeLibrary<typeof glimpseSymbols>>["symbols"]>;
 
-class GlimpseDll implements WindowsCaptureBinding {
+class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding {
 	private readonly geom = new Int32Array(10);
 	private readonly seq = new BigUint64Array(1);
 
@@ -81,12 +96,37 @@ class GlimpseDll implements WindowsCaptureBinding {
 	release(backend: WindowsBackend | "all"): void {
 		this.sym.glim_capture_release(BACKEND_ID[backend]);
 	}
+
+	listWindows(): NativeWindowInfo[] {
+		const { status, windows } = listNativeWindows((buf, cap, counts) =>
+			this.sym.glim_list_windows(ptr(buf), cap, ptr(counts), ptr(counts, 4)),
+		);
+		if (status !== 0) throw captureErrorFor("windows", "EnumWindows", status, this.lastError());
+		return windows;
+	}
+
+	focusSave(): number {
+		const out = new BigUint64Array(1);
+		const r = this.sym.glim_focus_save(ptr(out));
+		if (r !== 0) throw captureErrorFor("windows", "GetForegroundWindow", r, this.lastError());
+		return Number(out[0] ?? 0n);
+	}
+
+	focusRestore(): boolean {
+		const out = new Int32Array(1);
+		const r = this.sym.glim_focus_restore(ptr(out));
+		if (r !== 0) throw captureErrorFor("windows", "SetForegroundWindow", r, this.lastError());
+		return out[0] === 1;
+	}
 }
 
-let dll: WindowsCaptureBinding | { status: NativeStatus } | undefined;
+let dll: GlimpseDll | { status: NativeStatus } | undefined;
 
 /** Load glimpse.dll once. `binding` is null when it is missing or broken (see `status`). */
-export function loadWindowsCapture(): { status: NativeStatus; binding: WindowsCaptureBinding | null } {
+export function loadWindowsCapture(): {
+	status: NativeStatus;
+	binding: (WindowsCaptureBinding & WindowsPickerBinding) | null;
+} {
 	if (!dll) {
 		if (process.platform !== "win32") {
 			dll = { status: { available: false, reason: "glimpse.dll is Windows-only" } };
@@ -106,6 +146,12 @@ export const WDA_EXCLUDEFROMCAPTURE = 0x11;
 const user32Symbols = {
 	SetWindowDisplayAffinity: { args: [FFIType.ptr, FFIType.u32], returns: FFIType.i32 },
 	GetWindowDisplayAffinity: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+	GetWindowLongPtrW: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i64 },
+	SetWindowLongPtrW: { args: [FFIType.ptr, FFIType.i32, FFIType.i64], returns: FFIType.i64 },
+	SetWindowPos: {
+		args: [FFIType.ptr, FFIType.i64, FFIType.i32, FFIType.i32, FFIType.i32, FFIType.i32, FFIType.u32],
+		returns: FFIType.i32,
+	},
 } as const;
 
 type User32 = ReturnType<typeof dlopen<typeof user32Symbols>>["symbols"];
@@ -138,4 +184,47 @@ export function setWindowExcludedFromCapture(hwnd: Pointer, excluded = true): Af
 	const ok = u.GetWindowDisplayAffinity(hwnd, ptr(out)) !== 0;
 	const affinity = ok ? (out[0] ?? null) : null;
 	return { excluded: affinity === WDA_EXCLUDEFROMCAPTURE, affinity };
+}
+
+// ---- user32: picker overlay styles (GLIM-91, region-picker spec 9.1) ------------
+
+const GWL_EXSTYLE = -20;
+export const WS_EX_TOOLWINDOW = 0x00000080;
+export const WS_EX_APPWINDOW = 0x00040000;
+const HWND_TOPMOST = -1;
+const SWP_NOSIZE = 0x0001;
+const SWP_NOMOVE = 0x0002;
+const SWP_NOACTIVATE = 0x0010;
+const SWP_FRAMECHANGED = 0x0020;
+const SWP_ASYNCWINDOWPOS = 0x4000;
+
+/** Overlay ex-style: out of the taskbar and Alt+Tab (WS_EX_TOOLWINDOW instead of WS_EX_APPWINDOW). Pure. */
+export const overlayExStyle = (exStyle: number): number => (exStyle & ~WS_EX_APPWINDOW) | WS_EX_TOOLWINDOW;
+
+/**
+ * Make an Electrobun HWND a picker overlay: tool-window ex-style and HWND_TOPMOST. Call
+ * while it is still hidden. Win32 marshals both to the window's thread, and
+ * SWP_ASYNCWINDOWPOS keeps the Bun worker from blocking on Electrobun's UI thread.
+ * Returns the ex-style read back.
+ */
+export function configureOverlayWindow(hwnd: Pointer): number {
+	const u = openUser32();
+	const before = Number(u.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+	const after = overlayExStyle(before);
+	if (after !== before) u.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, after);
+	raiseTopmost(hwnd, SWP_FRAMECHANGED);
+	return Number(u.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+}
+
+/** Re-assert HWND_TOPMOST without activating (the Snip popup above the results layer, spec 9.1). */
+export function raiseTopmost(hwnd: Pointer, extraFlags = 0): void {
+	openUser32().SetWindowPos(
+		hwnd,
+		HWND_TOPMOST,
+		0,
+		0,
+		0,
+		0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS | extraFlags,
+	);
 }
