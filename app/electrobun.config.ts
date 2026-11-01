@@ -34,6 +34,9 @@ export default {
 	},
 	scripts: {
 		preBuild: "scripts/prebuild.ts",
+		// macOS: LSUIElement in the app's and the wrapper's Info.plist (GLIM-106, scripts/mac-accessory.ts).
+		postBuild: "scripts/postbuild.ts",
+		postWrap: "scripts/postbuild.ts",
 	},
 	build: {
 		mainProcess: "bun",
