@@ -22,6 +22,7 @@ import { overlayOpsFor } from "./native/overlay.ts";
 import { loadWindowsCapture } from "./native/windows.ts";
 import { platform } from "./platform.ts";
 import { AppSettings } from "./services/app-settings.ts";
+import { withDeniedReport } from "./services/capture/denied-report.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
 import { MaskedCaptureSource } from "./services/capture/masked.ts";
 import { CloudSettings } from "./services/cloud-settings.ts";
@@ -166,9 +167,15 @@ const captureLog = log.child("capture");
 const capture = createCaptureSource({ shellDisplays: readDisplays, log: (message) => captureLog.info(message) });
 const exclusion = new CaptureExclusion(exclusionOpsFor(), capture.source, (message) => captureLog.warn(message));
 // GLIM-98: Settings › Privacy › Hide Glimpse from screenshots and screen sharing. Snip and Live
-// read through `screen`, which paints over Glimpse windows the OS lets into a frame.
+// read through `screen`, which paints over Glimpse windows the OS lets into a frame. Under it,
+// a `permission-denied` capture means Screen Recording was turned off while running, so
+// ScreenAccess shows its notice and window (GLIM-45, GLIM-121); `screenAccess` is declared
+// below and this only runs on a failed capture.
 exclusion.setHideFromCapture(loadedSettings.settings.privacy.hideFromCapture);
-const screen = new MaskedCaptureSource(capture.source, () => exclusion.maskRects());
+const screen = new MaskedCaptureSource(
+	withDeniedReport(capture.source, () => screenAccess.reportCaptureDenied()),
+	() => exclusion.maskRects(),
+);
 
 // Global hotkeys (GLIM-23): Electrobun RegisterHotKey on Windows, Carbon on macOS.
 const macNative = platform === "macos" ? loadMacNative() : null;
