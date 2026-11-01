@@ -1,12 +1,13 @@
 // Calls the real Google APIs. Skipped unless GLIMPSE_GOOGLE_KEY is set (never in CI):
 //   GLIMPSE_GOOGLE_KEY=AIza... bun test packages/providers/test/google/real-api.test.ts
-// Costs: one Vision image (1 of the 1,000 free units a month).
+// Costs: one Vision image (1 of the 1,000 free units a month) and ~40 translated characters.
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { languageCode } from "@glimpse/core";
+import { collectTranslations, languageCode } from "@glimpse/core";
 import { MemorySecretStore, ocrProviderContract } from "@glimpse/core/testing";
 import { GOOGLE_SECRET_ID } from "../../src/google/common.ts";
 import { GoogleVisionProvider } from "../../src/ocr/google-vision/provider.ts";
+import { GoogleTranslateProvider } from "../../src/translation/google-v2/provider.ts";
 import { loadPng } from "../helpers/png.ts";
 
 const key = process.env["GLIMPSE_GOOGLE_KEY"];
@@ -36,4 +37,29 @@ describe.skipIf(!key)("Google Cloud Vision (real API)", async () => {
 		expectText: "Settings saved",
 	}).filter((c) => c.name.startsWith("recognise: blocks are well-formed"));
 	if (wellFormed) test(wellFormed.name, wellFormed.run, T);
+});
+
+describe.skipIf(!key)("Google Cloud Translation v2 (real API)", () => {
+	test(
+		"refreshes languages and translates ja -> en",
+		async () => {
+			const p = new GoogleTranslateProvider({}, { google: { secrets: secrets() } });
+			expect((await p.init()).state).toBe("ready");
+			expect(await p.refreshLanguages()).toBeGreaterThan(100);
+			expect(p.languageSource).toBe("live");
+			const results = await collectTranslations(p, {
+				to: languageCode("en"),
+				segments: [
+					{ id: "a", text: "設定を保存しました。", from: languageCode("ja") },
+					{ id: "b", text: "Die Datei wurde gespeichert.", from: languageCode("de") },
+				],
+			});
+			for (const id of ["a", "b"]) {
+				const r = results.get(id);
+				expect(r?.ok && r.translation.text.toLowerCase()).toContain("saved");
+			}
+			await p.dispose();
+		},
+		T,
+	);
 });

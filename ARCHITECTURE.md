@@ -40,7 +40,8 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 │   ├── providers/               @glimpse/providers: provider implementations (Bun APIs, onnxruntime, WASM; no Electrobun)
 │   │   ├── src/ocr/paddle/      PaddleOCR PP-OCRv5 on onnxruntime-node: engine (pure) + inference Worker + OcrProvider (GLIM-46)
 │   │   ├── src/google/          shared Google Cloud plumbing: key from SecretStore, fetch + error mapping (GLIM-22)
-│   │   └── src/ocr/google-vision/  Google Cloud Vision OcrProvider (cloud, opt-in; GLIM-60)
+│   │   ├── src/ocr/google-vision/  Google Cloud Vision OcrProvider (cloud, opt-in; GLIM-60)
+│   │   └── src/translation/google-v2/  Google Cloud Translation v2 TranslationProvider (cloud, opt-in; GLIM-61)
 │   └── ui/                      @glimpse/ui: shared Solid components + Tailwind theme from DESIGN.md
 │       ├── scripts/             generate-tokens.ts: DESIGN.md frontmatter -> src/styles/tokens.css
 │       └── src/                 components/, styles/theme.css, styles/tokens.css (generated), platform.ts
@@ -208,7 +209,11 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   `BILLING_DISABLED`, quota, rate limit) mapped to core codes plus a `GoogleProblem` with fix-it
   copy. `init()` only checks a key is saved (`ready` / `needs-key`), no network. Vision sends
   the region as a metadata-free PNG; its per-block `detectedLanguages` become
-  `OcrBlock.languageHints`, which GLIM-21 detection uses as a prior (never rules 2–4). Tests use
+  `OcrBlock.languageHints`, which GLIM-21 detection uses as a prior (never rules 2–4). Translation
+  v2 always sends `source` (from GLIM-21), `format: "text"`, `model: "nmt"`, one request per
+  source language (128 `q` max); its language list starts from the catalogue's `google` column
+  and is refreshed from `GET /v2/languages` in `warmup()`. Request-level failures become
+  per-segment `error` events and stop the remaining batches. Tests use
   a `FakeFetch` (`@glimpse/providers/testing`) with fixtures in `test/fixtures/google/`; the
   real-API test runs only with `GLIMPSE_GOOGLE_KEY`.
 - **Language codes** at the interface are BCP-47 `LanguageCode`s. A provider maps to its own
