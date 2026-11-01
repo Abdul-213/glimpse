@@ -80,6 +80,19 @@ describe("tray menu", () => {
 		expect(labels(menu)[1]).toBe("Translator: Google Translate (cloud)");
 	});
 
+	test("cloud OCR is named too (GLIM-80)", () => {
+		const menu = buildTrayMenu({ ...base, cloudOcr: "Google Cloud Vision" });
+		expect(labels(menu)[0]).toBe("Glimpse · reading text with ☁ Google Cloud Vision (cloud)");
+		expect(labels(menu)[1]).toBe("Translator: Bergamot · Text reading: Google Cloud Vision (cloud)");
+		const both = buildTrayMenu({
+			...base,
+			live: "running",
+			cloudOcr: "Google Cloud Vision",
+			translation: { name: "Google Translate", kind: "cloud" },
+		});
+		expect(labels(both)[0]).toBe("● Live is watching a region · ☁ Google Translate (cloud)");
+	});
+
 	test("no provider and unset hotkeys", () => {
 		const menu = buildTrayMenu({ ...base, translation: null, hotkeys: { snip: null, live: null } });
 		expect(labels(menu)[1]).toBe("No translation provider installed");

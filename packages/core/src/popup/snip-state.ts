@@ -44,6 +44,8 @@ export interface SnipBlock {
 	readonly failure: SegmentFailureKind | null;
 	/** Skipped block the user asked to translate ("Translate these"): it joins the list. */
 	readonly promoted?: boolean;
+	/** Who produced the final translation (GLIM-80: the badge after a follow-up). */
+	readonly provider?: Provenance | null;
 }
 
 /** Footer provider indicator (GLIM-22, GLIM-80). */
@@ -51,8 +53,14 @@ export type SnipProviderBadge =
 	| { readonly kind: "local" }
 	| {
 			readonly kind: "cloud";
-			/** "Google Cloud Translation". */
+			/** "Google Cloud Translation": the cloud translator, else the cloud OCR provider. */
 			readonly name: string;
+			/** Registry id of `name`'s provider; main looks up its short name with it. */
+			readonly id: string;
+			/** The cloud OCR provider's name when the image went to the cloud. */
+			readonly ocrName: string | null;
+			/** The cloud translator's name when text went to the cloud. */
+			readonly translatorName: string | null;
 			/** Every cloud result came from the cache: "Sent to {provider} (remembered)". */
 			readonly remembered: boolean;
 			/** What left the device. */
@@ -91,6 +99,12 @@ export interface SnipPopupState {
 	/** Whole-run error state (E1-E7), once the run is done. */
 	readonly error: PipelineErrorKind | null;
 	readonly provider: SnipProviderBadge;
+	/**
+	 * The providers the run started with (from `started`): who an E3 error names, and the
+	 * OCR side of the badge after a follow-up.
+	 */
+	readonly ocrProvider: ProviderRef | null;
+	readonly translatorProvider: ProviderRef | null;
 	/** Missing packs, one row per source language, first-seen order. */
 	readonly packs: readonly SnipPackRow[];
 	/** Translation work started after the run finished (Retry, a pack landing, Translate these). */
@@ -159,6 +173,8 @@ export function initialSnipState(
 		progress: null,
 		error: null,
 		provider: { kind: "local" },
+		ocrProvider: null,
+		translatorProvider: null,
 		packs: [],
 		followUps: 0,
 		alwaysShowLanguages: opts.alwaysShowLanguages ?? false,
@@ -243,9 +259,14 @@ function endFollowUp(state: SnipPopupState): SnipPopupState {
 	const translate = state.blocks.filter((b) => b.cls === "translate");
 	const allWaiting = translate.length > 0 && translate.every((b) => b.state === "waiting" || b.state === "failed");
 	const someWaiting = translate.some((b) => b.state === "waiting");
+	// The badge follows what produced the text now on screen ("Translate on this device", GLIM-80).
+	const translators = blockProviders(state.blocks);
+	const provider =
+		translators.length > 0 ? badgeFor(state.ocrProvider, translators, countTranslated(state.blocks)) : state.provider;
 	return {
 		...state,
 		followUps,
+		provider,
 		phase: allWaiting && someWaiting ? "error" : "done",
 		error: allWaiting && someWaiting ? "packMissing" : null,
 		progress: null,
@@ -299,6 +320,8 @@ function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupS
 				target: event.target,
 				private: event.private,
 				provider: badgeFromRefs(event.ocr, event.translation),
+				ocrProvider: event.ocr,
+				translatorProvider: event.translation,
 			};
 		case "detected": {
 			if (state.blocks.length > 0) return state;
@@ -357,7 +380,7 @@ function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupS
 				const promoted = b.cls === "skip" ? { cls: "translate" as const, promoted: true } : {};
 				if (!t.final) return { ...b, ...promoted, state: "pending", translation: t.text };
 				if (t.failure) return { ...b, ...promoted, state: "failed", translation: null, failure: t.failure.kind };
-				return { ...b, ...promoted, state: "done", translation: t.text, failure: null };
+				return { ...b, ...promoted, state: "done", translation: t.text, failure: null, provider: t.provider };
 			});
 			return { ...state, phase: state.phase === "done" ? state.phase : "translating", blocks };
 		}
@@ -370,7 +393,11 @@ function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupS
 				state.blocks.length > 0 || r.blocks.length === 0
 					? state.blocks
 					: reducePipeline(state, { type: "recognised", runId: state.requestId, blocks: r.blocks }).blocks;
-			const badge = badgeFromResult(state.provider, r.ocr, r.translators, Object.keys(r.translations).length);
+			// A cloud timeout (E3) may have delivered the text without an answer: the pill stays (GLIM-80).
+			const badge =
+				r.error?.kind === "providerTimeout" && state.provider.kind === "cloud"
+					? state.provider
+					: badgeFromResult(state.provider, r.ocr, r.translators, Object.keys(r.translations).length);
 			return {
 				...state,
 				phase: r.error ? "error" : "done",
@@ -385,18 +412,53 @@ function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupS
 }
 
 function badgeFromRefs(ocr: ProviderRef | null, translation: ProviderRef | null): SnipProviderBadge {
-	const cloudOcr = ocr?.kind === "cloud";
-	const cloudTr = translation?.kind === "cloud";
-	if (!cloudOcr && !cloudTr) return { kind: "local" };
-	const name = (cloudTr ? translation?.name : ocr?.name) ?? "";
+	const cloudOcr = ocr?.kind === "cloud" ? ocr : null;
+	const cloudTr = translation?.kind === "cloud" ? translation : null;
+	const main = cloudTr ?? cloudOcr;
+	if (!main) return { kind: "local" };
 	return {
 		kind: "cloud",
-		name,
+		name: main.name,
+		id: main.id,
+		ocrName: cloudOcr?.name ?? null,
+		translatorName: cloudTr?.name ?? null,
 		remembered: false,
 		sent: cloudOcr && cloudTr ? "both" : cloudOcr ? "image" : "text",
 		segments: 0,
 	};
 }
+
+/** The badge for an OCR provider and the translators that produced the results. */
+function badgeFor(ocr: ProviderRef | null, translators: readonly Provenance[], segments: number): SnipProviderBadge {
+	const cloudOcr = ocr?.kind === "cloud" ? ocr : null;
+	const cloud = translators.filter((t) => t.kind === "cloud");
+	const first = cloud[0];
+	const main = first ?? cloudOcr;
+	if (!main) return { kind: "local" };
+	return {
+		kind: "cloud",
+		name: main.name,
+		id: main.id,
+		ocrName: cloudOcr?.name ?? null,
+		translatorName: first?.name ?? null,
+		remembered: cloud.length > 0 && cloud.every((t) => t.remembered === true) && !cloudOcr,
+		sent: cloudOcr && first ? "both" : cloudOcr ? "image" : "text",
+		segments,
+	};
+}
+
+function blockProviders(blocks: readonly SnipBlock[]): Provenance[] {
+	const out = new Map<string, Provenance>();
+	for (const b of blocks) {
+		if (b.state !== "done" || !b.provider) continue;
+		const key = `${b.provider.id}|${b.provider.remembered ? 1 : 0}`;
+		if (!out.has(key)) out.set(key, b.provider);
+	}
+	return [...out.values()];
+}
+
+const countTranslated = (blocks: readonly SnipBlock[]) =>
+	blocks.filter((b) => b.cls === "translate" && b.state === "done" && b.provider).length;
 
 function badgeFromResult(
 	before: SnipProviderBadge,
@@ -407,14 +469,7 @@ function badgeFromResult(
 	const cloudOcr = ocr?.kind === "cloud";
 	const cloud = translators.filter((t) => t.kind === "cloud");
 	if (!cloudOcr && cloud.length === 0) return before.kind === "cloud" && !ocr ? before : { kind: "local" };
-	const first = cloud[0];
-	return {
-		kind: "cloud",
-		name: first?.name ?? ocr?.name ?? "",
-		remembered: cloud.length > 0 && cloud.every((t) => t.remembered === true) && !cloudOcr,
-		sent: cloudOcr && cloud.length > 0 ? "both" : cloudOcr ? "image" : "text",
-		segments,
-	};
+	return badgeFor(ocr, translators, segments);
 }
 
 // ---- Derived values the view renders ------------------------------------------------

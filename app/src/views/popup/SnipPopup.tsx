@@ -2,7 +2,10 @@
 // main pushes (`SnipStateMessage`) and sends intents back. No state of its own beyond
 // what the DOM needs (focus, measuring).
 import {
+	egressCopy,
+	type FooterLayout,
 	facingEdge,
+	footerLayout,
 	listedBlocks,
 	type SnipBlock,
 	type SnipPopupState,
@@ -74,6 +77,34 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 	let list: HTMLUListElement | undefined;
 	const [entering, setEntering] = createSignal(false);
 	const [overflowing, setOverflowing] = createSignal(false);
+	// Cloud pill (GLIM-80, §2.4 "Cloud footer wrap"): measured, never truncated.
+	let footer: HTMLDivElement | undefined;
+	let pillFull: HTMLSpanElement | undefined;
+	let pillShort: HTMLSpanElement | undefined;
+	const [pillLayout, setPillLayout] = createSignal<FooterLayout>({ ownRow: false, short: false });
+	const cloud = () => {
+		const p = state().provider;
+		return p.kind === "cloud" ? p : null;
+	};
+	const egress = () => {
+		const c = cloud();
+		return c ? egressCopy(c, props.message.providerShortName) : null;
+	};
+	const measureFooter = () => {
+		if (!footer || !pillFull || !pillShort || !cloud()) return;
+		const cs = getComputedStyle(footer);
+		const inner =
+			footer.clientWidth -
+			(Number.parseFloat(cs.paddingInlineStart) || 0) -
+			(Number.parseFloat(cs.paddingInlineEnd) || 0);
+		const gap = Number.parseFloat(cs.columnGap) || 8;
+		let rest = 0;
+		for (const el of footer.querySelectorAll<HTMLElement>("[data-footer-rest], .snip-status, .snip-actions"))
+			rest += el.offsetWidth + gap;
+		const next = footerLayout({ footer: inner, pill: pillFull.offsetWidth, shortPill: pillShort.offsetWidth, rest });
+		const cur = pillLayout();
+		if (next.ownRow !== cur.ownRow || next.short !== cur.short) setPillLayout(next);
+	};
 
 	// A new request: reset scroll and focus, play the enter animation, report `painted`
 	// after two frames so main shows the window on a fresh frame (§8).
@@ -96,6 +127,7 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 		measureQueued = true;
 		raf(() => {
 			measureQueued = false;
+			measureFooter();
 			if (!shell || !list) return;
 			const chrome = shell.offsetHeight - list.clientHeight;
 			const natural = Math.ceil(list.scrollHeight + chrome);
@@ -153,7 +185,7 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 	const status = () => snipStatus(state());
 	const error = (): ErrorBody | null => {
 		const kind = state().error;
-		return kind ? errorBody(kind, state(), props.init.os, uiLang()) : null;
+		return kind ? errorBody(kind, state(), props.init.os, uiLang(), props.message.localAvailable) : null;
 	};
 	let errorEl: HTMLDivElement | undefined;
 	// Error states: keyboard focus moves to the first action (§4.1, §7.3).
@@ -290,19 +322,39 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 					</SkippedLine>
 				</Show>
 			</BlockList>
-			<div class="snip-footer electrobun-webkit-app-region-drag" data-divider={overflowing() ? "" : undefined}>
-				<Show
-					when={state().provider.kind === "cloud" ? state().provider : null}
-					fallback={<LocalIndicator label={COPY.local} tooltip={COPY.localTooltip} />}
-				>
-					{(p) => {
-						const c = p() as Extract<SnipPopupState["provider"], { kind: "cloud" }>;
-						return <EgressBadge provider={c.name} remembered={c.remembered} />;
-					}}
+			<div
+				ref={footer}
+				class="snip-footer electrobun-webkit-app-region-drag"
+				data-divider={overflowing() ? "" : undefined}
+			>
+				<Show when={cloud()} fallback={<LocalIndicator label={COPY.local} tooltip={COPY.localTooltip} />}>
+					{(c) => (
+						<>
+							{/* Off-screen copies at full and short length, so the footer knows what fits. */}
+							<span class="snip-egress-measure" aria-hidden="true">
+								<span ref={pillFull}>
+									<EgressBadge provider={c().name} label={egress()?.label} />
+								</span>
+								<span ref={pillShort}>
+									<EgressBadge provider={c().name} label={egress()?.shortLabel} />
+								</span>
+							</span>
+							<span class="snip-egress" data-own-row={pillLayout().ownRow ? "" : undefined}>
+								<EgressBadge
+									provider={c().name}
+									remembered={c().remembered}
+									label={pillLayout().short ? egress()?.shortLabel : egress()?.label}
+									short={pillLayout().short}
+									shortName={props.message.providerShortName ?? undefined}
+									tooltip={egress()?.tooltip}
+								/>
+							</span>
+						</>
+					)}
 				</Show>
 				<Show when={state().private}>
 					<Tooltip content={COPY.privateTooltip}>
-						<span class="snip-private">
+						<span class="snip-private" data-footer-rest>
 							<Icon name="eye-off" />
 							{COPY.private}
 						</span>

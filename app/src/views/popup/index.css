@@ -38,6 +38,28 @@ body,
 		min-height: 1.5rem;
 		margin-block-start: calc(var(--spacing) * 2);
 		padding-inline-start: calc(var(--spacing) * 2);
+		position: relative;
+	}
+
+	/* GLIM-80: the cloud pill. Its own row when the footer can't fit it (§2.4); never truncated. */
+	.snip-egress {
+		display: inline-flex;
+		min-width: 0;
+	}
+
+	.snip-egress[data-own-row] {
+		flex: 0 0 100%;
+	}
+
+	.snip-egress-measure {
+		position: absolute;
+		inset-inline-start: 0;
+		inset-block-start: 0;
+		display: flex;
+		gap: var(--spacing);
+		visibility: hidden;
+		pointer-events: none;
+		white-space: nowrap;
 	}
 
 	.snip-footer[data-divider] {

@@ -90,6 +90,11 @@ export interface BlockTranslateOptions extends Omit<RunOptions, "regions" | "mem
 	readonly bypassCache?: boolean;
 	/** "Translate these": also translate skipped blocks whose language is known. */
 	readonly includeSkipped?: boolean;
+	/**
+	 * "Translate on this device" (E3, GLIM-80): route through the chain's local providers only,
+	 * for this call. Settings are unchanged.
+	 */
+	readonly localOnly?: boolean;
 }
 
 export interface TranslateResult {
@@ -204,11 +209,12 @@ export class TranslationPipeline {
 		const candidates = options.includeSkipped
 			? blocks.map((b) => (b.cls === "skip" && b.lang ? { ...b, cls: "translate" as const, waitingForPack: false } : b))
 			: blocks;
+		const chain = options.localOnly ? this.#deps.chain().filter((p) => p.info.kind === "local") : this.#deps.chain();
 		const plan = planTranslation({
 			blocks: candidates,
 			to: options.target,
-			chain: this.#deps.chain(),
-			readinessOf: this.#readinessOf,
+			chain,
+			readinessOf: options.localOnly && !this.#deps.readinessOf ? defaultReadiness(() => chain) : this.#readinessOf,
 		});
 		if (plan.packs.length > 0) emit({ type: "packs", runId, rows: plan.packs });
 		const total = plan.routed.length + plan.unsupported.length;

@@ -20,6 +20,8 @@ export interface TrayState {
 	readonly private: boolean;
 	/** The first provider in the translation chain, or null when none is installed. */
 	readonly translation: { readonly name: string; readonly kind: "local" | "cloud" } | null;
+	/** The selected OCR provider when it is a cloud one (GLIM-80: screen images leave the device). */
+	readonly cloudOcr?: string | null;
 	/** Canonical hotkeys from settings (`Alt+Shift+S`), null when unset. */
 	readonly hotkeys: { readonly snip: string | null; readonly live: string | null };
 	/** Windows only: the taskbar's theme, which picks the light or dark glyph. */
@@ -71,22 +73,32 @@ function withShortcut(platform: Platform, label: string, hotkey: string | null):
 
 export function statusLine(state: TrayState): string {
 	const where = state.platform === "macos" ? "on this Mac" : "on this computer";
-	const cloud = state.translation?.kind === "cloud";
-	const engine = cloud ? `☁ ${state.translation?.name} (${state.platform === "macos" ? "Cloud" : "cloud"})` : where;
+	const cloudWord = state.platform === "macos" ? "Cloud" : "cloud";
+	const cloud = state.translation?.kind === "cloud" || !!state.cloudOcr;
+	const engine =
+		state.translation?.kind === "cloud"
+			? `☁ ${state.translation.name} (${cloudWord})`
+			: state.cloudOcr
+				? `☁ ${state.cloudOcr} (${cloudWord})`
+				: where;
 	switch (state.live) {
 		case "running":
 			return `● Live is watching a region · ${engine}`;
 		case "paused":
 			return `❚❚ Live is paused · ${engine}`;
 		default:
-			return cloud ? `Glimpse · translating with ${engine}` : `Glimpse · ${where}`;
+			if (!cloud) return `Glimpse · ${where}`;
+			return state.translation?.kind === "cloud"
+				? `Glimpse · translating with ${engine}`
+				: `Glimpse · reading text with ${engine}`;
 	}
 }
 
 /** Short text for the provider line and tooltips. */
 export function providerLine(state: TrayState): string {
 	if (!state.translation) return "No translation provider installed";
-	return `Translator: ${state.translation.name}${state.translation.kind === "cloud" ? " (cloud)" : ""}`;
+	const translator = `Translator: ${state.translation.name}${state.translation.kind === "cloud" ? " (cloud)" : ""}`;
+	return state.cloudOcr ? `${translator} · Text reading: ${state.cloudOcr} (cloud)` : translator;
 }
 
 export function buildTrayMenu(state: TrayState): TrayMenuItem[] {

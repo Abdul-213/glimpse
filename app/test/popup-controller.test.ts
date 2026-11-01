@@ -385,6 +385,49 @@ describe("loading and error states (GLIM-73)", () => {
 		h.controller.dispose();
 	});
 
+	test("E3 Translate on this device (GLIM-80): a one-off local translation, the pill goes back to On device", async () => {
+		const source = createFileCaptureSource(SAMPLE_FRAMES_DIR);
+		const ocr = scriptedOcr(["明日の会議は午後三時に始まります。"]);
+		await ocr.init();
+		const cloud = new FakeTranslationProvider({
+			id: "cloud:fake",
+			name: "Fake Cloud Translate",
+			kind: "cloud",
+			vendor: "Fake",
+			pivot: "en",
+			capabilities: { streaming: false },
+			fail: () => "timeout",
+		});
+		const local = new FakeTranslationProvider({ pivot: "en", capabilities: { streaming: false } });
+		await cloud.init();
+		await local.init();
+		const pipeline = new TranslationPipeline({ ocr: () => ocr, chain: () => [cloud, local] });
+		let localReady = true;
+		const runner: SnipRunner = {
+			...pipelineRunner(source, pipeline, { to: L("en") }),
+			canTranslateLocally: () => localReady,
+		};
+		const h = popupHarness({ displays, runner, providerShortName: (id) => (id === "cloud:fake" ? "Fake" : null) });
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.controller.state?.error).toBe("providerTimeout");
+		expect(h.window.last?.localAvailable).toBe(true);
+		expect(h.window.last?.providerShortName).toBe("Fake");
+		localReady = false;
+		h.controller.toggleSkipped("snip-1", false); // any push re-reads it
+		await settle();
+		expect(h.window.last?.localAvailable).toBe(false);
+
+		h.controller.action("snip-1", "local");
+		await settle();
+		expect(h.controller.state?.error).toBeNull();
+		expect(h.controller.state?.blocks[0]?.state).toBe("done");
+		expect(h.controller.state?.provider).toEqual({ kind: "local" });
+		expect(h.window.last?.providerShortName).toBeNull();
+		expect(h.clipboard).toHaveLength(1);
+		h.controller.dispose();
+	});
+
 	test("Translate these translates the skipped blocks in place", async () => {
 		const source = createFileCaptureSource(SAMPLE_FRAMES_DIR);
 		const ocr = scriptedOcr(["明日の会議", "안녕하세요"]);

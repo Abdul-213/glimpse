@@ -40,6 +40,10 @@ export interface SnipStateMessage {
 	state: SnipPopupState;
 	/** Glimpse's motion setting resolved: true = no scale, no crossfade. */
 	reducedMotion: boolean;
+	/** The cloud badge provider's short name ("Google", its vendor), for a narrow footer (GLIM-80). */
+	providerShortName: string | null;
+	/** E3 can offer "Translate on this device": local packs for every needed pair are installed. */
+	localAvailable: boolean;
 }
 
 /** Buttons the popup offers (snip-popup.md §12). `download` carries the pack's language. */
@@ -49,6 +53,8 @@ export type SnipAction =
 	| "download"
 	| "copyOriginal"
 	| "retry"
+	/** E3 "Translate on this device" (GLIM-80): this Snip only, through the local translators. */
+	| "local"
 	| "checkKey"
 	| "openSystemSettings"
 	| "why"
@@ -61,6 +67,7 @@ export const SNIP_ACTIONS: readonly SnipAction[] = [
 	"download",
 	"copyOriginal",
 	"retry",
+	"local",
 	"checkKey",
 	"openSystemSettings",
 	"why",
