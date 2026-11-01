@@ -13,17 +13,21 @@ import {
 	type CaptureSource,
 	functionDetector,
 	type LanguageCode,
+	LiveCaptureLoop,
+	type LiveLoopStats,
 	type OcrProvider,
 	type PipelineErrorKind,
 	type PipelineListener,
 	type PipelineResult,
 	type Rect,
 	rgbaHash,
+	type Timers,
 	TranslationCache,
 	TranslationPipeline,
 	type TranslationProvider,
 	toOcrImage,
 } from "@glimpse/core";
+import { ManualTimers } from "@glimpse/core/testing";
 
 /** One block of a pipeline run, as the harness reports it. */
 export interface PipelineBlock {
@@ -274,5 +278,79 @@ export async function runLive(source: CaptureSource, rect: Rect, options: LiveOp
 		fps: options.fps,
 		frames,
 		summary: { captured: frames.length, changed, unchanged: frames.length - changed },
+	};
+}
+
+export interface LiveLoopRunOptions extends RunOptions {
+	readonly fps: number;
+	/** How long to run the loop (virtual ms unless `timers` is real). */
+	readonly durationMs: number;
+	/**
+	 * Real timers (`systemTimers`) for wall-clock runs; default: virtual time on `ManualTimers`,
+	 * so a 10 s recording replays instantly. A timed file source must read the same clock.
+	 */
+	readonly timers?: Timers;
+}
+
+export interface LiveLoopReport {
+	readonly mode: "live-loop";
+	readonly backend: string;
+	readonly rect: Rect;
+	readonly fps: number;
+	readonly durationMs: number;
+	/** `at`: ms since the loop started (virtual or wall). */
+	readonly frames: readonly (FrameReport & { readonly at: number })[];
+	readonly loop: LiveLoopStats;
+}
+
+/**
+ * A Live run through the real core loop (GLIM-48): the session is grabbed at `fps` with
+ * idle back-off, for `durationMs`, and every frame goes through the stages.
+ */
+export async function runLiveLoop(
+	source: CaptureSource,
+	rect: Rect,
+	options: LiveLoopRunOptions,
+): Promise<LiveLoopReport> {
+	const timers = options.timers ?? new ManualTimers();
+	const session = await source.openSession(rect, {
+		fps: options.fps,
+		...(options.scale === undefined ? {} : { scale: options.scale }),
+	});
+	const frames: (FrameReport & { at: number })[] = [];
+	const t0 = timers.now();
+	let previous: CaptureFrame | null = null;
+	const loop = new LiveCaptureLoop({
+		source: session,
+		timers,
+		fps: options.fps,
+		perfNow: () => performance.now(),
+		handler: {
+			onFrame: async (frame, info) => {
+				const ctx: StageContext = { mode: "live", index: info.index, previous };
+				const r = await report(frame, info.grabMs, ctx, previous, options.stages ?? []);
+				frames.push({ ...r, at: timers.now() - t0 });
+				await options.onFrame?.(frame, r);
+				previous = frame;
+				return undefined;
+			},
+		},
+	});
+	try {
+		loop.start();
+		if (timers instanceof ManualTimers) await timers.advance(options.durationMs);
+		else await Bun.sleep(options.durationMs);
+	} finally {
+		loop.stop();
+		session.close();
+	}
+	return {
+		mode: "live-loop",
+		backend: source.backend,
+		rect,
+		fps: loop.fps,
+		durationMs: options.durationMs,
+		frames,
+		loop: loop.stats(),
 	};
 }
