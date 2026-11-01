@@ -267,7 +267,7 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 - **Live capture loop (GLIM-48)** (`pipeline/live-loop.ts`): `LiveCaptureLoop` pulls a
   `CaptureSession` at 2–4 fps (`clampLiveFps`) over a `Timers` port (`systemTimers`;
   `ManualTimers` in `@glimpse/core/testing` runs it on virtual time). One grab at a time, no
-  drift; after 2 s without a new backend `sequence` it backs off to 1 grab/s; the handler can
+  drift; after 2 s without a new backend `sequence` it backs off to 2 fps; the handler can
   ask for an earlier frame (`wakeInMs`, never under 100 ms). Transient capture errors retry with
   backoff (0.5 → 5 s), fatal ones (`permission-denied`, `no-display`, `unavailable`) pause it
   until `resume()`. `harness live --loop` replays a recording through it on virtual time.

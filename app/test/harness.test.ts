@@ -119,11 +119,11 @@ describe("harness CLI", () => {
 		const report = JSON.parse(p.stdout.toString());
 		expect(report.mode).toBe("live-loop");
 		expect(report.fps).toBe(3);
-		// The sample holds 500/500/500/1000 ms (2.5 s) + 2 s: 3 fps until 2 s after the last change, then 1/s.
+		// The sample holds 500/500/500/1000 ms (2.5 s) + 2 s: 3 fps until 2 s after the last change, then 2 fps.
 		const at = report.frames.map((f: { at: number }) => Math.round(f.at));
 		expect(at.slice(0, 4)).toEqual([0, 333, 667, 1000]);
 		expect(report.loop.newFrames).toBe(3);
-		expect(report.loop.periodMs).toBe(1000);
+		expect(report.loop.periodMs).toBe(500);
 	});
 
 	test("a capture error exits 1 with the error code", () => {

@@ -11,7 +11,8 @@
 // - One grab at a time. The next grab is scheduled when the handler has finished with the
 //   previous frame, `periodMs` after the previous grab started (no drift, no pile-up).
 // - Back off while nothing changes: after `idle.afterMs` with the backend reporting the same
-//   `sequence`, the period stretches to `idle.periodMs` (an idle game menu costs ~1 grab/s).
+//   `sequence`, the period stretches to `idle.periodMs` (default 500 ms: 2 fps, the bottom of
+//   the Live range, so a change is still seen within half a second).
 //   The first new frame snaps back to the full rate.
 // - The handler can ask for an earlier frame (`wakeInMs`), e.g. when change detection only
 //   needs to see the region once more to call it stable. Never faster than `minPeriodMs`.
@@ -125,7 +126,7 @@ const FATAL: ReadonlySet<CaptureErrorCode> = new Set([
 	"unavailable",
 	"invalid-argument",
 ]);
-export const LIVE_IDLE_DEFAULT = { afterMs: 2000, periodMs: 1000 } as const;
+export const LIVE_IDLE_DEFAULT = { afterMs: 2000, periodMs: 1000 / LIVE_FPS.min } as const;
 const RETRY_DEFAULT = { baseMs: 500, maxMs: 5000 } as const;
 
 export class LiveCaptureLoop {

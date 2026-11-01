@@ -91,7 +91,7 @@ describe("LiveCaptureLoop", () => {
 		expect(r.seen.map((s) => s.at)).toEqual([0, 250, 500, 750, 1000, 1250, 1750, 2250, 2750]);
 	});
 
-	test("backs off to 1 grab/s after 2 s without new content, and snaps back on change", async () => {
+	test("backs off to 2 fps after 2 s without new content, and snaps back on change", async () => {
 		const timers = new ManualTimers();
 		// A for 5 s, then B.
 		const session = await timedSession(timers, [
@@ -104,12 +104,10 @@ describe("LiveCaptureLoop", () => {
 		await timers.advance(7000);
 		loop.stop();
 		const times = r.seen.map((s) => s.at);
-		// 4 fps up to the 2 s idle mark, then 1 s steps; B appears at 5 s, seen at the 5 s grab
-		// (or the first one after it), then 4 fps again until 2 s idle.
+		// 4 fps up to the 2 s idle mark, then 500 ms steps (2 fps, the bottom of the Live range);
+		// B appears at 5 s, seen at the 5 s grab, then 4 fps again until 2 s idle.
 		expect(times.slice(0, 9)).toEqual([0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000]);
-		expect(times).toContain(3000);
-		expect(times).toContain(4000);
-		expect(times).not.toContain(3250);
+		expect(times.filter((t) => t > 2000 && t < 5000)).toEqual([2500, 3000, 3500, 4000, 4500]);
 		const firstB = r.seen.find((s) => s.info.sequenceChanged && s.at > 0);
 		expect(firstB?.at).toBe(5000);
 		expect(times).toContain(5250);
