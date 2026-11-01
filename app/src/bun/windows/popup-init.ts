@@ -17,3 +17,14 @@ export function snipViewInit(os: SnipViewInit["os"], uiLang = "en"): SnipViewIni
 		},
 	};
 }
+
+/**
+ * Electrobun 2.0.6-beta.2 on macOS flips Y for `setFrame` / `setPosition` / `getFrame`
+ * against the window's *current* screen height instead of the primary screen's
+ * (spikes/overlay/FINDINGS.md §5). The y to pass so the window lands at global `y`, or to
+ * subtract from a reported y: `y + current − primary`. Zero offset on one display or
+ * displays of equal height. Pure; the popup window applies it on macOS only.
+ */
+export function macFlipOffset(currentScreenHeight: number, primaryScreenHeight: number): number {
+	return currentScreenHeight - primaryScreenHeight;
+}

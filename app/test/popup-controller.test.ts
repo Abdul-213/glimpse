@@ -11,7 +11,13 @@ import {
 import { FakeTranslationProvider, manualGate } from "@glimpse/core/testing";
 import { createFileCaptureSource } from "../src/bun/services/capture/file.ts";
 import { SAMPLE_FRAMES_DIR } from "../src/bun/services/capture/index.ts";
-import { INITIAL_CONTENT_HEIGHT, PAINT_TIMEOUT_MS, type SnipRunner } from "../src/bun/windows/popup-controller.ts";
+import {
+	BLUR_GRACE_MS,
+	INITIAL_CONTENT_HEIGHT,
+	PAINT_TIMEOUT_MS,
+	type SnipRunner,
+} from "../src/bun/windows/popup-controller.ts";
+import { macFlipOffset, snipViewInit } from "../src/bun/windows/popup-init.ts";
 import { pipelineRunner, popupHarness, popupLines, runSnipPopup } from "../src/harness/popup.ts";
 import { scriptedOcr } from "../src/harness/providers.ts";
 
@@ -192,5 +198,114 @@ describe("harness: scripted Snip → pipeline → popup state (GLIM-86 + GLIM-65
 			["skip", "done"],
 		]);
 		expect(popupLines(r)[0]).toContain("below on display 1");
+	});
+});
+
+describe("placement and dismissal (GLIM-72)", () => {
+	test("click outside dismisses and restores focus", async () => {
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		h.controller.painted("snip-1");
+		h.controller.outsideClick();
+		expect(h.window.visible).toBe(false);
+		expect(h.focusRestores()).toBe(1);
+		expect(h.resultsDismissed()).toBe(1);
+	});
+
+	test("losing key to another app dismisses after the grace period, without restoring focus", async () => {
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		h.controller.painted("snip-1");
+		h.controller.windowFocus(false);
+		h.scheduler.advance(BLUR_GRACE_MS - 1);
+		expect(h.controller.isOpen).toBe(true);
+		h.scheduler.advance(1);
+		expect(h.controller.isOpen).toBe(false);
+		expect(h.focusRestores()).toBe(0);
+	});
+
+	test("blur then a click on the results layer counts as outside (focus restored once)", async () => {
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		h.controller.painted("snip-1");
+		h.controller.windowFocus(false);
+		h.controller.outsideClick();
+		h.scheduler.advance(BLUR_GRACE_MS * 2);
+		expect(h.focusRestores()).toBe(1);
+	});
+
+	test("focus coming back cancels the pending blur; blur before the window is shown is ignored", async () => {
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		h.controller.windowFocus(false);
+		h.scheduler.advance(BLUR_GRACE_MS * 2);
+		expect(h.controller.isOpen).toBe(true);
+		h.controller.painted("snip-1");
+		h.controller.windowFocus(false);
+		h.controller.windowFocus(true);
+		h.scheduler.advance(BLUR_GRACE_MS * 2);
+		expect(h.controller.isOpen).toBe(true);
+		h.controller.dispose();
+	});
+
+	test("a new hotkey dismisses without restoring focus", async () => {
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		h.controller.dismiss(null, "hotkey");
+		expect(h.controller.isOpen).toBe(false);
+		expect(h.focusRestores()).toBe(0);
+	});
+
+	test("a dragged popup stays where it was dropped and grows from there", async () => {
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays, runner });
+		h.controller.open(rect(20, 15, 160, 40));
+		const before = h.controller.frame;
+		// Our own setFrame echoes back as a move: ignored.
+		h.controller.moved(before?.x ?? 0, before?.y ?? 0);
+		expect(h.controller.placement?.x).toBe(before?.x ?? -1);
+		h.controller.moved(600, 400);
+		h.controller.resized("snip-1", 200);
+		expect(h.window.frame).toMatchObject({ x: 600, y: 400, height: 200 });
+		h.controller.dispose();
+	});
+
+	test("multi-monitor: the popup goes on the display that holds the region, inside its work area", async () => {
+		const two = [
+			...DESK,
+			{
+				id: 2,
+				bounds: rect(1440, 0, 1280, 800),
+				workArea: rect(1440, 25, 1280, 775),
+				scaleFactor: 1,
+				isPrimary: false,
+			},
+		];
+		const { runner } = await realPipeline(["a"]);
+		const h = popupHarness({ displays: () => two, runner });
+		h.controller.open(rect(2500, 300, 200, 60));
+		const p = h.controller.placement;
+		expect(p?.displayId).toBe(2);
+		const f = h.window.frame;
+		expect((f?.x ?? 0) + (f?.width ?? 0)).toBeLessThanOrEqual(1440 + 1280 - 8);
+		h.controller.dispose();
+	});
+});
+
+describe("popup window helpers", () => {
+	test("macOS Y-flip offset: zero on equal heights, the height difference otherwise", () => {
+		expect(macFlipOffset(900, 900)).toBe(0);
+		expect(macFlipOffset(1440, 900)).toBe(540);
+		expect(macFlipOffset(800, 1117)).toBe(-317);
+	});
+
+	test("view init: OS-specific shortcut labels", () => {
+		expect(snipViewInit("macos").keys).toEqual({ copy: "⌘C", copyOriginal: "⌘⇧C", original: "⌘⇧O", close: "Esc" });
+		expect(snipViewInit("windows").keys.original).toBe("Ctrl+Shift+O");
 	});
 });

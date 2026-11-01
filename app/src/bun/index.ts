@@ -267,6 +267,8 @@ snipPopup = new SnipPopupController({
 	pointer: () => screenProbe.cursor(),
 	log: popupLog,
 });
+// A press on the results layer is a click outside the popup (snip-popup.md §5).
+picker.onResultsPointerDown(() => snipPopup?.outsideClick());
 // Live (GLIM-59) subscribes to picker.onRegionSelected too. Until it lands, a Live region is
 // just captured once, so the path to the capture service is exercised.
 picker.onRegionSelected((region) => {
@@ -318,8 +320,16 @@ const diagnostics = () =>
 const commands = new CommandBus(log.child("commands"));
 const stub = (command: string) => () => log.info("not implemented yet", { command });
 // The picker owns the start commands up to "region selected"; Snip / Live take it from there.
-commands.handle("snip.start", () => picker?.toggle("snip"));
-commands.handle("live.start", () => picker?.toggle("live"));
+// A new Snip or Live hotkey closes an open Snip popup without restoring focus: the new
+// picker takes over (snip-popup.md §7.4).
+commands.handle("snip.start", () => {
+	snipPopup?.dismiss(null, "hotkey");
+	picker?.toggle("snip");
+});
+commands.handle("live.start", () => {
+	snipPopup?.dismiss(null, "hotkey");
+	picker?.toggle("live");
+});
 commands.handle("live.stop", stub("live.stop"));
 commands.handle("live.pause", stub("live.pause"));
 commands.handle("live.resume", stub("live.resume"));

@@ -152,7 +152,7 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 					</SkippedLine>
 				</Show>
 			</BlockList>
-			<div class="snip-footer" data-divider={overflowing() ? "" : undefined}>
+			<div class="snip-footer electrobun-webkit-app-region-drag" data-divider={overflowing() ? "" : undefined}>
 				<Show
 					when={state().provider.kind === "cloud" ? state().provider : null}
 					fallback={<LocalIndicator label={COPY.local} tooltip={COPY.localTooltip} />}
@@ -177,7 +177,7 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 				<span class="sr-only" role="status">
 					{announcement(status(), translatedCount(), state().phase === "done")}
 				</span>
-				<Toolbar label={COPY.actions} class="snip-actions">
+				<Toolbar label={COPY.actions} class="snip-actions electrobun-webkit-app-region-no-drag">
 					<IconButton
 						icon="close"
 						label={COPY.close}
