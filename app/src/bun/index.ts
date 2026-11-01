@@ -353,7 +353,8 @@ snipPopup = new SnipPopupController({
 		},
 	},
 	focus: pickerNatives.focus,
-	results: { dismiss: () => picker?.dismiss() },
+	// The overlays stay up under the popup as the results layer, drawing its detection boxes (GLIM-115).
+	results: { dismiss: () => picker?.dismiss(), showBoxes: (state) => picker?.showResults(state) },
 	settings: () => ({
 		reducedMotion: appSettings.current.appearance.motion === "reduced",
 		alwaysShowLanguages: appSettings.current.snip.alwaysShowLanguages,

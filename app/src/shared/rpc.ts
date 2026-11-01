@@ -9,7 +9,7 @@
 //   webview.messages  main -> view, fire-and-forget (pushes: state, theme changes)
 // Payloads are plain JSON data. Domain types come from @glimpse/core.
 
-import type { PickerMode, PickerViewState } from "@glimpse/core";
+import type { PickerMode, PickerViewState, ResultsLayerState } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 
 export type Platform = "macos" | "windows" | "linux";
@@ -113,6 +113,8 @@ export type PickerRPC = {
 			pickerState: PickerViewState;
 			pickerLoupe: PickerLoupeMessage;
 			pickerHide: { animate: boolean };
+			/** Results layer under the Snip popup: detection boxes and the linked one (GLIM-115); null clears. */
+			pickerResults: { results: ResultsLayerState | null };
 		};
 	}>;
 };

@@ -1,7 +1,7 @@
 // One display's picker overlay (region-picker spec 2, 9.4). Thin: it renders the state
 // main pushes and sends raw input back. All positions arrive global logical and are drawn
 // relative to this display's origin.
-import type { PickerMode, PickerViewState } from "@glimpse/core";
+import type { PickerMode, PickerViewState, ResultsLayerState } from "@glimpse/core";
 import { Kbd } from "@glimpse/ui";
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type {
@@ -13,7 +13,7 @@ import type {
 	PickerViewInit,
 } from "../../shared/rpc.ts";
 import { A11Y_OPEN, a11yBox, a11yLabel, hintParts, keyLabel, MODE_LABEL, REPLACES_LIVE } from "./copy.ts";
-import { decodeBase64, drawLoupe, drawOverlay, type Palette, readPalette } from "./draw.ts";
+import { decodeBase64, drawLoupe, drawOverlay, drawResults, type Palette, readPalette } from "./draw.ts";
 
 export interface PickerInput {
 	pointer(m: PickerPointerMessage): void;
@@ -32,6 +32,8 @@ export interface PickerStore {
 	state: () => PickerViewState | null;
 	loupe: () => PickerLoupeMessage | null;
 	hidden: () => { animate: boolean } | null;
+	/** Detection boxes under the Snip popup (GLIM-115). Optional for previews. */
+	results?: () => ResultsLayerState | null;
 }
 
 const LOUPE_CELLS = 15;
@@ -78,9 +80,12 @@ export function PickerOverlay(props: { init: PickerViewInit; store: PickerStore;
 			return;
 		}
 		drawOverlay(ctx, { width: w, height: h }, ratio, init.origin, init.displayId, state, palette);
+		const results = props.store.results?.();
+		if (results && !state.scrim) drawResults(ctx, init.origin, results, palette);
 	};
 	createEffect(() => {
 		s();
+		props.store.results?.();
 		props.store.hidden();
 		if (!frame) frame = requestAnimationFrame(paint);
 	});

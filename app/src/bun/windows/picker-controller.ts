@@ -17,6 +17,7 @@ import {
 	type PixelSampler,
 	type PointerProbe,
 	type RegionSelected,
+	type ResultsLayerState,
 	type Settings,
 	type WindowListSource,
 } from "@glimpse/core";
@@ -47,6 +48,8 @@ export interface OverlayWindow {
 	hide(): void;
 	/** Raise (picking) or lower under the Snip popup (results layer). */
 	setLevel(level: "picking" | "belowPopup"): void;
+	/** Detection boxes on the results layer (GLIM-115); null clears them. */
+	results(state: ResultsLayerState | null): void;
 	close(): void;
 }
 
@@ -143,6 +146,8 @@ export class PickerController {
 	private cancelHide: (() => void) | null = null;
 	private lastReset: PickerOpenInfo | null = null;
 	private lastView: PickerViewState | null = null;
+	/** Boxes on the results layer (GLIM-115), replayed to a view that loads late. */
+	private lastResults: ResultsLayerState | null = null;
 	private pendingView: PickerViewState | null = null;
 	private loupeSeq = 0;
 	private keeping = false;
@@ -273,8 +278,20 @@ export class PickerController {
 		this.session?.cancel(reason);
 	}
 
+	/**
+	 * The Snip popup's detection boxes, drawn by every overlay on the results layer (GLIM-115,
+	 * snip-popup.md §2.3). Ignored unless the layer is up; null clears.
+	 */
+	showResults(state: ResultsLayerState | null): void {
+		if (state && !this.keeping) return;
+		if (state === null && this.lastResults === null) return;
+		this.lastResults = state;
+		for (const o of this.overlays.values()) o.results(state);
+	}
+
 	/** Snip popup closed: take the results layer down (no focus restore here: the popup does it, snip-popup.md 7). */
 	dismiss(): void {
+		this.showResults(null);
 		if (!this.keeping) return;
 		this.keeping = false;
 		this.hideAll(this.lastReset?.reducedMotion === false);
@@ -295,6 +312,7 @@ export class PickerController {
 		queueMicrotask(() => {
 			if (this.lastReset) o.reset(this.lastReset);
 			if (this.lastView) o.state(this.lastView);
+			if (this.lastResults) o.results(this.lastResults);
 		});
 		return {
 			displayId,
@@ -445,6 +463,7 @@ export class PickerController {
 
 	/** A new open while the results layer is up replaces it. */
 	private finishResults(): void {
+		this.showResults(null);
 		if (this.keeping) {
 			this.keeping = false;
 			for (const o of this.overlays.values()) o.hide();

@@ -56,6 +56,7 @@ render(
 								retryBlock: (requestId, blockId) => rpc.send.snipRetryBlock({ requestId, blockId }),
 								original: (requestId, on) => rpc.send.snipOriginal({ requestId, on }),
 								copy: (requestId, what) => rpc.send.snipCopy({ requestId, what }),
+								hoverBlock: (requestId, blockId) => rpc.send.snipHoverBlock({ requestId, blockId }),
 							}}
 						/>
 					)}

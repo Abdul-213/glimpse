@@ -3,7 +3,8 @@
 // desktop (the mockup's three windows). Loupe pixels are sampled from that painted desktop,
 // the way the app samples a capture frame. Build + serve: `bun app/scripts/picker-preview.ts`.
 //
-//   ?state=hover|drag|adjust|keyboard|tooSmall|live   scripted input for screenshots
+//   ?state=hover|drag|adjust|keyboard|tooSmall|live|results   scripted input for screenshots
+//   (results: a confirmed Snip with the popup's detection boxes, GLIM-115; ?linked=0 for none)
 //   ?os=macos|windows
 import {
 	type LoupePatch,
@@ -11,6 +12,7 @@ import {
 	PickerSession,
 	type PickerViewState,
 	type Point,
+	type ResultsLayerState,
 	type ScreenWindow,
 } from "@glimpse/core";
 import { applyPlatform } from "@glimpse/ui";
@@ -60,6 +62,10 @@ for (const w of [...WINDOWS].reverse()) {
 		r.x + 24,
 		r.y + 70,
 	);
+	if (w.appName === "Messages") {
+		g.fillText("Увидимся завтра", r.x + 24, r.y + 110);
+		g.fillText("12:45", r.x + 24, r.y + 150);
+	}
 }
 
 const display = {
@@ -79,6 +85,7 @@ const [open] = createSignal<PickerOpenInfo | null>({
 	showLoupe: true,
 });
 const [hidden] = createSignal<{ animate: boolean } | null>(null);
+const [results, setResults] = createSignal<ResultsLayerState | null>(null);
 let seq = 0;
 const toB64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
 
@@ -123,7 +130,7 @@ render(
 	() => (
 		<PickerOverlay
 			init={init}
-			store={{ open, state, loupe, hidden }}
+			store={{ open, state, loupe, hidden, results }}
 			input={{
 				pointer: (m) => {
 					pointer.at = { x: m.x, y: m.y };
@@ -182,6 +189,20 @@ setTimeout(() => {
 			break;
 		case "live":
 			p("move", 1000, 300);
+			break;
+		case "results":
+			// Confirmed Snip over the Messages window; boxes as the popup controller sends them.
+			p("down", 76, 136);
+			p("move", 300, 260);
+			p("up", 330, 260);
+			setResults({
+				requestId: "preview",
+				boxes: [
+					{ id: "a", rect: { x: 84, y: 146, width: 172, height: 22 }, style: "solid" },
+					{ id: "c", rect: { x: 84, y: 186, width: 124, height: 22 }, style: "dashed" },
+				],
+				linkedId: q.get("linked") === "0" ? null : "a",
+			});
 			break;
 	}
 }, 50);

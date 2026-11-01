@@ -2,12 +2,14 @@
 // selection edge, snap candidate, guides, handles and crosshair. Everything arrives in
 // global logical px and is drawn in this display's local CSS px; the canvas backing store
 // is devicePixelRatio times larger, so 1 CSS px strokes are 2 device px on Retina (4.2).
-import type { PickerViewState, Rect } from "@glimpse/core";
+import type { PickerViewState, Rect, ResultsLayerState } from "@glimpse/core";
 
 export interface Palette {
 	scrim: string;
 	stroke: string;
 	halo: string;
+	/** `box-linked-fill`: the box of the block hovered or focused in the Snip popup (GLIM-115). */
+	linkedFill: string;
 }
 
 /** Read the DESIGN.md picker colours from the theme's CSS variables. */
@@ -18,6 +20,7 @@ export function readPalette(el: Element): Palette {
 		scrim: v("--color-picker-scrim", "#00000073"),
 		stroke: v("--color-picker-stroke", "#FFFFFF"),
 		halo: v("--color-picker-halo", "#00000099"),
+		linkedFill: v("--color-box-linked-fill", "#0A63C93D"),
 	};
 }
 
@@ -63,6 +66,40 @@ export function drawOverlay(
 		line(ctx, cx + CROSSHAIR_GAP, cy, size.width, cy, pal, 1);
 		line(ctx, cx, 0, cx, cy - CROSSHAIR_GAP, pal, 1);
 		line(ctx, cx, cy + CROSSHAIR_GAP, cx, size.height, pal, 1);
+	}
+}
+
+/**
+ * Detection boxes on the results layer (snip-popup.md §2.3): 1 px stroke + 1 px halo,
+ * `rounded.box` (4 px); skipped blocks dashed 3/3 at 60 %; the linked box filled with
+ * `box-linked-fill`. Neutral blocks never arrive (no box).
+ */
+export function drawResults(
+	ctx: CanvasRenderingContext2D,
+	origin: { x: number; y: number },
+	results: ResultsLayerState,
+	pal: Palette,
+): void {
+	for (const b of results.boxes) {
+		const r = { x: b.rect.x - origin.x, y: b.rect.y - origin.y, width: b.rect.width, height: b.rect.height };
+		ctx.save();
+		ctx.globalAlpha = b.style === "dashed" ? 0.6 : 1;
+		if (b.id === results.linkedId) {
+			ctx.fillStyle = pal.linkedFill;
+			ctx.beginPath();
+			ctx.roundRect(r.x, r.y, r.width, r.height, 4);
+			ctx.fill();
+		}
+		ctx.setLineDash(b.style === "dashed" ? [3, 3] : []);
+		ctx.lineWidth = 3;
+		ctx.strokeStyle = pal.halo;
+		ctx.beginPath();
+		ctx.roundRect(r.x + 0.5, r.y + 0.5, Math.max(0, r.width - 1), Math.max(0, r.height - 1), 4);
+		ctx.stroke();
+		ctx.lineWidth = 1;
+		ctx.strokeStyle = pal.stroke;
+		ctx.stroke();
+		ctx.restore();
 	}
 }
 

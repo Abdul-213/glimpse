@@ -56,6 +56,8 @@ export interface SnipPopupIntents {
 	retryBlock(requestId: string, blockId: string): void;
 	original(requestId: string, on: boolean): void;
 	copy(requestId: string, what: "translation" | "original"): void;
+	/** Hover or focus on a block (null: left it): main lights its box on screen (GLIM-115). */
+	hoverBlock?(requestId: string, blockId: string | null): void;
 }
 
 export interface SnipPopupProps {
@@ -291,6 +293,7 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 								view={state().view}
 								showSource={state().showOriginalUnder}
 								onRetry={() => props.intents.retryBlock(id(), b.id)}
+								onLink={(on) => props.intents.hoverBlock?.(id(), on ? b.id : null)}
 							/>
 						)}
 					</For>
@@ -428,6 +431,7 @@ function Block(props: {
 	view: "translation" | "original";
 	showSource: boolean;
 	onRetry: () => void;
+	onLink?: (linked: boolean) => void;
 }): JSX.Element {
 	const b = () => props.block;
 	const target = () => props.state.target ?? undefined;
@@ -459,6 +463,7 @@ function Block(props: {
 			failedLabel={COPY.failed}
 			retryLabel={COPY.retry}
 			onRetry={props.onRetry}
+			onLinkChange={props.onLink}
 		/>
 	);
 }

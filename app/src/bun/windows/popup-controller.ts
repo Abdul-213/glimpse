@@ -20,7 +20,9 @@ import {
 	placeSnipPopup,
 	type RecognisedBlock,
 	type Rect,
+	type ResultsLayerState,
 	reduceSnip,
+	resultsBoxes,
 	type SnipAction,
 	type SnipPopupPlacement,
 	type SnipPopupState,
@@ -105,6 +107,11 @@ export const SCREEN_RECORDING_HELP_URL = "https://github.com/Abdul-213/glimpse#s
 /** The results layer (picker overlays kept up under the popup). */
 export interface ResultsLayer {
 	dismiss(): void;
+	/**
+	 * Detection boxes on screen (GLIM-115, spec §2.3), global logical px; null clears them.
+	 * Optional: without it the layer only shows the selection edge.
+	 */
+	showBoxes?(state: ResultsLayerState | null): void;
 }
 
 export interface SnipPopupSettings {
@@ -154,6 +161,15 @@ interface Request {
 	dragged: boolean;
 	/** The pipeline's blocks, for follow-up translation. */
 	recognised: readonly RecognisedBlock[];
+	/** The Snip region (global logical) and the capture's px per logical unit, for the boxes. */
+	readonly region: Rect;
+	scale: number;
+	/** Detected boxes before recognition (region-local device px). */
+	detected: readonly { readonly id: string; readonly box: Rect }[];
+	/** Block hovered or focused in the popup: its box lights (GLIM-115). */
+	hovered: string | null;
+	/** What the results layer last got, so unchanged state isn't re-sent. */
+	boxesKey: string;
 }
 
 let counter = 0;
@@ -224,6 +240,11 @@ export class SnipPopupController {
 			autoCopiedText: null,
 			dragged: false,
 			recognised: [],
+			region,
+			scale: captureScale(region, this.deps.displays()),
+			detected: [],
+			hovered: null,
+			boxesKey: "",
 		};
 		this.request = request;
 		// Move (and size) the hidden window first, so it re-rasterises at the target display's
@@ -260,6 +281,19 @@ export class SnipPopupController {
 		if (sameRect(frame, r.frame)) return;
 		r.frame = frame;
 		this.deps.window.setFrame(frame);
+	}
+
+	/**
+	 * A block is hovered or focused in the popup (null: none): its box lights on screen
+	 * (spec §2.3, §7.2). Only blocks of this request count.
+	 */
+	hoverBlock(requestId: string, blockId: string | null): void {
+		const r = this.current(requestId);
+		if (!r) return;
+		const id = blockId !== null && r.state.blocks.some((b) => b.id === blockId) ? blockId : null;
+		if (id === r.hovered) return;
+		r.hovered = id;
+		this.pushBoxes(r);
 	}
 
 	/** Original view on or off (§4 S6). The clipboard is unchanged by it. */
@@ -475,6 +509,10 @@ export class SnipPopupController {
 		const r = this.current(requestId);
 		if (!r) return;
 		if (event.type === "recognised") r.recognised = event.blocks;
+		if (event.type === "detected") {
+			r.detected = event.boxes;
+			if (r.region.width > 0 && event.image.width > 0) r.scale = event.image.width / r.region.width;
+		}
 		this.dispatch({ type: "pipeline", event });
 		if (event.type === "done") {
 			const res = event.result;
@@ -539,6 +577,7 @@ export class SnipPopupController {
 		const r = this.request;
 		if (!r) return;
 		const layout: SnipLayout = { side: r.placement.side, width: r.placement.width, maxHeight: r.placement.maxHeight };
+		this.pushBoxes(r);
 		const badge = r.state.provider;
 		this.deps.window.send({
 			requestId: r.id,
@@ -553,6 +592,29 @@ export class SnipPopupController {
 		});
 	}
 
+	/** Send the results layer its boxes when they changed (detection, recognition, class, hover). */
+	private pushBoxes(r: Request): void {
+		const layer = this.deps.results;
+		if (!layer?.showBoxes) return;
+		const byId = new Map(r.recognised.map((b) => [b.id, b.box]));
+		const blocks =
+			r.state.blocks.length > 0
+				? r.state.blocks.flatMap((b) => {
+						const box = byId.get(b.id);
+						return box ? [{ id: b.id, box, cls: b.cls }] : [];
+					})
+				: r.detected.map((d) => ({ id: d.id, box: d.box, cls: null }));
+		const state: ResultsLayerState = {
+			requestId: r.id,
+			boxes: resultsBoxes(r.region, r.scale, blocks),
+			linkedId: r.hovered,
+		};
+		const key = JSON.stringify(state);
+		if (key === r.boxesKey) return;
+		r.boxesKey = key;
+		layer.showBoxes(state);
+	}
+
 	private close(reason: SnipDismissReason | "replaced"): void {
 		const r = this.request;
 		if (!r) return;
@@ -562,6 +624,8 @@ export class SnipPopupController {
 		r.cancelCopied?.();
 		r.abort.abort();
 		this.deps.window.hide();
+		// Boxes clear with the popup (spec §2.3), then the layer goes.
+		if (r.boxesKey !== "") this.deps.results?.showBoxes?.(null);
 		this.deps.results?.dismiss();
 		this.deps.log.info("snip popup closed", { reason });
 		// Spec §7.4: Esc and Close hand focus back to the app that had it before the picker.
@@ -571,4 +635,19 @@ export class SnipPopupController {
 			this.deps.log.debug("focus restore", { restored });
 		}
 	}
+}
+
+/** Snip captures at the highest scale factor the region touches (core capture default). */
+function captureScale(region: Rect, displays: readonly Display[]): number {
+	let scale = 0;
+	for (const d of displays) {
+		const b = d.bounds;
+		const overlaps =
+			region.x < b.x + b.width &&
+			region.x + region.width > b.x &&
+			region.y < b.y + b.height &&
+			region.y + region.height > b.y;
+		if (overlaps) scale = Math.max(scale, d.scaleFactor);
+	}
+	return scale > 0 ? scale : 1;
 }
