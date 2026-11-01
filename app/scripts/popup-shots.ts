@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import tailwind from "bun-plugin-tailwind";
-import { SCENARIOS } from "./popup-preview/scenarios.ts";
+import { ALL_SCENARIOS as SCENARIOS } from "./popup-preview/scenarios.ts";
 import { solidPlugin } from "./solid-plugin.ts";
 
 export interface ShotVariant {
@@ -30,7 +30,20 @@ export const VARIANTS: readonly ShotVariant[] = [
 		suffix: "windows-dark",
 		query: "os=windows",
 		colorScheme: "dark",
-		only: ["s0-opened", "s3-streaming", "s4-done", "s7-skipped-expanded", "s9-rtl-source", "s12-long", "s14-cloud"],
+		only: [
+			"s0-opened",
+			"s3-streaming",
+			"s4-done",
+			"s7-skipped-expanded",
+			"s9-rtl-source",
+			"s12-long",
+			"s14-cloud",
+			"e1-no-text",
+			"e2-pack-missing",
+			"e3-offline",
+			"e4w-capture-blank",
+			"s16-partial-pack-row",
+		],
 	},
 	{ suffix: "macos-dark", query: "os=macos", colorScheme: "dark", only: ["s4-done", "s8-mixed-languages"] },
 	{ suffix: "macos-light-rtl-ui", query: "os=macos&dir=rtl", colorScheme: "light", only: ["s10-rtl-target"] },

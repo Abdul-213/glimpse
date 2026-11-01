@@ -51,6 +51,9 @@ render(
 								resized: (requestId, contentHeight) => rpc.send.snipResized({ requestId, contentHeight }),
 								dismiss: (requestId, reason) => rpc.send.snipDismiss({ requestId, reason }),
 								skipped: (requestId, expanded) => rpc.send.snipSkipped({ requestId, expanded }),
+								action: (requestId, action, lang) =>
+									rpc.send.snipAction({ requestId, action, ...(lang ? { lang } : {}) }),
+								retryBlock: (requestId, blockId) => rpc.send.snipRetryBlock({ requestId, blockId }),
 							}}
 						/>
 					)}

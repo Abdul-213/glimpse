@@ -13,7 +13,13 @@
 // solid `surface-popup-solid` veil (`data-material="none"`) until they are.
 import { type Display, displayAt } from "@glimpse/core";
 import { BrowserView, BrowserWindow } from "electrobun/main";
-import type { SnipPopupRPC, SnipStateMessage, SnipViewInit } from "../../shared/popup-rpc.ts";
+import {
+	SNIP_ACTIONS,
+	type SnipAction,
+	type SnipPopupRPC,
+	type SnipStateMessage,
+	type SnipViewInit,
+} from "../../shared/popup-rpc.ts";
 import { loadMacNative } from "../native/macos.ts";
 import { configureOverlayWindow, raiseTopmost } from "../native/windows.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
@@ -70,6 +76,15 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 					},
 					snipSkipped: (m) => {
 						if (typeof m?.requestId === "string") c()?.toggleSkipped(m.requestId, !!m.expanded);
+					},
+					snipAction: (m) => {
+						if (typeof m?.requestId !== "string" || !SNIP_ACTIONS.includes(m.action as SnipAction)) return;
+						c()?.action(m.requestId, m.action, typeof m.lang === "string" ? m.lang : undefined);
+					},
+					snipRetryBlock: (m) => {
+						if (typeof m?.requestId === "string" && typeof m.blockId === "string") {
+							c()?.retryBlock(m.requestId, m.blockId);
+						}
 					},
 				},
 			},

@@ -13,26 +13,44 @@ import {
 } from "@glimpse/core";
 import {
 	BlockList,
+	Button,
 	EgressBadge,
 	Icon,
 	IconButton,
 	LocalIndicator,
 	languageName,
 	PopupShell,
+	ProgressBar,
 	SkippedLine,
+	StateMessage,
 	TextBlock,
+	TextButton,
 	Toolbar,
 	Tooltip,
 } from "@glimpse/ui";
 import { createEffect, createSignal, For, type JSX, on, onCleanup, Show } from "solid-js";
-import type { SnipStateMessage, SnipViewInit } from "../../shared/popup-rpc.ts";
-import { alreadyIn, announcement, COPY, statusText } from "./copy.ts";
+import type { SnipAction, SnipStateMessage, SnipViewInit } from "../../shared/popup-rpc.ts";
+import {
+	alreadyIn,
+	announcement,
+	COPY,
+	type ErrorBody,
+	errorBody,
+	packDownloadText,
+	packFailedText,
+	packOfflineText,
+	packProgressText,
+	packRowText,
+	statusText,
+} from "./copy.ts";
 
 export interface SnipPopupIntents {
 	painted(requestId: string): void;
 	resized(requestId: string, contentHeight: number): void;
 	dismiss(requestId: string, reason: "esc" | "close"): void;
 	skipped(requestId: string, expanded: boolean): void;
+	action(requestId: string, action: SnipAction, lang?: string): void;
+	retryBlock(requestId: string, blockId: string): void;
 }
 
 export interface SnipPopupProps {
@@ -106,6 +124,22 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 	};
 
 	const status = () => snipStatus(state());
+	const error = (): ErrorBody | null => {
+		const kind = state().error;
+		return kind ? errorBody(kind, state(), props.init.os, uiLang()) : null;
+	};
+	let errorEl: HTMLDivElement | undefined;
+	// Error states: keyboard focus moves to the first action (§4.1, §7.3).
+	createEffect(
+		on(
+			() => state().error,
+			(kind) => {
+				if (!kind) return;
+				raf(() => (errorEl?.querySelector("button") ?? list)?.focus({ preventScroll: true }));
+			},
+		),
+	);
+	const act = (action: SnipAction, lang?: string) => props.intents.action(id(), action, lang);
 	const translatedCount = () => state().blocks.filter((b) => b.cls === "translate" && b.state === "done").length;
 	const tags = () => showLanguageTags(state());
 
@@ -122,13 +156,84 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 			data-reduced-motion={props.message.reducedMotion ? "" : undefined}
 			onKeyDown={onKeyDown}
 		>
-			<BlockList ref={(el) => (list = el)} aria-label={COPY.list} class="snip-list">
+			<Show when={error()}>
+				{(e) => (
+					<div class="snip-error" ref={errorEl} id={`snip-error-${id()}`}>
+						<StateMessage title={e().title} tone={e().tone}>
+							{e().body}
+						</StateMessage>
+						<Show when={state().error === "packMissing" && downloading(state())}>
+							<PackProgress state={state()} uiLang={uiLang()} />
+						</Show>
+						<Show when={e().buttons.length > 0 && !(state().error === "packMissing" && downloading(state()))}>
+							<div class="snip-error-actions">
+								<For each={e().buttons}>
+									{(b) => (
+										<Button variant={b.primary ? "primary" : "secondary"} onClick={() => act(b.action, b.lang)}>
+											{b.label}
+										</Button>
+									)}
+								</For>
+							</div>
+						</Show>
+					</div>
+				)}
+			</Show>
+			<Show when={!state().error && state().packs.length > 0}>
+				<div class="snip-packs">
+					<For each={state().packs}>
+						{(row) => (
+							<div class="snip-pack">
+								<p class="m-0 text-body text-text-secondary">
+									{packRowText(row.lang, uiLang())}
+									<Show when={row.state === "offline"}> {packOfflineText}</Show>
+									<Show when={row.state === "failed"}> {packFailedText}</Show>
+								</p>
+								<Show
+									when={row.state === "downloading"}
+									fallback={
+										<Show when={row.state !== "offline"}>
+											<Button variant="secondary" onClick={() => act("download", row.lang)}>
+												{packDownloadText(row.bytes)}
+											</Button>
+										</Show>
+									}
+								>
+									<ProgressBar
+										label={`Downloading ${languageName(row.lang, uiLang())}`}
+										done={row.received ?? 0}
+										total={row.total ?? 0}
+										line={packProgressText(row.received ?? 0, row.total ?? 0)}
+									/>
+								</Show>
+							</div>
+						)}
+					</For>
+				</div>
+			</Show>
+			<BlockList
+				ref={(el) => (list = el)}
+				aria-label={COPY.list}
+				aria-describedby={error() ? `snip-error-${id()}` : undefined}
+				class="snip-list"
+			>
 				<Show when={isSkeleton(state())}>
 					<For each={state().skeletons}>{(w) => <TextBlock state="skeleton" skeletonWidth={w} />}</For>
 				</Show>
-				<For each={listedBlocks(state())}>
-					{(b) => <Block block={b} state={state()} tags={tags()} uiLang={uiLang()} />}
-				</For>
+				<Show when={!error() || error()?.showOriginal}>
+					<For each={listedBlocks(state())}>
+						{(b) => (
+							<Block
+								block={b}
+								state={state()}
+								tags={tags()}
+								uiLang={uiLang()}
+								plain={!!error()}
+								onRetry={() => props.intents.retryBlock(id(), b.id)}
+							/>
+						)}
+					</For>
+				</Show>
 				<Show when={skippedBlocks(state()).length > 0}>
 					<SkippedLine
 						count={skippedBlocks(state()).length}
@@ -149,6 +254,10 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 								/>
 							)}
 						</For>
+						<li class="snip-skipped-actions">
+							<TextButton onClick={() => act("translateSkipped")}>{COPY.translateThese}</TextButton>
+							<TextButton onClick={() => act("editSources")}>{COPY.editSources}</TextButton>
+						</li>
 					</SkippedLine>
 				</Show>
 			</BlockList>
@@ -175,7 +284,7 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 					{statusText(status())}
 				</span>
 				<span class="sr-only" role="status">
-					{announcement(status(), translatedCount(), state().phase === "done")}
+					{error()?.title ?? announcement(status(), translatedCount(), state().phase === "done")}
 				</span>
 				<Toolbar label={COPY.actions} class="snip-actions electrobun-webkit-app-region-no-drag">
 					<IconButton
@@ -190,12 +299,41 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 	);
 }
 
-function Block(props: { block: SnipBlock; state: SnipPopupState; tags: boolean; uiLang: string }): JSX.Element {
+const downloading = (s: SnipPopupState) => s.packs.some((p) => p.state === "downloading");
+
+function PackProgress(props: { state: SnipPopupState; uiLang: string }): JSX.Element {
+	const rows = () => props.state.packs.filter((p) => p.state === "downloading");
+	const done = () => rows().reduce((n, r) => n + (r.received ?? 0), 0);
+	const total = () => rows().reduce((n, r) => n + (r.total ?? 0), 0);
+	return (
+		<div class="snip-error-actions">
+			<ProgressBar
+				label={`Downloading ${rows()
+					.map((r) => languageName(r.lang, props.uiLang))
+					.join(", ")}`}
+				done={done()}
+				total={total()}
+				line={packProgressText(done(), total())}
+			/>
+		</div>
+	);
+}
+
+function Block(props: {
+	block: SnipBlock;
+	state: SnipPopupState;
+	tags: boolean;
+	uiLang: string;
+	/** Error states list the original text plainly (E2, E3). */
+	plain: boolean;
+	onRetry: () => void;
+}): JSX.Element {
 	const b = () => props.block;
 	const target = () => props.state.target ?? undefined;
 	const lang = () => b().lang ?? undefined;
-	const kind = () => (b().cls === "neutral" ? "neutral" : b().cls === "target" ? "target" : "translate");
+	const kind = () => (props.plain || b().cls === "neutral" ? "neutral" : b().cls === "target" ? "target" : "translate");
 	const view = () => {
+		if (props.plain) return "done";
 		const s = b().state;
 		return s === "waiting" ? "pending" : s;
 	};
@@ -216,6 +354,8 @@ function Block(props: { block: SnipBlock; state: SnipPopupState; tags: boolean; 
 			tag={tag()}
 			tagLang={props.uiLang}
 			failedLabel={COPY.failed}
+			retryLabel={COPY.retry}
+			onRetry={props.onRetry}
 		/>
 	);
 }

@@ -9,9 +9,10 @@
 import type { BlockId } from "../block.ts";
 import type { LanguageCode } from "../language/code.ts";
 import type { TextDirection } from "../language/script.ts";
+import type { InstallState } from "../models/install-state.ts";
 import type { BlockClass, PipelineErrorKind, PipelineEvent } from "../pipeline/events.ts";
 import type { Provenance, ProviderRef } from "../providers/provenance.ts";
-import type { SegmentFailureKind } from "../providers/readiness.ts";
+import type { PackRow, SegmentFailureKind } from "../providers/readiness.ts";
 
 /** One block's state in the popup. */
 export type SnipBlockState =
@@ -59,6 +60,21 @@ export type SnipProviderBadge =
 			readonly segments: number;
 	  };
 
+/** One missing language pack row at the top of the list (§2.2), or the E2 body's download. */
+export interface SnipPackRow {
+	readonly lang: LanguageCode;
+	readonly state: "missing" | "downloading" | "offline" | "failed";
+	/** Download size; 0 when unknown. */
+	readonly bytes: number;
+	/** Bytes received / total while downloading. */
+	readonly received: number | null;
+	readonly total: number | null;
+	/** Model manager resource ids to download for this language. */
+	readonly resourceIds: readonly string[];
+	/** Blocks waiting on this pack. */
+	readonly blockIds: readonly string[];
+}
+
 export type SnipPhase = "opened" | "detected" | "recognised" | "translating" | "done" | "error";
 
 export interface SnipPopupState {
@@ -75,6 +91,10 @@ export interface SnipPopupState {
 	/** Whole-run error state (E1-E7), once the run is done. */
 	readonly error: PipelineErrorKind | null;
 	readonly provider: SnipProviderBadge;
+	/** Missing packs, one row per source language, first-seen order. */
+	readonly packs: readonly SnipPackRow[];
+	/** Translation work started after the run finished (Retry, a pack landing, Translate these). */
+	readonly followUps: number;
 	/** Per-block language tags: the region mixes source languages, or the setting is on. */
 	readonly alwaysShowLanguages: boolean;
 	readonly skippedExpanded: boolean;
@@ -89,7 +109,20 @@ export type SnipAction =
 			readonly alwaysShowLanguages?: boolean;
 	  }
 	| { readonly type: "pipeline"; readonly event: PipelineEvent }
-	| { readonly type: "toggleSkipped"; readonly expanded?: boolean };
+	| { readonly type: "toggleSkipped"; readonly expanded?: boolean }
+	/** A pack's install state changed (the model manager's states for that row's resources). */
+	| { readonly type: "packInstall"; readonly lang: LanguageCode; readonly states: readonly InstallState[] }
+	/**
+	 * Follow-up translation work (Retry, a pack landing, "Translate these") started or
+	 * finished; `blockIds` go back to pending when it starts.
+	 */
+	| {
+			readonly type: "followUp";
+			readonly phase: "start";
+			readonly blockIds: readonly string[];
+			readonly promote?: boolean;
+	  }
+	| { readonly type: "followUp"; readonly phase: "end" };
 
 /** S0: two static skeleton bars. */
 export const OPENED_SKELETONS: readonly number[] = [70, 45];
@@ -105,6 +138,8 @@ export function initialSnipState(requestId: string, opts: { private?: boolean; a
 		progress: null,
 		error: null,
 		provider: { kind: "local" },
+		packs: [],
+		followUps: 0,
 		alwaysShowLanguages: opts.alwaysShowLanguages ?? false,
 		skippedExpanded: false,
 	};
@@ -131,8 +166,93 @@ export function reduceSnip(state: SnipPopupState, action: SnipAction): SnipPopup
 		case "pipeline":
 			if (runOf(action.event) !== state.requestId) return state;
 			return reducePipeline(state, action.event);
+		case "packInstall":
+			return reducePackInstall(state, action.lang, action.states);
+		case "followUp":
+			return action.phase === "start"
+				? startFollowUp(state, action.blockIds, action.promote ?? false)
+				: endFollowUp(state);
 	}
 }
+
+function startFollowUp(state: SnipPopupState, ids: readonly string[], promote: boolean): SnipPopupState {
+	const set = new Set(ids);
+	const blocks = state.blocks.map((b): SnipBlock => {
+		if (!set.has(b.id)) return b;
+		const cls = promote && b.cls === "skip" ? "translate" : b.cls;
+		return {
+			...b,
+			cls,
+			...(promote && b.cls === "skip" ? { promoted: true } : {}),
+			state: "pending",
+			translation: null,
+			failure: null,
+		};
+	});
+	const finished = state.phase === "done" || state.phase === "error";
+	return {
+		...state,
+		blocks,
+		followUps: state.followUps + 1,
+		...(finished ? { phase: "translating" as const, error: null } : {}),
+		progress: { done: 0, total: ids.length },
+		skippedExpanded: promote ? false : state.skippedExpanded,
+	};
+}
+
+function endFollowUp(state: SnipPopupState): SnipPopupState {
+	const followUps = Math.max(0, state.followUps - 1);
+	if (followUps > 0 || state.phase !== "translating") return { ...state, followUps };
+	const translate = state.blocks.filter((b) => b.cls === "translate");
+	const allWaiting = translate.length > 0 && translate.every((b) => b.state === "waiting" || b.state === "failed");
+	const someWaiting = translate.some((b) => b.state === "waiting");
+	return {
+		...state,
+		followUps,
+		phase: allWaiting && someWaiting ? "error" : "done",
+		error: allWaiting && someWaiting ? "packMissing" : null,
+		progress: null,
+	};
+}
+
+function reducePackInstall(state: SnipPopupState, lang: LanguageCode, states: readonly InstallState[]): SnipPopupState {
+	const row = state.packs.find((p) => p.lang === lang);
+	if (!row) return state;
+	const view = packRowState(row, states);
+	if (view === "installed") {
+		return { ...state, packs: state.packs.filter((p) => p !== row) };
+	}
+	return { ...state, packs: state.packs.map((p) => (p === row ? view : p)) };
+}
+
+/** A row's state from its resources' install states: "installed" once every one is in. */
+export function packRowState(row: SnipPackRow, states: readonly InstallState[]): SnipPackRow | "installed" {
+	if (states.length > 0 && states.every((s) => s.status === "installed")) return "installed";
+	const failed = states.some((s) => s.status === "failed");
+	if (failed) return { ...row, state: "failed", received: null, total: null };
+	const busy = states.filter((s) => s.status !== "missing" && s.status !== "installed");
+	if (busy.length === 0)
+		return { ...row, state: row.state === "offline" ? "offline" : "missing", received: null, total: null };
+	let received = 0;
+	let total = 0;
+	for (const s of states) {
+		if (s.status !== "downloading") continue;
+		received += s.receivedBytes;
+		total += s.totalBytes;
+	}
+	const size = total > 0 ? total : row.bytes;
+	return { ...row, state: "downloading", received, total: size > 0 ? size : null };
+}
+
+const packRowOf = (p: PackRow): SnipPackRow => ({
+	lang: p.lang,
+	state: p.state,
+	bytes: p.bytes,
+	received: p.state === "downloading" && p.progress !== null && p.bytes > 0 ? Math.round(p.progress * p.bytes) : null,
+	total: p.state === "downloading" && p.bytes > 0 ? p.bytes : null,
+	resourceIds: p.resourceIds,
+	blockIds: p.segmentIds,
+});
 
 function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupState {
 	switch (event.type) {
@@ -179,8 +299,20 @@ function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupS
 				progress: total > 0 ? { done: 0, total } : null,
 			};
 		}
-		case "packs":
-			return state;
+		case "packs": {
+			const rows = [...state.packs];
+			for (const p of event.rows) {
+				const i = rows.findIndex((r) => r.lang === p.lang);
+				if (i >= 0) rows[i] = packRowOf(p);
+				else rows.push(packRowOf(p));
+			}
+			// Blocks named by a row wait for it.
+			const waiting = new Set(event.rows.flatMap((p) => p.segmentIds));
+			const blocks = state.blocks.map(
+				(b): SnipBlock => (waiting.has(b.id) && b.state === "pending" ? { ...b, state: "waiting" } : b),
+			);
+			return { ...state, packs: rows, blocks };
+		}
 		case "translation": {
 			const t = event.translation;
 			const blocks = state.blocks.map((b): SnipBlock => {
@@ -275,7 +407,9 @@ export type SnipStatus =
 	| { readonly kind: "none" }
 	| { readonly kind: "reading" }
 	| { readonly kind: "translating"; readonly done: number; readonly total: number }
-	| { readonly kind: "partial"; readonly done: number; readonly total: number };
+	| { readonly kind: "partial"; readonly done: number; readonly total: number }
+	/** Errors never touch the clipboard (§6). */
+	| { readonly kind: "clipboardUnchanged" };
 
 export function snipStatus(s: SnipPopupState): SnipStatus {
 	switch (s.phase) {
@@ -293,6 +427,6 @@ export function snipStatus(s: SnipPopupState): SnipStatus {
 				: { kind: "none" };
 		}
 		case "error":
-			return { kind: "none" };
+			return { kind: "clipboardUnchanged" };
 	}
 }

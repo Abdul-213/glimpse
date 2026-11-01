@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	type BlockClass,
+	clipboardText,
 	initialSnipState,
 	type LanguageCode,
 	languageCode,
@@ -266,5 +267,127 @@ describe("reduceSnip over the real pipeline (core fakes)", () => {
 		expect(statuses[0]).toBe("reading");
 		expect(statuses).toContain("translating");
 		expect(statuses.at(-1)).toBe("none");
+	});
+});
+
+describe("reduceSnip: packs, failures and follow-ups (GLIM-73)", () => {
+	const GREEK = [block("g1", 0, "Προσφορά", "el", "translate"), block("g2", 1, "Envío gratis", "es", "translate")];
+	const row = {
+		lang: L("el"),
+		state: "missing" as const,
+		resourceIds: ["bergamot-elen"],
+		bytes: 31_000_000,
+		progress: null,
+		segmentIds: ["g1"],
+	};
+	const withPack = () =>
+		fold([
+			started,
+			{ type: "recognised", runId: RUN, blocks: GREEK },
+			{ type: "packs", runId: RUN, rows: [row] },
+			translation("g2", "Free shipping"),
+			{ type: "done", runId: RUN, result: result({ blocks: GREEK }) },
+		]);
+
+	test("a pack row marks its blocks waiting; the row sits in state.packs", () => {
+		const s = withPack();
+		expect(s.packs).toMatchObject([{ lang: "el", state: "missing", bytes: 31_000_000, blockIds: ["g1"] }]);
+		expect(s.blocks[0]?.state).toBe("waiting");
+		expect(snipStatus(s)).toEqual({ kind: "partial", done: 1, total: 2 });
+	});
+
+	test("install progress: downloading with bytes, then the row disappears when installed", () => {
+		const s0 = withPack();
+		const s1 = reduceSnip(s0, {
+			type: "packInstall",
+			lang: L("el"),
+			states: [{ status: "downloading", receivedBytes: 12_000_000, totalBytes: 31_000_000 }],
+		});
+		expect(s1.packs[0]).toMatchObject({ state: "downloading", received: 12_000_000, total: 31_000_000 });
+		const s2 = reduceSnip(s1, {
+			type: "packInstall",
+			lang: L("el"),
+			states: [{ status: "installed", version: "1", bundled: false }],
+		});
+		expect(s2.packs).toEqual([]);
+		const s3 = reduceSnip(s1, {
+			type: "packInstall",
+			lang: L("el"),
+			states: [{ status: "failed", error: { kind: "network", message: "x" } }],
+		});
+		expect(s3.packs[0]?.state).toBe("failed");
+	});
+
+	test("follow-up: blocks go back to pending, translate in place, the run ends done", () => {
+		const s0 = withPack();
+		const s1 = reduceSnip(s0, { type: "followUp", phase: "start", blockIds: ["g1"] });
+		expect(s1.phase).toBe("translating");
+		expect(s1.blocks[0]?.state).toBe("pending");
+		const s2 = fold([translation("g1", "Free shipping offer", true, "el")], s1);
+		const s3 = reduceSnip(s2, { type: "followUp", phase: "end" });
+		expect(s3.phase).toBe("done");
+		expect(s3.error).toBeNull();
+		expect(s3.blocks.map((b) => b.state)).toEqual(["done", "done"]);
+	});
+
+	test("an E2 whose pack lands clears the error", () => {
+		const only = [GREEK[0] as RecognisedBlock];
+		const s0 = fold([
+			started,
+			{ type: "recognised", runId: RUN, blocks: only },
+			{ type: "packs", runId: RUN, rows: [row] },
+			{ type: "done", runId: RUN, result: result({ blocks: only, error: { kind: "packMissing", message: "" } }) },
+		]);
+		expect(s0.error).toBe("packMissing");
+		expect(snipStatus(s0)).toEqual({ kind: "clipboardUnchanged" });
+		const s1 = reduceSnip(s0, { type: "followUp", phase: "start", blockIds: ["g1"] });
+		expect(s1.error).toBeNull();
+		const s2 = reduceSnip(fold([translation("g1", "Offer", true, "el")], s1), { type: "followUp", phase: "end" });
+		expect(s2.phase).toBe("done");
+	});
+
+	test("Translate these promotes skipped blocks into the list", () => {
+		const s0 = fold([started, { type: "recognised", runId: RUN, blocks: MIXED }]);
+		const s1 = reduceSnip(s0, { type: "followUp", phase: "start", blockIds: ["e"], promote: true });
+		expect(s1.blocks[4]).toMatchObject({ cls: "translate", promoted: true, state: "pending" });
+		expect(skippedBlocks(s1)).toEqual([]);
+		expect(listedBlocks(s1).map((b) => b.id)).toEqual(["a", "b", "c", "d", "e"]);
+	});
+
+	test("a failed block keeps its source and its failure kind", () => {
+		const s = fold([
+			started,
+			{ type: "recognised", runId: RUN, blocks: MIXED },
+			{
+				type: "translation",
+				runId: RUN,
+				translation: {
+					blockId: "a",
+					text: "",
+					final: true,
+					failure: {
+						kind: "providerTimeout",
+						error: { code: "timeout", message: "t", retryable: true, providerId: null },
+					},
+					from: L("es"),
+					to: L("en"),
+					via: [],
+					provider: null,
+				},
+			},
+		]);
+		expect(s.blocks[0]).toMatchObject({
+			state: "failed",
+			failure: "providerTimeout",
+			source: "¿Nos vemos a las ocho?",
+		});
+	});
+});
+
+describe("clipboardText (snip-popup.md §6)", () => {
+	test("original: every non-skipped block's OCR text in reading order", () => {
+		const s = fold([started, { type: "recognised", runId: RUN, blocks: MIXED }]);
+		expect(clipboardText(s, "original")).toBe("¿Nos vemos a las ocho?\n12:45\nDanke dir!\nSee you");
+		expect(clipboardText(s, "original", "\r\n")).toBe("¿Nos vemos a las ocho?\r\n12:45\r\nDanke dir!\r\nSee you");
 	});
 });

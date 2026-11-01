@@ -9,7 +9,7 @@ import { createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
 import { snipViewInit } from "../../src/bun/windows/popup-init.ts";
 import { SnipPopup } from "../../src/views/popup/SnipPopup.tsx";
-import { SCENARIOS, scenarioMessage } from "./scenarios.ts";
+import { ALL_SCENARIOS as SCENARIOS, scenarioMessage } from "./scenarios.ts";
 
 const q = new URLSearchParams(location.search);
 const osParam = q.get("os") ?? "macos";
@@ -45,6 +45,8 @@ function Frame(props: { scenario: (typeof SCENARIOS)[number] }) {
 					resized: (_id, h) => setHeight(h),
 					dismiss: () => {},
 					skipped: () => {},
+					action: () => {},
+					retryBlock: () => {},
 				}}
 			/>
 		</div>

@@ -8,14 +8,17 @@
 // The window comes in through `PopupWindowPort` (Electrobun in windows/popup.ts, a fake in
 // tests and the Linux harness). No electrobun import here.
 import {
+	clipboardText,
 	type Display,
 	type FocusKeeper,
+	type InstallState,
 	initialSnipState,
 	type Logger,
 	type PipelineEvent,
 	type PipelineListener,
 	type Point,
 	placeSnipPopup,
+	type RecognisedBlock,
 	type Rect,
 	reduceSnip,
 	type SnipAction,
@@ -23,7 +26,12 @@ import {
 	type SnipPopupState,
 	snipPopupFrame,
 } from "@glimpse/core";
-import type { SnipDismissReason, SnipLayout, SnipStateMessage } from "../../shared/popup-rpc.ts";
+import type {
+	SnipDismissReason,
+	SnipLayout,
+	SnipStateMessage,
+	SnipAction as SnipViewAction,
+} from "../../shared/popup-rpc.ts";
 import { realScheduler, type Scheduler } from "./picker-controller.ts";
 
 /** Show the window anyway if the view hasn't reported `painted` by then (spec §8). */
@@ -46,10 +54,48 @@ export interface PopupWindowPort {
 	send(message: SnipStateMessage): void;
 }
 
-/** Runs one Snip through the pipeline (TranslationService.snip in the app). */
+/** Runs one Snip through the pipeline (TranslationService in the app). */
 export interface SnipRunner {
 	snip(rect: Rect, onEvent: PipelineListener, signal: AbortSignal, runId: string): Promise<unknown>;
+	/**
+	 * Translate already-recognised blocks with the same run id: Retry (`bypassCache`), a pack
+	 * that just landed, "Translate these" (`includeSkipped`). Optional: without it those
+	 * actions do nothing.
+	 */
+	translate?(
+		blocks: readonly RecognisedBlock[],
+		onEvent: PipelineListener,
+		signal: AbortSignal,
+		runId: string,
+		opts: { bypassCache?: boolean; includeSkipped?: boolean },
+	): Promise<unknown>;
 }
+
+/** Language-pack downloads (the app's TranslationPacks over the model manager). */
+export interface PackPort {
+	/** The user's consent: install these resources. */
+	download(resourceIds: readonly string[]): Promise<unknown>;
+	state(resourceId: string): InstallState;
+	subscribe(listener: (resourceId: string, state: InstallState) => void): () => void;
+}
+
+/** Plain-text clipboard writes (Electrobun `Utils.clipboardWriteText` in the app). */
+export interface ClipboardPort {
+	writeText(text: string): void;
+}
+
+/** Where the error actions lead (snip-popup.md §12): the picker, Settings, a URL. */
+export interface SnipActionTargets {
+	snipAgain(): void;
+	openSettings(section: "providers" | "languages" | "models"): void;
+	openExternal(url: string): void;
+}
+
+/** macOS Screen Recording pane (E4 "Open System Settings"). */
+export const SCREEN_RECORDING_SETTINGS_URL =
+	"x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
+/** E4 "Why does this happen?" (README section, GLIM-63/GLIM-78). */
+export const SCREEN_RECORDING_HELP_URL = "https://github.com/Abdul-213/glimpse#screen-recording-permission-macos";
 
 /** The results layer (picker overlays kept up under the popup). */
 export interface ResultsLayer {
@@ -68,6 +114,11 @@ export interface SnipPopupControllerDeps {
 	readonly runner: SnipRunner;
 	readonly focus: FocusKeeper;
 	readonly results?: ResultsLayer;
+	readonly packs?: PackPort;
+	readonly clipboard?: ClipboardPort;
+	/** Line ends for the clipboard: `\r\n` on Windows. */
+	readonly eol?: "\n" | "\r\n";
+	readonly targets?: SnipActionTargets;
 	readonly settings: () => SnipPopupSettings;
 	readonly log: Logger;
 	readonly pointer?: () => Point | null;
@@ -87,6 +138,8 @@ interface Request {
 	cancelBlur: (() => void) | null;
 	/** The user dragged the popup: it stays where it was dropped (spec §2.4). */
 	dragged: boolean;
+	/** The pipeline's blocks, for follow-up translation. */
+	recognised: readonly RecognisedBlock[];
 }
 
 let counter = 0;
@@ -100,9 +153,12 @@ export class SnipPopupController {
 	private readonly scheduler: Scheduler;
 	private readonly newId: () => string;
 
+	private readonly unsubscribePacks: (() => void) | null;
+
 	constructor(private readonly deps: SnipPopupControllerDeps) {
 		this.scheduler = deps.scheduler ?? realScheduler;
 		this.newId = deps.newId ?? defaultId;
+		this.unsubscribePacks = deps.packs?.subscribe((id) => this.onPackState(id)) ?? null;
 	}
 
 	get isOpen(): boolean {
@@ -147,6 +203,7 @@ export class SnipPopupController {
 			cancelPaintTimer: null,
 			cancelBlur: null,
 			dragged: false,
+			recognised: [],
 		};
 		this.request = request;
 		// Move (and size) the hidden window first, so it re-rasterises at the target display's
@@ -230,8 +287,127 @@ export class SnipPopupController {
 		this.close(reason);
 	}
 
+	/** An error-body or pack-row button (snip-popup.md §4.1, §12). */
+	action(requestId: string, action: SnipViewAction, lang?: string): void {
+		const r = this.current(requestId);
+		if (!r) return;
+		const t = this.deps.targets;
+		switch (action) {
+			case "close":
+				this.close("close");
+				return;
+			case "snipAgain":
+				// The picker takes over; focus goes back when it is cancelled or the next popup closes.
+				this.close("hotkey");
+				t?.snipAgain();
+				return;
+			case "download":
+				this.download(r, lang);
+				return;
+			case "copyOriginal":
+				this.writeClipboard(r, "original");
+				return;
+			case "retry":
+				this.followUp(
+					r,
+					r.state.blocks.filter((b) => b.cls === "translate" && b.state === "failed").map((b) => b.id),
+					{ bypassCache: true },
+				);
+				return;
+			case "checkKey":
+				t?.openSettings("providers");
+				return;
+			case "editSources":
+				t?.openSettings("languages");
+				return;
+			case "openSystemSettings":
+				t?.openExternal(SCREEN_RECORDING_SETTINGS_URL);
+				return;
+			case "why":
+				t?.openExternal(SCREEN_RECORDING_HELP_URL);
+				return;
+			case "translateSkipped":
+				this.followUp(
+					r,
+					r.state.blocks.filter((b) => b.cls === "skip" && b.lang).map((b) => b.id),
+					{ includeSkipped: true },
+				);
+				return;
+		}
+	}
+
+	/** "Retry" on one failed block (§2.2). */
+	retryBlock(requestId: string, blockId: string): void {
+		const r = this.current(requestId);
+		if (r) this.followUp(r, [blockId], { bypassCache: true });
+	}
+
 	dispose(): void {
 		if (this.request) this.close("replaced");
+		this.unsubscribePacks?.();
+	}
+
+	// ---- follow-ups: retry, packs, translate these ----
+
+	private followUp(
+		r: Request,
+		ids: readonly string[],
+		opts: { bypassCache?: boolean; includeSkipped?: boolean },
+	): void {
+		const translate = this.deps.runner.translate;
+		if (!translate || ids.length === 0) return;
+		const set = new Set(ids);
+		const blocks = r.recognised
+			.filter((b) => set.has(b.id))
+			.map((b) => (b.waitingForPack ? { ...b, waitingForPack: false } : b));
+		if (blocks.length === 0) return;
+		this.dispatch({ type: "followUp", phase: "start", blockIds: ids, promote: !!opts.includeSkipped });
+		const id = r.id;
+		translate
+			.call(this.deps.runner, blocks, (event) => this.onPipeline(id, event), r.abort.signal, id, opts)
+			.catch((error) => {
+				if (!r.abort.signal.aborted) this.deps.log.warn("snip follow-up failed", { error });
+			})
+			.finally(() => {
+				if (this.current(id)) this.dispatch({ type: "followUp", phase: "end" });
+			});
+	}
+
+	private download(r: Request, lang: string | undefined): void {
+		const packs = this.deps.packs;
+		if (!packs) return;
+		const rows = r.state.packs.filter((p) => (lang ? p.lang === lang : true) && p.state !== "downloading");
+		for (const row of rows) {
+			this.deps.log.info("pack download requested", { lang: row.lang, resources: row.resourceIds.length });
+			packs.download(row.resourceIds).catch((error) => this.deps.log.warn("pack download failed", { error }));
+			this.dispatch({ type: "packInstall", lang: row.lang, states: row.resourceIds.map((id) => packs.state(id)) });
+		}
+	}
+
+	private onPackState(resourceId: string): void {
+		const r = this.request;
+		const packs = this.deps.packs;
+		if (!r || !packs) return;
+		const row = r.state.packs.find((p) => p.resourceIds.includes(resourceId));
+		if (!row) return;
+		this.dispatch({ type: "packInstall", lang: row.lang, states: row.resourceIds.map((id) => packs.state(id)) });
+		// Installed: the row is gone; its blocks translate in place.
+		if (!this.request?.state.packs.some((p) => p.lang === row.lang)) {
+			const waiting = r.state.blocks.filter((b) => b.state === "waiting" && b.lang === row.lang).map((b) => b.id);
+			this.followUp(r, waiting.length > 0 ? waiting : row.blockIds, {});
+		}
+	}
+
+	private writeClipboard(r: Request, what: "translation" | "original"): boolean {
+		const text = clipboardText(r.state, what, this.deps.eol ?? "\n");
+		if (!this.deps.clipboard || text.length === 0) return false;
+		try {
+			this.deps.clipboard.writeText(text);
+			return true;
+		} catch (error) {
+			this.deps.log.warn("clipboard write failed", { error });
+			return false;
+		}
 	}
 
 	// ---- internals ----
@@ -251,7 +427,9 @@ export class SnipPopupController {
 	}
 
 	private onPipeline(requestId: string, event: PipelineEvent): void {
-		if (!this.current(requestId)) return;
+		const r = this.current(requestId);
+		if (!r) return;
+		if (event.type === "recognised") r.recognised = event.blocks;
 		this.dispatch({ type: "pipeline", event });
 		if (event.type === "done") {
 			const res = event.result;
