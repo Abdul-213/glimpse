@@ -252,7 +252,13 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   provider context (`AppProviderContext`); `services/translation/translation-service.ts`
   (`TranslationService`) creates the configured providers after the model scan, runs `init()` +
   `warmup()` in the background, owns the pipeline, the caches and Private, and backs the
-  `cache.clear` and `private.toggle` commands. Snip and Live call `translation.snip()` /
+  `cache.clear` and `private.toggle` commands. Settings changes reach it through
+  `AppSettings.subscribe` → `applySettings(next, previous)` (GLIM-108): a changed provider
+  selection, order or options rebuilds only the providers whose (id, options) changed and
+  disposes dropped ones; new languages update open Live sessions (`setSources` drops the
+  detection memo, `setTarget`) and re-warm the chain; the idle-wipe minutes go to the caches.
+  Snip reads target and sources per call. Live params (fps, diff threshold, stability) belong
+  to the Live loop (GLIM-58/59), which reads them from `AppSettings`. Snip and Live call `translation.snip()` /
   `translation.openLive()`.
 - **Live:** `LivePipelineSession` feeds settled frames through `run`, latest frame wins (the
   older run is dropped, but only cancelled after the newer one has joined the sentences they

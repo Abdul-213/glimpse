@@ -4,6 +4,11 @@
 //
 // - `start()` creates the configured providers from the registry, then `init()` + `warmup()`
 //   each one in the background (a slow pack load never blocks startup). Statuses are logged.
+// - `applySettings()` (GLIM-108) takes settings changes without a restart: a new provider
+//   selection, order or options rebuilds only the providers whose (id, options) changed (the
+//   others, with their loaded models, are kept) and disposes the dropped ones; new
+//   languages re-warm the chain and update open Live sessions; the idle-wipe minutes go to the
+//   caches. Snip reads target and sources per call, so the next Snip uses them.
 // - `snip()` / `openLive()` run the pipeline with the cache Private mode asks for.
 // - `clearCache()` is the `cache.clear` command; `setPrivate()` the `private.toggle` command.
 // - A timer calls `caches.tick()` (idle wipe, sleep wipe).
@@ -26,6 +31,7 @@ import {
 	type Rect,
 	type Settings,
 	sameLanguage,
+	stableStringify,
 	TranslationCaches,
 	TranslationPipeline,
 	type TranslationProvider,
@@ -60,9 +66,11 @@ export class TranslationService<Ctx> {
 	readonly #sessions = new Set<LivePipelineSession>();
 	#ocr: OcrProvider | null = null;
 	#chain: TranslationProvider[] = [];
+	/** Live providers by instance: what built them (`id|options`) and their status listener. */
+	readonly #built = new Map<OcrProvider | TranslationProvider, { readonly key: string; readonly off: () => void }>();
+	#started = false;
 	#private: boolean;
 	#ticker: ReturnType<typeof setInterval> | null = null;
-	#unsubscribe: (() => void)[] = [];
 
 	constructor(options: TranslationServiceOptions<Ctx>) {
 		this.#opts = options;
@@ -101,29 +109,117 @@ export class TranslationService<Ctx> {
 	 * finished `init()` (and `warmup()` when ready); never rejects.
 	 */
 	async start(signal?: AbortSignal): Promise<void> {
-		const created = this.#opts.registry.create(this.#opts.settings().providers, this.#opts.ctx);
-		for (const issue of created.issues) this.#log.warn("provider config", { issue });
-		this.#ocr = created.ocr;
-		this.#chain = created.translation;
-		const all = [...(created.ocr ? [created.ocr] : []), ...created.translation];
-		if (!created.ocr) this.#log.info("no OCR provider installed yet; Snip reports ocrFailed");
-		await Promise.all(all.map((p) => this.#load(p, signal)));
+		this.#started = true;
+		await this.#build(this.#opts.settings().providers, signal);
+	}
+
+	/**
+	 * Build the providers for `config`, reusing every current one built from the same id and
+	 * options; swap them in at once (the next run uses them), dispose what is no longer
+	 * selected, and load the new ones. Resolves when the new ones are loaded; never rejects.
+	 */
+	async #build(config: Settings["providers"], signal?: AbortSignal): Promise<void> {
+		const { registry, ctx } = this.#opts;
+		const selection = registry.resolve(config);
+		for (const issue of selection.issues) this.#log.warn("provider config", { issue });
+		const reusable = new Map<string, OcrProvider | TranslationProvider>();
+		for (const [provider, { key }] of this.#built) reusable.set(key, provider);
+		const fresh: (OcrProvider | TranslationProvider)[] = [];
+		const take = <P extends OcrProvider | TranslationProvider>(resolved: {
+			readonly factory: { readonly info: { readonly id: string }; create(o: unknown, c: Ctx): P };
+			readonly options: unknown;
+		}): P => {
+			const key = `${resolved.factory.info.id}|${stableStringify(resolved.options)}`;
+			const existing = reusable.get(key);
+			if (existing) {
+				reusable.delete(key);
+				return existing as P;
+			}
+			const created = resolved.factory.create(resolved.options, ctx);
+			this.#built.set(created, { key, off: this.#watch(created) });
+			fresh.push(created);
+			return created;
+		};
+		const ocr = selection.ocr ? take(selection.ocr) : null;
+		const chain = selection.translation.map((t) => take(t));
+		this.#ocr = ocr;
+		this.#chain = chain;
+		if (!ocr) this.#log.info("no OCR provider installed yet; Snip reports ocrFailed");
+		// What's left wasn't selected again. A run already using one may fail; the next uses the new set.
+		const dropped = [...reusable.values()];
+		for (const p of dropped) {
+			this.#built.get(p)?.off();
+			this.#built.delete(p);
+		}
+		if (dropped.length > 0 || fresh.length > 0) {
+			this.#log.info("providers", {
+				ocr: ocr?.info.id ?? null,
+				chain: chain.map((p) => p.info.id),
+				created: fresh.map((p) => p.info.id),
+				disposed: dropped.map((p) => p.info.id),
+			});
+		}
+		await Promise.all([
+			...dropped.map((p) =>
+				p
+					.dispose()
+					.catch((error: unknown) => this.#log.warn("provider dispose failed", { provider: p.info.id, error })),
+			),
+			...fresh.map((p) => this.#load(p, signal)),
+		]);
+	}
+
+	#watch(provider: OcrProvider | TranslationProvider): () => void {
+		const id = provider.info.id;
+		return provider.onStatusChange((status) =>
+			this.#log.info("provider status", { provider: id, ...describe(status) }),
+		);
+	}
+
+	/**
+	 * Settings changed (AppSettings.subscribe). Returns once new providers are loaded and the
+	 * chain is re-warmed; the change itself applies synchronously. Never rejects.
+	 */
+	async applySettings(next: Settings, previous: Settings): Promise<void> {
+		if (next.privacy.clearCacheAfterIdleMinutes !== previous.privacy.clearCacheAfterIdleMinutes) {
+			this.caches.setIdleMinutes(next.privacy.clearCacheAfterIdleMinutes);
+		}
+		const { target, sources } = next.language;
+		const targetChanged = !sameLanguage(target, previous.language.target);
+		const sourcesChanged = stableStringify(sources) !== stableStringify(previous.language.sources);
+		for (const session of this.#sessions) {
+			if (sourcesChanged) session.setSources(sources);
+			if (targetChanged) session.setTarget(target);
+		}
+		const work: Promise<void>[] = [];
+		const providersChanged = stableStringify(next.providers) !== stableStringify(previous.providers);
+		if (this.#started && providersChanged) work.push(this.#build(next.providers));
+		// New pairs: warm the providers that stay (new ones warm as they load).
+		if (this.#started && (targetChanged || sourcesChanged)) {
+			const ready = this.#chain.filter((p) => p.status.state === "ready" && p.warmup);
+			work.push(...ready.map((p) => this.#warm(p)));
+		}
+		await Promise.all(work);
+	}
+
+	async #warm(provider: OcrProvider | TranslationProvider, signal?: AbortSignal): Promise<void> {
+		if (!provider.warmup) return;
+		const t1 = performance.now();
+		try {
+			await provider.warmup(signal);
+			this.#log.info("provider warm", { provider: provider.info.id, ms: Math.round(performance.now() - t1) });
+		} catch (error) {
+			this.#log.warn("provider warmup failed", { provider: provider.info.id, error });
+		}
 	}
 
 	async #load(provider: OcrProvider | TranslationProvider, signal?: AbortSignal): Promise<void> {
 		const id = provider.info.id;
-		this.#unsubscribe.push(
-			provider.onStatusChange((status) => this.#log.info("provider status", { provider: id, ...describe(status) })),
-		);
 		try {
 			const t0 = performance.now();
 			const status = await provider.init(signal);
 			this.#log.info("provider init", { provider: id, ms: Math.round(performance.now() - t0), ...describe(status) });
-			if (status.state === "ready" && provider.warmup) {
-				const t1 = performance.now();
-				await provider.warmup(signal);
-				this.#log.info("provider warm", { provider: id, ms: Math.round(performance.now() - t1) });
-			}
+			if (status.state === "ready") await this.#warm(provider, signal);
 		} catch (error) {
 			this.#log.warn("provider failed to start", { provider: id, error });
 		}
@@ -189,10 +285,13 @@ export class TranslationService<Ctx> {
 		if (this.#ticker) clearInterval(this.#ticker);
 		this.#ticker = null;
 		for (const session of [...this.#sessions]) session.close();
-		for (const off of this.#unsubscribe) off();
-		this.#unsubscribe = [];
+		const all = [...this.#built.keys()];
+		for (const { off } of this.#built.values()) off();
+		this.#built.clear();
+		this.#ocr = null;
+		this.#chain = [];
 		this.caches.clear("session-end");
-		await Promise.all([...(this.#ocr ? [this.#ocr] : []), ...this.#chain].map((p) => p.dispose()));
+		await Promise.all(all.map((p) => p.dispose()));
 	}
 }
 
