@@ -7,6 +7,15 @@
 //                         complete frame is kept; idle frames (screen unchanged) keep
 //                         the sequence number still.
 //
+// Off the Bun worker (GLIM-97): glim_capture_shot_async and glim_capture_stream_open_async
+// copy their arguments, run the blocking call on a helper-owned concurrent queue and report
+// (token, status, value) through the callback set with glim_capture_async_init (a JSCallback
+// with threadsafe: true). The caller keeps the output buffer alive until then; nothing is
+// written to it after the callback, even when SCK completes after a timeout. Stream reads
+// never wait (GLIM_E_NO_FRAME until the first frame; the async open already waits for it),
+// stream close stops the SCStream on the queue, and exclusion-list updates refilter running
+// streams there too (failures come back with token 0).
+//
 // Exclusion: every filter excludes this process's SCRunningApplication when SCK lists it
 // (covers every Glimpse window, including ones created later). Otherwise it excludes, by
 // SCWindow, every window owned by this pid plus the ids passed to
@@ -271,47 +280,134 @@ static NSMutableDictionary<NSNumber *, GlimStream *> *glim_streams(void) {
 }
 static uint64_t g_next_handle = 1;
 
+// ---- helper queue and completion callback (GLIM-97) -------------------------
+
+// (token, status, value): value is the stream handle for stream_open_async, else 0.
+typedef void (*glim_capture_done_cb)(int32_t token, int32_t status, int32_t value);
+static glim_capture_done_cb g_done_cb = NULL;
+
+// Arrays can't be captured by blocks; structs holding them are copied.
+typedef struct {
+  double v[4];
+} glim_rect4;
+typedef struct {
+  int32_t v[4];
+} glim_irect4;
+
+static dispatch_queue_t glim_work_queue(void) {
+  static dispatch_queue_t queue;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    dispatch_queue_attr_t attr =
+        dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_CONCURRENT, QOS_CLASS_USER_INITIATED, 0);
+    queue = dispatch_queue_create("dev.glimpse.capture.work", attr);
+  });
+  return queue;
+}
+
+static NSMutableDictionary<NSNumber *, NSString *> *glim_async_errors(void) {
+  static NSMutableDictionary *errors;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    errors = [NSMutableDictionary dictionary];
+  });
+  return errors;
+}
+
+// On the helper queue: keep this thread's error text for the token, then call back.
+static void glim_async_done(int32_t token, int32_t status, int32_t value) {
+  if (status != GLIM_OK) {
+    char text[1024];
+    glim_last_error(text, sizeof text);
+    NSString *s = [NSString stringWithUTF8String:text] ?: @"";
+    @synchronized(glim_async_errors()) {
+      glim_async_errors()[@(token)] = s;
+    }
+  }
+  glim_capture_done_cb cb = g_done_cb;
+  if (cb) cb(token, status, value);
+}
+
 // ---- C ABI ----------------------------------------------------------------
 
-// The CGWindowIDs of every open Glimpse window. Running streams get an updated filter.
+// Set the completion callback for the *_async calls (once; later calls replace it).
+GLIM_EXPORT int32_t glim_capture_async_init(glim_capture_done_cb cb) {
+  if (!cb) {
+    glim_set_error("null completion callback");
+    return GLIM_E_ARGS;
+  }
+  g_done_cb = cb;
+  return GLIM_OK;
+}
+
+// The error text of a failed async call (removed once read). Same buffer convention as
+// glim_last_error.
+GLIM_EXPORT int32_t glim_capture_take_error(int32_t token, char *buf, int32_t cap) {
+  NSString *s = nil;
+  @synchronized(glim_async_errors()) {
+    s = glim_async_errors()[@(token)];
+    [glim_async_errors() removeObjectForKey:@(token)];
+  }
+  return glim_copy_out(s.UTF8String, buf, cap);
+}
+
+// Caller holds the state lock. Gives every running stream a filter for the current list.
+static int32_t glim_refilter_streams(void) {
+  NSArray<GlimStream *> *streams = glim_streams().allValues;
+  if (streams.count == 0) return GLIM_OK;
+  int32_t result = GLIM_OK;
+  for (GlimStream *gs in streams) {
+    int32_t status = GLIM_OK;
+    SCContentFilter *filter = glim_filter_for(gs.displayID, &status);
+    if (!filter) {
+      result = status;
+      continue;
+    }
+    __block NSError *error = nil;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    [gs.stream updateContentFilter:filter
+                 completionHandler:^(NSError *e) {
+                   error = e;
+                   dispatch_semaphore_signal(sem);
+                 }];
+    if (!glim_wait(sem, kStopTimeout)) {
+      glim_set_error("SCStream updateContentFilter timed out");
+      result = GLIM_E_TIMEOUT;
+    } else if (error) {
+      result = glim_status_for(error, "SCStream updateContentFilter");
+    }
+  }
+  return result;
+}
+
+// The CGWindowIDs of every open Glimpse window. Returns at once; running streams get an
+// updated filter on the helper queue (a failure is reported with token 0).
 GLIM_EXPORT int32_t glim_capture_set_excluded_windows(const uint32_t *ids, int32_t count) {
   if (count < 0 || (count > 0 && !ids)) {
     glim_set_error("bad window id list");
     return GLIM_E_ARGS;
   }
+  BOOL running = NO;
   @autoreleasepool {
     @synchronized(glim_state_lock()) {
       NSMutableSet *set = [NSMutableSet setWithCapacity:(NSUInteger)count];
       for (int32_t i = 0; i < count; i++) [set addObject:@(ids[i])];
       g_excluded = set;
       g_content_stale = YES;
-      NSArray<GlimStream *> *streams = glim_streams().allValues;
-      if (streams.count == 0) return GLIM_OK;
-      int32_t result = GLIM_OK;
-      for (GlimStream *gs in streams) {
-        int32_t status = GLIM_OK;
-        SCContentFilter *filter = glim_filter_for(gs.displayID, &status);
-        if (!filter) {
-          result = status;
-          continue;
-        }
-        __block NSError *error = nil;
-        dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-        [gs.stream updateContentFilter:filter
-                     completionHandler:^(NSError *e) {
-                       error = e;
-                       dispatch_semaphore_signal(sem);
-                     }];
-        if (!glim_wait(sem, kStopTimeout)) {
-          glim_set_error("SCStream updateContentFilter timed out");
-          result = GLIM_E_TIMEOUT;
-        } else if (error) {
-          result = glim_status_for(error, "SCStream updateContentFilter");
-        }
-      }
-      return result;
+      running = glim_streams().count > 0;
     }
   }
+  if (!running) return GLIM_OK;
+  dispatch_async(glim_work_queue(), ^{
+    @autoreleasepool {
+      int32_t r = GLIM_OK;
+      @synchronized(glim_state_lock()) {
+        r = glim_refilter_streams();
+      }
+      if (r != GLIM_OK) glim_async_done(0, r, 0);
+    }
+  });
+  return GLIM_OK;
 }
 
 // One-shot capture of src = {x, y, width, height} (display-local points) on displayID
@@ -406,7 +502,8 @@ GLIM_EXPORT int32_t glim_capture_stream_open(uint32_t displayID, const double *s
 }
 
 // Copy the stream's latest frame into dest of `out` (dest size must match the stream's).
-// Waits up to 1 s for the first frame. *seqOut stays the same while the screen is idle.
+// Never waits: GLIM_E_NO_FRAME until the first frame is there (glim_capture_stream_open_async
+// waits up to 1 s for it on the helper queue). *seqOut stays the same while the screen is idle.
 GLIM_EXPORT int32_t glim_capture_stream_read(uint64_t handle, const int32_t *dest, uint8_t *out, int32_t stride,
                                              uint64_t len, uint64_t *seqOut) {
   if (!out || !glim_dest_ok(dest, stride, len)) {
@@ -425,27 +522,84 @@ GLIM_EXPORT int32_t glim_capture_stream_read(uint64_t handle, const int32_t *des
     glim_set_error("dest %dx%d does not match stream %dx%d", dest[2], dest[3], gs.width, gs.height);
     return GLIM_E_ARGS;
   }
-  NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:kFirstFrameTimeout];
-  for (;;) {
-    CVPixelBufferRef pb = NULL;
-    uint64_t seq = 0;
-    int32_t stop = [gs latest:&pb seq:&seq];
-    if (pb) {
-      int32_t r = glim_blit(pb, out, stride, dest[0], dest[1], dest[2], dest[3]);
-      CVPixelBufferRelease(pb);
-      if (seqOut) *seqOut = seq;
-      return r;
-    }
-    if (stop != 0) {
-      glim_set_error("SCStream stopped (%d)", stop);
-      return stop;
-    }
-    if ([deadline timeIntervalSinceNow] < 0) {
-      glim_set_error("SCStream: no frame within %.0f s", kFirstFrameTimeout);
-      return GLIM_E_NO_FRAME;
-    }
-    usleep(2000);
+  CVPixelBufferRef pb = NULL;
+  uint64_t seq = 0;
+  int32_t stop = [gs latest:&pb seq:&seq];
+  if (pb) {
+    int32_t r = glim_blit(pb, out, stride, dest[0], dest[1], dest[2], dest[3]);
+    CVPixelBufferRelease(pb);
+    if (seqOut) *seqOut = seq;
+    return r;
   }
+  if (stop != 0) {
+    glim_set_error("SCStream stopped (%d)", stop);
+    return stop;
+  }
+  glim_set_error("SCStream: no frame yet");
+  return GLIM_E_NO_FRAME;
+}
+
+// glim_capture_shot on the helper queue: returns at once (GLIM_OK, or GLIM_E_ARGS for bad
+// arguments, which are checked here); the result arrives as (token, status, 0). `out` must
+// stay alive and untouched by the caller until then. src and dest are copied.
+GLIM_EXPORT int32_t glim_capture_shot_async(int32_t token, uint32_t displayID, const double *src, const int32_t *dest,
+                                            uint8_t *out, int32_t stride, uint64_t len) {
+  if (!g_done_cb) {
+    glim_set_error("glim_capture_async_init was not called");
+    return GLIM_E_ARGS;
+  }
+  if (!src || !out || !glim_dest_ok(dest, stride, len) || !(src[2] > 0) || !(src[3] > 0)) {
+    glim_set_error("bad geometry or output buffer");
+    return GLIM_E_ARGS;
+  }
+  glim_rect4 s = {{src[0], src[1], src[2], src[3]}};
+  glim_irect4 d = {{dest[0], dest[1], dest[2], dest[3]}};
+  dispatch_async(glim_work_queue(), ^{
+    int32_t r = glim_capture_shot(displayID, s.v, d.v, out, stride, len);
+    glim_async_done(token, r, 0);
+  });
+  return GLIM_OK;
+}
+
+// glim_capture_stream_open on the helper queue, then up to 1 s for the first frame. The
+// result arrives as (token, status, handle). src is copied.
+GLIM_EXPORT int32_t glim_capture_stream_open_async(int32_t token, uint32_t displayID, const double *src, int32_t width,
+                                                   int32_t height, int32_t fps) {
+  if (!g_done_cb) {
+    glim_set_error("glim_capture_async_init was not called");
+    return GLIM_E_ARGS;
+  }
+  if (!src || width <= 0 || height <= 0 || fps <= 0 || !(src[2] > 0) || !(src[3] > 0)) {
+    glim_set_error("bad stream parameters");
+    return GLIM_E_ARGS;
+  }
+  glim_rect4 s = {{src[0], src[1], src[2], src[3]}};
+  dispatch_async(glim_work_queue(), ^{
+    @autoreleasepool {
+      uint64_t handle = 0;
+      int32_t r = glim_capture_stream_open(displayID, s.v, width, height, fps, &handle);
+      if (r == GLIM_OK) {
+        GlimStream *gs = nil;
+        @synchronized(glim_state_lock()) {
+          gs = glim_streams()[@(handle)];
+        }
+        NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:kFirstFrameTimeout];
+        while (gs && [deadline timeIntervalSinceNow] > 0) {
+          CVPixelBufferRef pb = NULL;
+          uint64_t seq = 0;
+          int32_t stop = [gs latest:&pb seq:&seq];
+          if (pb) {
+            CVPixelBufferRelease(pb);
+            break;
+          }
+          if (stop != 0) break;
+          usleep(2000);
+        }
+      }
+      glim_async_done(token, r, r == GLIM_OK ? (int32_t)handle : 0);
+    }
+  });
+  return GLIM_OK;
 }
 
 // Copy a size x size px patch with top-left (x, y) in the stream's output pixels from
@@ -510,6 +664,7 @@ GLIM_EXPORT int32_t glim_capture_stream_sample(uint64_t handle, int32_t x, int32
   return r;
 }
 
+// Forget the stream at once; SCStream stopCapture (up to 2 s) runs on the helper queue.
 GLIM_EXPORT int32_t glim_capture_stream_close(uint64_t handle) {
   GlimStream *gs = nil;
   @synchronized(glim_state_lock()) {
@@ -517,7 +672,11 @@ GLIM_EXPORT int32_t glim_capture_stream_close(uint64_t handle) {
     [glim_streams() removeObjectForKey:@(handle)];
   }
   if (!gs) return GLIM_OK;
-  [gs stop];
+  dispatch_async(glim_work_queue(), ^{
+    @autoreleasepool {
+      [gs stop];
+    }
+  });
   return GLIM_OK;
 }
 

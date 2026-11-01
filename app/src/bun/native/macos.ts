@@ -22,22 +22,25 @@ const symbols = {
 	glim_window_number: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
 	glim_window_set_sharing: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
 	glim_capture_set_excluded_windows: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
-	// displayID, src f64[4] (local points), dest i32[4] (px), out, stride, len
-	glim_capture_shot: {
-		args: [FFIType.u32, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.i32, FFIType.u64],
-		returns: FFIType.i32,
-	},
-	// displayID, src f64[4], width, height, fps, handleOut
-	glim_capture_stream_open: {
-		args: [FFIType.u32, FFIType.ptr, FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr],
-		returns: FFIType.i32,
-	},
 	// handle, dest i32[4], out, stride, len, seqOut
 	glim_capture_stream_read: {
 		args: [FFIType.u64, FFIType.ptr, FFIType.ptr, FFIType.i32, FFIType.u64, FFIType.ptr],
 		returns: FFIType.i32,
 	},
 	glim_capture_stream_close: { args: [FFIType.u64], returns: FFIType.i32 },
+	// GLIM-97: shot and stream start off the Bun worker (glim_capture_shot / _stream_open run on
+	// the helper queue). token, displayID, src f64[4] (local points), dest i32[4] (px), out, stride, len
+	glim_capture_async_init: { args: [FFIType.function], returns: FFIType.i32 },
+	glim_capture_take_error: { args: [FFIType.i32, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	glim_capture_shot_async: {
+		args: [FFIType.i32, FFIType.u32, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.i32, FFIType.u64],
+		returns: FFIType.i32,
+	},
+	// token, displayID, src, width, height, fps
+	glim_capture_stream_open_async: {
+		args: [FFIType.i32, FFIType.u32, FFIType.ptr, FFIType.i32, FFIType.i32, FFIType.i32],
+		returns: FFIType.i32,
+	},
 	glim_capture_reset: { args: [], returns: FFIType.void },
 	glim_capture_preflight: { args: [], returns: FFIType.i32 },
 	glim_capture_displays_json: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
@@ -89,19 +92,34 @@ export interface MacNativeDisplay {
 /** Opaque handle of a running SCStream. */
 export type StreamHandle = bigint;
 
-/** What the macOS capture service needs from libglimpse.dylib. Faked in tests. */
+/**
+ * What the macOS capture service needs from libglimpse.dylib. Faked in tests.
+ *
+ * GLIM-97: nothing here blocks the Bun worker on ScreenCaptureKit. `shot` and `streamOpen`
+ * run on the helper's own queue and settle through a threadsafe callback; `streamRead`
+ * copies the newest frame without waiting; `streamClose` and the stream refilter after
+ * `setExcludedWindows` finish on the helper queue.
+ */
 export interface MacCaptureBinding {
 	readonly status: NativeStatus;
 	/** Screen Recording granted to this process (CGPreflightScreenCaptureAccess; never prompts). */
 	preflight(): boolean;
 	/** CoreGraphics' display list (the harness uses it; the app uses Electrobun's Screen). */
 	displays(): MacNativeDisplay[];
+	/** Returns at once; running streams are refiltered in the background (failures: `onBackgroundError`). */
 	setExcludedWindows(windowIds: readonly number[]): void;
-	/** One-shot capture of `source` (display-local points) into `dest` of `out`. Throws CaptureError. */
-	shot(displayId: number, source: Rect, dest: Rect, out: RgbaImage): void;
-	streamOpen(displayId: number, source: Rect, width: number, height: number, fps: number): StreamHandle;
-	/** Latest frame of the stream into `dest` of `out`; returns its sequence. Throws CaptureError. */
+	/** Failures of background work (the stream refilter). One listener; null removes it. */
+	onBackgroundError(listener: ((error: unknown) => void) | null): void;
+	/** One-shot capture of `source` (display-local points) into `dest` of `out`. Rejects with a CaptureError. */
+	shot(displayId: number, source: Rect, dest: Rect, out: RgbaImage): Promise<void>;
+	/** Start a stream; resolves once it runs and its first frame arrived (or 1 s passed). Rejects with a CaptureError. */
+	streamOpen(displayId: number, source: Rect, width: number, height: number, fps: number): Promise<StreamHandle>;
+	/**
+	 * Latest frame of the stream into `dest` of `out`; returns its sequence. Never waits:
+	 * throws a `temporarily-unavailable` CaptureError until the first frame is there.
+	 */
 	streamRead(handle: StreamHandle, dest: Rect, out: RgbaImage): number;
+	/** Returns at once; the SCStream stops on the helper queue. */
 	streamClose(handle: StreamHandle): void;
 	reset(): void;
 }
@@ -165,7 +183,14 @@ class LibGlimpse
 {
 	private hotkeyCallback: JSCallback | null = null;
 	private sessionCallback: JSCallback | null = null;
-	private readonly src = new Float64Array(4);
+	/** GLIM-97 completion callback for the *_async calls; never closed (the helper may call it late). */
+	private asyncCallback: JSCallback | null = null;
+	private readonly pending = new Map<
+		number,
+		{ resolve: (value: number) => void; reject: (error: unknown) => void; what: string; keep: unknown }
+	>();
+	private nextToken = 1;
+	private backgroundError: ((error: unknown) => void) | null = null;
 	private readonly dest = new Int32Array(4);
 	private readonly u32 = new Uint32Array(1);
 	private readonly i32 = new Int32Array(1);
@@ -195,37 +220,102 @@ class LibGlimpse
 	}
 
 	setExcludedWindows(windowIds: readonly number[]): void {
+		this.ensureAsync();
 		const ids = Uint32Array.from(windowIds.filter((id) => id > 0));
 		const r = this.sym.glim_capture_set_excluded_windows(ids.length > 0 ? ptr(ids) : null, ids.length);
 		if (r !== 0) this.fail("updating the capture exclusion list", r);
 	}
 
-	shot(displayId: number, source: Rect, dest: Rect, out: RgbaImage): void {
-		this.src.set([source.x, source.y, source.width, source.height]);
-		this.dest.set([dest.x, dest.y, dest.width, dest.height]);
-		const r = this.sym.glim_capture_shot(
-			displayId >>> 0,
-			ptr(this.src),
-			ptr(this.dest),
-			ptr(out.data),
-			out.width * 4,
-			BigInt(out.data.length),
-		);
-		if (r !== 0) this.fail("ScreenCaptureKit screenshot", r);
+	onBackgroundError(listener: ((error: unknown) => void) | null): void {
+		this.backgroundError = listener;
 	}
 
-	streamOpen(displayId: number, source: Rect, width: number, height: number, fps: number): StreamHandle {
-		this.src.set([source.x, source.y, source.width, source.height]);
-		const r = this.sym.glim_capture_stream_open(
-			displayId >>> 0,
-			ptr(this.src),
-			width,
-			height,
-			Math.max(1, Math.round(fps)),
-			ptr(this.u64),
+	/** Install the completion callback once. Runs on a helper queue thread; threadsafe queues it here. */
+	private ensureAsync(): void {
+		if (this.asyncCallback) return;
+		const cb = new JSCallback((token: number, status: number, value: number) => this.complete(token, status, value), {
+			args: [FFIType.i32, FFIType.i32, FFIType.i32],
+			returns: FFIType.void,
+			threadsafe: true,
+		});
+		const r = this.sym.glim_capture_async_init(cb);
+		if (r !== 0) {
+			cb.close();
+			this.fail("installing the capture completion callback", r);
+		}
+		this.asyncCallback = cb;
+	}
+
+	private takeError(token: number): string {
+		return readNativeString((b, c) => this.sym.glim_capture_take_error(token, ptr(b), c), 1024);
+	}
+
+	private complete(token: number, status: number, value: number): void {
+		if (token === 0) {
+			if (status !== 0) {
+				this.backgroundError?.(captureErrorFor("macos", "refiltering the streams", status, this.takeError(0)));
+			}
+			return;
+		}
+		const p = this.pending.get(token);
+		if (!p) return;
+		this.pending.delete(token);
+		if (status === 0) p.resolve(value);
+		else p.reject(captureErrorFor("macos", p.what, status, this.takeError(token)));
+	}
+
+	/** Start an async helper call with a fresh token; settles from `complete`. `keep` stays reachable until then. */
+	private async(what: string, keep: unknown, start: (token: number) => number): Promise<number> {
+		this.ensureAsync();
+		const token = this.nextToken;
+		this.nextToken = this.nextToken >= 0x7fff_ffff ? 1 : this.nextToken + 1;
+		return new Promise<number>((resolve, reject) => {
+			this.pending.set(token, { resolve, reject, what, keep });
+			const r = start(token);
+			if (r !== 0) {
+				this.pending.delete(token);
+				reject(
+					captureErrorFor(
+						"macos",
+						what,
+						r,
+						readNativeString((b, c) => this.sym.glim_last_error(ptr(b), c), 1024),
+					),
+				);
+			}
+		});
+	}
+
+	async shot(displayId: number, source: Rect, dest: Rect, out: RgbaImage): Promise<void> {
+		// The helper copies src / dest before returning; `out` must live until the callback.
+		const src = Float64Array.of(source.x, source.y, source.width, source.height);
+		const d = Int32Array.of(dest.x, dest.y, dest.width, dest.height);
+		await this.async("ScreenCaptureKit screenshot", out.data, (token) =>
+			this.sym.glim_capture_shot_async(
+				token,
+				displayId >>> 0,
+				ptr(src),
+				ptr(d),
+				ptr(out.data),
+				out.width * 4,
+				BigInt(out.data.length),
+			),
 		);
-		if (r !== 0) this.fail("starting the ScreenCaptureKit stream", r);
-		return this.u64[0] ?? 0n;
+	}
+
+	async streamOpen(displayId: number, source: Rect, width: number, height: number, fps: number): Promise<StreamHandle> {
+		const src = Float64Array.of(source.x, source.y, source.width, source.height);
+		const handle = await this.async("starting the ScreenCaptureKit stream", null, (token) =>
+			this.sym.glim_capture_stream_open_async(
+				token,
+				displayId >>> 0,
+				ptr(src),
+				width,
+				height,
+				Math.max(1, Math.round(fps)),
+			),
+		);
+		return BigInt(handle);
 	}
 
 	streamRead(handle: StreamHandle, dest: Rect, out: RgbaImage): number {

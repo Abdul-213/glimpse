@@ -170,14 +170,22 @@ class FakeMacBinding implements MacCaptureBinding {
 	displays(): MacNativeDisplay[] {
 		return [];
 	}
+	backgroundError: ((error: unknown) => void) | null = null;
+	/** Shots wait for this before painting (an in-flight capture, GLIM-97). */
+	gate: Promise<void> = Promise.resolve();
 	setExcludedWindows(ids: readonly number[]): void {
 		this.excluded.push([...ids]);
 	}
-	shot(displayId: number, source: Rect, dest: Rect, out: RgbaImage): void {
+	onBackgroundError(listener: ((error: unknown) => void) | null): void {
+		this.backgroundError = listener;
+	}
+	async shot(displayId: number, source: Rect, dest: Rect, out: RgbaImage): Promise<void> {
 		this.shots.push({ displayId, source, dest });
+		await this.gate;
 		paint(out, dest, [200, 0, 0]);
 	}
-	streamOpen(displayId: number, source: Rect, width: number, height: number, fps: number): StreamHandle {
+	async streamOpen(displayId: number, source: Rect, width: number, height: number, fps: number): Promise<StreamHandle> {
+		await Promise.resolve();
 		if (displayId === this.failOpenOn) throw new CaptureError("permission-denied", "-3801");
 		const h = this.next++;
 		this.streams.set(h, { displayId, source, width, height, fps, seq: 1 });
@@ -259,6 +267,38 @@ describe("MacCaptureSource", () => {
 		};
 		source.setExcludedWindows([11]);
 		expect(errors).toHaveLength(1);
+		// The stream refilter runs on the helper queue; its failures arrive later.
+		binding.backgroundError?.(new CaptureError("timeout", "refilter timed out"));
+		expect(errors).toHaveLength(2);
+	});
+
+	test("GLIM-97: a capture in flight doesn't hold up other work on the worker", async () => {
+		const binding = new FakeMacBinding();
+		let release = () => {};
+		binding.gate = new Promise<void>((r) => {
+			release = r;
+		});
+		const source = new MacCaptureSource({ binding, shellDisplays: () => macShell });
+		const order: string[] = [];
+		const shot = source.capture(rect(1312, 100, 400, 120)).then(() => order.push("capture"));
+		// An RPC round trip stands in for any other handler on the worker.
+		await new Promise<void>((r) => setTimeout(r, 0)).then(() => order.push("rpc"));
+		// Both pieces were asked for at once, not one after the other.
+		expect(binding.shots).toHaveLength(2);
+		release();
+		await shot;
+		expect(order).toEqual(["rpc", "capture"]);
+	});
+
+	test("GLIM-97: one failed piece rejects the shot with its CaptureError", async () => {
+		const binding = new FakeMacBinding();
+		const shot = binding.shot.bind(binding);
+		binding.shot = async (displayId, source, dest, out) => {
+			if (displayId === 2) throw new CaptureError("permission-denied", "-3801");
+			return shot(displayId, source, dest, out);
+		};
+		const source = new MacCaptureSource({ binding, shellDisplays: () => macShell });
+		await expect(source.capture(rect(1312, 100, 400, 120))).rejects.toMatchObject({ code: "permission-denied" });
 	});
 });
 

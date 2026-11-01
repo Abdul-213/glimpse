@@ -104,7 +104,9 @@ Don't create packages for grouping alone; use folders.
   touches `NSWindow`, `NSView`, `NSApplication` or Carbon hops there with `dispatch_sync_f` /
   `dispatch_async_f` on the main queue inside `libglimpse.dylib`. TypeScript never calls AppKit
   through raw `bun:ffi` + `objc_msgSend`. Long waits (ScreenCaptureKit completions) block on a
-  semaphore on a helper-owned queue, never on the main queue (spikes/capture/FINDINGS.md).
+  semaphore on a helper-owned queue, never on the main queue (spikes/capture/FINDINGS.md), and
+  never on the Bun worker: the `*_async` exports return at once and complete through a
+  threadsafe `JSCallback` (GLIM-97).
 - **Windows:** thread-agnostic Win32 calls (`SetWindowDisplayAffinity`, `DwmSetWindowAttribute`,
   `SetWindowLongPtrW`, `GetMonitorInfoW`) go straight through `bun:ffi` from the Bun worker on
   `BrowserWindow.ptr` (the `HWND`). Anything that needs a message loop, a callback or COM
@@ -400,9 +402,13 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 - **Windows:** GDI for Snip; DXGI Desktop Duplication for Live, falling back to GDI per monitor
   (lasting DXGI failure) or per frame (temporary, e.g. a mode switch). WGC isn't used: it draws a
   border round the monitor.
-- **macOS:** `SCScreenshotManager` for Snip, one `SCStream` per display piece for Live. Calls
-  block the Bun worker on a semaphore with a timeout; moving them off the worker is a follow-up if
-  it shows in latency.
+- **macOS:** `SCScreenshotManager` for Snip, one `SCStream` per display piece for Live. The
+  waits run on libglimpse's own concurrent queue (GLIM-97): `glim_capture_shot_async` /
+  `glim_capture_stream_open_async` take a token and report `(token, status, value)` through the
+  callback set with `glim_capture_async_init`, so `MacCaptureSource.capture` / `openSession`
+  resolve without blocking the worker (pieces in parallel, `composeFrameAsync`). Stream reads
+  never wait (the open waits up to 1 s for the first frame), closing and the refilter after an
+  exclusion change run on the queue.
 - **Exclusion:** window controllers create windows `hidden: true` and show them through
   `CaptureExclusion.protect(win, show)`. Windows: `WDA_EXCLUDEFROMCAPTURE` before the first show;
   this hides Glimpse from *every* capture, screenshots and screen sharing included, and needs

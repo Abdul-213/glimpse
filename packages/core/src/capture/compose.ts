@@ -20,6 +20,35 @@ export function composeFrame(
 	const out = allocRgba(plan.width, plan.height);
 	if (plan.partial) fillOpaqueBlack(out);
 	for (const piece of plan.pieces) drawPiece(piece, out);
+	return frameOf(plan, out, meta);
+}
+
+/**
+ * `composeFrame` for backends whose pieces arrive asynchronously (macOS ScreenCaptureKit
+ * off the Bun worker, GLIM-97). Pieces are drawn concurrently into disjoint parts of the
+ * output; the first failure rejects once every piece has settled, so no write lands after.
+ */
+export async function composeFrameAsync(
+	plan: CapturePlan,
+	drawPiece: (piece: CapturePiece, out: RgbaImage) => Promise<void>,
+	meta: { readonly sequence: number; readonly capturedAt: number },
+): Promise<CaptureFrame> {
+	if (plan.pieces.length === 0) {
+		throw new CaptureError("no-display", `rect ${formatRect(plan.rect)} is not on any display`);
+	}
+	const out = allocRgba(plan.width, plan.height);
+	if (plan.partial) fillOpaqueBlack(out);
+	const results = await Promise.allSettled(plan.pieces.map((piece) => drawPiece(piece, out)));
+	const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+	if (failed) throw failed.reason;
+	return frameOf(plan, out, meta);
+}
+
+function frameOf(
+	plan: CapturePlan,
+	out: RgbaImage,
+	meta: { readonly sequence: number; readonly capturedAt: number },
+): CaptureFrame {
 	return {
 		width: out.width,
 		height: out.height,

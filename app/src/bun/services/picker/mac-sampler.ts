@@ -4,9 +4,9 @@
 // stream makes each sample a 900-byte copy out of the newest IOSurface.
 //
 // The stream follows the pointer: moving to another display closes it and opens one
-// there. Opening blocks the Bun worker until SCK starts (typically 100-300 ms, unmeasured),
-// so the window controller asks for the first sample only after the overlays are shown.
-// If the stream can't start, sampling falls back to one-shot captures (`fallback`).
+// there. Opening runs on the helper's queue (GLIM-97, typically 100-300 ms, unmeasured):
+// samples asked for meanwhile wait for the same open. If the stream can't start, sampling
+// falls back to one-shot captures (`fallback`).
 import { type Display, devicePixelAt, displayAt, type LoupePatch, type PixelSampler, type Point } from "@glimpse/core";
 import type { MacCaptureBinding, MacPickerBinding, StreamHandle } from "../../native/macos.ts";
 
@@ -21,6 +21,9 @@ interface OpenStream {
 
 export class MacStreamPixelSampler implements PixelSampler {
 	private stream: OpenStream | null = null;
+	private opening: { readonly displayId: number; readonly promise: Promise<OpenStream | null> } | null = null;
+	/** Bumped by stop() and display changes: an open that finishes for an older one is closed. */
+	private generation = 0;
 	private failedDisplays = new Set<number>();
 
 	constructor(
@@ -34,8 +37,9 @@ export class MacStreamPixelSampler implements PixelSampler {
 		const display = displayAt(this.displays(), centre);
 		if (!display) return null;
 		if (this.failedDisplays.has(display.id)) return this.fallback.sample(centre, size);
-		const stream = this.streamFor(display);
+		const stream = await this.streamFor(display);
 		if (!stream) return this.fallback.sample(centre, size);
+		if (this.stream !== stream) return null; // moved on (another display, stop) while it opened
 		const px = devicePixelAt({ ...display, scaleFactor: stream.scale }, centre);
 		const half = Math.floor(size / 2);
 		const rgba = new Uint8Array(size * size * 4);
@@ -51,30 +55,51 @@ export class MacStreamPixelSampler implements PixelSampler {
 		}
 	}
 
-	private streamFor(display: Display): OpenStream | null {
-		if (this.stream?.displayId === display.id) return this.stream;
+	private streamFor(display: Display): Promise<OpenStream | null> {
+		if (this.stream?.displayId === display.id) return Promise.resolve(this.stream);
+		if (this.opening?.displayId === display.id) return this.opening.promise;
 		this.closeStream();
+		const generation = ++this.generation;
 		const scale = display.scaleFactor > 0 ? display.scaleFactor : 1;
 		const width = Math.round(display.bounds.width * scale);
 		const height = Math.round(display.bounds.height * scale);
-		try {
-			const handle = this.binding.streamOpen(
+		const promise = this.binding
+			.streamOpen(
 				display.id,
 				{ x: 0, y: 0, width: display.bounds.width, height: display.bounds.height },
 				width,
 				height,
 				LOUPE_STREAM_FPS,
-			);
-			this.stream = { displayId: display.id, handle, scale: width / display.bounds.width };
-			return this.stream;
-		} catch (error) {
-			this.onError(error);
-			this.failedDisplays.add(display.id);
-			return null;
-		}
+			)
+			.then(
+				(handle): OpenStream | null => {
+					const stream = { displayId: display.id, handle, scale: width / display.bounds.width };
+					if (generation !== this.generation) {
+						// Stopped or moved to another display meanwhile: nobody wants it.
+						this.binding.streamClose(handle);
+						return null;
+					}
+					this.stream = stream;
+					return stream;
+				},
+				(error: unknown) => {
+					if (generation === this.generation) {
+						this.onError(error);
+						this.failedDisplays.add(display.id);
+					}
+					return null;
+				},
+			)
+			.finally(() => {
+				if (this.opening?.promise === promise) this.opening = null;
+			});
+		this.opening = { displayId: display.id, promise };
+		return promise;
 	}
 
 	private closeStream(): void {
+		this.generation++;
+		this.opening = null;
 		if (!this.stream) return;
 		try {
 			this.binding.streamClose(this.stream.handle);

@@ -89,11 +89,23 @@ async function sessionSmoke(binding: SessionNativeBinding): Promise<void> {
 const tryCapture = Bun.argv.includes("--try-capture");
 
 async function attempt(label: string, run: () => Promise<{ width: number; height: number }>): Promise<void> {
+	// A capture may fail on a runner, but it must settle: on macOS the result comes back
+	// through the helper's completion callback (GLIM-97), and a lost callback would hang.
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const hung = new Promise<"hung">((resolve) => {
+		timer = setTimeout(() => resolve("hung"), 20_000);
+	});
 	try {
-		const f = await run();
+		const f = await Promise.race([run(), hung]);
+		if (f === "hung") {
+			console.log(`${label}: never settled within 20 s`);
+			process.exit(1);
+		}
 		console.log(`${label}: ok ${f.width}x${f.height}`);
 	} catch (e) {
 		console.log(`${label}: failed (allowed in CI): ${e instanceof Error ? e.message : String(e)}`);
+	} finally {
+		clearTimeout(timer);
 	}
 }
 
@@ -174,10 +186,18 @@ if (process.platform === "win32") {
 	if (tryCapture && displays.length > 0) {
 		const source = new MacCaptureSource({ binding, shellDisplays: () => displaysFromMac(displays) });
 		await attempt("SCK snip 64x64", () => source.capture(rect(0, 0, 64, 64)));
+		await attempt("SCK live 64x64", async () => {
+			const s = await source.openSession(rect(0, 0, 64, 64), { fps: 4 });
+			try {
+				return await s.next();
+			} finally {
+				s.close();
+			}
+		});
 		await attempt("SCK loupe stream 15x15", async () => {
 			const d = displays[0];
 			if (!d) throw new Error("no display");
-			const h = binding.streamOpen(
+			const h = await binding.streamOpen(
 				d.id,
 				{ ...d.bounds, x: 0, y: 0 },
 				Math.round(d.bounds.width * d.scale),
