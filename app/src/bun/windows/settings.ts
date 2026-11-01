@@ -27,7 +27,8 @@ export class SettingsWindow {
 		}
 		const h = createSettingsHandlers(this.deps);
 		const rpc = BrowserView.defineRPC<SettingsRPC>({
-			maxRequestTime: 60_000,
+			// Moving models between volumes can take a while.
+			maxRequestTime: 10 * 60_000,
 			handlers: {
 				requests: {
 					getAppInfo: h.getAppInfo,
@@ -43,6 +44,8 @@ export class SettingsWindow {
 					addLanguagePacks: h.addLanguagePacks,
 					cancelModelDownload: h.cancelModelDownload,
 					removeModel: h.removeModel,
+					chooseModelsDirectory: h.chooseModelsDirectory,
+					resetModelsDirectory: h.resetModelsDirectory,
 					revealModelsDirectory: h.revealModelsDirectory,
 					clearCache: h.clearCache,
 					copyDiagnostics: h.copyDiagnostics,

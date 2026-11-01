@@ -1,6 +1,6 @@
-// What Settings › Models shows and does (GLIM-69): installed OCR recognisers, translation
-// runtime and language packs with their sizes, downloads with progress, removal, and where
-// they are stored (folder, space used, free space).
+// What Settings › Models shows and does (GLIM-69, GLIM-96): installed OCR recognisers,
+// translation runtime and language packs with their sizes, downloads with progress, removal,
+// and the storage folder (move, reset, size, free space).
 //
 // Network: nothing here goes online unless the user asks. The pack catalogue (Mozilla Remote
 // Settings) is fetched only by `loadCatalogue`, from the "Find language packs" button; installs
@@ -9,12 +9,13 @@
 // No electrobun imports: the composition root passes the folder picker result in, so this is
 // tested on Linux with a temp dir and a fake fetch.
 import { readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import {
 	type BergamotPack,
 	displayName,
 	downloadSize,
 	type InstallState,
+	isBusy,
 	type LanguageCode,
 	type LanguagePair,
 	type ModelEntry,
@@ -51,11 +52,17 @@ export interface ModelsSettingsOptions {
 	readonly packs: ModelManagerPackSource;
 	/** Fetch the pack catalogue (network, falling back to the cached copy). */
 	readonly loadCatalogue: () => Promise<BergamotCatalogue>;
+	/** `<userData>/models`. */
+	readonly defaultDirectory: string;
 	/** Current target language (settings). */
 	readonly target: () => LanguageCode;
+	/** Persist the storage location (null = default). */
+	readonly saveDirectory: (directory: string | null) => Promise<void>;
 	readonly uiLocale?: string;
 	readonly freeBytes?: (dir: string) => Promise<number>;
 	readonly folderSize?: (dir: string) => Promise<number>;
+	/** Can the app create and write files here? Default: mkdir + probe file. */
+	readonly writable?: (dir: string) => Promise<boolean>;
 }
 
 type CatalogueState = ModelsSnapshot["catalogue"];
@@ -65,6 +72,7 @@ export class ModelsSettings {
 	readonly #sizes = new Map<string, number>();
 	readonly #listeners = new Set<(snapshot: ModelsSnapshot) => void>();
 	#catalogue: CatalogueState = "idle";
+	#moving = false;
 	#pending: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(options: ModelsSettingsOptions) {
@@ -92,12 +100,14 @@ export class ModelsSettings {
 		}
 		return {
 			directory: manager.root,
+			isDefaultDirectory: resolve(manager.root) === resolve(this.#o.defaultDirectory),
 			usedBytes,
 			freeBytes,
 			rows,
 			addable: this.#addable(),
 			// The app loads the cached catalogue at startup (GLIM-101), so packs are usually listed at once.
 			catalogue: this.#catalogue === "idle" && this.#o.packs.downloadable().length > 0 ? "ready" : this.#catalogue,
+			moving: this.#moving,
 		};
 	}
 
@@ -120,6 +130,7 @@ export class ModelsSettings {
 		const model = this.#o.manifest?.models.find((m) => m.id === id);
 		const pack = model ? undefined : this.#o.packs.catalogueEntry(id);
 		if (!model && !pack) return { ok: false, message: "That model isn't available to download." };
+		if (this.#moving) return { ok: false, message: "Wait until the models have moved." };
 		void this.#o.manager.install(model ? manifestInstallable(model) : packInstallable(pack as BergamotPack));
 		return { ok: true };
 	}
@@ -131,6 +142,7 @@ export class ModelsSettings {
 	addLanguage(language: string): ActionResult {
 		const from = sourceLanguageFor(language);
 		if (!from) return { ok: false, message: "Glimpse can't translate that language on this computer." };
+		if (this.#moving) return { ok: false, message: "Wait until the models have moved." };
 		const to = this.#o.target();
 		const installed: LanguagePair[] = this.#o.packs.installed().map((p) => ({ source: p.source, target: p.target }));
 		const catalogue = this.#catalogueEntries();
@@ -156,12 +168,54 @@ export class ModelsSettings {
 		const state = this.#o.manager.state(id);
 		if (state.status === "installed" && state.bundled)
 			return { ok: false, message: "Built-in models can't be removed." };
+		if (this.#moving) return { ok: false, message: "Wait until the models have moved." };
 		try {
 			await this.#o.manager.remove(id);
 			return { ok: true };
 		} catch (error) {
 			return { ok: false, message: `Couldn't remove it: ${errorText(error)}` };
 		}
+	}
+
+	/** Move downloaded models to `directory` and remember it (GLIM-96). */
+	async moveTo(directory: string | null): Promise<ActionResult> {
+		const { manager } = this.#o;
+		const target = resolve(directory ?? this.#o.defaultDirectory);
+		const from = resolve(manager.root);
+		if (target === from) return { ok: true };
+		if (this.#busyIds().length > 0) {
+			return { ok: false, message: "A download is running. Wait for it to finish or cancel it, then move the models." };
+		}
+		if (target.startsWith(from + sep))
+			return { ok: false, message: "Choose a folder outside the current models folder." };
+		if (!(await (this.#o.writable ?? isWritable)(target))) {
+			return { ok: false, message: "Glimpse can't write to that folder. Choose another one." };
+		}
+		this.#moving = true;
+		this.#changed();
+		try {
+			await manager.relocate(target);
+			await this.#o.saveDirectory(target === resolve(this.#o.defaultDirectory) ? null : target);
+			this.#sizes.clear();
+			return { ok: true };
+		} catch (error) {
+			return { ok: false, message: `Couldn't move the models: ${errorText(error)}` };
+		} finally {
+			this.#moving = false;
+			this.#changed();
+		}
+	}
+
+	#busyIds(): string[] {
+		const ids = [...(this.#o.manifest?.models.map((m) => m.id) ?? []), ...this.#knownPackIds()];
+		return ids.filter((id) => isBusy(this.#o.manager.state(id)));
+	}
+
+	#knownPackIds(): string[] {
+		const ids = new Set<string>(this.#o.packs.installed().map((p) => p.id));
+		for (const p of this.#catalogueEntries()) ids.add(p.id);
+		for (const id of this.#o.manager.installedIds()) if (id.startsWith("bergamot-")) ids.add(id);
+		return [...ids].filter((id) => id !== "bergamot-runtime");
 	}
 
 	#catalogueEntries(): BergamotPack[] {
@@ -309,6 +363,19 @@ export async function folderSize(dir: string): Promise<number> {
 		else if (e.isFile()) total += (await stat(path).catch(() => ({ size: 0 }))).size;
 	}
 	return total;
+}
+
+async function isWritable(dir: string): Promise<boolean> {
+	const { mkdir, rm, writeFile } = await import("node:fs/promises");
+	const probe = join(dir, `.glimpse-write-test-${process.pid}`);
+	try {
+		await mkdir(dir, { recursive: true });
+		await writeFile(probe, "");
+		await rm(probe, { force: true });
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));

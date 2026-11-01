@@ -44,6 +44,8 @@ export interface SettingsDeps {
 	readonly installedPairs: () => readonly LanguagePair[];
 	readonly providers: () => SettingsSnapshot["providers"];
 	readonly dispatch: (command: Command, source: CommandSource) => Promise<boolean>;
+	/** Native folder picker; null when cancelled. */
+	readonly chooseFolder: (startIn: string) => Promise<string | null>;
 	readonly reveal: (path: string) => boolean;
 	readonly settingsWarnings: readonly string[];
 	readonly uiLocale: string;
@@ -191,6 +193,15 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 			const id = modelId(params);
 			return id ? deps.models.remove(id) : bad("Unknown model.");
 		},
+
+		async chooseModelsDirectory(): Promise<ActionResult> {
+			const current = (await deps.models.snapshot()).directory;
+			const folder = await deps.chooseFolder(current);
+			if (!folder) return { ok: true };
+			return deps.models.moveTo(folder);
+		},
+
+		resetModelsDirectory: (): Promise<ActionResult> => deps.models.moveTo(null),
 
 		async revealModelsDirectory(): Promise<ActionResult> {
 			const dir = (await deps.models.snapshot()).directory;

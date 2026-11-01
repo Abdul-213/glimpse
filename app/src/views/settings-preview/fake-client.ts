@@ -151,6 +151,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 	const choices = sourceLanguageChoices("en");
 	let models: ModelsSnapshot = {
 		directory,
+		isDefaultDirectory: true,
 		usedBytes: 88.5 * MB,
 		freeBytes: 182.4 * 1024 * MB,
 		rows,
@@ -158,6 +159,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			.filter((c) => c.localTranslation && c.code !== "en")
 			.map((c) => ({ code: c.code, name: c.name, nativeName: c.nativeName })),
 		catalogue: opts.scenario === "idle" ? "idle" : "ready",
+		moving: false,
 	};
 
 	const snapshot = (): SettingsSnapshot => ({
@@ -234,6 +236,8 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			handlers?.modelsChanged(models);
 			return ok;
 		},
+		chooseModelsDirectory: async () => ok,
+		resetModelsDirectory: async () => ok,
 		revealModelsDirectory: async () => ok,
 		clearCache: async () => ok,
 		copyDiagnostics: async () => ok,

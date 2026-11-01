@@ -16,7 +16,7 @@ import type { SettingsState } from "../state.ts";
 import { createAction, type Os, osWords, Pane } from "./common.tsx";
 
 /**
- * Settings › Models (GLIM-69): what is installed, how big it is, where it lives.
+ * Settings › Models (GLIM-69, GLIM-96): what is installed, how big it is, where it lives.
  * Downloads only start from a button here (or a popup's Download), and the pack list is only
  * fetched when the user asks for it.
  */
@@ -60,9 +60,29 @@ export function ModelsPane(props: { state: SettingsState }): JSX.Element {
 									<Button onClick={() => void folder.run(() => request.revealModelsDirectory())}>
 										Show in {osWords(os()).fileManager}
 									</Button>
+									<Button
+										disabled={snap().moving || folder.busy()}
+										onClick={() => void folder.run(() => request.chooseModelsDirectory())}
+									>
+										Change…
+									</Button>
 								</div>
 							</SettingsRow>
-							<SettingsRow label="Space used" description={spaceLine(snap())} />
+							<SettingsRow label="Space used" description={spaceLine(snap())}>
+								<Show when={!snap().isDefaultDirectory}>
+									<Button
+										disabled={snap().moving || folder.busy()}
+										onClick={() => void folder.run(() => request.resetModelsDirectory())}
+									>
+										Use default folder
+									</Button>
+								</Show>
+							</SettingsRow>
+							<Show when={snap().moving}>
+								<div class="glim-row" role="status">
+									<span class="glim-description">Moving models… Downloads can start again once it finishes.</span>
+								</div>
+							</Show>
 						</SettingsGroup>
 
 						<SettingsGroup

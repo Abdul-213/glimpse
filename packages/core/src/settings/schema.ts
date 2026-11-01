@@ -17,12 +17,14 @@ import {
 	type Issue,
 	languageCodeSchema,
 	map,
+	nullable,
 	number,
 	object,
 	oneOf,
 	parseOrDefault,
 	refine,
 	type Schema,
+	string,
 	withDefault,
 } from "../schema/index.ts";
 import { type HotkeyBindings, hotkeyBindingsSchema } from "./hotkeys.ts";
@@ -63,6 +65,10 @@ export interface Settings {
 	};
 	readonly system: {
 		readonly launchAtLogin: boolean;
+	};
+	readonly models: {
+		/** Where downloaded models live; null = `<userData>/models` (GLIM-96). Absolute path. */
+		readonly directory: string | null;
 	};
 	readonly onboarding: {
 		readonly completed: boolean;
@@ -107,6 +113,9 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		system: object({
 			launchAtLogin: withDefault(boolean(), false),
 		}),
+		models: object({
+			directory: withDefault(nullable(absolutePathSchema()), null),
+		}),
 		onboarding: object({
 			completed: withDefault(boolean(), false),
 		}),
@@ -126,6 +135,12 @@ export const sourceLanguageSchema = (): Schema<LanguageCode> =>
 			sourceLanguageFor(code) ? null : `${code} is not a supported source language`,
 		),
 		(code) => sourceLanguageFor(code) ?? code,
+	);
+
+/** An absolute path: POSIX `/x`, Windows drive `C:\x` or UNC. Core can't touch the disk; the app checks the folder. */
+export const absolutePathSchema = (): Schema<string> =>
+	refine(string({ minLength: 1, maxLength: 4096 }), (p) =>
+		/^(\/|[A-Za-z]:[\\/]|\\\\)/.test(p) && !p.includes("\0") ? null : "not an absolute path",
 	);
 
 /** Settings for a first run. */
