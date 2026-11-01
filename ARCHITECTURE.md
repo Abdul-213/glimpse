@@ -172,6 +172,27 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   scheme at its edge through a `LanguageCodeMap` (`providers/language-map.ts`); GLIM-39 supplies
   the real FLORES/Bergamot/Google tables.
 
+### Provider registry and config (GLIM-43)
+
+- Each implementation exports a factory (`OcrProviderFactory` / `TranslationProviderFactory`):
+  static `info` + `capabilities` (Settings lists providers without loading models), an options
+  schema whose fields all have defaults, a `defaultRank` (null = opt-in), and `create(options,
+  ctx)`. The app builds one `ProviderRegistry<Ctx>` in its composition root and registers them;
+  `Ctx` carries the ports providers need (fetch, `SecretStore`, model directory, worker spawner).
+- Config (`ProvidersConfig`, stored in settings) selects one OCR provider and an ordered
+  **translation chain**; `routeTranslation(chain, from, to)` picks the first provider that is
+  ready for the pair, else the first that only lacks a download (the UI offers it), else
+  unsupported. Default chain: `bergamot`, `small100`; Enhanced puts `hymt2` first. Well-known ids
+  are in `PROVIDER_IDS`.
+- Privacy rules live in the registry, not the UI: cloud providers can't have a `defaultRank`, and
+  a cloud provider after a local one in the chain is removed on load (it would be a silent cloud
+  fallback when a pack is missing).
+- Options are kept per provider id, also for providers that aren't installed, so a build without
+  one doesn't erase the user's choice; `resolve()` skips unknown ids at runtime and says why.
+- Validation uses core's own `schema/` kit (`object`, `array`, `withDefault`, ...), not a
+  library: config must be **repaired field by field** (bad value → default + an `Issue`), never
+  rejected whole. See the header of `packages/core/src/schema/index.ts`.
+
 ## 5. Views and RPC
 
 **Build.** `app/scripts/build-views.ts` builds every `app/src/views/<name>/index.html` with

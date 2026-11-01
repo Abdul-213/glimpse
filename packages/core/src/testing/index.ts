@@ -2,6 +2,7 @@
 // For tests only; never import from production code.
 
 export * from "./contract.ts";
+export * from "./fake-factories.ts";
 export * from "./fake-ocr-provider.ts";
 export * from "./fake-translation-provider.ts";
 export * from "./ocr-contract.ts";
