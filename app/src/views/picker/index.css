@@ -2,14 +2,11 @@
 @source "./";
 
 /*
- * Region picker overlay (docs/design/specs/region-picker.md 2). Colours, radii and type
- * come from DESIGN.md tokens; the two shadows are the spec's HUD and Loupe values
- * (.impeccable/design.json), which the token generator doesn't emit yet. The egress pill uses the
- * dark values (egress-dark, egress-tint-dark): color-scheme is dark, so light-dark() picks them.
+ * Region picker overlay (docs/design/specs/region-picker.md 2). Colours, radii, type and
+ * the HUD / Loupe shadows are DESIGN.md tokens. The egress pill uses the dark values
+ * (egress-dark, egress-tint-dark): color-scheme is dark, so light-dark() picks them.
  */
 :root {
-	--picker-shadow-hud: 0 1px 4px #0000004d;
-	--picker-shadow-loupe: 0 4px 16px #00000059, 0 0 0 1px var(--color-picker-stroke), 0 0 0 2px var(--color-picker-halo);
 	color-scheme: dark;
 }
 
@@ -45,7 +42,7 @@ body,
 	white-space: nowrap;
 	background: var(--color-picker-hud);
 	color: var(--color-picker-hud-text);
-	box-shadow: var(--picker-shadow-hud);
+	box-shadow: var(--shadow-hud);
 }
 
 .picker-readout {
@@ -103,14 +100,12 @@ body,
 	gap: 4px;
 }
 
-.picker-kbd {
-	display: inline-flex;
-	align-items: center;
+/* The shared kbd chip, recoloured for the dark HUD (spec 2 I). */
+.picker-hint .glim-kbd {
 	height: 18px;
-	padding: 0 5px;
 	background: #ffffff1f;
 	color: var(--color-picker-hud-text);
-	font: inherit;
+	box-shadow: none;
 }
 
 .picker-secondary {
@@ -139,7 +134,7 @@ body,
 	width: 120px;
 	height: 120px;
 	overflow: hidden;
-	box-shadow: var(--picker-shadow-loupe);
+	box-shadow: var(--shadow-loupe);
 	pointer-events: none;
 	background: #000000;
 }

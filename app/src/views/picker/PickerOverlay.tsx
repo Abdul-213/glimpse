@@ -2,6 +2,7 @@
 // main pushes and sends raw input back. All positions arrive global logical and are drawn
 // relative to this display's origin.
 import type { PickerMode, PickerViewState } from "@glimpse/core";
+import { Kbd } from "@glimpse/ui";
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type {
 	PickerKeyMessage,
@@ -294,7 +295,7 @@ export function PickerOverlay(props: { init: PickerViewInit; store: PickerStore;
 							{(p) =>
 								"key" in p ? (
 									<span class="picker-keypair">
-										<kbd class="picker-kbd rounded-kbd">{keyLabel(p.key, init.os)}</kbd>
+										<Kbd keys={[keyLabel(p.key, init.os)]} platform={init.os} />
 										<span class="picker-secondary">{p.action}</span>
 									</span>
 								) : (
