@@ -99,7 +99,7 @@ workflow, and on demand: Actions -> Desktop builds -> Run workflow, or
 the default branch). Pick a run and download the artifacts from its summary page, or
 `gh run download <run-id> -R Abdul-213/glimpse`.
 
-**Opening an unsigned build.** The builds aren't code-signed or notarized (user-facing guidance is GLIM-63), so:
+**Opening an unsigned build.** The builds aren't code-signed or notarized. The full user-facing steps per OS version are in [docs/install.md](docs/install.md); in short:
 
 - Windows: SmartScreen says "Windows protected your PC". Choose *More info* -> *Run anyway*.
 - macOS: Gatekeeper blocks a downloaded unsigned app. Either remove the quarantine flag
