@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-29T23:47:33+00:00",
+  "generatedAt": "2026-11-01T00:00:00+00:00",
   "title": "Design System: Glimpse",
   "extensions": {
     "colorMeta": {
@@ -1202,7 +1202,7 @@
       {
         "name": "duration-base",
         "value": "160ms",
-        "purpose": "Popup enter, crossfades, expanding the skipped line."
+        "purpose": "Popup enter, crossfades. (Expanding the Snip skipped line is instant; only its chevron rotates, in duration-fast.)"
       },
       {
         "name": "duration-slow",
@@ -1242,7 +1242,7 @@
       {
         "name": "spring-dock",
         "value": "{\"type\":\"spring\",\"stiffness\":520,\"damping\":44,\"mass\":1}",
-        "purpose": "Live popup and Live block size/position changes. Damping ratio ~0.96, no visible overshoot, ~220ms. CSS fallback: duration-base + ease-out."
+        "purpose": "Live popup and Live block size/position changes, including a removed Live block's height collapse. Damping ratio ~0.96, no visible overshoot, ~220ms. CSS fallback: duration-base + ease-out."
       },
       {
         "name": "popup-enter",
@@ -1274,7 +1274,13 @@
         "picker": "none (transparent overlay)",
         "corners": "DWMWCP_ROUND to match rounded.popup-win"
       },
-      "fallback": "Windows 10, transparency off, or reduce transparency: solid surfaces (surface-popup-solid etc.)."
+      "fallback": "Windows 10, transparency off, reduce transparency, or helper unavailable: solid surfaces (surface-popup-solid etc.), signalled by :root[data-material=\"none\"]. Windows 10 popups are also square (rounded.popup-win10 = 0).",
+      "windows10": {
+        "popup": "none (surface-popup-solid, radius 0)",
+        "settings": "none (solid surfaces)",
+        "corners": "square"
+      },
+      "pinnedFrame": "Native click-through window drawn by the helper (not a webview), on both OSes."
     },
     "platform": {
       "macos": {
@@ -1291,24 +1297,76 @@
         "bodySize": "14px",
         "sourceSize": "14px"
       },
-      "selector": ":root[data-os=\"macos\" | \"windows\"] set by the shell"
+      "selector": ":root[data-os=\"macos\" | \"windows\"] set by the shell; Windows 10 adds data-os-version=\"10\" (square popups). data-material=\"native\" | \"none\" chooses veil or solid surfaces.",
+      "windows10": {
+        "rounded.popup": "0px",
+        "rounded.control": "4px",
+        "controlHeight": "32px",
+        "bodySize": "14px",
+        "sourceSize": "14px",
+        "material": "none (solid surfaces)"
+      }
     },
-    "breakpoints": []
+    "breakpoints": [
+      {
+        "name": "live-compact",
+        "value": "< 300px",
+        "purpose": "Live popup width: local indicator icon-only, no ' · Private' in the status label."
+      },
+      {
+        "name": "live-regular",
+        "value": "300px–359px",
+        "purpose": "Live popup width: ' · Private' shown, local indicator icon-only."
+      },
+      {
+        "name": "live-wide",
+        "value": ">= 360px",
+        "purpose": "Live popup width: 'On device' spelled out next to the chip icon."
+      }
+    ],
+    "picker": {
+      "loupe": "120px rounded square (rounded.popup), 15x15 device px at 8x8 CSS px each, 1px grid in picker-halo at 25%, centre cell outlined; no caption.",
+      "snapCandidate": "Cuts a scrim hole and draws the selection stroke at 60% opacity.",
+      "hintBar": "Top centre of the work area, 16px in; jumps (no animation) to the bottom when the pointer or selection is within 48px. Adds the egress pill (dark-appearance colours) for cloud pipelines.",
+      "handles": "8px squares, picker-stroke fill, 1px picker-halo ring, rounded.box; 20px hit area; edge midpoints hidden on edges under 48px.",
+      "cancel": "Esc or right-click, from any phase.",
+      "liveSelections": "Stay on one display.",
+      "source": "docs/design/specs/region-picker.md"
+    },
+    "popups": {
+      "snip": {
+        "structure": "Block list (scrolls; skipped line is its last item) then a 24px footer: provider indicator, Private mark, status, then Show original / Copy / Close icon buttons. No header.",
+        "placement": "GAP 8, MARGIN 8, width clamp(region, 280, 480); below if >= 200 (COMFORT_H), above, inline-end / inline-start if >= 280, larger of below/above if >= 96 (MIN_H), else inside the region's block-end inline-end corner. Below/above align inline-start edges.",
+        "languageTags": "Only when the region has two or more source languages, or Settings says always; always in the skipped expansion.",
+        "packRows": "One row per missing language at the top of the list.",
+        "dismiss": "Esc, Close, or click outside (consumed by the picker overlays).",
+        "source": "docs/design/specs/snip-popup.md"
+      },
+      "live": {
+        "structure": "28px strip (dot, label, local indicator; Private, pause/resume, re-pin, stop; no Hide), then a 24px cloud row while cloud is in use, then a state row, then the block list. No footer.",
+        "docking": "Side fixed at pin time. Below/above: centred, width clamp(region, 240, 640). Sides: width clamp(space, 240, 400). Thresholds 160 (comfort), 240 (side), 80 (min). Not draggable.",
+        "blockPadding": "4px 8px 4px 20px on every Live block; change mark 6px at inline-start 8px, centred on the first line.",
+        "settling": "Nothing greys out while pixels settle; 'Updating' only after 1000ms of processing.",
+        "stale": "Paused/error: hollow or danger dot, blocks in text-secondary, body state row 'Showing text from {age}'. heading type only for error and consent titles.",
+        "frame": "Native click-through corner ticks outside the region; region tag only while the popup is hidden.",
+        "source": "docs/design/specs/live-popup.md"
+      }
+    }
   },
   "components": [
     {
       "name": "Snip popup",
       "kind": "custom",
       "refersTo": "popup-snip",
-      "description": "One-shot result beside the selection: blocks, then the footer with provider, skipped line and copy status.",
-      "html": "<div class=\"ds-popup\"><div class=\"ds-block\"><p class=\"ds-tr\">Press any key to continue</p><p class=\"ds-src\" lang=\"zh-Hans\">按任意键继续</p></div><div class=\"ds-block\"><p class=\"ds-tr\">Save failed. Try again?</p><p class=\"ds-src\" lang=\"ja\">保存に失敗しました。もう一度試しますか？</p></div><div class=\"ds-foot\"><span class=\"ds-local\">On device</span><button class=\"ds-skip\">2 blocks skipped · Korean</button></div></div>",
-      "css": ".ds-popup { width: 340px; padding: 12px; background: #F5F5F7E6; color: #1D1D1F; border-radius: 12px; box-shadow: inset 0 0 0 1px #0000001F, 0 8px 24px #0000002E; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; } .ds-block { padding: 4px 8px; border-radius: 6px; margin-block-end: 8px; } .ds-block:hover { background: #0000000F; } .ds-tr { margin: 0; font-size: 15px; line-height: 1.5; } .ds-src { margin: 4px 0 0; font-size: 13px; line-height: 1.7; color: #55555C; } .ds-foot { display: flex; gap: 12px; align-items: center; padding-inline: 8px; margin-block-start: 8px; font-size: 12px; font-weight: 500; color: #55555C; } .ds-skip { font: inherit; color: inherit; background: none; border: 0; padding: 4px 8px; border-radius: 6px; cursor: pointer; } .ds-skip:hover { background: #0000000F; } .ds-skip:focus-visible { outline: 2px solid #0A63C9; outline-offset: 2px; }"
+      "description": "One-shot result beside the selection: the block list (ending with the skipped line), then the footer with the provider indicator, status and icon buttons.",
+      "html": "<div class=\"ds-popup\"><div class=\"ds-block\"><p class=\"ds-tr\">Press any key to continue</p><p class=\"ds-src\" lang=\"zh-Hans\">按任意键继续</p></div><div class=\"ds-block\"><p class=\"ds-tr\">Save failed. Try again?</p><p class=\"ds-src\" lang=\"ja\">保存に失敗しました。もう一度試しますか？</p></div><button class=\"ds-skip\">2 blocks skipped · Korean</button><div class=\"ds-foot\"><span class=\"ds-local\">On device</span><span class=\"ds-status\">Copied</span></div></div>",
+      "css": ".ds-popup { width: 340px; padding: 12px; background: #F5F5F7E6; color: #1D1D1F; border-radius: 12px; box-shadow: inset 0 0 0 1px #0000001F, 0 8px 24px #0000002E; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; } .ds-block { padding: 4px 8px; border-radius: 6px; margin-block-end: 8px; } .ds-block:hover { background: #0000000F; } .ds-tr { margin: 0; font-size: 15px; line-height: 1.5; } .ds-src { margin: 4px 0 0; font-size: 13px; line-height: 1.7; color: #55555C; } .ds-foot { display: flex; gap: 12px; align-items: center; padding-inline: 8px; margin-block-start: 8px; font-size: 12px; font-weight: 500; color: #55555C; } .ds-status { margin-inline-start: auto; } .ds-skip { display: block; width: 100%; text-align: start; font-size: 12px; font-weight: 500; color: #55555C; font-family: inherit; color: inherit; background: none; border: 0; padding: 4px 8px; border-radius: 6px; cursor: pointer; } .ds-skip:hover { background: #0000000F; } .ds-skip:focus-visible { outline: 2px solid #0A63C9; outline-offset: 2px; }"
     },
     {
       "name": "Live changed block",
       "kind": "custom",
       "refersTo": "block-changed",
-      "description": "A Live block that just changed: flash tint decaying to rest, plus the change mark.",
+      "description": "A Live block that just changed: flash tint decaying to rest, plus the change mark 8px from inline-start. Every Live block pads 20px at inline-start so the mark never shifts text.",
       "html": "<div class=\"ds-live\"><div class=\"ds-lblock\">The gate opens at dawn.</div><div class=\"ds-lblock ds-changed\">Bring the lantern with you.</div></div>",
       "css": ".ds-live { width: 320px; padding: 8px 12px 12px; background: #F5F5F7E6; border-radius: 12px; box-shadow: inset 0 0 0 1px #0000001F; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif; font-size: 15px; line-height: 1.5; color: #1D1D1F; } .ds-lblock { position: relative; padding: 4px 8px 4px 20px; border-radius: 6px; margin-block-end: 8px; } .ds-changed { animation: ds-settle 1600ms linear forwards; } .ds-changed::before { content: ''; position: absolute; inset-inline-start: 8px; top: calc(4px + 0.75em - 3px); width: 6px; height: 6px; border-radius: 999px; background: #0A63C9; } @keyframes ds-settle { from { background: #0A63C924; } to { background: #0A63C90F; } } @media (prefers-reduced-motion: reduce) { .ds-changed { animation: none; background: #0A63C90F; } }"
     },

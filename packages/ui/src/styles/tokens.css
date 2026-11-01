@@ -78,6 +78,7 @@
 	--radius-control-win: 0.25rem;
 	--radius-popup: 0.75rem;
 	--radius-popup-win: 0.5rem;
+	--radius-popup-win10: 0;
 	--radius-pill: 62.4375rem;
 
 	/* Easing */
@@ -102,6 +103,11 @@
 :root[data-os="windows"] {
 	--radius-control: var(--radius-control-win);
 	--radius-popup: var(--radius-popup-win);
+}
+
+/* Windows 10: DWM does not round windows, so popups are square (DESIGN.md Shapes). */
+:root[data-os="windows"][data-os-version="10"] {
+	--radius-popup: var(--radius-popup-win10);
 }
 
 /* Fallback for webviews without light-dark() (WKWebView before Safari 17.5). */
