@@ -1,0 +1,81 @@
+{
+	"displays": [
+		{
+			"id": 1,
+			"bounds": {
+				"x": 0,
+				"y": 0,
+				"width": 800,
+				"height": 240
+			},
+			"scaleFactor": 1,
+			"isPrimary": true,
+			"pixelBounds": {
+				"x": 0,
+				"y": 0,
+				"width": 800,
+				"height": 240
+			}
+		}
+	],
+	"frames": [
+		{
+			"file": "a.png",
+			"holdMs": 2000
+		},
+		{
+			"file": "b.png",
+			"holdMs": 2000
+		},
+		{
+			"file": "a.png",
+			"holdMs": 100
+		},
+		{
+			"file": "b.png",
+			"holdMs": 100
+		},
+		{
+			"file": "a.png",
+			"holdMs": 100
+		},
+		{
+			"file": "b.png",
+			"holdMs": 100
+		},
+		{
+			"file": "a.png",
+			"holdMs": 100
+		},
+		{
+			"file": "b.png",
+			"holdMs": 100
+		},
+		{
+			"file": "a.png",
+			"holdMs": 100
+		},
+		{
+			"file": "b.png",
+			"holdMs": 100
+		},
+		{
+			"file": "a.png",
+			"holdMs": 100
+		},
+		{
+			"file": "b.png",
+			"holdMs": 100
+		},
+		{
+			"file": "a.png",
+			"holdMs": 3000
+		},
+		{
+			"file": "c.png",
+			"holdMs": 2000
+		}
+	],
+	"advance": "timed",
+	"end": "hold"
+}

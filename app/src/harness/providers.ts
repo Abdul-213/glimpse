@@ -4,7 +4,14 @@
 // install packs first (GLIMPSE_REAL_PACKS=1 bun test app/test/bergamot-real.test.ts does,
 // into ~/.cache/glimpse/test-installs).
 import { join } from "node:path";
-import { type LanguageCode, type OcrBlock, type OcrProvider, rect, type TranslationProvider } from "@glimpse/core";
+import {
+	frameKey,
+	type LanguageCode,
+	type OcrBlock,
+	type OcrProvider,
+	rect,
+	type TranslationProvider,
+} from "@glimpse/core";
 import { FakeOcrProvider, FakeTranslationProvider } from "@glimpse/core/testing";
 import { cacheModelSource, PaddleOcrProvider } from "@glimpse/providers/ocr/paddle";
 import { BergamotTranslationProvider } from "@glimpse/providers/translation/bergamot";
@@ -34,6 +41,28 @@ export function scriptedOcr(lines: readonly string[], id = "harness-ocr"): FakeO
 				box: rect(0, i * slot, req.image.width, h),
 				confidence: 0.99,
 			}));
+		},
+	});
+}
+
+/**
+ * An OCR provider whose output follows the pixels without reading them (GLIM-58 harness):
+ * the first distinct image it is shown "reads" as `lines[0]`, the second as `lines[1]`, and
+ * so on; an image it has seen before reads the same again. One block covering the image.
+ */
+export function frameKeyedOcr(lines: readonly string[], id = "harness-frame-ocr"): FakeOcrProvider {
+	const seen = new Map<string, string>();
+	return new FakeOcrProvider({
+		id,
+		name: "Frame-keyed OCR",
+		blocks: (req): OcrBlock[] => {
+			const key = frameKey(req.image);
+			let text = seen.get(key);
+			if (text === undefined) {
+				text = lines[seen.size % Math.max(1, lines.length)] ?? "";
+				seen.set(key, text);
+			}
+			return text ? [{ id: "b1", text, box: rect(0, 0, req.image.width, req.image.height), confidence: 0.99 }] : [];
 		},
 	});
 }

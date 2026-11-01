@@ -3,10 +3,14 @@
 // language-detection stages behind those ports (GLIM-109), and the Live capture loop (GLIM-48).
 
 export * from "./block-ids.ts";
+export * from "./change-detection.ts";
 export * from "./events.ts";
+export * from "./frame-ring.ts";
 export * from "./group-lines.ts";
 export * from "./live.ts";
+export * from "./live-events.ts";
 export * from "./live-loop.ts";
+export * from "./live-runner.ts";
 export * from "./pipeline.ts";
 export * from "./ports.ts";
 export * from "./script-detector.ts";

@@ -126,6 +126,30 @@ describe("harness CLI", () => {
 		expect(report.loop.periodMs).toBe(500);
 	});
 
+	test("live-session over the GLIM-58 scenario: OCR only for new settled content (static, change, flicker, back, new)", () => {
+		const p = run("live-session", "--json");
+		expect(p.exitCode).toBe(0);
+		const r = JSON.parse(p.stdout.toString());
+		expect(r.mode).toBe("live-session");
+		// a (first) + b (subtitle change) + c (new line); the flicker never settles, and a again is a frame-ring hit.
+		expect(r.ocrCalls).toBe(3);
+		expect(r.stats.ocrRuns).toBe(3);
+		expect(r.stats.ringHits).toBe(1);
+		const acted = r.traces.filter((t: { action: string }) => t.action !== "none");
+		expect(acted.map((t: { action: string }) => t.action)).toEqual(["ocr", "ocr", "reused", "ocr"]);
+		// The flicker (4.0-5.0 s) is all "settling"; nothing is processed while it lasts.
+		const flicker = r.traces.filter((t: { t: number }) => t.t >= 4000 && t.t < 5000);
+		expect(flicker.length).toBeGreaterThan(0);
+		for (const t of flicker) expect(t.action).toBe("none");
+		const frames = r.events.filter((e: { type: string }) => e.type === "frame");
+		expect(frames.map((e: { upserts: { source: string }[] }) => e.upserts[0]?.source)).toEqual([
+			"明日の会議は午後三時に始まります。",
+			"請求書を保存しました。",
+			"明日の会議は午後三時に始まります。",
+			"次の駅で降りてください。",
+		]);
+	});
+
 	test("a capture error exits 1 with the error code", () => {
 		const p = run("snip", "--rect", "5000,5000,10,10");
 		expect(p.exitCode).toBe(1);

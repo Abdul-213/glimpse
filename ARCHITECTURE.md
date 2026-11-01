@@ -29,7 +29,7 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 │   │       ├── rpc.ts           connect<SurfaceRPC>(): the only place a view opens its RPC channel
 │   │       └── <surface>/       index.html + index.tsx + index.css + components (settings now; picker, popup, live, onboarding later)
 │   ├── scripts/                 build-views.ts (Bun.build + Solid + Tailwind), prebuild.ts (Electrobun hook), solid-plugin.ts, make-tray-icons.ts,
-│   │                            harness.ts (headless CLI), native-smoke.ts, make-capture-fixtures.ts
+│   │                            harness.ts (headless CLI), native-smoke.ts, make-capture-fixtures.ts, make-live-fixtures.ts
 │   ├── src/harness/             headless runner (GLIM-86): drives services without Electrobun or a webview
 │   ├── assets/tray/             tray icons (copied to views://assets/)
 │   ├── native/macos/            libglimpse.dylib source (Objective-C) + build.sh, see README
@@ -288,6 +288,26 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   ask for an earlier frame (`wakeInMs`, never under 100 ms). Transient capture errors retry with
   backoff (0.5 → 5 s), fatal ones (`permission-denied`, `no-display`, `unavailable`) pause it
   until `resume()`. `harness live --loop` replays a recording through it on virtual time.
+- **Change detection (GLIM-58)** (`pipeline/change-detection.ts`): `ChangeDetector.feed(frame)`
+  decides per grab. Same backend `sequence` = identical, no diff. Otherwise `diffFrames`
+  (per-channel tolerance 24, one sample per logical px) against the previous grab: ≥ 0.2 % of
+  pixels (`motionThreshold`) is motion and restarts the stability window, so typewriter text,
+  fades and scrolling never get read half-way. Once still for `stabilityMs` (Settings, 300) the
+  frame is compared with the last *processed* one and only ≥ `diffThreshold` (Settings, 2 %)
+  re-runs OCR; a caret blink or a flicker that came back doesn't. The first frame and
+  `resume()` skip the wait. **Frame ring** (`pipeline/frame-ring.ts`, GLIM-20): the last 8
+  processed frames by exact 64-bit hash → `PipelineResult`, so A → B → A reuses A's result.
+- **Live runner** (`pipeline/live-runner.ts`): one pinned region end to end over ports (frame
+  source, `Timers`, `LiveProcessor` = `LivePipelineSession`): loop → detector → ring → pipeline
+  → `diffLiveBlocks` (`packages/core/src/popup/`, live-popup.md §5; equal text is matched
+  before IoU so a scrolling chat doesn't mark every line) → typed `LiveSessionEvent`s
+  (`pipeline/live-events.ts`: `status` with pause reason / error kind / `stale` /
+  `capturedAt`, `frame` with upserts + `changed` flags, removes, order, change set, `reused`,
+  and `translation`). Timings per live-popup.md §8: "updating" after 1 s of processing, "empty"
+  after 5 s without text, all-black frames never reach OCR. `pause(reason)` /
+  `resume(reason?)`: an automatic resume (unlock) never undoes a user pause.
+  `bun run harness live-session` runs it over `app/test/fixtures/capture/live-scenario`
+  (static → change → A/B flicker → back → new line; `--ocr paddle --realtime` for real OCR).
 - **Cache** (`packages/core/src/cache/`): `normaliseSegment` (the GLIM-20 normaliser, the text
   that is hashed is the text that is sent), `keyHash`/`keyIdentity` (versions, text, codes as
   sent, hop fingerprint, context hash), `TranslationCache` (byte- and entry-bounded LRU, 16 MB /
@@ -488,7 +508,7 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
    - **Runner** (`app/src/harness/run.ts`): `runSnip` / `runLive` with pluggable **stages**.
      `pipelineStage({ ocr, detect?, translation, to, sources?, cache? })` runs the core
      `TranslationPipeline` on each frame (tests drive it with the core fakes); change detection
-     (GLIM-58) plugs in as another stage. CLI: `bun run harness <displays|snip|live> [--frames dir] [--rect
+     (GLIM-58) runs in `live-session`. CLI: `bun run harness <displays|snip|live|live-session> [--frames dir] [--rect
      x,y,w,h] [--fps n] [--count n] [--realtime] [--loop [--duration ms]] [--out dir] [--json]`, plus `--pipeline
      [--ocr scripted|paddle] [--ocr-text "a|b"] [--translator fake|bergamot] [--to de] [--sources ja,de]
      [--private]` (real grouping and ELD detection; `scripted` OCR reads `--ocr-text`, `paddle` is

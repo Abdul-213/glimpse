@@ -76,7 +76,10 @@ export class LivePipelineSession {
 	 * Run one settled frame. Resolves with its result, or null when a newer frame (or
 	 * `close`) superseded it before it finished.
 	 */
-	async process(image: OcrImage, options: { readonly regions?: readonly Rect[] } = {}): Promise<PipelineResult | null> {
+	async process(
+		image: OcrImage,
+		options: { readonly regions?: readonly Rect[]; readonly onEvent?: PipelineListener } = {},
+	): Promise<PipelineResult | null> {
 		if (this.#closed) return null;
 		// The older run is superseded now (its events and result are dropped) but only cancelled
 		// once this run has looked its sentences up, so sentences both frames share are joined
@@ -95,7 +98,8 @@ export class LivePipelineSession {
 		this.#current = run;
 		this.#frames++;
 		this.#opts.caches.noteActivity();
-		const onEvent = this.#opts.onEvent;
+		const sessionListener = this.#opts.onEvent;
+		const runListener = options.onEvent;
 		try {
 			const result = await this.#opts.pipeline.run(image, {
 				mode: "live",
@@ -110,7 +114,9 @@ export class LivePipelineSession {
 				onEvent: (event) => {
 					// Translation lookups run synchronously right after `recognised`.
 					if (event.type === "recognised") queueMicrotask(stopPrevious);
-					if (!superseded) onEvent?.(event);
+					if (superseded) return;
+					sessionListener?.(event);
+					runListener?.(event);
 				},
 			});
 			if (superseded) return null;

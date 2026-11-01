@@ -25,6 +25,7 @@ import {
 	type CaptureSource,
 	isCaptureError,
 	type LanguageCode,
+	type OcrProvider,
 	parseLanguageCode,
 	parseRect,
 	type Rect,
@@ -44,12 +45,20 @@ import { encodePng } from "../src/bun/services/capture/png.ts";
 import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
 import { createPickerNatives } from "../src/bun/services/picker/index.ts";
 import { pipelineStages } from "../src/bun/services/translation/pipeline-stages.ts";
+import {
+	frameNamer,
+	LIVE_SCENARIO_DIR,
+	LIVE_SCENARIO_LINES,
+	LIVE_SCENARIO_RECT,
+} from "../src/harness/live-scenario.ts";
+import { liveSessionLines, runLiveSession } from "../src/harness/live-session.ts";
 import { dragSteps, type PickStep, runPick } from "../src/harness/pick.ts";
 import { popupLines, runSnipPopup } from "../src/harness/popup.ts";
 import {
 	bergamotTranslator,
 	defaultPackRoot,
 	fakeTranslator,
+	frameKeyedOcr,
 	type HarnessTranslator,
 	paddleOcr,
 	scriptedOcr,
@@ -64,7 +73,7 @@ import {
 	runSnip,
 } from "../src/harness/run.ts";
 
-const USAGE = `usage: bun run harness <displays|snip|live|pick|windows|loupe> [options]
+const USAGE = `usage: bun run harness <displays|snip|live|live-session|pick|windows|loupe> [options]
   --frames <path>   frame folder or PNG for the file backend (default: sample recording)
   --native          use the real capture backend (Windows/macOS only)
   --rect x,y,w,h    global logical rect (default: the primary display)
@@ -74,7 +83,14 @@ const USAGE = `usage: bun run harness <displays|snip|live|pick|windows|loupe> [o
   --realtime        Live: sleep 1/fps between frames; file backend switches to timed advance
   --loop            Live: run the core capture loop (GLIM-48: 2-4 fps, idle back-off) on
                     virtual time over the recording's holdMs (with --realtime: wall clock)
-  --duration <ms>   --loop: how long to run (default: the recording's length + 2 s)
+  --duration <ms>   --loop / live-session: how long to run (default: the recording's length + 2 s)
+  live-session      a whole Live session (GLIM-58): loop -> change detection -> frame ring ->
+                    pipeline -> block diff, on virtual time (default frames: the live-scenario
+                    recording, rect 0,150,800,90 = its subtitle strip; default --fps 3)
+  --ocr <kind>      live-session OCR: frame (default: each distinct image "reads" as the next
+                    --ocr-text line) or paddle (real PaddleOCR from the dev model cache; use --realtime)
+  --diff <f>        live-session diff threshold, fraction of pixels (default 0.02)
+  --stable <ms>     live-session stability window (default 300)
   --out <dir>       save each frame as PNG
   --json            print the full JSON report
   --pipeline        run the translation pipeline (GLIM-102) on every frame, with the real
@@ -104,15 +120,17 @@ const { values, positionals } = parseArgs({
 		native: { type: "boolean", default: false },
 		rect: { type: "string" },
 		scale: { type: "string" },
-		fps: { type: "string", default: "4" },
+		fps: { type: "string" },
 		count: { type: "string" },
 		realtime: { type: "boolean", default: false },
 		loop: { type: "boolean", default: false },
 		duration: { type: "string" },
+		diff: { type: "string" },
+		stable: { type: "string" },
 		out: { type: "string" },
 		json: { type: "boolean", default: false },
 		pipeline: { type: "boolean", default: false },
-		ocr: { type: "string", default: "scripted" },
+		ocr: { type: "string" },
 		"ocr-text": { type: "string" },
 		translator: { type: "string", default: "fake" },
 		packs: { type: "string" },
@@ -130,7 +148,7 @@ const { values, positionals } = parseArgs({
 });
 
 const command = positionals[0] ?? "snip";
-if (values.help || !["displays", "snip", "live", "pick", "windows", "loupe"].includes(command)) {
+if (values.help || !["displays", "snip", "live", "live-session", "pick", "windows", "loupe"].includes(command)) {
 	console.log(USAGE);
 	process.exit(values.help ? 0 : 2);
 }
@@ -154,18 +172,25 @@ function nativeSource(): CaptureSource {
 
 // --loop (GLIM-48) runs the core Live loop; without --realtime it runs on virtual time, and the
 // file backend shows each frame for its holdMs on that clock.
-const virtual = values.loop && !values.realtime ? new ManualTimers() : null;
+// live-session (GLIM-58) does the same, by default over the live-scenario recording.
+const liveSession = command === "live-session";
+const virtual = (values.loop || liveSession) && !values.realtime ? new ManualTimers() : null;
 const timers: Timers = virtual ?? systemTimers;
+const framesDir = resolve(values.frames ?? (liveSession ? LIVE_SCENARIO_DIR : SAMPLE_FRAMES_DIR));
 const source: CaptureSource & { frameCount?: number; durationMs?: number } = values.native
 	? nativeSource()
 	: createFileCaptureSource(
-			resolve(values.frames ?? SAMPLE_FRAMES_DIR),
-			values.realtime || values.loop ? { advance: "timed", now: timers.now } : {},
+			framesDir,
+			values.realtime || values.loop || liveSession ? { advance: "timed", now: timers.now } : {},
 		);
 
 const displays = source.displays();
 const primary = displays.find((d) => d.isPrimary) ?? displays[0];
-const rect: Rect | undefined = values.rect ? parseRect(values.rect) : primary?.bounds;
+const rect: Rect | undefined = values.rect
+	? parseRect(values.rect)
+	: liveSession && !values.frames && !values.native
+		? LIVE_SCENARIO_RECT
+		: primary?.bounds;
 const num = (v: string | undefined, name: string): number | undefined => {
 	if (v === undefined) return undefined;
 	const n = Number(v);
@@ -205,12 +230,13 @@ if (values.pipeline) {
 	if (values.translator !== "fake" && values.translator !== "bergamot") {
 		throw new Error(`--translator must be fake or bergamot, not ${values.translator}`);
 	}
-	if (values.ocr !== "scripted" && values.ocr !== "paddle") {
-		throw new Error(`--ocr must be scripted or paddle, not ${values.ocr}`);
+	const ocrKind = values.ocr ?? "scripted";
+	if (ocrKind !== "scripted" && ocrKind !== "paddle") {
+		throw new Error(`--ocr must be scripted or paddle, not ${ocrKind}`);
 	}
 	const ocr =
-		values.ocr === "paddle" ? await paddleOcr() : scriptedOcr((values["ocr-text"] ?? DEFAULT_OCR_TEXT).split("|"));
-	if (values.ocr === "scripted") await ocr.init();
+		ocrKind === "paddle" ? await paddleOcr() : scriptedOcr((values["ocr-text"] ?? DEFAULT_OCR_TEXT).split("|"));
+	if (ocrKind === "scripted") await ocr.init();
 	ocrProvider = ocr;
 	const real = pipelineStages({ warn: (message, fields) => console.warn(`[harness] ${message}`, fields ?? "") });
 	await real.detector.load();
@@ -355,6 +381,48 @@ try {
 			values.json ? JSON.stringify(r, null, 2) : `snip ${source.backend} ${values.rect ?? "primary"}: ${line(r.frame)}`,
 		);
 		if (!values.json) for (const l of pipelineLines(r.frame)) console.log(l);
+	} else if (liveSession) {
+		const fps = num(values.fps, "fps") ?? 3;
+		const durationMs = num(values.duration, "duration") ?? (source.durationMs ?? 8000) + 2000;
+		const lines = (values["ocr-text"] ?? Object.values(LIVE_SCENARIO_LINES).join("|")).split("|");
+		let ocr: OcrProvider;
+		const ocrKind = values.ocr ?? "frame";
+		if (ocrKind === "paddle") ocr = await paddleOcr();
+		else if (ocrKind === "frame") {
+			ocr = frameKeyedOcr(lines);
+			await ocr.init();
+		} else throw new Error(`--ocr must be frame or paddle, not ${ocrKind}`);
+		translator =
+			values.translator === "bergamot"
+				? await bergamotTranslator(values.packs ? resolve(values.packs) : defaultPackRoot())
+				: await fakeTranslator();
+		const sources = (values.sources ?? "")
+			.split(",")
+			.filter(Boolean)
+			.map((s) => lang(s, "sources"));
+		try {
+			const r = await runLiveSession(source, rect, {
+				ocr,
+				translation: translator.provider,
+				to: lang(values.to ?? "en", "to"),
+				sources,
+				private: values.private,
+				fps,
+				diffThreshold: values.diff === undefined ? 0.02 : Number(values.diff),
+				stabilityMs: values.stable === undefined ? 300 : Number(values.stable),
+				durationMs,
+				timers,
+				...(scale ? { scale } : {}),
+				cpuMicros: () => {
+					const u = process.cpuUsage();
+					return u.user + u.system;
+				},
+			});
+			if (values.json) console.log(JSON.stringify(r, null, 2));
+			else for (const l of liveSessionLines(r, frameNamer(framesDir))) console.log(l);
+		} finally {
+			await ocr.dispose();
+		}
 	} else if (values.loop) {
 		const fps = num(values.fps, "fps") ?? 4;
 		const durationMs = num(values.duration, "duration") ?? (source.durationMs ?? 8000) + 2000;
