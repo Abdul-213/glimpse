@@ -60,11 +60,12 @@ jobs:
       - name: Unit tests
         run: bun test
 
-      - name: Headless harness (file-based capture GLIM-86, pipeline GLIM-102)
+      - name: Headless harness (file-based capture GLIM-86, pipeline GLIM-102, Snip popup GLIM-118)
         run: |
           bun run harness snip --rect 20,15,160,90
           bun run harness live --rect 0,0,360,120 --fps 4
           bun run harness snip --pipeline --rect 20,15,160,90
+          bun run harness snip --pipeline --popup --rect 20,15,160,90
           bun run harness live --pipeline --rect 0,0,360,120 --fps 4
           bun run harness pick --drag 150,20,300,100
 

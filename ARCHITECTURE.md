@@ -583,7 +583,7 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
    Windows/macOS CI builds (GLIM-34) and GLIM-87. PRs say what is unverified.
 
 CI (`.github/workflows/ci.yml`) runs on ubuntu-latest for PRs to and pushes on `develop`:
-install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, a harness Snip + Live run
+install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, a harness Snip (with the popup, GLIM-118) + Live run
 over the sample recording, and a Linux `electrobun build`. Windows and macOS runners are only used by their dedicated, path-filtered workflows
 (`native.yml`; `desktop.yml`, which also uploads the unsigned builds, see CONTRIBUTING.md).
 
