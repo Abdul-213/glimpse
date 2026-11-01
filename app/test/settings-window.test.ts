@@ -17,6 +17,16 @@ import { MemorySettingsStore } from "@glimpse/core/testing";
 import { AppSettings } from "../src/bun/services/app-settings.ts";
 import { HotkeyService } from "../src/bun/services/hotkeys.ts";
 import { HOTKEY_ACTIONS, type HotkeyRegistrar, ServiceHotkeyRegistrar } from "../src/bun/services/hotkeys-port.ts";
+import {
+	LAUNCH_AGENT_LABEL,
+	LoginItem,
+	type LoginItemIO,
+	launchAgentPlist,
+	loginTarget,
+	macBundleOf,
+	parseRegQuery,
+	regAddArgs,
+} from "../src/bun/services/login-item.ts";
 import { ModelManager } from "../src/bun/services/models/model-manager.ts";
 import { folderSize, ModelsSettings } from "../src/bun/services/models/models-settings.ts";
 import { ModelManagerPackSource } from "../src/bun/services/translation/bergamot-packs.ts";
@@ -101,14 +111,50 @@ function handlers2(hotkeys: HotkeyRegistrar) {
 	return { h: r.h, settings: r.settings };
 }
 
+function fakeLoginIO(): LoginItemIO & { files: Map<string, string>; regCalls: string[][]; runValue: string | null } {
+	const io = {
+		files: new Map<string, string>(),
+		regCalls: [] as string[][],
+		runValue: null as string | null,
+		async readFile(p: string) {
+			return io.files.get(p) ?? null;
+		},
+		async writeFile(p: string, c: string) {
+			io.files.set(p, c);
+		},
+		async removeFile(p: string) {
+			io.files.delete(p);
+		},
+		async reg(args: string[]) {
+			io.regCalls.push(args);
+			if (args[0] === "add") io.runValue = args[7] ?? null;
+			if (args[0] === "delete") {
+				const had = io.runValue !== null;
+				io.runValue = null;
+				return { code: had ? 0 : 1, stdout: "" };
+			}
+			if (args[0] === "query") {
+				return io.runValue
+					? { code: 0, stdout: `\r\nHKEY_CURRENT_USER\\...\\Run\r\n    Glimpse    REG_SZ    ${io.runValue}\r\n` }
+					: { code: 1, stdout: "" };
+			}
+			return { code: 0, stdout: "" };
+		},
+	};
+	return io;
+}
+
 function handlers(overrides: Partial<SettingsDeps> = {}) {
 	const { settings, store } = makeSettings();
 	const registrar = new FakeRegistrar(settings.current.hotkeys);
+	const io = fakeLoginIO();
+	const loginItem = new LoginItem({ os: "windows", launcher: "C:\\Glimpse\\bin\\launcher.exe" }, io);
 	const dispatched: string[] = [];
 	const deps: SettingsDeps = {
 		appInfo: { name: "Glimpse", version: "0.1.0", platform: "windows", electrobun: "x", bun: "y" },
 		settings,
 		hotkeys: registrar,
+		loginItem,
 		models: {} as never,
 		installedPairs: () => [{ source: languageCode("ja"), target: languageCode("en") }],
 		providers: () => ({ ocr: null, translation: [] }),
@@ -121,16 +167,17 @@ function handlers(overrides: Partial<SettingsDeps> = {}) {
 		uiLocale: "en",
 		...overrides,
 	};
-	return { h: createSettingsHandlers(deps), settings, store, registrar, dispatched };
+	return { h: createSettingsHandlers(deps), settings, store, registrar, io, dispatched };
 }
 
 describe("settings handlers", () => {
-	test("snapshot carries settings, defaults and hotkey status", async () => {
+	test("snapshot carries settings, defaults, hotkey and login status", async () => {
 		const { h } = handlers();
 		const s = await h.getSnapshot();
 		expect(s.settings.language.target).toBe(languageCode("en"));
 		expect(s.defaultHotkeys).toEqual(DEFAULT_HOTKEYS.windows);
 		expect(s.hotkeys.snip).toEqual({ state: "ready" });
+		expect(s.loginItem).toEqual({ enabled: false, supported: true });
 	});
 
 	test("updateSettings only accepts the editable sections", async () => {
@@ -197,6 +244,18 @@ describe("settings handlers", () => {
 		const r = await h.resetHotkeys();
 		expect(r.ok).toBe(true);
 		expect(settings.current.hotkeys).toEqual(DEFAULT_HOTKEYS.windows);
+	});
+
+	test("launch at login writes the Run value and the setting (GLIM-77)", async () => {
+		const { h, settings, io } = handlers();
+		const on = await h.setLaunchAtLogin({ enabled: true });
+		expect(on).toEqual({ enabled: true, supported: true });
+		expect(io.runValue).toBe('"C:\\Glimpse\\bin\\launcher.exe"');
+		expect(settings.current.system.launchAtLogin).toBe(true);
+		const off = await h.setLaunchAtLogin({ enabled: false });
+		expect(off.enabled).toBe(false);
+		expect(settings.current.system.launchAtLogin).toBe(false);
+		expect((await h.setLaunchAtLogin({ enabled: "yes" })).error).toBeDefined();
 	});
 
 	test("model requests validate ids before touching the manager", () => {
@@ -279,6 +338,89 @@ describe("ServiceHotkeyRegistrar (real HotkeyService, fake backend)", () => {
 		const ok = await h.setHotkey({ action: "live", hotkey: "Ctrl+Alt+J" });
 		expect(ok.ok).toBe(true);
 		expect(b.registered.has("Ctrl+Alt+J")).toBe(true);
+	});
+});
+
+describe("launch at login (GLIM-77)", () => {
+	test("finds the .app bundle from the Bun binary", () => {
+		expect(macBundleOf("/Applications/Glimpse.app/Contents/MacOS/bun")).toBe("/Applications/Glimpse.app");
+		expect(macBundleOf("/Users/me/.bun/bin/bun")).toBeNull();
+	});
+
+	test("targets per platform", () => {
+		const mac = loginTarget({
+			platform: "macos",
+			execPath: "/Applications/Glimpse.app/Contents/MacOS/bun",
+			home: "/Users/me",
+			exists: () => true,
+		});
+		expect(mac).toEqual({
+			os: "macos",
+			bundle: "/Applications/Glimpse.app",
+			plist: `/Users/me/Library/LaunchAgents/${LAUNCH_AGENT_LABEL}.plist`,
+		});
+		expect(loginTarget({ platform: "macos", execPath: "/usr/bin/bun", home: "/h", exists: () => true }).os).toBe(
+			"unsupported",
+		);
+		expect(loginTarget({ platform: "windows", execPath: "/x/bin/bun.exe", home: "", exists: () => false }).os).toBe(
+			"unsupported",
+		);
+		expect(loginTarget({ platform: "linux", execPath: "/x", home: "", exists: () => true }).os).toBe("unsupported");
+	});
+
+	test("the LaunchAgent opens the bundle at login, escaped", () => {
+		const plist = launchAgentPlist("/Applications/Tom & Jerry/Glimpse.app");
+		expect(plist).toContain("<string>/usr/bin/open</string>");
+		expect(plist).toContain("<string>/Applications/Tom &amp; Jerry/Glimpse.app</string>");
+		expect(plist).toContain("<key>RunAtLoad</key>\n\t<true/>");
+		expect(plist).toContain(`<string>${LAUNCH_AGENT_LABEL}</string>`);
+	});
+
+	test("reg.exe arguments and query parsing", () => {
+		expect(regAddArgs("C:\\Program Files\\Glimpse\\launcher.exe")).toEqual([
+			"add",
+			"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+			"/v",
+			"Glimpse",
+			"/t",
+			"REG_SZ",
+			"/d",
+			'"C:\\Program Files\\Glimpse\\launcher.exe"',
+			"/f",
+		]);
+		expect(parseRegQuery('\r\nHKEY_CURRENT_USER\\x\r\n    Glimpse    REG_SZ    "C:\\a b\\launcher.exe"\r\n')).toBe(
+			'"C:\\a b\\launcher.exe"',
+		);
+		expect(parseRegQuery("ERROR: not found")).toBeNull();
+	});
+
+	test("macOS: set writes and removes the plist; reconcile re-points a moved app", async () => {
+		const io = fakeLoginIO();
+		const plist = "/Users/me/Library/LaunchAgents/x.plist";
+		const item = new LoginItem({ os: "macos", bundle: "/Applications/Glimpse.app", plist }, io);
+		expect((await item.set(true)).enabled).toBe(true);
+		expect(io.files.get(plist)).toBe(launchAgentPlist("/Applications/Glimpse.app"));
+		io.files.set(plist, launchAgentPlist("/Users/me/Downloads/Glimpse.app")); // the app was moved
+		expect((await item.status()).enabled).toBe(false);
+		expect((await item.reconcile(true)).enabled).toBe(true);
+		expect(io.files.get(plist)).toContain("/Applications/Glimpse.app");
+		expect((await item.reconcile(false)).enabled).toBe(false);
+		expect(io.files.has(plist)).toBe(false);
+	});
+
+	test("unsupported targets never touch the OS", async () => {
+		const io = fakeLoginIO();
+		const item = new LoginItem({ os: "unsupported", reason: "dev" }, io);
+		expect(await item.set(true)).toEqual({ enabled: false, supported: false, reason: "dev" });
+		expect(io.regCalls).toEqual([]);
+		expect(io.files.size).toBe(0);
+	});
+
+	test("reconcile never creates an entry the user didn't ask for", async () => {
+		const io = fakeLoginIO();
+		const item = new LoginItem({ os: "windows", launcher: "C:\\g\\launcher.exe" }, io);
+		await item.reconcile(false);
+		expect(io.regCalls.filter((c) => c[0] === "add")).toEqual([]);
 	});
 });
 

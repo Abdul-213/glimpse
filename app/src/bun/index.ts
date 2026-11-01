@@ -3,6 +3,8 @@
 //
 // Composition root only: build services, wire them to the tray and windows. Logic
 // lives in @glimpse/core; OS calls live in src/bun/native/ behind interfaces.
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { loadSettings, ProviderRegistry, parseModelManifest } from "@glimpse/core";
 import { Utils } from "electrobun/main";
 import modelManifestJson from "../../models/manifest.json" with { type: "json" };
@@ -23,6 +25,7 @@ import { CarbonHotkeyBackend } from "./services/hotkeys-carbon.ts";
 import { ElectrobunHotkeyBackend } from "./services/hotkeys-electrobun.ts";
 import { ServiceHotkeyRegistrar } from "./services/hotkeys-port.ts";
 import { createAppLogger } from "./services/log.ts";
+import { LoginItem, loginTarget, systemLoginItemIO } from "./services/login-item.ts";
 import { loadBergamotCatalogue } from "./services/models/catalogue.ts";
 import { ModelManager } from "./services/models/model-manager.ts";
 import { ModelsSettings } from "./services/models/models-settings.ts";
@@ -136,6 +139,13 @@ const hotkeyRegistrar = new ServiceHotkeyRegistrar(hotkeys, {
 	live: () => void commands.dispatch("live.start", "hotkey"),
 });
 
+const loginItem = new LoginItem(
+	loginTarget({ platform, execPath: process.execPath, home: homedir(), exists: (p) => existsSync(p) }),
+	systemLoginItemIO(),
+);
+loginItem
+	.reconcile(loadedSettings.settings.system.launchAtLogin)
+	.catch((error) => settingsLog.warn("launch at login: could not update the login item", { error }));
 // Settings window (GLIM-69).
 const modelsSettings = new ModelsSettings({
 	manager: models,
@@ -150,6 +160,7 @@ const settings = new SettingsWindow(
 		appInfo,
 		settings: appSettings,
 		hotkeys: hotkeyRegistrar,
+		loginItem,
 		models: modelsSettings,
 		installedPairs: () => bergamotPacks.installed(),
 		providers: () =>

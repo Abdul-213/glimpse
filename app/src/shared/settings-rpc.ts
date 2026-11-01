@@ -112,6 +112,17 @@ export interface ModelsSnapshot {
 
 export type ActionResult = { readonly ok: true } | { readonly ok: false; readonly message: string };
 
+// ── Launch at login (GLIM-77) ───────────────────────────────────────────────────────────
+
+export interface LoginItemStatus {
+	readonly enabled: boolean;
+	/** False in dev builds and on Linux: the switch is shown disabled with `reason`. */
+	readonly supported: boolean;
+	readonly reason?: string;
+	/** The last change failed: what the OS said, in words for the user. */
+	readonly error?: string;
+}
+
 // ── The snapshot ────────────────────────────────────────────────────────────────────────
 
 export interface SettingsSnapshot {
@@ -120,6 +131,7 @@ export interface SettingsSnapshot {
 	/** GLIM-23 defaults for this OS, for "Restore defaults". */
 	readonly defaultHotkeys: HotkeyBindings;
 	readonly hotkeys: HotkeyStatus;
+	readonly loginItem: LoginItemStatus;
 	/** Translation and OCR providers in use (local only until GLIM-75). */
 	readonly providers: {
 		readonly ocr: ProviderSummary | null;
@@ -151,6 +163,7 @@ export type SettingsRPC = {
 			getSourceLanguages: { params: undefined; response: SourceLanguagesSnapshot };
 			setHotkey: { params: SetHotkeyParams; response: SetHotkeyResult };
 			resetHotkeys: { params: undefined; response: SetHotkeyResult };
+			setLaunchAtLogin: { params: { enabled: boolean }; response: LoginItemStatus };
 			getModels: { params: undefined; response: ModelsSnapshot };
 			loadPackCatalogue: { params: undefined; response: ModelsSnapshot };
 			downloadModel: { params: { id: string }; response: ActionResult };

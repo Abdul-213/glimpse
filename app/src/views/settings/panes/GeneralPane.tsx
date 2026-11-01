@@ -1,8 +1,18 @@
 import type { LanguageCode, Settings } from "@glimpse/core";
-import { type LanguageOption, LanguagePicker, SegmentedControl, Select, SettingsGroup, SettingsRow } from "@glimpse/ui";
-import { createMemo, type JSX } from "solid-js";
+import {
+	InlineMessage,
+	type LanguageOption,
+	LanguagePicker,
+	SegmentedControl,
+	Select,
+	SettingsControlRow,
+	SettingsGroup,
+	SettingsRow,
+	Switch,
+} from "@glimpse/ui";
+import { createMemo, createSignal, type JSX, Show } from "solid-js";
 import type { SettingsState } from "../state.ts";
-import { numberOptions, Pane } from "./common.tsx";
+import { numberOptions, type Os, osWords, Pane } from "./common.tsx";
 
 const SENSITIVITY = [
 	{ value: 0.01, label: "Small changes" },
@@ -19,6 +29,9 @@ const SETTLE = [
 
 export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 	const s = () => props.state.settings() as Settings;
+	const os = () => (props.state.snapshot()?.app.platform ?? "macos") as Os;
+	const words = () => osWords(os());
+	const [loginBusy, setLoginBusy] = createSignal(false);
 
 	// Target languages: every language with a local translation pack (Bergamot pivots via English).
 	const targets = createMemo<LanguageOption[]>(() => {
@@ -31,6 +44,15 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 		if (!list.some((l) => l.code === current)) list.push({ code: current, name: current, nativeName: "" });
 		return list.sort((a, b) => a.name.localeCompare(b.name));
 	});
+
+	const setLogin = async (enabled: boolean) => {
+		setLoginBusy(true);
+		try {
+			props.state.setLoginItem(await props.state.client.request.setLaunchAtLogin({ enabled }));
+		} finally {
+			setLoginBusy(false);
+		}
+	};
 
 	return (
 		<Pane title="General">
@@ -47,6 +69,29 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 						</div>
 					)}
 				</SettingsRow>
+			</SettingsGroup>
+
+			<SettingsGroup title="Startup">
+				<SettingsControlRow>
+					<Switch
+						label={os() === "macos" ? "Open at login" : "Start when I sign in"}
+						description={
+							props.state.loginItem()?.supported === false
+								? props.state.loginItem()?.reason
+								: `Glimpse starts in ${words().trayPlace} with no window.`
+						}
+						checked={props.state.loginItem()?.enabled ?? false}
+						disabled={loginBusy() || props.state.loginItem()?.supported === false}
+						onChange={(v) => void setLogin(v)}
+					/>
+				</SettingsControlRow>
+				<Show when={props.state.loginItem()?.error}>
+					{(e) => (
+						<div class="glim-row">
+							<InlineMessage tone="danger">{e()}</InlineMessage>
+						</div>
+					)}
+				</Show>
 			</SettingsGroup>
 
 			<SettingsGroup title="Live" footer="Lower rates use less battery; new text shows up a little later.">

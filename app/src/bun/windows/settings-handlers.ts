@@ -1,7 +1,7 @@
 // Settings window request handlers (GLIM-69), separate from the Electrobun window so they are
 // tested on Linux. Every handler validates its params: views are less trusted than main
 // (ARCHITECTURE.md §5 rule 3). State changes go through AppSettings, the hotkey registrar,
-// and the models service; nothing here holds state of its own.
+// the login item and the models service; nothing here holds state of its own.
 import {
 	canonicalHotkey,
 	groupSourceLanguages,
@@ -19,6 +19,7 @@ import type { AppInfo } from "../../shared/rpc.ts";
 import {
 	type ActionResult,
 	EDITABLE_SECTIONS,
+	type LoginItemStatus,
 	type ModelsSnapshot,
 	type ProviderSummary,
 	type SetHotkeyResult,
@@ -30,12 +31,14 @@ import {
 import type { Command, CommandSource } from "../commands.ts";
 import type { AppSettings } from "../services/app-settings.ts";
 import { HOTKEY_ACTIONS, type HotkeyRegistrar } from "../services/hotkeys-port.ts";
+import type { LoginItem } from "../services/login-item.ts";
 import type { ModelsSettings } from "../services/models/models-settings.ts";
 
 export interface SettingsDeps {
 	readonly appInfo: AppInfo;
 	readonly settings: AppSettings;
 	readonly hotkeys: HotkeyRegistrar;
+	readonly loginItem: LoginItem;
 	readonly models: ModelsSettings;
 	/** Installed translation packs as pairs (for "pack installed" hints in Languages). */
 	readonly installedPairs: () => readonly LanguagePair[];
@@ -73,6 +76,7 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 		settings: settings.current,
 		defaultHotkeys: settings.env.hotkeys,
 		hotkeys: deps.hotkeys.status(),
+		loginItem: await deps.loginItem.status(),
 		providers: deps.providers(),
 		settingsWarnings: deps.settingsWarnings,
 	});
@@ -149,6 +153,19 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 		},
 
 		resetHotkeys: (): Promise<SetHotkeyResult> => applyHotkeys(settings.env.hotkeys, null),
+
+		async setLaunchAtLogin(params: unknown): Promise<LoginItemStatus> {
+			const enabled = isPlainObject(params) ? params["enabled"] : undefined;
+			if (typeof enabled !== "boolean") return { ...(await deps.loginItem.status()), error: "Invalid request." };
+			try {
+				const status = await deps.loginItem.set(enabled);
+				if (status.supported) await settings.update({ system: { launchAtLogin: status.enabled } });
+				return status;
+			} catch (error) {
+				const status = await deps.loginItem.status();
+				return { ...status, error: error instanceof Error ? error.message : String(error) };
+			}
+		},
 
 		getModels: (): Promise<ModelsSnapshot> => deps.models.snapshot(),
 		loadPackCatalogue: (): Promise<ModelsSnapshot> => deps.models.loadCatalogue(),
