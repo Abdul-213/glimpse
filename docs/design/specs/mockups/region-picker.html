@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glimpse · Region picker mockup (GLIM-29)</title>
+<style>
+/* ---- DESIGN.md tokens (GLIM-27), emitted per "Token mapping" ---- */
+:root {
+  color-scheme: light dark;
+  --color-surface-popup: light-dark(#F5F5F7E6, #262628E6);
+  --color-surface-popup-solid: light-dark(#F5F5F7, #262628);
+  --color-surface-control: light-dark(#FFFFFF, #3A3A3D);
+  --color-overlay-hover: light-dark(#0000000F, #FFFFFF14);
+  --color-overlay-pressed: light-dark(#0000001A, #FFFFFF24);
+  --color-overlay-selected: light-dark(#0A63C91F, #6AAAFF29);
+  --color-text-primary: light-dark(#1D1D1F, #F4F4F6);
+  --color-text-secondary: light-dark(#55555C, #B6B6BE);
+  --color-text-disabled: light-dark(#8E8E93, #6C6C72);
+  --color-border-hairline: light-dark(#0000001F, #FFFFFF1F);
+  --color-border-control: light-dark(#76767D, #8E8E96);
+  --color-divider: light-dark(#00000014, #FFFFFF14);
+  --color-accent: light-dark(#0A63C9, #2A6FD9);
+  --color-on-accent: #FFFFFF;
+  --color-link: light-dark(#0959BA, #6AAAFF);
+  --color-focus-ring: light-dark(#0A63C9, #6AAAFF);
+  --color-success: light-dark(#156A37, #5BC987);
+  --color-danger: light-dark(#B42318, #FF8073);
+  --color-egress: light-dark(#5E32AE, #C4B0FF);
+  --color-egress-tint: light-dark(#5E32AE1A, #C4B0FF1A);
+  --color-change-flash: light-dark(#0A63C924, #6AAAFF1F);
+  --color-change-rest: light-dark(#0A63C90F, #6AAAFF0F);
+  --color-change-mark: light-dark(#0A63C9, #6AAAFF);
+  --color-picker-scrim: #00000073;
+  --color-picker-stroke: #FFFFFF;
+  --color-picker-halo: #00000099;
+  --color-picker-hud: #1C1C1EE0;
+  --color-picker-hud-text: #F5F5F7;
+  --color-picker-hud-text-secondary: #B8B8BF;
+  --color-box-linked-fill: #0A63C93D;
+  --color-egress-dark: #C4B0FF;
+  --color-egress-tint-dark: #C4B0FF1A;
+  --radius-box: 3px; --radius-kbd: 4px; --radius-control: 6px; --radius-popup: 12px; --radius-pill: 999px;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif;
+  --font-ar: -apple-system, BlinkMacSystemFont, 'SF Arabic', 'Geeza Pro', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  --font-he: -apple-system, BlinkMacSystemFont, 'SF Hebrew', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', sans-serif;
+  --font-ja: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif;
+  --size-source: 13px; --size-body: 13px;
+  --size-scale: 1; --lh-translation: 1.5; --lh-source: 1.5;
+  --duration-fast: 100ms; --duration-base: 160ms; --duration-exit: 80ms; --duration-settle: 1600ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-standard: cubic-bezier(0.2, 0, 0, 1); --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --shadow-tooltip: 0 2px 8px #00000026;
+  --shadow-hud: 0 1px 4px #0000004D;
+  --shadow-loupe: 0 4px 16px #00000059, 0 0 0 1px #FFFFFF, 0 0 0 2px #00000099;
+}
+:root[data-os="windows"] { --radius-control: 4px; --radius-popup: 8px; --size-source: 14px; --size-body: 14px; }
+:root[data-os="win10"] { --radius-control: 4px; --radius-popup: 0px; --size-source: 14px; --size-body: 14px; }
+
+/* ---- Script stacks (DESIGN.md table; subset used here) ---- */
+:lang(ja) { font-family: var(--font-ja); --lh-translation: 1.7; --lh-source: 1.7; line-break: strict; }
+:lang(ar), :lang(fa) { font-family: var(--font-ar); --size-scale: 1.0667; --lh-translation: 1.75; --lh-source: 1.75; letter-spacing: 0; font-synthesis: none; }
+:lang(he) { font-family: var(--font-he); --lh-translation: 1.55; --lh-source: 1.55; }
+
+/* ---- Documentation page chrome (not product UI) ---- */
+* { box-sizing: border-box; }
+html { background: light-dark(#E9E9EC, #141416); }
+body { margin: 0; font: 13px/1.45 var(--font-ui); color: var(--color-text-primary); }
+::selection { background: var(--color-overlay-selected); }
+:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.doc { max-inline-size: 1680px; margin-inline: auto; padding: 32px 24px 64px; }
+.doc > h1 { font-size: 20px; font-weight: 600; line-height: 1.3; margin: 0 0 8px; }
+.doc > p { margin: 0 0 8px; max-inline-size: 90ch; color: var(--color-text-secondary); }
+.doc h2 { font-size: 15px; font-weight: 600; line-height: 1.35; margin: 32px 0 8px; }
+.doc code { font-family: ui-monospace, 'SF Mono', Consolas, 'DejaVu Sans Mono', monospace; font-size: 12px; }
+.toolbar { position: sticky; inset-block-start: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 8px 12px; margin: 16px 0; border-radius: 8px; background: light-dark(#FFFFFFF2, #2A2A2DF2); box-shadow: inset 0 0 0 1px var(--color-border-hairline); font-size: 12px; font-weight: 500; }
+.toolbar fieldset { border: 0; margin: 0; padding: 0; display: flex; gap: 4px; align-items: center; }
+.toolbar legend { float: inline-start; margin-inline-end: 6px; color: var(--color-text-secondary); }
+.toolbar label { display: inline-flex; gap: 4px; align-items: center; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+.toolbar label:has(input:checked) { background: var(--color-overlay-selected); }
+.toolbar input { margin: 0; accent-color: var(--color-accent); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cols.one { grid-template-columns: 1fr; }
+.col-head { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 8px; }
+.col { padding: 16px; border-radius: 12px; background: light-dark(#F7F7F8, #1C1C1E); box-shadow: inset 0 0 0 1px var(--color-border-hairline); color: var(--color-text-primary); }
+.grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.state { display: flex; flex-direction: column; gap: 6px; }
+.state > h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
+.state > h3 .id { display: inline-block; min-inline-size: 28px; color: var(--color-text-secondary); font-weight: 500; font-variant-numeric: tabular-nums; }
+.state > p { margin: 0; max-inline-size: 420px; font-size: 12px; color: var(--color-text-secondary); }
+.sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Stand-in screen content behind popups (the real material is native; not simulated) */
+.scene { position: relative; overflow: hidden; border-radius: 6px; padding: 16px; }
+.bg-white { background: #FFFFFF; }
+.bg-black { background: #000000; }
+.bg-busy { background: repeating-linear-gradient(115deg, #2D5A3D 0 18px, #F2E8C8 18px 36px, #1B2A4A 36px 54px, #E8D0B0 54px 72px); }
+.bg-game { background: linear-gradient(#273246, #10141C); }
+.bg-chat { background: #ECE5DD; }
+
+/* ---- Popup (Snip and Live) ---- */
+.popup { position: relative; padding: 12px; border-radius: var(--radius-popup); background: var(--color-surface-popup); box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 12px 32px #00000040; color: var(--color-text-primary); font-family: var(--font-ui); display: flex; flex-direction: column; }
+.solid .popup, .popup.solid { background: var(--color-surface-popup-solid); }
+.dark .popup { box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 0 0 0.5px #000000A6, 0 12px 32px #00000080; }
+.popup.live { padding: 8px 12px 12px; }
+.list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--color-overlay-pressed) transparent; min-block-size: 0; }
+.list:focus { outline: none; }
+.block { position: relative; padding: 4px 8px; border-radius: var(--radius-control); transition: background-color var(--duration-fast) var(--ease-standard); }
+.block:hover, .block.hover { background: var(--color-overlay-hover); }
+.live .block { padding-inline-start: 20px; }
+.tr { margin: 0; font-size: calc(15px * var(--size-scale)); line-height: var(--lh-translation); unicode-bidi: plaintext; text-align: start; }
+.src { margin: 0; font-size: calc(var(--size-source) * var(--size-scale)); line-height: var(--lh-source); color: var(--color-text-secondary); unicode-bidi: plaintext; text-align: start; }
+.tr + .src { margin-block-start: 4px; }
+.tag { font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); margin-inline-start: 6px; unicode-bidi: isolate; white-space: nowrap; }
+.skel { display: flex; align-items: center; block-size: 22.5px; }
+.skel > span { display: block; block-size: 10px; border-radius: var(--radius-box); background: var(--color-overlay-pressed); }
+.fail { display: flex; align-items: center; gap: 6px; margin-block-start: 4px; font: 500 12px/1.35 var(--font-ui); color: var(--color-danger); }
+.textbtn { border: 0; padding: 0; background: none; font: 500 12px/1.35 var(--font-ui); color: var(--color-link); cursor: pointer; }
+.textbtn:hover { text-decoration: underline; text-underline-offset: 2px; }
+.skipped-line { display: flex; align-items: center; gap: 4px; inline-size: 100%; block-size: 24px; padding: 4px 8px; border: 0; border-radius: var(--radius-control); background: none; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); cursor: pointer; text-align: start; }
+.skipped-line:hover { background: var(--color-overlay-hover); }
+.skipped-line svg { transition: transform var(--duration-fast) var(--ease-standard); }
+:dir(rtl) .skipped-line svg { transform: scaleX(-1); }
+.skipped-line[aria-expanded="true"] svg { transform: rotate(90deg); }
+.skipped-body { display: flex; flex-direction: column; gap: 4px; padding-inline: 8px 8px; padding-block-end: 4px; }
+.skipped-body .row { display: flex; gap: 12px; margin-block-start: 4px; }
+.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-block-start: 8px; padding-inline: 8px; min-block-size: 24px; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); }
+.foot.rule { border-block-start: 1px solid var(--color-divider); padding-block-start: 8px; }
+.foot .spacer { flex: 1; }
+.foot .status { display: inline-flex; align-items: center; gap: 4px; }
+.local { display: inline-flex; align-items: center; gap: 4px; block-size: 20px; color: var(--color-text-secondary); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; }
+.egress { display: inline-flex; align-items: center; gap: 4px; block-size: 20px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--color-egress-tint); color: var(--color-egress); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; }
+.egress-row { inline-size: 100%; }
+.ibtns { display: inline-flex; gap: 4px; }
+.ib { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border: 0; padding: 0; border-radius: var(--radius-control); background: none; color: var(--color-text-secondary); cursor: pointer; transition: background-color var(--duration-fast) var(--ease-standard); }
+.ib:hover { background: var(--color-overlay-hover); color: var(--color-text-primary); }
+.ib[aria-pressed="true"] { background: var(--color-overlay-selected); color: var(--color-text-primary); }
+.ico { inline-size: 16px; block-size: 16px; flex: none; }
+.ico.s12 { inline-size: 12px; block-size: 12px; }
+.err { padding: 4px 8px 8px; }
+.err h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--color-text-primary); }
+.err h4 .ico.danger { color: var(--color-danger); }
+.err h4 .ico.muted { color: var(--color-text-secondary); }
+.err p { margin: 0 0 12px; font-size: var(--size-body); line-height: 1.45; color: var(--color-text-secondary); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { block-size: 28px; padding: 0 12px; border-radius: var(--radius-control); font: var(--size-body) var(--font-ui); cursor: pointer; white-space: nowrap; }
+:root[data-os="windows"] .btn, :root[data-os="win10"] .btn { block-size: 32px; }
+.btn.primary { border: 0; background: var(--color-accent); color: var(--color-on-accent); }
+.btn.primary:hover { background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover)); }
+.btn.secondary { border: 1px solid var(--color-border-control); background: var(--color-surface-control); color: var(--color-text-primary); }
+.btn.secondary:hover { background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover)); }
+.progress { block-size: 4px; inline-size: 100%; border-radius: var(--radius-pill); background: var(--color-overlay-pressed); overflow: hidden; margin-block: 6px 4px; }
+.progress > span { display: block; block-size: 100%; border-radius: var(--radius-pill); background: var(--color-accent); }
+.num { font: 500 12px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.packrow { padding: 4px 8px; font-size: var(--size-body); color: var(--color-text-secondary); }
+.packrow .btnrow { margin-block-start: 6px; }
+.tooltip { position: absolute; padding: 4px 8px; border-radius: var(--radius-kbd); background: var(--color-surface-popup-solid); color: var(--color-text-primary); box-shadow: var(--shadow-tooltip), inset 0 0 0 1px var(--color-border-hairline); font: 500 12px/1.35 var(--font-ui); white-space: nowrap; z-index: 5; }
+
+/* HUD (picker, region tag) */
+.hud { display: inline-flex; align-items: center; gap: 6px; block-size: 20px; padding: 2px 6px; border-radius: var(--radius-kbd); background: var(--color-picker-hud); color: var(--color-picker-hud-text); box-shadow: var(--shadow-hud); font: 500 12px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hud .egress-hud { color: var(--color-egress-dark); display: inline-flex; gap: 4px; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; animation: none !important; } }
+:root[data-motion="reduced"] * { transition-duration: 0ms !important; animation: none !important; }
+@media (forced-colors: active) { .egress { border: 1px solid CanvasText; } }
+
+.stage-wrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.stage { position: relative; inline-size: 1280px; block-size: 720px; border-radius: 6px; overflow: hidden; user-select: none; outline: none; cursor: crosshair; flex: none; }
+.stage:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 3px; }
+.stage canvas { position: absolute; inset: 0; }
+.stage .ov { position: absolute; inset: 0; pointer-events: none; }
+.side { inline-size: 320px; font-size: 12px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 12px; }
+.side .sideh { margin: 0; font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.side table { border-collapse: collapse; inline-size: 100%; }
+.side td { padding: 3px 4px; border-block-end: 1px solid var(--color-divider); vertical-align: top; }
+.side td:first-child { white-space: nowrap; color: var(--color-text-primary); font-weight: 500; }
+.side .log { font-variant-numeric: tabular-nums; min-block-size: 40px; }
+kbd { display: inline-flex; align-items: center; block-size: 18px; padding: 0 5px; border-radius: var(--radius-kbd); background: var(--color-surface-control); box-shadow: inset 0 0 0 1px var(--color-border-hairline); font: 500 11px var(--font-ui); color: var(--color-text-primary); }
+.shots { display: flex; flex-wrap: wrap; gap: 16px; }
+.shots figure { margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--color-text-secondary); }
+.shots figure { max-inline-size: 640px; } .shots img { border-radius: 6px; box-shadow: inset 0 0 0 1px var(--color-border-hairline); }
+.shots figure b { color: var(--color-text-primary); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-chip" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M6.5 2v2M9.5 2v2M6.5 12v2M9.5 12v2M2 6.5h2M2 9.5h2M12 6.5h2M12 9.5h2"/></g></symbol>
+    <symbol id="i-cloud" viewBox="0 0 16 16"><path d="M4.5 12.5h7a3 3 0 0 0 .4-6A4 4 0 0 0 4.2 7.6 2.5 2.5 0 0 0 4.5 12.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-original" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h6M5.5 3.5v1.5M3.5 9c1.6-.7 3.2-2.3 3.8-4M4.5 5.5c.6 1.6 1.8 3 3 3.6"/><path d="M8.5 13.5l2.5-6 2.5 6M9.3 11.6h3.4"/></g></symbol>
+    <symbol id="i-eyeoff" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2.5l11 11"/><path d="M6.4 4.1A6.6 6.6 0 0 1 8 3.9c3.3 0 5.4 2.6 6 4.1-.3.7-.9 1.6-1.7 2.4M10.6 11.4A6.6 6.6 0 0 1 8 12.1c-3.3 0-5.4-2.6-6-4.1.4-1 1.3-2.2 2.5-3.1"/><path d="M6.6 6.6a2 2 0 0 0 2.8 2.8"/></g></symbol>
+    <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-repin" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"/><path d="M8 6v4M6 8h4"/></g></symbol>
+    <symbol id="i-stop" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.75"/><path d="M8 5v3.5M8 11h0"/></g></symbol>
+    <symbol id="i-info" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.75"/><path d="M8 7.5V11M8 5h0"/></g></symbol>
+  </defs>
+</svg>
+
+<main class="doc">
+  <h1>Region picker</h1>
+  <p>Interactive mockup for <code>docs/design/specs/region-picker.md</code> (GLIM-29), one 1280 × 720 display at 1:1. The "desktop" behind it is a canvas so the loupe can magnify real pixels. Click the stage to focus it, then use the pointer or keyboard exactly as the spec says. The picker's colours are theme-independent; the desktop toggle shows it over light and dark app content.</p>
+
+  <div class="toolbar" role="group" aria-label="Preview options">
+    <fieldset><legend>Desktop</legend>
+      <label><input type="radio" name="desk" value="light" checked>Light apps</label>
+      <label><input type="radio" name="desk" value="dark">Dark apps</label></fieldset>
+    <fieldset><legend>Mode</legend>
+      <label><input type="radio" name="mode" value="snip" checked>Snip</label>
+      <label><input type="radio" name="mode" value="live">Live</label></fieldset>
+    <fieldset><legend>OS keys</legend>
+      <label><input type="radio" name="os" value="windows" checked>Windows</label>
+      <label><input type="radio" name="os" value="macos">macOS</label></fieldset>
+    <label><input type="checkbox" id="cloud">Cloud translation on</label>
+    <label><input type="checkbox" id="rm">Reduced motion</label>
+    <button class="btn secondary" id="restart" type="button">Restart picker</button>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="stage" id="stage" tabindex="0" role="application" aria-roledescription="area picker" aria-label="Select an area to translate">
+      <canvas id="desk" width="1280" height="720"></canvas>
+      <canvas id="ov" class="ov" width="1280" height="720"></canvas>
+      <div id="hud" class="ov"></div>
+      <div id="sr" class="sr-only" role="status" aria-live="polite"></div>
+    </div>
+    <aside class="side">
+      <div><h2 class="sideh">Try</h2>
+        <table>
+          <tr><td>Hover</td><td>Window snap candidate (hole, 60% stroke, app · size)</td></tr>
+          <tr><td>Click</td><td>Select that window and confirm</td></tr>
+          <tr><td>Drag</td><td>Select; edges snap within 6px (guides)</td></tr>
+          <tr><td><kbd class="k-mod">Ctrl</kbd> held</td><td>Snapping off while dragging</td></tr>
+          <tr><td><kbd>Space</kbd> held</td><td>Move the selection while dragging</td></tr>
+          <tr><td><kbd>Shift</kbd> at release</td><td>Stop in adjusting (handles)</td></tr>
+          <tr><td>Arrows</td><td>Keyboard box; move (Shift ×10)</td></tr>
+          <tr><td><kbd class="k-alt">Alt</kbd> Arrows</td><td>Resize</td></tr>
+          <tr><td><kbd class="k-enter">Enter</kbd></td><td>Confirm (adjusting, or the hovered window)</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Switch Snip ↔ Live</td></tr>
+          <tr><td><kbd>Esc</kbd>, right-click</td><td>Cancel</td></tr>
+        </table></div>
+      <div><h2 class="sideh">Last event</h2><div class="log" id="log">Waiting for input.</div></div>
+    </aside>
+  </div>
+
+  <h2>Key states (static renders of the same code)</h2>
+  <p>Generated by replaying scripted input into the picker above: <code>?state=hover|drag|adjust|keyboard|confirmed|live</code> (add <code>&amp;desk=dark&amp;cloud=1</code>).</p>
+  <div class="shots"><figure><img src="screenshots/region-picker-hover.png" width="640" height="360" alt="Idle: window snap candidate" loading="lazy"><figcaption><b>Idle: window snap candidate.</b> Hole, 60% stroke, “App · W × H”. Loupe and crosshair follow the pointer.</figcaption></figure><figure><img src="screenshots/region-picker-drag.png" width="640" height="360" alt="Dragging" loading="lazy"><figcaption><b>Dragging.</b> Left edge snapped to the Messages window (guide). Readout sits outside the moving corner; the loupe shows the pixels under the pointer.</figcaption></figure><figure><img src="screenshots/region-picker-adjust.png" width="640" height="360" alt="Adjusting (Shift-release)" loading="lazy"><figcaption><b>Adjusting (Shift-release).</b> Eight handles; hint bar jumped to the bottom because the selection is near the top.</figcaption></figure><figure><img src="screenshots/region-picker-keyboard.png" width="640" height="360" alt="Keyboard box" loading="lazy"><figcaption><b>Keyboard box.</b> Arrow key from idle: 240 × 120 around the pointer.</figcaption></figure><figure><img src="screenshots/region-picker-confirmed.png" width="640" height="360" alt="Snip confirmed: results layer" loading="lazy"><figcaption><b>Snip confirmed: results layer.</b> Scrim gone, selection edge kept; solid boxes translate, dashed boxes are skipped, 12:45 (neutral) has none.</figcaption></figure><figure><img src="screenshots/region-picker-live.png" width="640" height="360" alt="Live confirmed" loading="lazy"><figcaption><b>Live confirmed.</b> Overlay gone; corner ticks just outside the pinned area.</figcaption></figure><figure><img src="screenshots/region-picker-hover-dark-cloud.png" width="640" height="360" alt="Dark apps, cloud translation on" loading="lazy"><figcaption><b>Dark apps, cloud translation on.</b> Egress notice in the hint bar before anything is sent.</figcaption></figure></div>
+</main>
+
+<script>
+// Shared mockup helpers: toolbar wiring and light/dark duplication of <template data-state>.
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const ico = (id, cls = '') => `<svg class="ico ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+function wireToolbar() {
+  const root = document.documentElement;
+  const set = () => {
+    const theme = $('input[name=theme]:checked')?.value ?? 'both';
+    root.dataset.os = $('input[name=os]:checked')?.value ?? 'macos';
+    root.dataset.motion = $('#rm')?.checked ? 'reduced' : 'full';
+    const dir = $('input[name=dir]:checked')?.value ?? 'ltr';
+    $$('[data-ui-dir]').forEach((el) => el.setAttribute('dir', dir));
+    $$('.col.light').forEach((c) => (c.hidden = theme === 'dark'));
+    $$('.col.dark').forEach((c) => (c.hidden = theme === 'light'));
+    $$('.cols').forEach((c) => c.classList.toggle('one', theme !== 'both'));
+    $$('[data-solid]').forEach((el) => el.classList.toggle('solid', $('#solid')?.checked));
+    document.dispatchEvent(new CustomEvent('toolbar'));
+  };
+  $$('.toolbar input').forEach((i) => i.addEventListener('change', set));
+  const q = new URLSearchParams(location.search);
+  for (const [k, v] of q) {
+    const r = $(`input[name=${k}][value=${v}]`); if (r) r.checked = true;
+    if (k === 'rm') $('#rm').checked = v === '1';
+  }
+  set();
+}
+
+// Render every <template data-state> into both the light and the dark column.
+function renderStates(host) {
+  const templates = $$('template[data-state]');
+  for (const col of $$('.col', host)) {
+    const grid = col.querySelector('.grid');
+    if (!grid) continue;
+    for (const t of templates) {
+      const node = t.content.cloneNode(true);
+      grid.appendChild(node);
+    }
+  }
+}
+
+const W = 1280, H = 720, WORK_TOP = 28, WORK_BOTTOM = H; // macOS-like menu bar at top
+const desk = $('#desk').getContext('2d'), ov = $('#ov').getContext('2d');
+const stage = $('#stage'), hud = $('#hud'), sr = $('#sr'), log = $('#log');
+const WINDOWS = [ // front to back
+  { app: 'Messages', x: 64, y: 92, w: 400, h: 520 },
+  { app: 'Safari', x: 500, y: 64, w: 720, h: 420 },
+  { app: 'Preview', x: 560, y: 440, w: 620, h: 250 },
+];
+const TEXT = {
+  Messages: ['¿Nos vemos a las ocho?', 'Traje el libro que me pediste', 'Увидимся завтра', 'Danke dir!', 'Está en la mesa de la cocina', '12:45'],
+  Safari: ['Hauptbahnhof – Abfahrt', 'Gleis 7 · ICE 597 nach München', 'Verspätung ca. 15 Minuten', 'Bitte beachten Sie die Durchsagen'],
+  Preview: ['Contrato de arrendamiento', 'Cláusula 4. El arrendatario pagará la renta', 'el primer día hábil de cada mes.'],
+};
+
+function paintDesktop(dark) {
+  const g = desk;
+  const grad = g.createLinearGradient(0, 0, W, H); grad.addColorStop(0, dark ? '#1E2A3A' : '#8FB3D9'); grad.addColorStop(1, dark ? '#0E131A' : '#D7C6E8');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  g.fillStyle = dark ? '#1C1C1EE6' : '#F2F2F4E6'; g.fillRect(0, 0, W, WORK_TOP);
+  g.fillStyle = dark ? '#F4F4F6' : '#1D1D1F'; g.font = '600 13px sans-serif'; g.fillText('Safari   File   Edit   View', 14, 19);
+  for (const win of [...WINDOWS].reverse()) {
+    g.save(); g.shadowColor = '#00000055'; g.shadowBlur = 24; g.shadowOffsetY = 8;
+    g.fillStyle = dark ? '#232326' : '#FFFFFF'; roundRect(g, win.x, win.y, win.w, win.h, 10); g.fill(); g.restore();
+    g.fillStyle = dark ? '#2E2E31' : '#ECECEE'; roundRectTop(g, win.x, win.y, win.w, 30, 10); g.fill();
+    ['#FF5F57', '#FEBC2E', '#28C840'].forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.arc(win.x + 16 + i * 18, win.y + 15, 5.5, 0, 7); g.fill(); });
+    g.fillStyle = dark ? '#B6B6BE' : '#55555C'; g.font = '500 12px sans-serif'; g.fillText(win.app, win.x + 80, win.y + 19);
+    let y = win.y + 62;
+    TEXT[win.app].forEach((t, i) => {
+      g.font = (win.app === 'Messages' ? '15px' : i === 0 ? '600 20px' : '15px') + ' sans-serif';
+      const tw = g.measureText(t).width;
+      if (win.app === 'Messages') {
+        const me = i === 1 || i === 4; const bx = me ? win.x + win.w - tw - 44 : win.x + 20;
+        g.fillStyle = me ? (dark ? '#005C4B' : '#D9FDD3') : (dark ? '#2E2E31' : '#F0F0F2'); roundRect(g, bx, y - 18, tw + 24, 30, 8); g.fill();
+        g.fillStyle = dark ? '#F4F4F6' : '#111111'; g.fillText(t, bx + 12, y + 2); y += 46;
+      } else { g.fillStyle = dark ? '#F4F4F6' : '#111111'; g.fillText(t, win.x + 24, y); y += i === 0 ? 36 : 28; }
+    });
+  }
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
+function roundRectTop(g, x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, [r, r, 0, 0]); }
+
+// ---------- Picker state (pure-ish reducer, mirrors spec §3–§6) ----------
+const S = { phase: 'idle', mode: 'snip', anchor: null, sel: null, cursor: { x: 640, y: 360 }, press: null, spaceMove: null, guides: [], tooSmallUntil: 0, shiftAtRelease: false, handle: null, startSel: null };
+const clampPt = (p) => ({ x: Math.max(0, Math.min(W, p.x)), y: Math.max(0, Math.min(H, p.y)) });
+const rectFrom = (a, b) => ({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) });
+function candidateAt(p) {
+  for (const w of WINDOWS) if (p.x >= w.x && p.x <= w.x + w.w && p.y >= w.y && p.y <= w.y + w.h) return { rect: { x: w.x, y: w.y, w: w.w, h: Math.min(w.h, H - w.y) }, label: `${w.app} · ${w.w} × ${Math.min(w.h, H - w.y)}` };
+  return { rect: { x: 0, y: 0, w: W, h: H }, label: `Screen · ${W} × ${H}` };
+}
+function snap(p, noSnap) {
+  if (noSnap) return { p, guides: [] };
+  const xs = [0, W], ys = [0, WORK_TOP, H];
+  for (const w of WINDOWS) { if (p.y >= w.y && p.y <= w.y + w.h) xs.push(w.x, w.x + w.w); if (p.x >= w.x && p.x <= w.x + w.w) ys.push(w.y, w.y + w.h); }
+  const near = (v, arr) => arr.reduce((b, a) => (Math.abs(a - v) <= 6 && (b === null || Math.abs(a - v) < Math.abs(b - v)) ? a : b), null);
+  const sx = near(p.x, xs), sy = near(p.y, ys), guides = [];
+  if (sx !== null) { const w = WINDOWS.find((w) => (w.x === sx || w.x + w.w === sx) && p.y >= w.y && p.y <= w.y + w.h); guides.push({ x1: sx, y1: w ? w.y : 0, x2: sx, y2: w ? w.y + w.h : H }); }
+  if (sy !== null) { const w = WINDOWS.find((w) => (w.y === sy || w.y + w.h === sy) && p.x >= w.x && p.x <= w.x + w.w); guides.push({ x1: w ? w.x : 0, y1: sy, x2: w ? w.x + w.w : W, y2: sy }); }
+  return { p: { x: sx ?? p.x, y: sy ?? p.y }, guides };
+}
+function handlesOf(r) {
+  const hs = [['nw', r.x, r.y], ['ne', r.x + r.w, r.y], ['sw', r.x, r.y + r.h], ['se', r.x + r.w, r.y + r.h]];
+  if (r.w >= 48) hs.push(['n', r.x + r.w / 2, r.y], ['s', r.x + r.w / 2, r.y + r.h]);
+  if (r.h >= 48) hs.push(['w', r.x, r.y + r.h / 2], ['e', r.x + r.w, r.y + r.h / 2]);
+  return hs;
+}
+function confirm() {
+  if (!S.sel || S.sel.w < 8 || S.sel.h < 8) return;
+  S.phase = 'confirmed'; say(`Confirmed ${S.mode === 'snip' ? 'Snip' : 'Live'} ${Math.round(S.sel.w)} × ${Math.round(S.sel.h)} at ${Math.round(S.sel.x)}, ${Math.round(S.sel.y)}`);
+  S.fade = performance.now();
+}
+function cancel(why) { S.phase = 'cancelled'; S.fade = performance.now(); say('Cancelled (' + why + '). Focus returns to the previous app.'); }
+function say(t) { log.textContent = t; }
+function announce(t) { sr.textContent = t; }
+
+// Pointer
+stage.addEventListener('contextmenu', (e) => { e.preventDefault(); if (S.phase !== 'confirmed') cancel('right-click'); draw(); });
+stage.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || done()) return;
+  stage.setPointerCapture(e.pointerId); stage.focus();
+  const p = pt(e);
+  if (S.phase === 'adjusting' && S.sel) {
+    const h = handlesOf(S.sel).find(([, hx, hy]) => Math.abs(hx - p.x) <= 10 && Math.abs(hy - p.y) <= 10);
+    if (h) { S.handle = h[0]; S.startSel = { ...S.sel }; S.press = p; return; }
+    if (inside(p, S.sel)) { S.handle = 'move'; S.startSel = { ...S.sel }; S.press = p; return; }
+  }
+  S.press = snap(p, e.ctrlKey || e.metaKey).p; S.pressRaw = p;
+});
+stage.addEventListener('pointermove', (e) => {
+  if (done()) return;
+  const p = pt(e); S.cursor = p;
+  if (S.handle && S.press) { dragHandle(p, e.ctrlKey || e.metaKey); draw(); return; }
+  if (S.press && S.phase !== 'dragging' && Math.hypot(p.x - S.pressRaw.x, p.y - S.pressRaw.y) >= 4) { S.phase = 'dragging'; S.anchor = S.press; }
+  if (S.phase === 'dragging') {
+    if (S.spaceMove) { const dx = p.x - S.spaceMove.x, dy = p.y - S.spaceMove.y; S.anchor = { x: S.anchor.x + dx, y: S.anchor.y + dy }; S.spaceMove = p; }
+    const s = snap(clampPt(p), e.ctrlKey || e.metaKey); S.guides = s.guides; S.sel = rectFrom(S.anchor, s.p);
+  }
+  draw();
+});
+stage.addEventListener('pointerup', (e) => {
+  if (done() || e.button !== 0) return;
+  const p = pt(e);
+  if (S.handle) { S.handle = null; S.press = null; S.guides = []; draw(); return; }
+  if (S.phase === 'dragging') {
+    S.press = null; S.guides = [];
+    if (S.sel.w < 8 || S.sel.h < 8) { S.phase = 'idle'; S.sel = null; S.tooSmallUntil = performance.now() + 2000; say('Too small: back to idle.'); setTimeout(draw, 2050); }
+    else if (e.shiftKey) { S.phase = 'adjusting'; say('Shift-release: adjusting. Drag handles, then Enter.'); }
+    else confirm();
+  } else if (S.press) { // click
+    S.press = null;
+    if (S.phase === 'idle' || S.phase === 'adjusting') {
+      const c = candidateAt(p); S.sel = { ...c.rect };
+      if (e.shiftKey || S.phase === 'adjusting') { S.phase = 'adjusting'; say('Window selected into adjusting: ' + c.label); } else confirm();
+    }
+  }
+  draw();
+});
+stage.addEventListener('dblclick', (e) => { if (S.phase === 'adjusting' && inside(pt(e), S.sel)) { confirm(); draw(); } });
+function dragHandle(p, noSnap) {
+  const s0 = S.startSel, dx = p.x - S.press.x, dy = p.y - S.press.y;
+  if (S.handle === 'move') { S.sel = { ...s0, x: Math.max(0, Math.min(W - s0.w, s0.x + dx)), y: Math.max(0, Math.min(H - s0.h, s0.y + dy)) }; return; }
+  let x1 = s0.x, y1 = s0.y, x2 = s0.x + s0.w, y2 = s0.y + s0.h;
+  const sp = snap(clampPt(p), noSnap); S.guides = sp.guides;
+  if (S.handle.includes('w')) x1 = sp.p.x; if (S.handle.includes('e')) x2 = sp.p.x;
+  if (S.handle.includes('n')) y1 = sp.p.y; if (S.handle.includes('s')) y2 = sp.p.y;
+  S.sel = rectFrom({ x: x1, y: y1 }, { x: x2, y: y2 });
+}
+const inside = (p, r) => r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+const pt = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+const done = () => S.phase === 'confirmed' || S.phase === 'cancelled';
+
+// Keyboard
+let kbTimer;
+stage.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') { e.preventDefault(); S.mode = S.mode === 'snip' ? 'live' : 'snip'; $(`input[name=mode][value=${S.mode}]`).checked = true; announce(`${S.mode === 'snip' ? 'Snip' : 'Live'} mode`); draw(); return; }
+  if (done()) return;
+  if (e.key === 'Escape') { cancel('Esc'); draw(); return; }
+  if (e.key === ' ' && S.phase === 'dragging') { e.preventDefault(); S.spaceMove = S.spaceMove || S.cursor; return; }
+  if (e.key === 'Enter') {
+    if (S.phase === 'adjusting') confirm();
+    else if (S.phase === 'idle') { S.sel = { ...candidateAt(S.cursor).rect }; confirm(); }
+    draw(); return;
+  }
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!d || S.phase === 'dragging') return;
+  e.preventDefault();
+  const step = e.shiftKey ? 10 : 1;
+  if (!S.sel || S.phase === 'idle') { const c = S.cursor; S.sel = { x: Math.max(0, Math.min(W - 240, c.x - 120)), y: Math.max(0, Math.min(H - 120, c.y - 60)), w: 240, h: 120 }; }
+  else if (e.altKey) S.sel = { ...S.sel, w: Math.max(8, S.sel.w + d[0] * step), h: Math.max(8, S.sel.h + d[1] * step) };
+  else S.sel = { ...S.sel, x: Math.max(0, Math.min(W - S.sel.w, S.sel.x + d[0] * step)), y: Math.max(0, Math.min(H - S.sel.h, S.sel.y + d[1] * step)) };
+  S.phase = 'adjusting';
+  clearTimeout(kbTimer); kbTimer = setTimeout(() => announce(`Selection ${Math.round(S.sel.w)} by ${Math.round(S.sel.h)}, at ${Math.round(S.sel.x)}, ${Math.round(S.sel.y)}`), 500);
+  draw();
+});
+stage.addEventListener('keyup', (e) => { if (e.key === ' ') S.spaceMove = null; });
+stage.addEventListener('blur', () => {});
+
+// ---------- Drawing ----------
+function line(g, x1, y1, x2, y2, alpha = 1) {
+  g.save(); g.globalAlpha = alpha;
+  g.strokeStyle = '#00000099'; g.lineWidth = 3; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+  g.strokeStyle = '#FFFFFF'; g.lineWidth = 1; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+  g.restore();
+}
+function rectEdge(g, r, alpha = 1, dashed = false) {
+  g.save(); g.globalAlpha = alpha; if (dashed) g.setLineDash([3, 3]);
+  g.strokeStyle = '#00000099'; g.lineWidth = 1; g.strokeRect(Math.round(r.x) - 0.5, Math.round(r.y) - 0.5, Math.round(r.w) + 1, Math.round(r.h) + 1);
+  g.strokeStyle = '#FFFFFF'; g.strokeRect(Math.round(r.x) + 0.5, Math.round(r.y) + 0.5, Math.round(r.w) - 1, Math.round(r.h) - 1);
+  g.restore();
+}
+function scrim(g, hole, alpha = 1) {
+  g.save(); g.globalAlpha = alpha; g.fillStyle = '#00000073';
+  g.beginPath(); g.rect(0, 0, W, H); if (hole) g.rect(hole.x + hole.w, hole.y, -hole.w, hole.h); g.fill('evenodd'); g.restore();
+}
+const keyLabel = (k) => {
+  const mac = $('input[name=os]:checked').value === 'macos';
+  return ({ Enter: mac ? 'Return' : 'Enter', Alt: mac ? '⌥' : 'Alt', Esc: mac ? 'esc' : 'Esc', Tab: mac ? 'tab' : 'Tab', Space: mac ? 'space' : 'Space', Shift: mac ? '⇧' : 'Shift' })[k] ?? k;
+};
+const kchip = (k, a) => `<span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-flex;align-items:center;block-size:18px;padding:0 5px;border-radius:4px;background:#FFFFFF1F;color:#F5F5F7">${keyLabel(k)}</span><span style="color:#B8B8BF">${a}</span></span>`;
+function hintHTML() {
+  const live = S.mode === 'live', seg = (m, l) => `<span style="display:inline-flex;align-items:center;block-size:20px;padding:0 8px;border-radius:4px;${S.mode === m ? 'background:#F5F5F729;color:#F5F5F7' : 'color:#B8B8BF'}">${l}</span>`;
+  let body;
+  if (performance.now() < S.tooSmallUntil) body = `<span>Too small. Drag a larger area.</span>`;
+  else if (S.phase === 'dragging') body = `<span>${live ? 'Release to pin' : 'Release to translate'}</span>${kchip('Space', 'Move')}${kchip('Shift', 'Adjust first')}`;
+  else if (S.phase === 'adjusting') body = `${kchip('Enter', live ? 'Pin' : 'Translate')}<span style="color:#B8B8BF">Arrows Move</span>${kchip('Alt', 'Arrows Resize')}${kchip('Esc', 'Cancel')}`;
+  else body = `<span>${live ? 'Drag over the text to watch, or click a window' : 'Drag to select, or click a window'}</span>${kchip('Tab', live ? 'Switch to Snip' : 'Switch to Live')}${kchip('Esc', 'Cancel')}`;
+  const egress = $('#cloud').checked ? `<span style="display:inline-flex;align-items:center;gap:4px;block-size:20px;padding:2px 8px;border-radius:999px;background:#C4B0FF1A;color:#C4B0FF">${ico('cloud')}${live ? 'Live will send text to Google Cloud Translation' : 'Text will be sent to Google Cloud Translation'}</span>` : '';
+  return `<span style="display:inline-flex;gap:2px;padding:2px;border-radius:6px;background:#00000040">${seg('snip', 'Snip')}${seg('live', 'Live')}</span>${body}${egress}`;
+}
+function draw() {
+  ov.clearRect(0, 0, W, H); hud.innerHTML = '';
+  const now = performance.now(), reduced = $('#rm').checked;
+  stage.setAttribute('aria-label', S.mode === 'snip' ? 'Select an area to translate' : 'Select an area to watch');
+  if (S.phase === 'cancelled') { const a = reduced ? 0 : Math.max(0, 1 - (now - S.fade) / 80); if (a > 0) { scrim(ov, null, a); requestAnimationFrame(draw); } else hud.innerHTML = `<div class="hud" style="position:absolute;left:16px;top:44px">Picker closed. Use Restart picker.</div>`; stage.style.cursor = 'default'; return; }
+  if (S.phase === 'confirmed') {
+    stage.style.cursor = 'default';
+    const a = reduced ? 0 : Math.max(0, 1 - (now - S.fade) / 80);
+    if (S.mode === 'snip') {
+      if (a > 0) { scrim(ov, S.sel, a); requestAnimationFrame(draw); }
+      rectEdge(ov, S.sel);
+      // results layer: detection boxes over text drawn on the canvas
+      for (const b of detectBoxes(S.sel)) { rectEdgeRound(ov, b.r, b.skip ? 0.6 : 1, b.skip); }
+      hud.innerHTML = `<div class="hud" style="position:absolute;left:${Math.min(S.sel.x + S.sel.w + 8, W - 260)}px;top:${S.sel.y}px">Snip popup opens here (snip-popup.html)</div>`;
+    } else {
+      if (a > 0) { scrim(ov, S.sel, a); rectEdge(ov, S.sel, a); requestAnimationFrame(draw); }
+      ticks(ov, S.sel);
+      hud.innerHTML = `<div class="hud" style="position:absolute;left:${S.sel.x}px;top:${Math.max(32, S.sel.y - 34)}px">Pinned. Live popup docks per live-popup.md §3</div>`;
+    }
+    return;
+  }
+  const cand = S.phase === 'idle' ? candidateAt(S.cursor) : null;
+  scrim(ov, S.sel ?? cand?.rect);
+  if (cand) rectEdge(ov, cand.rect, 0.6);
+  for (const g of S.guides) line(ov, g.x1, g.y1, g.x2, g.y2, 0.6);
+  if (S.sel) rectEdge(ov, S.sel);
+  if (S.phase === 'adjusting' && S.sel) for (const [, hx, hy] of handlesOf(S.sel)) { ov.fillStyle = '#00000099'; ov.beginPath(); ov.roundRect(hx - 5, hy - 5, 10, 10, 3); ov.fill(); ov.fillStyle = '#FFFFFF'; ov.beginPath(); ov.roundRect(hx - 4, hy - 4, 8, 8, 3); ov.fill(); }
+  // hint bar placement
+  const hintTop = WORK_TOP + 16; let placeBottom = false;
+  const near = (y) => y < hintTop + 28 + 48;
+  if (near(S.cursor.y) || (S.sel && S.sel.y < hintTop + 28 + 48)) placeBottom = true;
+  const hint = document.createElement('div'); hint.className = 'hud';
+  Object.assign(hint.style, { position: 'absolute', left: '50%', transform: 'translateX(-50%)', blockSize: '28px', padding: '4px 8px', gap: '10px', borderRadius: '6px' });
+  hint.style[placeBottom ? 'bottom' : 'top'] = (placeBottom ? 16 : hintTop) + 'px';
+  hint.innerHTML = hintHTML(); hud.appendChild(hint);
+  const showGuides = S.phase === 'idle' || S.phase === 'dragging' || (S.handle && S.handle !== 'move');
+  if (showGuides) { crosshair(S.cursor); loupe(S.cursor); }
+  stage.style.cursor = S.phase === 'adjusting' ? (inside(S.cursor, S.sel) ? 'move' : 'crosshair') : 'crosshair';
+  // readout
+  const text = S.sel ? `${Math.round(S.sel.w)} × ${Math.round(S.sel.h)}` : cand?.label;
+  const r = S.sel ?? cand?.rect;
+  if (text && r) {
+    const chip = document.createElement('div'); chip.className = 'hud'; chip.textContent = text; chip.style.position = 'absolute'; hud.appendChild(chip);
+    const cw = chip.offsetWidth, ch = 20; let x = r.x + r.w + 8, y = r.y + r.h + 8;
+    if (x + cw > W) x = r.x - 8 - cw; if (y + ch > H) y = r.y - 8 - ch;
+    if (x < 0) x = r.x + r.w - 8 - cw; if (y < 0) y = r.y + r.h - 8 - ch;
+    chip.style.left = x + 'px'; chip.style.top = y + 'px';
+  }
+}
+function rectEdgeRound(g, r, alpha, dashed) {
+  g.save(); g.globalAlpha = alpha; if (dashed) g.setLineDash([3, 3]);
+  g.strokeStyle = '#00000099'; g.lineWidth = 3; g.beginPath(); g.roundRect(r.x, r.y, r.w, r.h, 3); g.stroke();
+  g.strokeStyle = '#FFFFFF'; g.lineWidth = 1; g.beginPath(); g.roundRect(r.x, r.y, r.w, r.h, 3); g.stroke(); g.restore();
+}
+function detectBoxes(sel) {
+  // Rough text boxes for the canvas text inside the selection (stand-in for OCR detection)
+  const out = [];
+  for (const win of WINDOWS) {
+    let y = win.y + 62;
+    TEXT[win.app].forEach((t, i) => {
+      desk.font = (win.app === 'Messages' ? '15px' : i === 0 ? '600 20px' : '15px') + ' sans-serif';
+      const tw = desk.measureText(t).width; let r;
+      if (win.app === 'Messages') { const me = i === 1 || i === 4; const bx = me ? win.x + win.w - tw - 44 : win.x + 20; r = { x: bx + 8, y: y - 16, w: tw + 8, h: 24 }; y += 46; }
+      else { r = { x: win.x + 20, y: y - (i === 0 ? 20 : 16), w: tw + 8, h: i === 0 ? 28 : 24 }; y += i === 0 ? 36 : 28; }
+      const front = WINDOWS.find((w) => r.x + 4 >= w.x && r.x + 4 <= w.x + w.w && r.y + 4 >= w.y && r.y + 4 <= w.y + w.h);
+      if (front !== win) return;
+      if (r.x >= sel.x && r.y >= sel.y && r.x + r.w <= sel.x + sel.w && r.y + r.h <= sel.y + sel.h && !/^\d/.test(t)) out.push({ r, skip: /[А-я]|Danke/.test(t) });
+    });
+  }
+  return out;
+}
+function ticks(g, r) {
+  const L = 12, o = 2;
+  const seg = (pts) => { for (const [c, w] of [['#00000099', 4], [getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#0A63C9', 2]]) { g.strokeStyle = c.startsWith('light-dark') ? '#0A63C9' : c; g.lineWidth = w; g.beginPath(); g.moveTo(...pts[0]); g.lineTo(...pts[1]); g.lineTo(...pts[2]); g.stroke(); } };
+  const x1 = r.x - o, y1 = r.y - o, x2 = r.x + r.w + o, y2 = r.y + r.h + o;
+  seg([[x1, y1 + L], [x1, y1], [x1 + L, y1]]); seg([[x2 - L, y1], [x2, y1], [x2, y1 + L]]);
+  seg([[x1, y2 - L], [x1, y2], [x1 + L, y2]]); seg([[x2 - L, y2], [x2, y2], [x2, y2 - L]]);
+}
+function crosshair(c) {
+  const gap = 10;
+  line(ov, 0, c.y + 0.5, c.x - gap, c.y + 0.5); line(ov, c.x + gap, c.y + 0.5, W, c.y + 0.5);
+  line(ov, c.x + 0.5, 0, c.x + 0.5, c.y - gap); line(ov, c.x + 0.5, c.y + gap, c.x + 0.5, H);
+}
+function loupe(c) {
+  const size = 120, cells = 15, z = 8;
+  let x = c.x + 24, y = c.y + 24;
+  if (x + size > W - 8) x = c.x - 24 - size; if (y + size > H - 8) y = c.y - 24 - size;
+  ov.save(); ov.shadowColor = '#00000059'; ov.shadowBlur = 16; ov.shadowOffsetY = 4; ov.fillStyle = '#000'; ov.beginPath(); ov.roundRect(x, y, size, size, 12); ov.fill(); ov.restore();
+  ov.save(); ov.beginPath(); ov.roundRect(x, y, size, size, 12); ov.clip();
+  ov.imageSmoothingEnabled = false;
+  const sx = Math.round(c.x) - 7, sy = Math.round(c.y) - 7;
+  ov.fillStyle = '#000'; ov.fillRect(x, y, size, size);
+  ov.drawImage($('#desk'), sx, sy, cells, cells, x - 0, y - 0, cells * z, cells * z);
+  ov.strokeStyle = '#00000040'; ov.lineWidth = 1;
+  for (let i = 1; i < cells; i++) { ov.beginPath(); ov.moveTo(x + i * z + 0.5, y); ov.lineTo(x + i * z + 0.5, y + size); ov.stroke(); ov.beginPath(); ov.moveTo(x, y + i * z + 0.5); ov.lineTo(x + size, y + i * z + 0.5); ov.stroke(); }
+  ov.strokeStyle = '#00000099'; ov.strokeRect(x + 7 * z - 0.5, y + 7 * z - 0.5, z + 1, z + 1);
+  ov.strokeStyle = '#FFFFFF'; ov.strokeRect(x + 7 * z + 0.5, y + 7 * z + 0.5, z - 1, z - 1);
+  ov.restore();
+  ov.save(); ov.strokeStyle = '#FFFFFF'; ov.lineWidth = 1; ov.beginPath(); ov.roundRect(x - 0.5, y - 0.5, size + 1, size + 1, 12); ov.stroke();
+  ov.strokeStyle = '#00000099'; ov.beginPath(); ov.roundRect(x - 1.5, y - 1.5, size + 3, size + 3, 13); ov.stroke(); ov.restore();
+}
+
+function restart() {
+  Object.assign(S, { phase: 'idle', anchor: null, sel: null, press: null, guides: [], handle: null, spaceMove: null });
+  S.mode = $('input[name=mode]:checked').value;
+  paintDesktop($('input[name=desk]:checked').value === 'dark');
+  announce('Area picker. Drag to select, or press an arrow key to draw a box with the keyboard. Escape cancels.');
+  say('Picker open (' + S.mode + ').'); draw();
+}
+$$('.toolbar input').forEach((i) => i.addEventListener('change', () => { if (i.name === 'desk' || i.name === 'mode') restart(); else draw(); }));
+$('#restart').addEventListener('click', () => { restart(); stage.focus(); });
+document.documentElement.dataset.os = 'macos';
+
+// Scripted states for screenshots
+function scripted(state) {
+  const m = { idle: [700, 640], hover: [300, 300] };
+  if (state === 'idle') { S.cursor = { x: 1240, y: 690 }; S.phase = 'idle'; }
+  if (state === 'hover') { S.cursor = { x: 205, y: 152 }; }
+  if (state === 'drag') { S.phase = 'dragging'; S.anchor = { x: 64, y: 130 }; S.cursor = { x: 436, y: 343 }; S.sel = rectFrom(S.anchor, { x: 436, y: 343 }); S.guides = [{ x1: 64, y1: 92, x2: 64, y2: 612 }]; }
+  if (state === 'adjust') { S.phase = 'adjusting'; S.sel = { x: 500, y: 100, w: 600, h: 150 }; S.cursor = { x: 900, y: 420 }; }
+  if (state === 'keyboard') { S.phase = 'adjusting'; S.sel = { x: 520, y: 300, w: 240, h: 120 }; S.cursor = { x: 640, y: 360 }; }
+  if (state === 'confirmed') { S.sel = { x: 72, y: 124, w: 384, h: 270 }; S.phase = 'confirmed'; S.fade = -1e9; }
+  if (state === 'live') { S.mode = 'live'; $('input[name=mode][value=live]').checked = true; S.sel = { x: 516, y: 104, w: 560, h: 140 }; S.phase = 'confirmed'; S.fade = -1e9; }
+  draw();
+}
+restart();
+const q = new URLSearchParams(location.search);
+if (q.get('desk') === 'dark') { $('input[name=desk][value=dark]').checked = true; restart(); }
+if (q.get('cloud') === '1') { $('#cloud').checked = true; }
+if (q.get('state')) scripted(q.get('state'));
+</script>
+</body>
+</html>
