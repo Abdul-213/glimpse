@@ -335,7 +335,7 @@ commands.handle("app.quit", () => {
 });
 
 const firstTranslator = () => {
-	const id = loadedSettings.settings.providers.translation[0];
+	const id = appSettings.current.providers.translation[0];
 	const factory = id ? providers.get(id) : undefined;
 	return factory ? { name: factory.info.name, kind: factory.info.kind } : null;
 };
@@ -362,6 +362,12 @@ void hotkeyRegistrar.apply(loadedSettings.settings.hotkeys);
 appSettings.subscribe((next, previous) => {
 	if (next.diagnostics.logLevel !== previous.diagnostics.logLevel) logs.applySettingsLevel(next.diagnostics.logLevel);
 	if (next.hotkeys !== previous.hotkeys) tray.update({ hotkeys: { snip: next.hotkeys.snip, live: next.hotkeys.live } });
+});
+
+// GLIM-108: providers, languages and the idle wipe apply to the translation service at once.
+appSettings.subscribe((next, previous) => {
+	void translation.applySettings(next, previous);
+	if (next.providers !== previous.providers) tray.update({ translation: firstTranslator() });
 });
 
 if (platform === "windows") {

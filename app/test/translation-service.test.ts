@@ -1,5 +1,6 @@
-// GLIM-101/102: the app's translation service (providers from settings, pipeline, caches,
-// Private) and the composition-root pieces around it, with fake providers.
+// GLIM-101/102/108: the app's translation service (providers from settings, pipeline, caches,
+// Private, settings changes at runtime) and the composition-root pieces around it, with fake
+// providers.
 import { describe, expect, test } from "bun:test";
 import {
 	applySettingsPatch,
@@ -11,6 +12,8 @@ import {
 	ProviderRegistry,
 	rect,
 	type Settings,
+	type SettingsPatch,
+	toOcrImage,
 } from "@glimpse/core";
 import { fakeOcrFactory, fakeTranslationFactory, MemoryLogSink, ocrBlock } from "@glimpse/core/testing";
 import { bergamotFactory } from "@glimpse/providers/translation/bergamot";
@@ -37,6 +40,7 @@ function setup(patch: Record<string, unknown> = {}) {
 	const registry = new ProviderRegistry<unknown>();
 	registry.register(fakeOcrFactory({ id: "fake-ocr", blocks: [ocrBlock("b1", "こんにちは", rect(0, 0, 50, 20))] }));
 	registry.register(fakeTranslationFactory({ id: "fake-translation" }));
+	registry.register(fakeTranslationFactory({ id: "fake-two", name: "Second", defaultRank: null }));
 	const env = settingsEnvFor("windows", "en-US", registry);
 	let settings: Settings = applySettingsPatch(
 		defaultSettings(env),
@@ -52,7 +56,13 @@ function setup(patch: Record<string, unknown> = {}) {
 		log: createLogger({ sinks: [sink], level: "debug" }),
 		onPrivateChange: (on) => privateChanges.push(on),
 	});
-	return { service, sink, privateChanges, setSettings: (s: Settings) => (settings = s) };
+	/** Change settings like AppSettings.update does, and tell the service. */
+	const change = async (p: SettingsPatch) => {
+		const previous = settings;
+		settings = applySettingsPatch(previous, p, env).settings;
+		await service.applySettings(settings, previous);
+	};
+	return { service, sink, privateChanges, change, setSettings: (s: Settings) => (settings = s) };
 }
 
 describe("TranslationService", () => {
@@ -108,6 +118,83 @@ describe("TranslationService", () => {
 		expect(service.caches.app.stats().entries).toBe(0);
 		await bus.dispatch("private.toggle", "tray");
 		expect(service.private).toBe(true);
+		await service.dispose();
+	});
+});
+
+describe("TranslationService: settings changes at runtime (GLIM-108)", () => {
+	const snipProvider = async (service: TranslationService<unknown>) =>
+		(await service.snip(capture, rect(0, 0, 100, 40), () => {})).translations["b1"]?.provider?.id;
+
+	test("a new chain takes effect on the next Snip; unchanged providers are kept, dropped ones disposed", async () => {
+		const { service, change } = setup();
+		await service.start();
+		const ocr = service.ocr;
+		const first = service.chain[0];
+		expect(await snipProvider(service)).toBe("fake-translation");
+
+		await change({ providers: { translation: ["fake-two", "fake-translation"] } });
+		expect(service.chain.map((p) => p.info.id)).toEqual(["fake-two", "fake-translation"]);
+		expect(service.chain[1]).toBe(first); // same instance, models stay loaded
+		expect(service.chain[0]?.status.state).toBe("ready");
+		expect(service.ocr).toBe(ocr);
+		service.clearCache("user");
+		expect(await snipProvider(service)).toBe("fake-two");
+
+		const two = service.chain[0];
+		await change({ providers: { translation: ["fake-translation"] } });
+		expect(two?.status.state).toBe("disposed");
+		expect(service.chain).toEqual(first ? [first] : []);
+		await service.dispose();
+	});
+
+	test("changed provider options rebuild that provider", async () => {
+		const { service, change } = setup();
+		await service.start();
+		const before = service.chain[0];
+		await change({ providers: { options: { "fake-translation": { quality: "best" } } } });
+		expect(service.chain[0]).not.toBe(before);
+		expect(service.chain[0]?.status.state).toBe("ready");
+		expect(before?.status.state).toBe("disposed");
+		await service.dispose();
+	});
+
+	test("target and sources update running Live sessions and re-warm the chain; Snip follows", async () => {
+		const { service, change } = setup();
+		await service.start();
+		const translator = service.chain[0] as unknown as { warmupCalls: number };
+		const warmed = translator.warmupCalls;
+		const session = service.openLive(() => {});
+		const image = toOcrImage(frame);
+		const text = async () => {
+			const r = await session.process(image);
+			const block = r?.blocks[0];
+			return block ? (r?.translations[block.id]?.text ?? block.cls) : null;
+		};
+		expect(await text()).toBe("こんにちは [ja>en]");
+
+		await change({ language: { target: L("de") } });
+		expect(await text()).toBe("こんにちは [ja>de]");
+		expect(translator.warmupCalls).toBe(warmed + 1);
+		expect((await service.snip(capture, rect(0, 0, 100, 40), () => {})).translations["b1"]?.text).toBe(
+			"こんにちは [ja>de]",
+		);
+
+		await change({ language: { sources: [L("ko")] } });
+		expect(await text()).toBe("skip");
+		session.close();
+		await service.dispose();
+	});
+
+	test("idle-wipe minutes go to the caches; before start() provider changes wait for start", async () => {
+		const { service, change } = setup();
+		const minutes: number[] = [];
+		service.caches.setIdleMinutes = (m: number) => minutes.push(m);
+		await change({ privacy: { clearCacheAfterIdleMinutes: 5 }, providers: { translation: ["fake-two"] } });
+		expect(minutes).toEqual([5]);
+		expect(service.chain).toEqual([]);
+		await service.start();
+		expect(service.chain.map((p) => p.info.id)).toEqual(["fake-two"]);
 		await service.dispose();
 	});
 });
