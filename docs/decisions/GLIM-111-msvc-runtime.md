@@ -52,9 +52,15 @@ the DLLs; app-local copies are only updated when we ship a new build. Each Glimp
 the newest runtime the runner's Visual Studio has, and if the PC already has a newer runtime
 loaded in the process, Windows uses that one.
 
+Checked on GitHub's windows-latest runner (desktop.yml, 2026-11-01): the build copied the five
+DLLs from `Visual Studio\18\Enterprise\VC\Redist\MSVC\14.51.36231\x64\Microsoft.VC145.CRT`,
+and the OCR smoke test's module list showed all five loaded from the app's
+`native\onnxruntime\`, not System32 (the runner also has the redistributable installed).
+
 ## Licence
 
-The Visual Studio 2022 licence terms ("Distributable Code") and the REDIST list
+The Visual Studio licence terms ("Distributable Code"; checked for 2022, the runners now have
+Visual Studio 18 / 2026, whose terms should be confirmed to say the same) and the REDIST list
 (<https://learn.microsoft.com/visualstudio/releases/2022/redistribution>) allow distributing
 "any of the files within [VisualStudioFolder]\VC\redist", unmodified, with your program. The
 conditions in the licence: distribute them only with a program that adds significant

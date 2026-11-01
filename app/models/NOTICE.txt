@@ -52,8 +52,9 @@ Microsoft Visual C++ runtime (Windows builds only)
   Copyright (c) Microsoft Corporation. All rights reserved.
   Files: msvcp140.dll, msvcp140_1.dll, msvcp140_atomic_wait.dll, vcruntime140.dll and
   vcruntime140_1.dll (x64), in native/onnxruntime/, needed by ONNX Runtime.
-  Copied unmodified from the Visual Studio 2022 redistributable folder (VC\Redist\MSVC) as
-  "Distributable Code" under the Microsoft Software License Terms for Visual Studio 2022
+  Copied unmodified from the Visual Studio redistributable folder (VC\Redist\MSVC) of the
+  build machine as "Distributable Code" under the Microsoft Software License Terms for Visual
+  Studio (2022 and later)
   (https://visualstudio.microsoft.com/license-terms/, REDIST list:
   https://learn.microsoft.com/visualstudio/releases/2022/redistribution). These files are not
   covered by Glimpse's MIT licence. You may not modify, reverse engineer or redistribute them

@@ -60,22 +60,35 @@ try {
 	await provider.dispose();
 }
 
-/** Full paths of the shared libraries this process has loaded (Linux, Windows; else empty). */
+/** Full paths of the shared libraries this process has loaded (Linux, macOS, Windows). */
 function loadedLibraries(): string[] {
 	if (process.platform === "linux") {
 		const maps = readFileSync("/proc/self/maps", "utf8").split("\n");
 		return [...new Set(maps.flatMap((l) => l.match(/\/\S+$/g) ?? []))];
 	}
-	if (process.platform === "win32") {
-		const ps = Bun.spawnSync(
-			["powershell", "-NoProfile", "-Command", `(Get-Process -Id ${process.pid}).Modules | ForEach-Object FileName`],
-			{ stdout: "pipe", stderr: "pipe" },
-		);
-		return ps.stdout
-			.toString()
+	const lines = (cmd: string[]) =>
+		Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" })
+			.stdout.toString()
 			.split(/\r?\n/)
 			.map((l) => l.trim())
 			.filter(Boolean);
+	if (process.platform === "win32") {
+		return lines([
+			"powershell",
+			"-NoProfile",
+			"-Command",
+			`(Get-Process -Id ${process.pid}).Modules | ForEach-Object FileName`,
+		]);
+	}
+	if (process.platform === "darwin") {
+		// lsof lists mapped images as "txt" entries; -Fn prints one "n<path>" line per file.
+		return [
+			...new Set(
+				lines(["lsof", "-p", String(process.pid), "-Fn"])
+					.filter((l) => l.startsWith("n/"))
+					.map((l) => l.slice(1)),
+			),
+		];
 	}
 	return [];
 }

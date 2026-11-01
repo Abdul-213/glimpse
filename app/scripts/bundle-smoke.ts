@@ -8,7 +8,7 @@
 //
 // Fails unless the text is read, every onnxruntime library came from the bundle and, on Windows,
 // the Visual C++ runtime DLLs in use are the app-local copies (GLIM-111).
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { OCR_WORKER_FILE } from "../src/bun/services/ocr/paddle-worker.ts";
@@ -37,7 +37,9 @@ try {
 	};
 	console.log(JSON.stringify(out, null, 2));
 
-	const inside = (lib: string) => lib.toLowerCase().startsWith(join(appDir, "native", "onnxruntime").toLowerCase());
+	// Compare against the path as created and as resolved (macOS: /var is a link to /private/var).
+	const roots = [appDir, realpathSync(appDir)].map((d) => join(d, "native", "onnxruntime").toLowerCase());
+	const inside = (lib: string) => roots.some((r) => lib.toLowerCase().startsWith(r));
 	if (!out.text.join("\n").includes("Die Datei konnte nicht gespeichert werden.")) fail("expected text not read");
 	if (out.ortLibs.length < 2) fail("onnxruntime libraries not found in the module list");
 	for (const lib of out.ortLibs) if (!inside(lib)) fail(`onnxruntime loaded from outside the bundle: ${lib}`);
