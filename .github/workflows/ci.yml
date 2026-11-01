@@ -66,6 +66,7 @@ jobs:
           bun run harness live --rect 0,0,360,120 --fps 4
           bun run harness snip --pipeline --rect 20,15,160,90
           bun run harness live --pipeline --rect 0,0,360,120 --fps 4
+          bun run harness pick --drag 150,20,300,100
 
       # GLIM-42: render the component gallery headlessly (macOS/Windows variants,
       # light/dark, LTR/RTL); fails on console errors or an empty render.

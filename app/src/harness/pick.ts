@@ -65,7 +65,7 @@ export async function runPick(
 	const first = steps.find((s) => "move" in s || "down" in s);
 	const start = first && "move" in first ? first.move : first && "down" in first ? first.down : { x: 0, y: 0 };
 	// Electrobun's Screen API stand-in: the cursor is wherever the script last put it.
-	const pointer = { at: start, cursor: () => pointer.at, primaryDown: () => false };
+	const pointer = { at: start, down: false, cursor: () => pointer.at, primaryDown: () => pointer.down };
 	const windows: WindowListSource = { list: async () => o.windows ?? [] };
 	const controller = new PickerController({
 		factory,
@@ -105,11 +105,13 @@ export async function runPick(
 			controller.viewPointer({ ...local(s.move), phase: "move", button: 0, detail: 0, mods: NO_MODIFIERS });
 		} else if ("down" in s) {
 			pointer.at = s.down;
+			pointer.down = (s.button ?? 0) === 0;
 			const l = local(s.down);
 			pressDisplay = l.displayId;
 			controller.viewPointer({ ...l, phase: "down", button: s.button ?? 0, detail: 1, mods: mods(s.mods) });
 		} else if ("up" in s) {
 			pointer.at = s.up;
+			pointer.down = false;
 			controller.viewPointer({ ...local(s.up), phase: "up", button: 0, detail: s.detail ?? 1, mods: mods(s.mods) });
 			pressDisplay = null;
 		} else {

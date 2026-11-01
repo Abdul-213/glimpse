@@ -30,6 +30,10 @@ export interface PointerProbe {
 export const LOUPE_INTERVAL_MS = 33;
 /** Poll the cursor when no view event arrived for this long (spec 4.1). */
 export const POLL_QUIET_MS = 100;
+/** While dragging, poll sooner: the pointer may be over another display's overlay (spec 4.1). */
+export const DRAG_POLL_QUIET_MS = 40;
+/** A drag with no view event for this long checks the OS button state for a release (spec 4.1). */
+export const RELEASE_POLL_MS = 120;
 /**
  * Focus loss cancels once no overlay has had focus for this long (spec 7.7). Clicking from
  * one display's overlay to another's blurs one and focuses the other within a few ms.
@@ -99,6 +103,8 @@ export class PickerSession {
 	private unfocusedSince: number | null = null;
 	private lastDisplayCheck: number;
 	private readonly displayKey: string;
+	/** How cross-display drags were tracked (diagnostics for the GLIM-54 manual checks). */
+	readonly stats = { substituted: 0, polledMoves: 0, polledRelease: 0 };
 
 	constructor(private readonly o: PickerSessionOptions) {
 		const cursor = o.probe.cursor();
@@ -164,9 +170,21 @@ export class PickerSession {
 		});
 	}
 
-	/** The point to use for a view event. */
-	private resolvePoint(_e: ViewPointer, p: Point): Point {
-		return p;
+	/**
+	 * The point to use for a view event. A view keeps pointer capture while a drag crosses
+	 * onto another display, and reports points outside its own bounds by extrapolating its
+	 * own CSS px. That is wrong across mixed DPI on Windows (each monitor has its own
+	 * physical-to-logical mapping), so those points come from the OS cursor instead.
+	 */
+	private resolvePoint(e: ViewPointer, p: Point): Point {
+		if (e.phase === "down") return p;
+		const d = this.state.env.displays.find((x) => x.id === e.displayId);
+		if (!d) return p;
+		const b = d.bounds;
+		const outside = p.x < b.x || p.y < b.y || p.x > b.x + b.width || p.y > b.y + b.height;
+		if (!outside) return p;
+		this.stats.substituted++;
+		return this.o.probe.cursor();
 	}
 
 	key(e: ViewKey): void {
@@ -250,11 +268,22 @@ export class PickerSession {
 	 * (spec 4.1).
 	 */
 	private pollCursor(now: number): void {
-		if (now - this.lastViewEventAt < POLL_QUIET_MS) return;
+		const pressed = this.state.phase === "dragging" || !!this.state.grab || !!this.state.press;
+		const quiet = now - this.lastViewEventAt;
+		if (quiet < (pressed ? DRAG_POLL_QUIET_MS : POLL_QUIET_MS)) return;
 		const c = this.o.probe.cursor();
 		const prev = this.state.cursor;
-		if (prev && Math.abs(prev.x - c.x) < 0.01 && Math.abs(prev.y - c.y) < 0.01) return;
-		this.dispatch({ type: "pointer", phase: "move", p: c, button: 0, mods: this.state.mods, detail: 0, t: now });
+		if (!prev || Math.abs(prev.x - c.x) >= 0.01 || Math.abs(prev.y - c.y) >= 0.01) {
+			if (pressed) this.stats.polledMoves++;
+			this.dispatch({ type: "pointer", phase: "move", p: c, button: 0, mods: this.state.mods, detail: 0, t: now });
+			if (this.finished) return;
+		}
+		// The release may land on an overlay that never saw the press (or on none): if the
+		// views went quiet, ask the OS whether the button is still down.
+		if (pressed && quiet >= RELEASE_POLL_MS && !this.o.probe.primaryDown()) {
+			this.stats.polledRelease++;
+			this.dispatch({ type: "pointer", phase: "up", p: c, button: 0, mods: this.state.mods, detail: 1, t: now });
+		}
 	}
 
 	private sampleLoupe(now: number): void {

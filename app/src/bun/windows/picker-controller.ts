@@ -101,6 +101,28 @@ export type RegionListener = (region: RegionSelected) => "keep" | undefined;
 
 const DEFAULT_SETTINGS: PickerSettings = { confirmOnRelease: true, showLoupe: true, reducedMotion: false };
 
+/**
+ * Does a view cover its display at the display's scale (GLIM-54)? Returns what is off, or
+ * null. A window that comes up the wrong size (Electrobun maps frames through the monitor
+ * at the top-left on Windows; the macOS Y-flip bug) or at the wrong DPI shows here.
+ */
+export function overlayMismatch(
+	d: Display,
+	got: { devicePixelRatio?: number; innerWidth?: number; innerHeight?: number },
+): string | null {
+	const out: string[] = [];
+	if (got.innerWidth !== undefined && Math.abs(got.innerWidth - d.bounds.width) > 1) {
+		out.push(`width ${got.innerWidth} != ${d.bounds.width}`);
+	}
+	if (got.innerHeight !== undefined && Math.abs(got.innerHeight - d.bounds.height) > 1) {
+		out.push(`height ${got.innerHeight} != ${d.bounds.height}`);
+	}
+	if (got.devicePixelRatio !== undefined && Math.abs(got.devicePixelRatio - d.scaleFactor) > 0.01) {
+		out.push(`devicePixelRatio ${got.devicePixelRatio} != scale ${d.scaleFactor}`);
+	}
+	return out.length > 0 ? out.join(", ") : null;
+}
+
 /** Stable signature of a display layout: overlays are recreated when it changes. */
 export const displaySignature = (displays: readonly Display[]): string =>
 	JSON.stringify(displays.map((d) => [d.id, d.bounds, d.workArea, d.scaleFactor]));
@@ -241,10 +263,15 @@ export class PickerController {
 
 	// ---- view input (from each overlay's RPC handlers) ----
 
-	viewInit(displayId: number): PickerViewInit | null {
+	viewInit(
+		displayId: number,
+		got: { devicePixelRatio?: number; innerWidth?: number; innerHeight?: number } = {},
+	): PickerViewInit | null {
 		const o = this.overlays.get(displayId);
 		if (!o) return null;
 		const d = o.display;
+		const problem = overlayMismatch(d, got);
+		if (problem) this.deps.log.warn("picker overlay mismatch", { displayId, problem, ...got });
 		// A view that loads after an open missed the reset/state pushes: replay them.
 		queueMicrotask(() => {
 			if (this.lastReset) o.reset(this.lastReset);
@@ -337,6 +364,10 @@ export class PickerController {
 		this.stopTick = null;
 		this.flushView();
 		const animate = !settings.reducedMotion;
+		const stats = this.session?.stats;
+		if (stats && (stats.substituted || stats.polledMoves || stats.polledRelease)) {
+			this.deps.log.debug("picker cross-display tracking", { ...stats });
+		}
 		for (const l of this.outcomeListeners) l(outcome);
 		if (outcome.kind === "cancelled") {
 			this.deps.log.info("picker cancelled", { reason: outcome.reason });
