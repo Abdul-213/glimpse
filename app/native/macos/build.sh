@@ -15,10 +15,10 @@ clang -dynamiclib $arch_flags -mmacosx-version-min=14.0 -O2 \
 	-fobjc-arc -fvisibility=hidden \
 	-Wall -Wextra -Werror -Wno-unused-parameter -Wunguarded-availability-new \
 	-install_name @rpath/libglimpse.dylib \
-	-framework Foundation -framework AppKit -framework ScreenCaptureKit \
+	-framework Foundation -framework AppKit -framework Carbon -framework ScreenCaptureKit \
 	-framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework Accelerate \
 	-o "$out/libglimpse.dylib" \
-	"$here/glimpse.m" "$here/window.m" "$here/capture.m" "$here/picker.m"
+	"$here/glimpse.m" "$here/window.m" "$here/capture.m" "$here/picker.m" "$here/hotkey.m"
 
 # Ad-hoc sign so the dylib loads on Apple Silicon (the app bundle is re-signed as a whole).
 codesign --force --sign - "$out/libglimpse.dylib"

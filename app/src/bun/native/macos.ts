@@ -1,7 +1,7 @@
 // bun:ffi bindings for libglimpse.dylib (macOS). See app/native/macos/glimpse.h for the
 // C ABI. Nothing outside app/src/bun/native/ sees a raw pointer from here, except the
 // NSWindow* that window controllers already hold (BrowserWindow.ptr).
-import { FFIType, type Pointer, ptr } from "bun:ffi";
+import { FFIType, JSCallback, type Pointer, ptr } from "bun:ffi";
 import type { Rect, RgbaImage } from "@glimpse/core";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
 import { captureErrorFor, GLIM_E_NO_FRAME } from "./status.ts";
@@ -43,6 +43,12 @@ const symbols = {
 	glim_focus_restore: { args: [FFIType.ptr], returns: FFIType.i32 },
 	glim_window_configure: { args: [FFIType.ptr, FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
 	glim_window_set_level: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	// GLIM-44 Carbon hot keys (hotkey.m)
+	glim_hotkey_init: { args: [FFIType.function], returns: FFIType.i32 },
+	glim_hotkey_register: { args: [FFIType.i32, FFIType.u32, FFIType.u32], returns: FFIType.i32 },
+	glim_hotkey_unregister: { args: [FFIType.i32], returns: FFIType.i32 },
+	glim_hotkey_unregister_all: { args: [], returns: FFIType.i32 },
+	glim_hotkey_shutdown: { args: [], returns: FFIType.i32 },
 } as const;
 
 /** A display as CoreGraphics reports it: global points + backing scale. */
@@ -101,9 +107,20 @@ export interface MacPickerBinding {
 	streamSample(handle: StreamHandle, x: number, y: number, size: number, out: Uint8Array): number | null;
 }
 
+/** Carbon hot keys (GLIM-44). Status returns are OSStatus values (0 ok, -9878 taken). */
+export interface MacHotkeyBinding {
+	/** Install the handler once; `onPress(id)` runs on the Bun worker for each press. Returns OSStatus. */
+	hotkeyInit(onPress: (id: number) => void): number;
+	hotkeyRegister(id: number, keyCode: number, mods: number): number;
+	hotkeyUnregister(id: number): number;
+	hotkeyUnregisterAll(): void;
+	hotkeyShutdown(): void;
+}
+
 type Symbols = NonNullable<ReturnType<typeof loadNativeLibrary<typeof symbols>>["symbols"]>;
 
-class LibGlimpse implements MacCaptureBinding, MacWindowBinding, MacPickerBinding {
+class LibGlimpse implements MacCaptureBinding, MacWindowBinding, MacPickerBinding, MacHotkeyBinding {
+	private hotkeyCallback: JSCallback | null = null;
 	private readonly src = new Float64Array(4);
 	private readonly dest = new Int32Array(4);
 	private readonly u32 = new Uint32Array(1);
@@ -233,6 +250,39 @@ class LibGlimpse implements MacCaptureBinding, MacWindowBinding, MacPickerBindin
 		if (r !== 0) this.fail("NSWindow level", r);
 	}
 
+	hotkeyInit(onPress: (id: number) => void): number {
+		if (this.hotkeyCallback) return 0;
+		// Runs on the AppKit main thread; threadsafe queues it onto this worker.
+		const cb = new JSCallback(
+			(id: number, kind: number) => {
+				if (kind === 1) onPress(id);
+			},
+			{ args: [FFIType.i32, FFIType.i32], returns: FFIType.void, threadsafe: true },
+		);
+		const r = this.sym.glim_hotkey_init(cb);
+		if (r === 0) this.hotkeyCallback = cb;
+		else cb.close();
+		return r;
+	}
+
+	hotkeyRegister(id: number, keyCode: number, mods: number): number {
+		return this.sym.glim_hotkey_register(id, keyCode >>> 0, mods >>> 0);
+	}
+
+	hotkeyUnregister(id: number): number {
+		return this.sym.glim_hotkey_unregister(id);
+	}
+
+	hotkeyUnregisterAll(): void {
+		this.sym.glim_hotkey_unregister_all();
+	}
+
+	hotkeyShutdown(): void {
+		this.sym.glim_hotkey_shutdown();
+		this.hotkeyCallback?.close();
+		this.hotkeyCallback = null;
+	}
+
 	streamSample(handle: StreamHandle, x: number, y: number, size: number, out: Uint8Array): number | null {
 		const r = this.sym.glim_capture_stream_sample(handle, x, y, size, ptr(out), BigInt(out.length), ptr(this.u64));
 		if (r === GLIM_E_NO_FRAME) return null;
@@ -246,7 +296,7 @@ let lib: LibGlimpse | { status: NativeStatus } | undefined;
 /** Load libglimpse.dylib once. `binding` is null when it is missing or broken (see `status`). */
 export function loadMacNative(): {
 	status: NativeStatus;
-	binding: (MacCaptureBinding & MacWindowBinding & MacPickerBinding) | null;
+	binding: (MacCaptureBinding & MacWindowBinding & MacPickerBinding & MacHotkeyBinding) | null;
 } {
 	if (!lib) {
 		if (process.platform !== "darwin") {

@@ -61,6 +61,12 @@ if (process.platform === "win32") {
 	console.log("displays:", JSON.stringify(displays), "screen recording granted:", binding.preflight());
 	binding.setExcludedWindows([]);
 	pickerSmoke(binding, () => macWindows(binding.listWindows()));
+	// Carbon hot keys (GLIM-44): install the handler, register an unlikely chord, release it.
+	const init = binding.hotkeyInit(() => {});
+	const reg = binding.hotkeyRegister(0, 0x50, 0x1100); // Ctrl+Cmd+F19
+	console.log(`hotkey init ${init}, register Ctrl+Cmd+F19 ${reg}`);
+	binding.hotkeyShutdown();
+	if (init !== 0 || reg !== 0) process.exit(1);
 	if (tryCapture && displays.length > 0) {
 		const source = new MacCaptureSource({ binding, shellDisplays: () => displaysFromMac(displays) });
 		await attempt("SCK snip 64x64", () => source.capture(rect(0, 0, 64, 64)));

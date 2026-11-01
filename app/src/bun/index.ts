@@ -11,12 +11,18 @@ import { CommandBus } from "./commands.ts";
 import { readDisplays } from "./displays.ts";
 import { ELECTROBUN_VERSION } from "./electrobun-version.ts";
 import { exclusionOpsFor } from "./native/exclusion.ts";
+import { loadMacNative } from "./native/macos.ts";
+import { overlayOpsFor } from "./native/overlay.ts";
 import { platform } from "./platform.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
 import { buildDiagnostics } from "./services/diagnostics.ts";
+import { HotkeyService } from "./services/hotkeys.ts";
+import { CarbonHotkeyBackend } from "./services/hotkeys-carbon.ts";
+import { ElectrobunHotkeyBackend } from "./services/hotkeys-electrobun.ts";
 import { createAppLogger } from "./services/log.ts";
 import { ModelManager } from "./services/models/model-manager.ts";
 import { bundledModelsDir, catalogueCacheFile, modelsRoot } from "./services/models/paths.ts";
+import { createPickerNatives } from "./services/picker/index.ts";
 import { type AppProviderContext, providerContext, registerProviders } from "./services/providers.ts";
 import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
@@ -27,6 +33,8 @@ import { TranslationPacks } from "./services/translation/translation-packs.ts";
 import { TranslationService, warmPairsFor } from "./services/translation/translation-service.ts";
 import { createTray } from "./tray.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
+import { electrobunOverlayFactory, screenProbe } from "./windows/picker.ts";
+import { PickerController } from "./windows/picker-controller.ts";
 import { SettingsWindow } from "./windows/settings.ts";
 
 const logs = createAppLogger({ dir: Utils.paths.userLogs });
@@ -101,6 +109,95 @@ const exclusion = new CaptureExclusion(exclusionOpsFor(), capture.source, (messa
 
 const settings = new SettingsWindow(appInfo, exclusion);
 
+// Region picker (GLIM-44, GLIM-91): one hidden overlay per display, created now so a
+// hotkey only has to show them (spec 8: scrim within 100 ms). Loupe pixels come from the
+// capture source; window list and focus from the native helper.
+const pickerLog = log.child("picker");
+const pickerNatives = createPickerNatives({
+	capture: capture.source,
+	shellDisplays: readDisplays,
+	log: (message) => pickerLog.warn(message),
+});
+let picker: PickerController | null = null;
+picker = new PickerController({
+	factory: electrobunOverlayFactory({
+		exclusion,
+		ops: overlayOpsFor(),
+		controller: () => picker,
+		log: (message) => pickerLog.info(message),
+	}),
+	displays: readDisplays,
+	probe: screenProbe,
+	windows: pickerNatives.windows,
+	sampler: pickerNatives.sampler,
+	focus: pickerNatives.focus,
+	os: platform,
+	log: pickerLog,
+	settings: () => ({
+		// Settings fields for these two land with GLIM-105; the spec defaults until then.
+		confirmOnRelease: true,
+		showLoupe: true,
+		reducedMotion: loadedSettings.settings.appearance.motion === "reduced",
+	}),
+});
+picker.prepare();
+// Snip (GLIM-65) and Live (GLIM-59) subscribe to picker.onRegionSelected. Until they land:
+// a Snip region runs through the translation pipeline (capture -> OCR -> detect -> translate)
+// and its events are logged as types and counts only (never screen text); a Live region is
+// just captured once, so the path to the capture service is exercised.
+picker.onRegionSelected((region) => {
+	if (region.mode === "snip") {
+		translation
+			.snip(capture.source, region.rect, (event) => {
+				const counts =
+					event.type === "detected"
+						? { boxes: event.boxes.length }
+						: event.type === "recognised"
+							? { blocks: event.blocks.length }
+							: event.type === "progress"
+								? { done: event.done, total: event.total }
+								: event.type === "done"
+									? {
+											blocks: event.result.blocks.length,
+											translated: Object.keys(event.result.translations).length,
+											error: event.result.error?.kind ?? null,
+											totalMs: event.result.timings.totalMs,
+										}
+									: {};
+				pickerLog.info("snip pipeline event (no popup yet, GLIM-65)", { type: event.type, ...counts });
+			})
+			.catch((error) => pickerLog.warn("snip pipeline failed", { error }));
+		return undefined;
+	}
+	capture.source
+		.capture(region.rect)
+		.then((frame) =>
+			pickerLog.info("region captured (no Snip/Live consumer yet)", {
+				mode: region.mode,
+				width: frame.width,
+				height: frame.height,
+				scale: frame.scale,
+				pieces: region.pieces.length,
+			}),
+		)
+		.catch((error) => pickerLog.warn("region capture failed", { error }));
+	return undefined;
+});
+
+// Global hotkeys (GLIM-23): Electrobun RegisterHotKey on Windows, Carbon on macOS.
+const macNative = platform === "macos" ? loadMacNative() : null;
+const hotkeyBackend =
+	platform === "windows"
+		? new ElectrobunHotkeyBackend()
+		: macNative?.binding
+			? new CarbonHotkeyBackend(macNative.binding)
+			: null;
+const hotkeys = new HotkeyService(
+	hotkeyBackend,
+	log.child("hotkeys"),
+	platform === "macos" && macNative && !macNative.status.available ? macNative.status.reason : undefined,
+);
+
 const diagnostics = () =>
 	buildDiagnostics({
 		appInfo,
@@ -130,8 +227,9 @@ const diagnostics = () =>
 // `translation.snip()` / `translation.openLive()`.
 const commands = new CommandBus(log.child("commands"));
 const stub = (command: string) => () => log.info("not implemented yet", { command });
-commands.handle("snip.start", stub("snip.start"));
-commands.handle("live.start", stub("live.start"));
+// The picker owns the start commands up to "region selected"; Snip / Live take it from there.
+commands.handle("snip.start", () => picker?.toggle("snip"));
+commands.handle("live.start", () => picker?.toggle("live"));
 commands.handle("live.stop", stub("live.stop"));
 commands.handle("live.pause", stub("live.pause"));
 commands.handle("live.resume", stub("live.resume"));
@@ -147,6 +245,9 @@ commands.handle("logs.open", () => {
 commands.handle("app.quit", () => {
 	log.info("quit");
 	void translation.dispose();
+	hotkeys.dispose();
+	picker?.dispose();
+	pickerNatives.sampler.stop();
 	capture.source.dispose();
 	logs.file.close();
 	Utils.quit();
@@ -174,6 +275,11 @@ const tray = createTray(
 // The service updates the tray through onPrivateChange.
 commands.handle("private.toggle", () => translation.setPrivate(!translation.private));
 
+hotkeys.apply(loadedSettings.settings.hotkeys, {
+	snip: () => void commands.dispatch("snip.start", "hotkey"),
+	live: () => void commands.dispatch("live.start", "hotkey"),
+});
+
 if (platform === "windows") {
 	watchTaskbarTheme((taskbarTheme) => tray.update({ taskbarTheme }));
 }
@@ -190,4 +296,6 @@ log.info("started", {
 	settings: loadedSettings.source,
 	logLevel: log.level,
 	capture: capture.status,
+	picker: pickerNatives.status,
+	hotkeys: hotkeys.backendName,
 });

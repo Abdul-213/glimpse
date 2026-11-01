@@ -87,7 +87,8 @@ jobs:
             glim_capture_set_excluded_windows glim_capture_shot glim_capture_stream_open glim_capture_stream_read \
             glim_capture_stream_close glim_capture_reset glim_capture_preflight glim_capture_displays_json \
             glim_capture_stream_sample glim_list_windows glim_focus_save glim_focus_restore glim_window_configure \
-            glim_window_set_level; do
+            glim_window_set_level glim_hotkey_init glim_hotkey_register glim_hotkey_unregister \
+            glim_hotkey_unregister_all glim_hotkey_shutdown; do
             grep -q "_$s\$" exports.txt || { echo "missing export $s"; exit 1; }
           done
 
