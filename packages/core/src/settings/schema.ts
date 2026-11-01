@@ -9,6 +9,7 @@
 // files would otherwise lose data. Adding a field with a default needs no migration.
 
 import { type LanguageCode, languageCode, parseLanguageCode } from "../language.ts";
+import { LOG_LEVELS, type LogLevel } from "../logging/types.ts";
 import type { ProvidersConfig } from "../providers/registry.ts";
 import {
 	array,
@@ -64,6 +65,10 @@ export interface Settings {
 	readonly onboarding: {
 		readonly completed: boolean;
 	};
+	readonly diagnostics: {
+		/** Local log file threshold (GLIM-35). `GLIMPSE_LOG_LEVEL` overrides it for a run. */
+		readonly logLevel: LogLevel;
+	};
 }
 
 export interface SettingsEnv {
@@ -102,6 +107,9 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		}),
 		onboarding: object({
 			completed: withDefault(boolean(), false),
+		}),
+		diagnostics: object({
+			logLevel: withDefault(oneOf(LOG_LEVELS), "info"),
 		}),
 	});
 }

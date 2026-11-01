@@ -6,6 +6,7 @@ export * from "./fake-factories.ts";
 export * from "./fake-ocr-provider.ts";
 export * from "./fake-translation-provider.ts";
 export * from "./memory-secret-store.ts";
+export * from "./memory-log-sink.ts";
 export * from "./memory-settings-store.ts";
 export * from "./ocr-contract.ts";
 export * from "./translation-contract.ts";

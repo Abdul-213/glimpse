@@ -1,36 +1,42 @@
+// GLIM-41: the tray / menu-bar item. Renders `TrayController` state (tray-menu.ts, pure)
+// with Electrobun's Tray, and turns clicks into command-bus dispatches. Rebuilding happens
+// only when the menu or icon actually changes.
 import { Tray } from "electrobun/main";
 import type { Platform } from "../shared/rpc.ts";
+import { type CommandBus, isCommand } from "./commands.ts";
+import { TrayController, type TrayMenuItem, type TrayState, trayIconFor } from "./tray-menu.ts";
 
-export type TrayAction = "settings" | "quit";
+type ElectrobunMenu = Parameters<Tray["setMenu"]>[0];
 
-const isTrayAction = (value: unknown): value is TrayAction => value === "settings" || value === "quit";
+// Electrobun's MenuItemConfig is mutable and loosely typed; our items are a strict subset.
+const toElectrobun = (menu: readonly TrayMenuItem[]): ElectrobunMenu =>
+	menu.map((item) =>
+		item.type === "divider"
+			? { type: "divider" }
+			: {
+					type: "normal",
+					label: item.label,
+					...(item.action ? { action: item.action } : {}),
+					...(item.enabled === false ? { enabled: false } : {}),
+					...(item.checked ? { checked: true } : {}),
+					...(item.tooltip ? { tooltip: item.tooltip } : {}),
+					...(item.submenu ? { submenu: toElectrobun(item.submenu) } : {}),
+				},
+	);
 
-/**
- * Tray icon per platform (DESIGN.md Shapes: monochrome; template image on macOS,
- * light/dark variants on Windows). The PNGs are copied to views://assets/ by
- * electrobun.config.ts. Following the Windows taskbar theme is GLIM-41's job.
- */
-export function trayIconFor(platform: Platform): { image: string; template: boolean } {
-	switch (platform) {
-		case "macos":
-			return { image: "views://assets/tray-template.png", template: true };
-		case "windows":
-			return { image: "views://assets/tray-light.png", template: false };
-		default:
-			return { image: "views://assets/tray-dark.png", template: false };
-	}
-}
-
-export function createTray(platform: Platform, onAction: (action: TrayAction) => void): Tray {
-	const tray = new Tray({ ...trayIconFor(platform), width: 16, height: 16 });
-	tray.setMenu([
-		{ type: "normal", label: "Settings…", action: "settings" },
-		{ type: "divider" },
-		{ type: "normal", label: "Quit Glimpse", action: "quit" },
-	]);
+export function createTray(initial: TrayState, commands: CommandBus): TrayController {
+	const platform: Platform = initial.platform;
+	const tray = new Tray({ ...trayIconFor(platform, initial.taskbarTheme), width: 16, height: 16 });
+	const controller = new TrayController(
+		{
+			setMenu: (menu) => tray.setMenu(toElectrobun(menu)),
+			setImage: (image) => tray.setImage(image),
+		},
+		initial,
+	);
 	tray.on("tray-clicked", (event: unknown) => {
 		const action = (event as { data?: { action?: unknown } }).data?.action;
-		if (isTrayAction(action)) onAction(action);
+		if (isCommand(action)) void commands.dispatch(action, "tray");
 	});
-	return tray;
+	return controller;
 }
