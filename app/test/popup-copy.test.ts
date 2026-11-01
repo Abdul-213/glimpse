@@ -1,6 +1,4 @@
 // GLIM-80: E3 "Translate on this device" appears only when the local packs are installed.
-// The copy module imports @glimpse/ui, whose components need a DOM at import time.
-import "../../packages/ui/test/dom.ts";
 import { describe, expect, test } from "bun:test";
 import { initialSnipState, type SnipPopupState } from "@glimpse/core";
 import { errorBody } from "../src/views/popup/copy.ts";

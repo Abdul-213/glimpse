@@ -1,7 +1,8 @@
 // Snip popup copy (snip-popup.md §12). English for now; every string the popup shows
 // comes from here, so the i18n layer can replace this table without touching components.
 import type { PipelineErrorKind, SnipPackRow, SnipPopupState, SnipStatus } from "@glimpse/core";
-import { formatBytes, languageName } from "@glimpse/ui";
+// The pure helpers only: this module is also unit-tested without a DOM (GLIM-80).
+import { formatBytes, languageName } from "@glimpse/ui/format";
 import type { SnipAction } from "../../shared/popup-rpc.ts";
 
 export const COPY = {
