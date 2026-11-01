@@ -1,12 +1,14 @@
-// Providers for harness runs (GLIM-102): a scripted OCR provider and the real Bergamot
-// provider over packs already installed in a model-manager folder. Nothing here downloads:
+// Providers for harness runs (GLIM-102, GLIM-109): a scripted OCR provider, real PaddleOCR over
+// the dev model cache (`bun run models`), and the real Bergamot provider over packs already
+// installed in a model-manager folder. Nothing here downloads:
 // install packs first (GLIMPSE_REAL_PACKS=1 bun test app/test/bergamot-real.test.ts does,
 // into ~/.cache/glimpse/test-installs).
 import { join } from "node:path";
-import { type LanguageCode, type OcrBlock, rect, type TranslationProvider } from "@glimpse/core";
+import { type LanguageCode, type OcrBlock, type OcrProvider, rect, type TranslationProvider } from "@glimpse/core";
 import { FakeOcrProvider, FakeTranslationProvider } from "@glimpse/core/testing";
+import { cacheModelSource, PaddleOcrProvider } from "@glimpse/providers/ocr/paddle";
 import { BergamotTranslationProvider } from "@glimpse/providers/translation/bergamot";
-import { defaultCacheDir } from "../../scripts/model-cache.ts";
+import { defaultCacheDir, loadManifest } from "../../scripts/model-cache.ts";
 import { loadBergamotCatalogue } from "../bun/services/models/catalogue.ts";
 import { ModelManager } from "../bun/services/models/model-manager.ts";
 import { ModelManagerPackSource } from "../bun/services/translation/bergamot-packs.ts";
@@ -15,23 +17,40 @@ import { ModelManagerPackSource } from "../bun/services/translation/bergamot-pac
 export const defaultPackRoot = (): string => join(defaultCacheDir(), "..", "test-installs");
 
 /**
- * An OCR provider that "reads" the given lines: one block per line, stacked top to bottom
- * inside the image, boxes first (progressive) like PaddleOCR.
+ * An OCR provider that "reads" the given lines: one line per entry, stacked top to bottom
+ * inside the image with a line's height between them (so the GLIM-56 grouper keeps them as
+ * separate blocks), boxes first (progressive) like PaddleOCR.
  */
 export function scriptedOcr(lines: readonly string[], id = "harness-ocr"): FakeOcrProvider {
 	return new FakeOcrProvider({
 		id,
 		name: "Scripted OCR",
 		blocks: (req): OcrBlock[] => {
-			const h = Math.max(1, Math.floor(req.image.height / Math.max(1, lines.length)));
+			const slot = Math.max(2, Math.floor(req.image.height / Math.max(1, lines.length)));
+			const h = Math.floor(slot / 2);
 			return lines.map((text, i) => ({
 				id: `b${i + 1}`,
 				text,
-				box: rect(0, i * h, req.image.width, h),
+				box: rect(0, i * slot, req.image.width, h),
 				confidence: 0.99,
 			}));
 		},
 	});
+}
+
+/**
+ * Real PaddleOCR (GLIM-46) over the dev model cache (`bun run models`), in its Worker, loaded
+ * and warmed. Throws when the models aren't there.
+ */
+export async function paddleOcr(cacheDir = defaultCacheDir()): Promise<OcrProvider> {
+	const provider = new PaddleOcrProvider({}, { models: cacheModelSource(loadManifest(), cacheDir) });
+	const status = await provider.init();
+	if (status.state !== "ready") {
+		await provider.dispose();
+		throw new Error(`PaddleOCR is ${status.state} with models in ${cacheDir} (run: bun run models)`);
+	}
+	await provider.warmup?.();
+	return provider;
 }
 
 export interface HarnessTranslator {

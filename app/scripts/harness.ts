@@ -11,6 +11,8 @@
 //   bun run harness pick --keys ArrowRight,Enter --mode live
 //   bun run harness windows --native                               (picker window list, GLIM-91)
 //   bun run harness loupe --native --at 400,300 --count 60         (loupe sampling rate, GLIM-91)
+//   bun run harness snip --pipeline --ocr paddle --translator bergamot --to en --sources ja,de \
+//     --frames app/test/fixtures/capture/mixed-ja-de/mixed-ja-de.png      (real OCR, ELD, Bergamot)
 //
 // Without --native it uses the file-based capture backend over --frames (default: the
 // sample recording in app/test/fixtures/capture/sample). --json prints the full report.
@@ -36,12 +38,14 @@ import { displaysFromMac, displaysFromWindows } from "../src/bun/services/captur
 import { encodePng } from "../src/bun/services/capture/png.ts";
 import { WindowsCaptureSource } from "../src/bun/services/capture/windows.ts";
 import { createPickerNatives } from "../src/bun/services/picker/index.ts";
+import { pipelineStages } from "../src/bun/services/translation/pipeline-stages.ts";
 import { dragSteps, type PickStep, runPick } from "../src/harness/pick.ts";
 import {
 	bergamotTranslator,
 	defaultPackRoot,
 	fakeTranslator,
 	type HarnessTranslator,
+	paddleOcr,
 	scriptedOcr,
 } from "../src/harness/providers.ts";
 import {
@@ -63,8 +67,11 @@ const USAGE = `usage: bun run harness <displays|snip|live|pick|windows|loupe> [o
   --realtime        Live: sleep 1/fps between frames; file backend switches to timed advance
   --out <dir>       save each frame as PNG
   --json            print the full JSON report
-  --pipeline        run the translation pipeline (GLIM-102) on every frame
-  --ocr-text <t>    pipeline: what the scripted OCR "reads", blocks separated by |
+  --pipeline        run the translation pipeline (GLIM-102) on every frame, with the real
+                    grouping (GLIM-56) and language detection (GLIM-21 rules over ELD, GLIM-49)
+  --ocr <o>         pipeline: scripted (default) or paddle (real PaddleOCR over the dev model
+                    cache from \`bun run models\`, no network)
+  --ocr-text <t>    pipeline: what the scripted OCR "reads", lines separated by |
                     (default: a Japanese sentence pair, a number and an English label)
   --translator <t>  pipeline: fake (default) or bergamot (real WASM + installed packs, no network)
   --packs <dir>     bergamot: model folder with installed packs (default ${defaultPackRoot()})
@@ -91,6 +98,7 @@ const { values, positionals } = parseArgs({
 		out: { type: "string" },
 		json: { type: "boolean", default: false },
 		pipeline: { type: "boolean", default: false },
+		ocr: { type: "string", default: "scripted" },
 		"ocr-text": { type: "string" },
 		translator: { type: "string", default: "fake" },
 		packs: { type: "string" },
@@ -162,6 +170,7 @@ const lang = (v: string, name: string): LanguageCode => {
 const DEFAULT_OCR_TEXT = "設定を保存しました。次へ進みます。|100|Settings";
 
 let translator: HarnessTranslator | null = null;
+let ocrProvider: { dispose(): Promise<void> } | null = null;
 const stages: HarnessStage[] = [];
 if (values.pipeline) {
 	const to = lang(values.to ?? "en", "to");
@@ -172,16 +181,28 @@ if (values.pipeline) {
 	if (values.translator !== "fake" && values.translator !== "bergamot") {
 		throw new Error(`--translator must be fake or bergamot, not ${values.translator}`);
 	}
-	const lines = (values["ocr-text"] ?? DEFAULT_OCR_TEXT).split("|");
-	const ocr = scriptedOcr(lines);
-	await ocr.init();
+	if (values.ocr !== "scripted" && values.ocr !== "paddle") {
+		throw new Error(`--ocr must be scripted or paddle, not ${values.ocr}`);
+	}
+	const ocr =
+		values.ocr === "paddle" ? await paddleOcr() : scriptedOcr((values["ocr-text"] ?? DEFAULT_OCR_TEXT).split("|"));
+	if (values.ocr === "scripted") await ocr.init();
+	ocrProvider = ocr;
+	const real = pipelineStages({ warn: (message, fields) => console.warn(`[harness] ${message}`, fields ?? "") });
+	await real.detector.load();
 	translator =
 		values.translator === "bergamot"
-			? await bergamotTranslator(values.packs ? resolve(values.packs) : defaultPackRoot())
+			? await bergamotTranslator(
+					values.packs ? resolve(values.packs) : defaultPackRoot(),
+					// Warm the user's pairs like the app does after startup.
+					sources.filter((from) => from !== to).map((from) => ({ from, to })),
+				)
 			: await fakeTranslator();
 	stages.push(
 		pipelineStage({
 			ocr,
+			grouper: real.grouper,
+			detect: real.detector,
 			translation: translator.provider,
 			to,
 			sources,
@@ -195,7 +216,8 @@ const pipelineLines = (r: FrameReport): string[] => {
 	const p = r.stages["pipeline"] as PipelineStageReport | undefined;
 	if (!p) return [];
 	const out = [
-		`    pipeline: ${p.done}/${p.total} translated${p.error ? `, error ${p.error}` : ""} in ${p.timings.totalMs} ms (${p.events.join(" → ")})`,
+		`    pipeline: ${p.done}/${p.total} translated${p.error ? `, error ${p.error}` : ""} in ${p.timings.totalMs} ms ` +
+			`(OCR ${p.timings.ocrMs} ms, translate ${p.timings.translateMs} ms; ${p.events.join(" → ")})`,
 	];
 	for (const b of p.blocks) {
 		const what = b.translation ?? (b.error ? `[${b.error}]` : `[${b.cls}]`);
@@ -329,5 +351,6 @@ try {
 	process.exitCode = 1;
 } finally {
 	await translator?.dispose();
+	await ocrProvider?.dispose();
 	source.dispose();
 }

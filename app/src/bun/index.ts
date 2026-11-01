@@ -37,6 +37,7 @@ import { FileSettingsStore } from "./services/settings-store.ts";
 import { watchTaskbarTheme } from "./services/taskbar-theme.ts";
 import { ModelManagerPackSource } from "./services/translation/bergamot-packs.ts";
 import { loadPackCatalogue } from "./services/translation/pack-catalogue.ts";
+import { pipelineStages } from "./services/translation/pipeline-stages.ts";
 import { TranslationPacks } from "./services/translation/translation-packs.ts";
 import { TranslationService, warmPairsFor } from "./services/translation/translation-service.ts";
 import { createTray } from "./tray.ts";
@@ -92,12 +93,15 @@ const translationPacks = new TranslationPacks({
 	packs: bergamotPacks,
 	chain: () => translation.chain,
 });
+const stages = pipelineStages(translationLog);
 const translation: TranslationService<AppProviderContext> = new TranslationService({
 	registry: providers,
 	ctx: providerCtx,
 	settings: () => appSettings.current,
 	log: translationLog,
 	readinessOf: (from, to) => translationPacks.readiness(from, to),
+	// GLIM-109: GLIM-56 grouping and GLIM-21 detection over ELD.
+	...stages,
 	onPrivateChange: (on) => tray.update({ private: on }),
 });
 translation.startTimers();
@@ -107,6 +111,7 @@ models
 	.then(() => {
 		log.child("models").info("scan complete", { installed: models.installedIds().length });
 		translationLog.info("starting providers", { bergamotWorker: bergamotWorker ?? "default (source tree)" });
+		void stages.detector.load();
 		return translation.start();
 	})
 	.catch((error) => log.child("models").warn("model scan failed", { error }));

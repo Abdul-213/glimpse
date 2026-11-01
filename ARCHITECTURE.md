@@ -217,11 +217,19 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 - **`TranslationPipeline`** (`packages/core/src/pipeline/`): `snip(capture, rect, opts)`,
   `run(image, opts)` (one frame) and `translate(blocks, opts)` (Retry with `bypassCache`,
   "Translate these" with `includeSkipped`, blocks waiting on a pack once it lands). Stages:
-  OCR (boxes first) → `BlockGrouper` → `LanguageDetector` → `classifyBlock` (translate / skip /
+  OCR (boxes first) → `BlockGrouper` → `BlockLanguageDetector` → `classifyBlock` (translate / skip /
   neutral / target, subset filter) → `planTranslation` (provider routing, pack rows, unsupported)
   → `executeTranslation` (normalise, split sentences, cache per sentence and hop, batches).
-  Grouping (GLIM-56) and detection (GLIM-49) come in through those two ports; the defaults are
-  `identityGrouper` and a script-table `scriptLanguageDetector`.
+  Grouping (GLIM-56) and detection (GLIM-49) come in through those two ports
+  (`pipeline/stages.ts`, GLIM-109): `lineGrouper` runs `groupLines` on engine lines and passes
+  blocks an engine already grouped (they carry `lines`) through; `glim21Detector` runs the
+  GLIM-21 rules over the detector libraries it is given (ELD, loaded lazily, picked per subset
+  with `planDetector`). Snip decides each capture alone; Live keeps one
+  `LanguageDetectionSession` per session (text cache, rule 5a, hysteresis), keyed by the
+  session's memo map, and `LivePipelineSession` re-ids blocks with a `BlockIdTracker` so the
+  hysteresis and the popup see stable ids. The app builds both in
+  `services/translation/pipeline-stages.ts` (composition root and harness). Without them the
+  pipeline falls back to `identityGrouper` and the script-table `scriptLanguageDetector` (tests).
 - **Events** (`pipeline/events.ts`) follow snip-popup.md §4/§8: `started` → `detected` →
   `recognised` (authoritative block list) → `packs` → `translation` per block (non-final ones
   show translated sentences + remaining source) → `progress` → exactly one `done` with the
@@ -428,9 +436,11 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
      `TranslationPipeline` on each frame (tests drive it with the core fakes); change detection
      (GLIM-58) plugs in as another stage. CLI: `bun run harness <displays|snip|live> [--frames dir] [--rect
      x,y,w,h] [--fps n] [--count n] [--realtime] [--out dir] [--json]`, plus `--pipeline
-     [--ocr-text "a|b"] [--translator fake|bergamot] [--to de] [--sources ja,de] [--private]`
-     (scripted OCR; `bergamot` uses the real WASM provider over packs already installed in
-     `~/.cache/glimpse/test-installs`, offline). It exits 1 on a capture
+     [--ocr scripted|paddle] [--ocr-text "a|b"] [--translator fake|bergamot] [--to de] [--sources ja,de]
+     [--private]` (real grouping and ELD detection; `scripted` OCR reads `--ocr-text`, `paddle` is
+     real PaddleOCR over the dev model cache; `bergamot` uses the real WASM provider over packs
+     already installed in `~/.cache/glimpse/test-installs`, offline). A rendered Japanese/German
+     frame for real-OCR runs is `app/test/fixtures/capture/mixed-ja-de/mixed-ja-de.png`. It exits 1 on a capture
      error. `--native` runs the same flows against the real backend on a Windows PC or Mac,
      without Electrobun.
 6. **Real hardware:** what only Windows/macOS can show (materials, overlays above fullscreen apps,
