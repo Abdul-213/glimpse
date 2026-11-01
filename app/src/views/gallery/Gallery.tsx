@@ -1,6 +1,7 @@
 import { type JSX, Show } from "solid-js";
 import { ComponentsPage } from "./ComponentsPage.tsx";
 import type { GalleryParams } from "./params.ts";
+import { ScriptsPage } from "./ScriptsPage.tsx";
 
 const OS_NAME = { macos: "macOS", windows: "Windows", linux: "Linux" } as const;
 
@@ -15,10 +16,12 @@ export function Gallery(props: { params: GalleryParams }): JSX.Element {
 	return (
 		<div class="min-h-dvh bg-surface-window-solid px-8 py-6 text-text-primary">
 			<header class="mb-6 flex flex-col gap-1">
-				<h1 class="m-0 font-display text-title">Glimpse component gallery</h1>
+				<h1 class="m-0 font-display text-title">
+					{p().page === "scripts" ? "Glimpse font and RTL test page" : "Glimpse component gallery"}
+				</h1>
 				<p class="m-0 text-body text-text-secondary">{variant()}</p>
 			</header>
-			<Show when={p().page === "components"}>
+			<Show when={p().page === "components"} fallback={<ScriptsPage params={p()} />}>
 				<ComponentsPage params={p()} />
 			</Show>
 		</div>

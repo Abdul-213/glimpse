@@ -475,6 +475,9 @@ Every rendered block carries the `lang` attribute from language detection (BCP-4
 | Hebrew | 1× | 1.55 / 1.55 / 1.5 | |
 | Devanagari, Bengali and other Indic scripts | 1.0667× | 1.75 / 1.75 / 1.7 | Headstroke scripts render small at Latin sizes; the step up keeps conjuncts legible. |
 | Thai, Lao, Khmer, Myanmar, Tibetan | 1.0667× | 1.8 / 1.8 / 1.75 (Myanmar, Tibetan 1.9) | Stacked marks above and below need the room. |
+| Ethiopic, Tifinagh | 1× | 1.6 / 1.6 / 1.55 | Kefa (macOS) / Ebrima (Windows) first. Georgian and Armenian use the base stack (Segoe UI and the macOS system cascade cover them). |
+
+**Font delivery (GLIM-51).** Glimpse bundles no fonts. macOS 14+ and the default installs of Windows 10/11 ship a face for every script group the translation model covers; the stacks name them, and the Noto families at the end only help users who already have them installed. The one known gap is Urdu Nastaliq on Windows: "Urdu Typesetting" is an optional Windows feature, so without it Urdu renders in Segoe UI's naskh style, which is legible but not Nastaliq. Full reasoning, the per-script font table and the sizes that ruled out bundling: `docs/decisions/GLIM-51-font-fallback.md`. The test page is the gallery's `?page=scripts`.
 
 UI chrome (labels, buttons) uses the user's UI language, set by the same rules. Leading changes per block, never per popup, so a mixed popup does not reflow its Latin lines when a CJK block arrives.
 
@@ -632,7 +635,7 @@ Where Impeccable's process would have asked, a choice was made and is listed her
 7. **Changed-block highlight.** Derived from the OS accent (chosen) rather than a dedicated marker colour. With a graphite or yellow accent the tint is weaker, and the change mark carries the signal. Is the 1.6 s settle right for subtitles that change every 2–3 s?
 8. **Platform sizing.** Body and source text are 13px on macOS and 14px on Windows; controls are 28px and 32px. Keep the platform split, or use one size on both?
 9. **Translation text size.** 15px by default. Should settings offer a text-size control (suggested: three steps, 13 / 15 / 18px), separate from OS scaling?
-10. **Noto delivery.** The stacks list Noto last, but nothing is bundled yet. Bundle a subset (which scripts?), offer an optional "extra scripts" font download, or rely on OS fonts plus whatever Noto the user has installed? CJK Noto is around 15–20 MB per region per weight.
+10. **Noto delivery.** Decided in GLIM-51: bundle nothing, rely on OS fonts (see Typography > Font delivery). Revisit if the GLIM-87 hardware check finds tofu, or if Nastaliq on Windows without "Urdu Typesetting" is not acceptable (an optional Noto Nastaliq Urdu download is the proposed fix).
 11. **macOS 26+ Liquid Glass.** Is `NSGlassEffectView` used where available instead of `NSVisualEffectView`? It changes the material, and probably the popup radius (12px may need to grow to match concentric system corners).
 12. **Windows 10.** Mica and Acrylic need Windows 11. Is Windows 10 supported at all? If it is, it gets the solid surfaces and square popups (`popup-win10`, decided in the popup specs).
 13. **Icon set.** One outlined family at a 1.5px stroke was specified but not picked (for example Lucide, or authored icons modelled on SF Symbols / Fluent). Native look on each OS argues for authored icons.

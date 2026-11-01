@@ -26,6 +26,9 @@ export const VARIANTS: GalleryVariant[] = [
 	{ name: "components-windows-dark", query: "os=windows", colorScheme: "dark", width: 1320 },
 	{ name: "components-macos-light-rtl", query: "os=macos&dir=rtl", colorScheme: "light", width: 1320 },
 	{ name: "components-win10-light", query: "os=win10", colorScheme: "light", width: 1320 },
+	{ name: "scripts-macos-light", query: "os=macos&page=scripts", colorScheme: "light", width: 1320 },
+	{ name: "scripts-windows-dark", query: "os=windows&page=scripts", colorScheme: "dark", width: 1320 },
+	{ name: "scripts-macos-light-rtl", query: "os=macos&page=scripts&dir=rtl", colorScheme: "light", width: 1320 },
 ];
 
 async function serve(dir: string, port: number) {
