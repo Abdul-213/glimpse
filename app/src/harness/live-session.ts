@@ -214,7 +214,8 @@ export function liveSessionLines(r: LiveSessionReport, frameName?: (t: number) =
 			`${s.decisions.settling} settling, ${s.decisions.settled} settled, ${s.decisions["below-threshold"]} below threshold`,
 	);
 	out.push(
-		`  OCR runs ${s.ocrRuns} (provider calls ${r.ocrCalls}, superseded ${s.superseded}), frame-ring reuses ${s.ringHits}, blank ${s.blankFrames}`,
+		`  OCR runs ${s.ocrRuns} (provider calls ${r.ocrCalls}, superseded ${s.superseded}), frame-ring reuses ${s.ringHits}, blank ${s.blankFrames}; ` +
+			`translation cache ${s.cachedBlocks}/${s.translatedBlocks} blocks (GLIM-67)`,
 	);
 	out.push(
 		`  per grab: capture ${s.meanGrabMs.toFixed(2)} ms, change detection ${s.meanDetectMs.toFixed(3)} ms mean / ` +

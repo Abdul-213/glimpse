@@ -372,3 +372,23 @@ describe("unpin releases every capture resource (GLIM-81)", () => {
 		expect(calls).toEqual(["open", "close"]);
 	});
 });
+
+describe("translation reuse is logged at debug level (GLIM-67)", () => {
+	test("each OCR run logs translated / cached block counts and the hit rate, never text", async () => {
+		const s = await setup([
+			{ image: strip(RED), holdMs: 1000 },
+			{ image: strip(GREEN), holdMs: 1000 },
+			{ image: strip(RED), holdMs: 5000 },
+		]);
+		s.setSettings({ live: { diffThreshold: 0.02 } });
+		await s.live.start(REGION);
+		await s.at(4000);
+		s.live.stop();
+		const lines = s.sink.records.filter((e) => e.message === "live: translation cache");
+		expect(lines.length).toBeGreaterThanOrEqual(2);
+		expect(lines.every((e) => e.level === "debug")).toBe(true);
+		expect(lines[0]?.fields).toMatchObject({ translated: 1, cached: 0, hitRate: 0 });
+		const text = JSON.stringify(lines);
+		expect(text.includes("こんにちは") || text.includes("さようなら")).toBe(false);
+	});
+});
