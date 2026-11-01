@@ -42,7 +42,7 @@ describe("settings defaults", () => {
 			appearance: { theme: "system", motion: "system" },
 			snip: { copyAfterSnip: true, showOriginalUnder: false, alwaysShowLanguages: false },
 			picker: { showLoupe: true, confirmOnRelease: true },
-			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300 },
+			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300, announceChanges: "auto" },
 			privacy: {
 				privateByDefault: false,
 				clearCacheAfterIdleMinutes: 15,
@@ -145,7 +145,7 @@ describe("parseSettings repairs field by field", () => {
 			env,
 		);
 		expect(settings.language).toEqual({ target: languageCode("ja"), sources: [languageCode("ko")] });
-		expect(settings.live).toEqual({ fps: 3, diffThreshold: 0.1, stabilityMs: 300 });
+		expect(settings.live).toEqual({ fps: 3, diffThreshold: 0.1, stabilityMs: 300, announceChanges: "auto" });
 		expect(settings.appearance).toEqual({ theme: "system", motion: "reduced" });
 		expect(settings.privacy.clearCacheAfterIdleMinutes).toBe(15);
 		expect(settings.onboarding.completed).toBe(true);

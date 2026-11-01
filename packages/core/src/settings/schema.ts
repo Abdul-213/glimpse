@@ -73,6 +73,11 @@ export interface Settings {
 		readonly diffThreshold: number;
 		/** The region must be stable this long before re-OCR (PRODUCT.md: about 300 ms). */
 		readonly stabilityMs: number;
+		/**
+		 * Read Live changes aloud (GLIM-92, live-popup.md §10): `auto` = when a screen reader is
+		 * running at session start (VoiceOver, SPI_GETSCREENREADER), `on`, `off`.
+		 */
+		readonly announceChanges: "auto" | "on" | "off";
 	};
 	readonly privacy: {
 		/** Start every Snip/Live session in Private mode (its own cache, discarded after; GLIM-20). */
@@ -159,6 +164,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			fps: withDefault(number({ min: 0.5, max: 10 }), 3),
 			diffThreshold: withDefault(number({ min: 0, max: 1 }), 0.02),
 			stabilityMs: withDefault(number({ min: 0, max: 5000, integer: true }), 300),
+			announceChanges: withDefault(oneOf(["auto", "on", "off"] as const), "auto"),
 		}),
 		privacy: object({
 			privateByDefault: withDefault(boolean(), false),

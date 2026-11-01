@@ -82,7 +82,8 @@ export type LiveRPC = {
 		messages: {
 			liveState: LiveStateMessage;
 			liveFocus: { sessionId: string };
-			liveAnnounce: { sessionId: string; text: string };
+			/** GLIM-92: `change` goes to the polite role="log", `status` to role="status". */
+			liveAnnounce: { sessionId: string; text: string; kind: "change" | "status" };
 		};
 	}>;
 };

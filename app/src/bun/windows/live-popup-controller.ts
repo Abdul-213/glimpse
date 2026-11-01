@@ -123,6 +123,11 @@ export class LivePopupController {
 		return this.#visible;
 	}
 
+	/** The popup has keyboard focus on purpose (consent, Focus Live popup). */
+	get focused(): boolean {
+		return this.#focused;
+	}
+
 	get placement(): LivePopupPlacement | null {
 		return this.#placement;
 	}

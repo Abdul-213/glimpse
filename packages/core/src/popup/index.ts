@@ -6,6 +6,7 @@ export * from "./clipboard.ts";
 export * from "./egress.ts";
 // Live (live-popup.md): block diffing (GLIM-58), docking and strip rules, and the popup
 // state reducer (GLIM-79).
+export * from "./live-announcer.ts";
 export * from "./live-diff.ts";
 export * from "./live-layout.ts";
 export * from "./live-state.ts";
