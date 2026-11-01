@@ -2,7 +2,7 @@
 // Every implementation in @glimpse/providers registers here; the composition root builds the
 // context from app services. No Electrobun imports: tested on Linux.
 //
-// Cloud providers (GLIM-60 Google Cloud Vision) are registered too, but registering never
+// Cloud providers (GLIM-60 Google Cloud Vision, GLIM-61 Google Cloud Translation v2) are registered too, but registering never
 // selects them: they have no default rank, and the registry drops a cloud translator listed
 // after a local one. They run only after the user picks them in Settings › Providers.
 import type { Logger, ProviderRegistry, SecretStore } from "@glimpse/core";
@@ -10,6 +10,7 @@ import type { FetchLike, GoogleCloudContext } from "@glimpse/providers/google";
 import { googleVisionFactory } from "@glimpse/providers/ocr/google-vision";
 import { type PaddleOcrContext, paddleOcrFactory } from "@glimpse/providers/ocr/paddle";
 import { type BergamotContext, bergamotFactory, type EngineEvent } from "@glimpse/providers/translation/bergamot";
+import { googleTranslateFactory } from "@glimpse/providers/translation/google-v2";
 import { paddleModelSource } from "./ocr/paddle-models.ts";
 import { ocrSpawner } from "./ocr/paddle-worker.ts";
 import type { ModelManagerPackSource } from "./translation/bergamot-packs.ts";
@@ -22,6 +23,7 @@ export function registerProviders(registry: ProviderRegistry<AppProviderContext>
 	registry.register(paddleOcrFactory<AppProviderContext>());
 	registry.register(bergamotFactory<AppProviderContext>());
 	registry.register(googleVisionFactory<AppProviderContext>());
+	registry.register(googleTranslateFactory<AppProviderContext>());
 }
 
 export interface ProviderContextOptions {

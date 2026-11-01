@@ -11,6 +11,7 @@
 		"./ocr/google-vision": "./src/ocr/google-vision/index.ts",
 		"./ocr/paddle": "./src/ocr/paddle/index.ts",
 		"./translation/bergamot": "./src/translation/bergamot/index.ts",
+		"./translation/google-v2": "./src/translation/google-v2/index.ts",
 		"./testing": "./src/testing.ts"
 	},
 	"scripts": {
