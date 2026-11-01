@@ -74,6 +74,14 @@ export interface Settings {
 	readonly system: {
 		readonly launchAtLogin: boolean;
 	};
+	readonly cloud: {
+		/**
+		 * Cloud translators the user answered "Don't ask again for Live" for (live-popup.md L10,
+		 * GLIM-94 #16): per provider. Cloud OCR in Live asks every session regardless
+		 * (`liveCloudConsent`). Changed only through main (Live popup, Settings › Providers).
+		 */
+		readonly liveConsent: readonly string[];
+	};
 	readonly models: {
 		/** Where downloaded models live; null = `<userData>/models` (GLIM-96). Absolute path. */
 		readonly directory: string | null;
@@ -125,6 +133,12 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		}),
 		system: object({
 			launchAtLogin: withDefault(boolean(), false),
+		}),
+		cloud: object({
+			liveConsent: withDefault(
+				array(string({ maxLength: 64, pattern: /^[a-z0-9][a-z0-9:-]*$/ }), { maxLength: 16, uniqueBy: (id) => id }),
+				[],
+			),
 		}),
 		models: object({
 			directory: withDefault(nullable(absolutePathSchema()), null),

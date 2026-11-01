@@ -323,6 +323,18 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   `views/settings/state.ts` holds what main sent. `views/settings-preview` (dev-only) renders
   it over a fake client; `bun app/scripts/settings-shots.ts --shots docs/design/screens/settings`
   regenerates the committed screenshots.
+- **Cloud providers and API keys (GLIM-75)**: `services/cloud-settings.ts` (`CloudSettings`) backs
+  the Providers pane: `getCloud`, `saveApiKey`, `removeApiKey`, `testApiKey`, `setProvider`,
+  `resetLiveConsent`, `openCloudLink` (a fixed set of URLs; the view never passes one). A key
+  goes from the view to the keychain once and never comes back: the `CloudSnapshot` carries
+  saved / not saved, the last four characters and "Test key" results
+  (`@glimpse/providers/google` `testGoogleKey`: `GET /v2/languages` and an empty Vision batch, no
+  screen content). A cloud provider is selected only with a saved key and `confirmed: true`; for
+  translation it goes first in the chain, ahead of the local translators. Removing a key sends
+  every task that used it back to this computer. Any key change calls
+  `TranslationService.keyChanged` (cache wipe `key-change`, re-init/re-warm the providers on that
+  key). Live consent: `settings.cloud.liveConsent` (per provider) and core's `liveCloudConsent()`
+  (cloud translation asks once, cloud OCR asks every session; GLIM-94 #16 defaults).
 - **Source-language subset (GLIM-68)**: `packages/core/src/language/source-subset.ts`: the
   languages offered (detectable or locally translatable) and script grouping; the pipeline's
   `classifyBlock` applies the subset (empty = all). Settings stores catalogue tags only (`sourceLanguageSchema` rejects others). UI:

@@ -295,6 +295,26 @@ export class TranslationService<Ctx> {
 		this.#opts.onPrivateChange?.(on);
 	}
 
+	/**
+	 * An API key was added, replaced or removed (GLIM-75). Drops the cache (GLIM-20: changing
+	 * or removing a key drops that provider's results; the cache can't select by provider, so
+	 * it all goes), then re-checks the providers that use the key: one waiting for a key
+	 * re-runs `init()`, a ready one re-warms (Translation v2 refreshes its language list).
+	 * Never rejects.
+	 */
+	async keyChanged(secretId: string): Promise<void> {
+		this.clearCache("key-change");
+		const users = [...this.#built.keys()].filter((p) => p.capabilities.secretId === secretId);
+		await Promise.all(
+			users.map(async (p) => {
+				const state = p.status.state;
+				if (state === "disposed") return;
+				if (state === "ready") await this.#warm(p);
+				else await this.#load(p);
+			}),
+		);
+	}
+
 	/** The `cache.clear` command, and lock / sleep / key-change wipes. */
 	clearCache(reason: CacheClearReason = "user"): void {
 		this.caches.clear(reason);

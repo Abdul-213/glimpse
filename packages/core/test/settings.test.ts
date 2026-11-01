@@ -44,6 +44,7 @@ describe("settings defaults", () => {
 			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300 },
 			privacy: { privateByDefault: false, clearCacheAfterIdleMinutes: 15, clearCacheOnLock: true },
 			system: { launchAtLogin: false },
+			cloud: { liveConsent: [] },
 			models: { directory: null },
 			onboarding: { completed: false },
 			diagnostics: { logLevel: "info" },

@@ -5,6 +5,7 @@
 import type { Settings } from "@glimpse/core";
 import { createSignal } from "solid-js";
 import type {
+	CloudSnapshot,
 	HotkeyStatus,
 	LoginItemStatus,
 	ModelsSnapshot,
@@ -20,6 +21,8 @@ export function createSettingsState(client: SettingsClient) {
 	const [hotkeys, setHotkeys] = createSignal<HotkeyStatus | null>(null);
 	const [loginItem, setLoginItem] = createSignal<LoginItemStatus | null>(null);
 	const [models, setModels] = createSignal<ModelsSnapshot | null>(null);
+	// Settings › Providers (GLIM-75): key status and cloud providers. Never a key.
+	const [cloud, setCloud] = createSignal<CloudSnapshot | null>(null);
 	const [languages, setLanguages] = createSignal<SourceLanguagesSnapshot | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 
@@ -27,6 +30,7 @@ export function createSettingsState(client: SettingsClient) {
 		settingsChanged: (s) => setSettings(s),
 		hotkeysChanged: (s) => setHotkeys(s),
 		modelsChanged: (s) => setModels(s),
+		cloudChanged: (s) => setCloud(s),
 	});
 
 	const load = async () => {
@@ -47,6 +51,7 @@ export function createSettingsState(client: SettingsClient) {
 		hotkeys,
 		loginItem,
 		models,
+		cloud,
 		languages,
 		error,
 		load,
@@ -59,6 +64,10 @@ export function createSettingsState(client: SettingsClient) {
 		async loadLanguages() {
 			setLanguages(await client.request.getSourceLanguages());
 		},
+		async loadCloud() {
+			setCloud(await client.request.getCloud());
+		},
+		setCloud,
 		async loadModels() {
 			setModels(await client.request.getModels());
 		},
