@@ -44,6 +44,9 @@ import { createTray } from "./tray.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
 import { electrobunOverlayFactory, screenProbe } from "./windows/picker.ts";
 import { PickerController } from "./windows/picker-controller.ts";
+import { ElectrobunPopupWindow } from "./windows/popup.ts";
+import { SnipPopupController } from "./windows/popup-controller.ts";
+import { snipViewInit } from "./windows/popup-init.ts";
 import { SettingsWindow } from "./windows/settings.ts";
 import { providerSummaries } from "./windows/settings-handlers.ts";
 
@@ -236,33 +239,39 @@ picker = new PickerController({
 	}),
 });
 picker.prepare();
-// Snip (GLIM-65) and Live (GLIM-59) subscribe to picker.onRegionSelected. Until they land:
-// a Snip region runs through the translation pipeline (capture -> OCR -> detect -> translate)
-// and its events are logged as types and counts only (never screen text); a Live region is
+// Snip popup (GLIM-65): one hidden window created now, reused for every Snip. A confirmed
+// Snip region runs through the translation pipeline and streams into it; the overlays stay
+// up under it as the results layer until it closes.
+const popupLog = log.child("popup");
+let snipPopup: SnipPopupController | null = null;
+const popupWindow = new ElectrobunPopupWindow({
+	exclusion,
+	init: snipViewInit(platform),
+	controller: () => snipPopup,
+	displays: readDisplays,
+	log: (message) => popupLog.info(message),
+});
+snipPopup = new SnipPopupController({
+	window: popupWindow,
+	displays: readDisplays,
+	runner: {
+		snip: (rect, onEvent, signal, runId) => translation.snip(capture.source, rect, onEvent, signal, runId),
+	},
+	focus: pickerNatives.focus,
+	results: { dismiss: () => picker?.dismiss() },
+	settings: () => ({
+		reducedMotion: loadedSettings.settings.appearance.motion === "reduced",
+		alwaysShowLanguages: loadedSettings.settings.snip.alwaysShowLanguages,
+		uiDir: "ltr",
+	}),
+	pointer: () => screenProbe.cursor(),
+	log: popupLog,
+});
+// Live (GLIM-59) subscribes to picker.onRegionSelected too. Until it lands, a Live region is
 // just captured once, so the path to the capture service is exercised.
 picker.onRegionSelected((region) => {
 	if (region.mode === "snip") {
-		translation
-			.snip(capture.source, region.rect, (event) => {
-				const counts =
-					event.type === "detected"
-						? { boxes: event.boxes.length }
-						: event.type === "recognised"
-							? { blocks: event.blocks.length }
-							: event.type === "progress"
-								? { done: event.done, total: event.total }
-								: event.type === "done"
-									? {
-											blocks: event.result.blocks.length,
-											translated: Object.keys(event.result.translations).length,
-											error: event.result.error?.kind ?? null,
-											totalMs: event.result.timings.totalMs,
-										}
-									: {};
-				pickerLog.info("snip pipeline event (no popup yet, GLIM-65)", { type: event.type, ...counts });
-			})
-			.catch((error) => pickerLog.warn("snip pipeline failed", { error }));
-		return undefined;
+		return snipPopup?.open(region.rect) ? "keep" : undefined;
 	}
 	capture.source
 		.capture(region.rect)
@@ -327,6 +336,8 @@ commands.handle("app.quit", () => {
 	log.info("quit");
 	void translation.dispose();
 	hotkeys.dispose();
+	snipPopup?.dispose();
+	popupWindow.close();
 	picker?.dispose();
 	pickerNatives.sampler.stop();
 	capture.source.dispose();

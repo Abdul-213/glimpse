@@ -1,0 +1,61 @@
+// Snip popup RPC (GLIM-65; snip-popup.md §13.2). Types only, plain JSON.
+//
+// Main owns the popup state (`SnipPopupState`, reduced from pipeline events in
+// @glimpse/core) and pushes all of it on every change, coalesced per turn: a Snip is a
+// few dozen blocks of text at most. The view renders it and sends intents back.
+//
+//   main → view  snipState      the whole state + layout; a new requestId resets the view
+//   view → main  snipPainted    the view has painted a new request (two rAFs): show the window
+//                snipResized    natural content height, at most once per frame
+//                snipDismiss    Esc or Close
+//                snipSkipped    expand / collapse the skipped line
+import type { PopupSide, SnipPopupState } from "@glimpse/core";
+import type { RPCSchema } from "electrobun/view";
+import type { Platform } from "./rpc.ts";
+
+/** Once per view load. */
+export interface SnipViewInit {
+	os: Platform;
+	/** UI language and direction for the chrome (block text sets its own). */
+	uiLang: string;
+	uiDir: "ltr" | "rtl";
+	/** Shortcut labels for tooltips, formatted for the OS ("⌘C", "Ctrl+C"). */
+	keys: { copy: string; copyOriginal: string; original: string; close: string };
+}
+
+export interface SnipLayout {
+	side: PopupSide;
+	/** Fixed for the request. */
+	width: number;
+	maxHeight: number;
+}
+
+export interface SnipStateMessage {
+	requestId: string;
+	layout: SnipLayout;
+	state: SnipPopupState;
+	/** Glimpse's motion setting resolved: true = no scale, no crossfade. */
+	reducedMotion: boolean;
+}
+
+export type SnipDismissReason = "esc" | "close" | "outside" | "blur" | "hotkey";
+
+export type SnipPopupRPC = {
+	bun: RPCSchema<{
+		requests: {
+			getSnipInit: { params: undefined; response: SnipViewInit };
+		};
+		messages: {
+			snipPainted: { requestId: string };
+			snipResized: { requestId: string; contentHeight: number };
+			snipDismiss: { requestId: string; reason: "esc" | "close" };
+			snipSkipped: { requestId: string; expanded: boolean };
+		};
+	}>;
+	webview: RPCSchema<{
+		requests: Record<never, never>;
+		messages: {
+			snipState: SnipStateMessage;
+		};
+	}>;
+};

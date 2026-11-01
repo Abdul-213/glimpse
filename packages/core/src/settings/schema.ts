@@ -47,6 +47,14 @@ export interface Settings {
 		/** `system` follows the OS reduced-motion setting (PRODUCT.md). */
 		readonly motion: "system" | "reduced" | "full";
 	};
+	readonly snip: {
+		/** Settings › "Copy translation after Snip" (snip-popup.md §6). */
+		readonly copyAfterSnip: boolean;
+		/** Settings › "Show original under translation" (snip-popup.md §2.2, owner question 9: off). */
+		readonly showOriginalUnder: boolean;
+		/** Settings › "Always show languages": per-block tags even when a region has one language. */
+		readonly alwaysShowLanguages: boolean;
+	};
 	readonly live: {
 		/** Capture rate while a region is pinned (PRODUCT.md: about 2–4 fps). */
 		readonly fps: number;
@@ -99,6 +107,11 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		appearance: object({
 			theme: withDefault(oneOf(["system", "light", "dark"] as const), "system"),
 			motion: withDefault(oneOf(["system", "reduced", "full"] as const), "system"),
+		}),
+		snip: object({
+			copyAfterSnip: withDefault(boolean(), true),
+			showOriginalUnder: withDefault(boolean(), false),
+			alwaysShowLanguages: withDefault(boolean(), false),
 		}),
 		live: object({
 			fps: withDefault(number({ min: 0.5, max: 10 }), 3),

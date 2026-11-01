@@ -1,0 +1,68 @@
+@import "@glimpse/ui/theme.css";
+@source "./";
+
+/* The window is exactly the popup: no page background, the veil is the window. */
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+	background: transparent;
+	overflow: hidden;
+}
+
+@layer components {
+	.snip-popup {
+		width: 100%;
+		height: auto;
+		max-height: 100dvh;
+	}
+
+	.snip-list {
+		flex: 0 1 auto;
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-overlay-pressed) transparent;
+	}
+
+	.snip-list ::selection {
+		background: var(--color-overlay-selected);
+	}
+
+	/* Footer (§2.4): one 24px row, aligned with block text; its empty background drags the window. */
+	.snip-footer {
+		display: flex;
+		flex: none;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: calc(var(--spacing) * 2);
+		min-height: 1.5rem;
+		margin-block-start: calc(var(--spacing) * 2);
+		padding-inline-start: calc(var(--spacing) * 2);
+	}
+
+	.snip-footer[data-divider] {
+		padding-block-start: calc(var(--spacing) * 2);
+		border-block-start: 1px solid var(--color-divider);
+	}
+
+	.snip-spacer {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.snip-status,
+	.snip-private {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing);
+		font-size: var(--text-label);
+		font-weight: var(--text-label--font-weight);
+		line-height: var(--text-label--line-height);
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+	}
+
+	.snip-actions {
+		margin-inline-start: auto;
+	}
+}
