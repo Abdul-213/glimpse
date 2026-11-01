@@ -58,6 +58,12 @@ export interface LiveRunnerOptions extends LiveSettingsParams {
 	readonly processor: LiveProcessor;
 	readonly onEvent: LiveSessionListener;
 	readonly onTrace?: (trace: LiveTrace) => void;
+	/**
+	 * GLIM-67: one OCR run's translation reuse, once it finished. `cached` blocks had every
+	 * sentence served by the translation cache (no provider call); the app logs the hit rate
+	 * at debug level. Counts only, never text.
+	 */
+	readonly onCache?: (info: LiveCacheInfo) => void;
 	/** High-resolution clock for cost measurement (performance.now). */
 	readonly perfNow?: () => number;
 	readonly motionThreshold?: number;
@@ -70,6 +76,17 @@ export interface LiveRunnerOptions extends LiveSettingsParams {
 	readonly sleepGapMs?: number;
 }
 
+export interface LiveCacheInfo {
+	readonly frameSeq: number;
+	/** Translate-class blocks with a final translation in this run. */
+	readonly translated: number;
+	/** Of those, served entirely from the cache. */
+	readonly cached: number;
+	/** Session totals so far. */
+	readonly totalTranslated: number;
+	readonly totalCached: number;
+}
+
 export interface LiveRunnerStats {
 	readonly status: LiveStatus;
 	readonly grabs: number;
@@ -80,6 +97,9 @@ export interface LiveRunnerStats {
 	readonly superseded: number;
 	readonly ringHits: number;
 	readonly blankFrames: number;
+	/** GLIM-67: translated blocks over the session, and those served from the cache. */
+	readonly translatedBlocks: number;
+	readonly cachedBlocks: number;
 	/** Mean / max change-detection cost per grab (sync, on the caller's thread), ms. */
 	readonly meanDetectMs: number;
 	readonly maxDetectMs: number;
@@ -123,6 +143,8 @@ export class LiveRunner {
 	#superseded = 0;
 	#ringHits = 0;
 	#blank = 0;
+	#translatedBlocks = 0;
+	#cachedBlocks = 0;
 	#settleMs = 0;
 	#settleCount = 0;
 	readonly #decisions: Record<ChangeDecision["kind"], number> = {
@@ -245,6 +267,8 @@ export class LiveRunner {
 			superseded: this.#superseded,
 			ringHits: this.#ringHits,
 			blankFrames: this.#blank,
+			translatedBlocks: this.#translatedBlocks,
+			cachedBlocks: this.#cachedBlocks,
 			meanDetectMs: this.#detectMs / n,
 			maxDetectMs: this.#detectMax,
 			meanGrabMs: this.#grabMs / n,
@@ -354,6 +378,7 @@ export class LiveRunner {
 					return;
 				}
 				this.#ring.set(key, result);
+				this.#countCache(seq, result);
 			})
 			.catch((error: unknown) => {
 				if (epoch !== this.#epoch) return;
@@ -368,6 +393,25 @@ export class LiveRunner {
 				}
 			});
 		return "ocr";
+	}
+
+	#countCache(seq: number, result: PipelineResult): void {
+		let translated = 0;
+		let cached = 0;
+		for (const t of Object.values(result.translations)) {
+			if (!t.final || t.failure) continue;
+			translated++;
+			if (t.provider?.remembered) cached++;
+		}
+		this.#translatedBlocks += translated;
+		this.#cachedBlocks += cached;
+		this.#o.onCache?.({
+			frameSeq: seq,
+			translated,
+			cached,
+			totalTranslated: this.#translatedBlocks,
+			totalCached: this.#cachedBlocks,
+		});
 	}
 
 	/** Diff a recognised block list against what is shown; emit `frame`. Returns run id -> stable id. */

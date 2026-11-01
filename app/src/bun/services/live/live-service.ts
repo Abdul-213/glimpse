@@ -250,6 +250,16 @@ export class LiveService {
 			stabilityMs: settings.live.stabilityMs,
 			...(this.#d.perfNow ? { perfNow: this.#d.perfNow } : {}),
 			onEvent: (event) => this.#onRunnerEvent(event),
+			// GLIM-67: unchanged blocks reuse cached translations; the hit rate, at debug level.
+			onCache: (c) =>
+				log.debug("live: translation cache", {
+					session: id,
+					frameSeq: c.frameSeq,
+					translated: c.translated,
+					cached: c.cached,
+					hitRate: c.translated === 0 ? 1 : Math.round((c.cached / c.translated) * 100) / 100,
+					sessionHitRate: c.totalTranslated === 0 ? 1 : Math.round((c.totalCached / c.totalTranslated) * 100) / 100,
+				}),
 		});
 		this.#current = {
 			id,
@@ -458,6 +468,8 @@ function summary(s: LiveRunnerStats): Record<string, number | string> {
 		settled: s.decisions.settled,
 		ocrRuns: s.ocrRuns,
 		ringHits: s.ringHits,
+		translatedBlocks: s.translatedBlocks,
+		cachedBlocks: s.cachedBlocks,
 		superseded: s.superseded,
 		detectMsMean: Math.round(s.meanDetectMs * 100) / 100,
 		detectMsMax: Math.round(s.maxDetectMs * 100) / 100,
