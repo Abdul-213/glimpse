@@ -26,6 +26,8 @@ export interface LiveSessionOptions {
 	readonly sources: readonly LanguageCode[];
 	readonly private: boolean;
 	readonly onEvent?: PipelineListener;
+	/** Called once when the session closes (the owner forgets it). */
+	readonly onClose?: () => void;
 }
 
 interface Run {
@@ -145,5 +147,6 @@ export class LivePipelineSession {
 		this.#current = null;
 		this.#memo.clear();
 		this.#cache.close();
+		this.#opts.onClose?.();
 	}
 }

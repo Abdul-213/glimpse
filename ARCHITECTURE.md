@@ -109,6 +109,13 @@ Don't create packages for grouping alone; use folders.
   Runtime) and translation (Bergamot WASM) run in dedicated Bun `Worker`s owned by the pipeline,
   with plain-data messages in and out. If GLIM-17 shows inference can't run in-process, it moves
   to a sidecar process behind the same provider interface; nothing else changes (GLIM-26 "Revisit if").
+  Electrobun bundles only `src/bun/index.ts`, and a `new Worker(new URL("./worker.ts",
+  import.meta.url))` inside a dependency survives bundling verbatim, pointing at a file that
+  isn't in the app. So each Worker entry is bundled on its own by `app/scripts/build-workers.ts`
+  (preBuild hook) into `dist/workers/`, copied next to the main bundle (`<app>/bun/bergamot-worker.js`),
+  and the app passes a spawner for it in the provider context
+  (`services/translation/bergamot-worker.ts`: `GLIMPSE_BERGAMOT_WORKER`, then the bundled file,
+  else the provider's own default when running from source).
 - **Windows are pre-created where latency matters** (picker overlays, Snip popup) and hidden
   instead of destroyed; Settings and onboarding are created on demand. The app is a tray app:
   `exitOnLastWindowClosed: false`; only the tray's Quit ends it.
@@ -217,6 +224,12 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   `cancelled` and emits nothing more. Every event carries `runId`.
 - **Batching:** direct routes send every block's sentences as one batch (chunked to provider
   limits); pivot routes go block by block (hop 1 then hop 2), so the first block shows first.
+- **App side:** `app/src/bun/services/providers.ts` registers every factory and builds the
+  provider context (`AppProviderContext`); `services/translation/translation-service.ts`
+  (`TranslationService`) creates the configured providers after the model scan, runs `init()` +
+  `warmup()` in the background, owns the pipeline, the caches and Private, and backs the
+  `cache.clear` and `private.toggle` commands. Snip and Live call `translation.snip()` /
+  `translation.openLive()`.
 - **Live:** `LivePipelineSession` feeds settled frames through `run`, latest frame wins (the
   older run is dropped, but only cancelled after the newer one has joined the sentences they
   share), and keeps the session detection memo and session cache.
