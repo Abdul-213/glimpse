@@ -13,6 +13,9 @@
 //                  `systemEvent` (an unlock never resumes a session the user paused)
 //   applySettings  Settings › Live (fps, diff threshold, stability) and target / source
 //                  languages apply to the running session without restarting it
+//   consent        GLIM-79 (live-popup.md L10, core `liveCloudConsent`): when the session
+//                  would send to a cloud provider, nothing is captured until the popup's
+//                  question is answered (`answerConsent`: cloud, on-device, or cancel)
 //
 // Logs carry types, counts and timings only: never screen text (ARCHITECTURE.md logging).
 import {
@@ -22,11 +25,14 @@ import {
 	type LiveRunnerStats,
 	type LiveSessionEvent,
 	type LiveSessionListener,
+	type LiveSessionProviders,
 	type LiveStatus,
 	type Logger,
+	liveCloudConsent,
 	type OcrImage,
 	type PipelineListener,
 	type PipelineResult,
+	type ProviderRef,
 	type Rect,
 	type Settings,
 	systemTimers,
@@ -55,7 +61,14 @@ export interface LiveFrame {
 
 export interface LiveServiceDeps {
 	readonly capture: Pick<CaptureSource, "openSession">;
-	readonly openPipeline: () => LivePipeline;
+	/** `localOnly`: "Use on-device" was the consent answer (no cloud translators this session). */
+	readonly openPipeline: (options: { readonly localOnly: boolean }) => LivePipeline;
+	/** The OCR provider and first translator a session would use (consent and the popup's cloud row). */
+	readonly providers?: () => { readonly ocr: ProviderRef | null; readonly translation: ProviderRef | null };
+	/** "Don't ask again for Live" for this cloud translator (`settings.cloud.liveConsent`). */
+	readonly rememberConsent?: (providerId: string) => void;
+	/** App-wide Private, for the popup's first state. */
+	readonly private?: () => boolean;
 	readonly settings: () => Settings;
 	/** Created per session; null when there is no frame (it is optional). */
 	readonly frame: () => LiveFrame | null;
@@ -69,6 +82,15 @@ export interface LiveServiceDeps {
 
 export type SystemEvent = "lock" | "unlock" | "sleep" | "wake";
 
+export type ConsentAnswer = "cloud" | "local" | "cancel";
+
+interface PendingConsent {
+	readonly id: string;
+	readonly region: Rect;
+	readonly frame: LiveFrame | null;
+	readonly translation: ProviderRef | null;
+}
+
 interface Running {
 	readonly id: string;
 	readonly region: Rect;
@@ -77,6 +99,7 @@ interface Running {
 	readonly close: () => void;
 	readonly frame: LiveFrame | null;
 	readonly startedAt: number;
+	readonly providers: LiveSessionProviders;
 }
 
 let sessionCounter = 0;
@@ -85,6 +108,7 @@ export class LiveService {
 	readonly #d: LiveServiceDeps;
 	readonly #listeners = new Set<LiveSessionListener>();
 	#current: Running | null = null;
+	#pending: PendingConsent | null = null;
 	#starting: Promise<void> | null = null;
 	#popupVisible = false;
 	#lastState: LiveState = "off";
@@ -93,17 +117,22 @@ export class LiveService {
 		this.#d = deps;
 	}
 
-	/** A session is pinned (running or paused). */
+	/** A session is pinned (running, paused, or waiting for the cloud consent answer). */
 	get active(): boolean {
-		return this.#current !== null;
+		return this.#current !== null || this.#pending !== null;
 	}
 
-	get status(): LiveStatus | "off" {
+	get status(): LiveStatus | "off" | "consent" {
+		if (this.#pending) return "consent";
 		return this.#current?.runner.status ?? "off";
 	}
 
 	get region(): Rect | null {
-		return this.#current?.region ?? null;
+		return this.#current?.region ?? this.#pending?.region ?? null;
+	}
+
+	get sessionId(): string | null {
+		return this.#current?.id ?? this.#pending?.id ?? null;
 	}
 
 	/** The typed session events (GLIM-79/81 render them). Returns an unsubscribe. */
@@ -116,7 +145,66 @@ export class LiveService {
 	async start(region: Rect): Promise<void> {
 		if (this.#starting) await this.#starting.catch(() => {});
 		this.stop("repin");
-		const run = this.#open(region);
+		const timers = this.#d.timers ?? systemTimers;
+		const id = this.#d.newSessionId?.() ?? `live-${timers.now().toString(36)}-${++sessionCounter}`;
+		const refs = this.#d.providers?.() ?? { ocr: null, translation: null };
+		const consent = liveCloudConsent({
+			ocr: refs.ocr,
+			translation: refs.translation,
+			remembered: this.#d.settings().cloud.liveConsent,
+		});
+		if (consent.ask) {
+			// L10: the popup asks first; the frame shows the region, nothing is captured yet.
+			const frame = this.#d.frame();
+			frame?.setPaused(true);
+			frame?.setTag({ kind: "none" });
+			frame?.show(region);
+			this.#pending = { id, region, frame, translation: refs.translation };
+			this.#emit({
+				type: "opened",
+				sessionId: id,
+				region,
+				providers: { cloud: consent.providers[0] ?? null, localOnly: false },
+				private: this.#d.private?.() ?? false,
+			});
+			this.#emit({
+				type: "consent",
+				sessionId: id,
+				providers: consent.providers,
+				canRemember: consent.canRemember,
+				reason: consent.reason,
+			});
+			this.#d.log.info("live: waiting for cloud consent", { session: id, reason: consent.reason });
+			this.#setState("paused");
+			return;
+		}
+		const cloud = [refs.ocr, refs.translation].find((p) => p?.kind === "cloud") ?? null;
+		await this.#run(region, id, { cloud, localOnly: false }, null);
+	}
+
+	/**
+	 * The popup's answer to the cloud question (L10). `cloud`: go ahead (and remember it for this
+	 * translator when asked to); `local`: run on this device only; `cancel`: unpin.
+	 */
+	async answerConsent(sessionId: string, answer: ConsentAnswer, remember = false): Promise<void> {
+		const p = this.#pending;
+		if (!p || p.id !== sessionId) return;
+		this.#pending = null;
+		this.#d.log.info("live: cloud consent answered", { session: p.id, answer, remember });
+		if (answer === "cancel") {
+			p.frame?.dispose();
+			this.#emitStopped(p.id);
+			this.#setState("off");
+			return;
+		}
+		if (answer === "cloud" && remember && p.translation?.kind === "cloud") this.#d.rememberConsent?.(p.translation.id);
+		const refs = this.#d.providers?.() ?? { ocr: null, translation: null };
+		const cloud = answer === "local" ? null : ([refs.ocr, refs.translation].find((x) => x?.kind === "cloud") ?? null);
+		await this.#run(p.region, p.id, { cloud, localOnly: answer === "local" }, p.frame);
+	}
+
+	async #run(region: Rect, id: string, providers: LiveSessionProviders, frame: LiveFrame | null): Promise<void> {
+		const run = this.#open(region, id, providers, frame);
 		this.#starting = run;
 		try {
 			await run;
@@ -125,11 +213,11 @@ export class LiveService {
 		}
 	}
 
-	async #open(region: Rect): Promise<void> {
+	async #open(region: Rect, id: string, providers: LiveSessionProviders, pinnedFrame: LiveFrame | null): Promise<void> {
 		const settings = this.#d.settings();
 		const timers = this.#d.timers ?? systemTimers;
-		const id = this.#d.newSessionId?.() ?? `live-${Date.now().toString(36)}-${++sessionCounter}`;
 		const log = this.#d.log;
+		this.#emit({ type: "opened", sessionId: id, region, providers, private: this.#d.private?.() ?? false });
 		let capture: Awaited<ReturnType<CaptureSource["openSession"]>>;
 		try {
 			capture = await this.#d.capture.openSession(region, { fps: settings.live.fps });
@@ -146,10 +234,11 @@ export class LiveService {
 				capturedAt: null,
 				at: timers.now(),
 			});
+			pinnedFrame?.dispose();
 			return;
 		}
-		const pipeline = this.#d.openPipeline();
-		const frame = this.#d.frame();
+		const pipeline = this.#d.openPipeline({ localOnly: providers.localOnly });
+		const frame = pinnedFrame ?? this.#d.frame();
 		const runner = new LiveRunner({
 			sessionId: id,
 			region,
@@ -169,9 +258,10 @@ export class LiveService {
 			pipeline,
 			frame,
 			startedAt: timers.now(),
+			providers,
 			close: () => capture.close(),
 		};
-		frame?.setTag(this.#popupVisible ? { kind: "none" } : { kind: "live" });
+		this.#syncFrame();
 		frame?.show(region);
 		log.info("live: pinned", {
 			session: id,
@@ -186,6 +276,14 @@ export class LiveService {
 
 	/** Stop and unpin. Drops the session's caches (GLIM-20). Idempotent. */
 	stop(reason: "user" | "repin" | "quit" = "user"): void {
+		const pending = this.#pending;
+		if (pending) {
+			this.#pending = null;
+			pending.frame?.dispose();
+			this.#d.log.info("live: stopped before consent", { session: pending.id, reason });
+			this.#emitStopped(pending.id);
+			this.#setState("off");
+		}
 		const cur = this.#current;
 		if (!cur) return;
 		this.#current = null;
@@ -309,7 +407,31 @@ export class LiveService {
 		const status = cur.runner.status;
 		const paused = status === "paused" || status === "error";
 		cur.frame.setPaused(paused);
-		cur.frame.setTag(this.#popupVisible ? { kind: "none" } : paused ? { kind: "paused" } : { kind: "live" });
+		// §2.4: the tag shows only while the popup is hidden; with cloud it names the company.
+		const company = cur.providers.cloud?.name.split(" ")[0];
+		cur.frame.setTag(
+			this.#popupVisible
+				? { kind: "none" }
+				: paused
+					? { kind: "paused" }
+					: company
+						? { kind: "cloud", company }
+						: { kind: "live" },
+		);
+	}
+
+	#emitStopped(sessionId: string): void {
+		const timers = this.#d.timers ?? systemTimers;
+		this.#emit({
+			type: "status",
+			sessionId,
+			status: "stopped",
+			reason: null,
+			error: null,
+			stale: true,
+			capturedAt: null,
+			at: timers.now(),
+		});
 	}
 
 	#setState(state: LiveState): void {

@@ -26,6 +26,8 @@ export interface LiveSessionOptions {
 	readonly target: LanguageCode;
 	readonly sources: readonly LanguageCode[];
 	readonly private: boolean;
+	/** "Use on-device" at the Live cloud consent: cloud translators are skipped (GLIM-79). */
+	readonly localOnly?: boolean;
 	readonly onEvent?: PipelineListener;
 	/** Called once when the session closes (the owner forgets it). */
 	readonly onClose?: () => void;
@@ -110,6 +112,7 @@ export class LivePipelineSession {
 				signal: controller.signal,
 				memo: this.#memo,
 				blockIds: this.#ids,
+				...(this.#opts.localOnly ? { localOnly: true } : {}),
 				...(options.regions ? { regions: options.regions } : {}),
 				onEvent: (event) => {
 					// Translation lookups run synchronously right after `recognised`.

@@ -23,7 +23,7 @@ import {
 	ReplayCaptureSource,
 } from "@glimpse/core/testing";
 import type { FrameTag } from "../src/bun/services/live/frame-layout.ts";
-import { type LiveFrame, LiveService } from "../src/bun/services/live/live-service.ts";
+import { type LiveFrame, LiveService, type LiveServiceDeps } from "../src/bun/services/live/live-service.ts";
 import { settingsEnvFor } from "../src/bun/services/settings-env.ts";
 import { TranslationService } from "../src/bun/services/translation/translation-service.ts";
 import type { LiveState } from "../src/bun/tray-menu.ts";
@@ -68,7 +68,10 @@ class FakeFrame implements LiveFrame {
 	}
 }
 
-async function setup(frames: { image: ReturnType<typeof strip>; holdMs: number }[]) {
+async function setup(
+	frames: { image: ReturnType<typeof strip>; holdMs: number }[],
+	extra: Partial<LiveServiceDeps> = {},
+) {
 	const timers = new ManualTimers(1_000_000);
 	const registry = new ProviderRegistry<unknown>();
 	let ocrCalls = 0;
@@ -123,6 +126,7 @@ async function setup(frames: { image: ReturnType<typeof strip>; holdMs: number }
 		onState: (s) => states.push(s),
 		timers,
 		newSessionId: () => `s${frameObjs.length + 1}`,
+		...extra,
 	});
 	const events: LiveSessionEvent[] = [];
 	live.onEvent((e) => events.push(e));
@@ -271,5 +275,65 @@ describe("LiveService (GLIM-59)", () => {
 		expect(text).toContain("ocrRuns");
 		expect(text).not.toContain("こんにちは");
 		expect(text).not.toContain("さようなら");
+	});
+});
+
+describe("LiveService cloud consent (GLIM-79, live-popup.md L10)", () => {
+	const cloud = { id: "cloud:google-translate-v2", kind: "cloud" as const, name: "Google Cloud Translation" };
+	const local = { id: "fake-ocr", kind: "local" as const, name: "Fake OCR" };
+
+	test("a cloud translator: opened + consent, nothing captured until answered; cloud remembers", async () => {
+		const remembered: string[] = [];
+		const s = await setup([{ image: strip(RED), holdMs: 10_000 }], {
+			providers: () => ({ ocr: local, translation: cloud }),
+			rememberConsent: (id) => remembered.push(id),
+		});
+		await s.live.start(REGION);
+		await s.at(2000);
+		expect(s.events.map((e) => e.type)).toEqual(["opened", "consent"]);
+		expect(s.live.status).toBe("consent");
+		expect(s.live.active).toBe(true);
+		expect(s.ocrCalls()).toBe(0);
+		expect(s.frames[0]?.paused).toBe(true);
+		const id = s.live.sessionId ?? "";
+		await s.live.answerConsent(id, "cloud", true);
+		await s.at(3000);
+		expect(remembered).toEqual([cloud.id]);
+		expect(s.ocrCalls()).toBe(1);
+		const reopened = s.events.filter((e) => e.type === "opened");
+		expect(reopened.length).toBe(2);
+		expect(reopened[1]?.type === "opened" && reopened[1].providers.cloud?.id).toBe(cloud.id);
+		// The pending frame is reused, and the tag names the company while the popup is hidden.
+		expect(s.frames.length).toBe(1);
+		expect(s.frames[0]?.tag).toEqual({ kind: "cloud", company: "Google" });
+		s.live.stop();
+	});
+
+	test("use on-device: no cloud for the session; cancel unpins", async () => {
+		const s = await setup([{ image: strip(RED), holdMs: 10_000 }], {
+			providers: () => ({ ocr: local, translation: cloud }),
+		});
+		await s.live.start(REGION);
+		await s.live.answerConsent(s.live.sessionId ?? "", "local");
+		await s.at(1000);
+		const last = s.events.filter((e) => e.type === "opened").at(-1);
+		expect(last?.type === "opened" && last.providers).toEqual({ cloud: null, localOnly: true });
+		s.live.stop();
+		await s.live.start(REGION);
+		const id = s.live.sessionId ?? "";
+		await s.live.answerConsent(id, "cancel");
+		expect(s.live.active).toBe(false);
+		expect(s.events.at(-1)).toMatchObject({ type: "status", sessionId: id, status: "stopped" });
+		expect(s.frames.at(-1)?.disposed).toBe(true);
+	});
+
+	test("remembered translator: no question", async () => {
+		const s = await setup([{ image: strip(RED), holdMs: 10_000 }], {
+			providers: () => ({ ocr: local, translation: cloud }),
+		});
+		s.setSettings({ cloud: { liveConsent: [cloud.id] } });
+		await s.live.start(REGION);
+		expect(s.events.some((e) => e.type === "consent")).toBe(false);
+		s.live.stop();
 	});
 });
