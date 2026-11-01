@@ -2,5 +2,8 @@
 // and what goes on the clipboard. Pure; the app's window controller drives it.
 
 export * from "./clipboard.ts";
+// Live (live-popup.md §5): block diffing (GLIM-58). placeLivePopup, stripLayout, staleLabel and
+// announcementText join it with GLIM-79/81.
+export * from "./live-diff.ts";
 export * from "./placement.ts";
 export * from "./snip-state.ts";
