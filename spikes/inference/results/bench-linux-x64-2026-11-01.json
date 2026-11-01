@@ -1,0 +1,1117 @@
+{
+  "startedAt": "2026-11-01T07:37:17.666Z",
+  "machine": {
+    "os": "linux",
+    "release": "6.8.0-139-generic",
+    "arch": "x64",
+    "cpu": "AMD EPYC Processor (with IBPB)",
+    "logicalCores": 8,
+    "ramGB": 23,
+    "bun": "1.4.4"
+  },
+  "sizesMB": {
+    "ocr/det": 4.8,
+    "ocr/rec": 93.6,
+    "bergamot/ja-en": 70.3,
+    "bergamot/zh-Hans-en": 70.1,
+    "bergamot/de-en": 37.3,
+    "bergamot/en-de": 36.7,
+    "m2m100_418M/onnx": 632,
+    "rec/eslav_PP-OCRv5_rec_mobile.onnx": 7.9,
+    "rec/devanagari_PP-OCRv5_rec_mobile.onnx": 7.9,
+    "rec/arabic_PP-OCRv5_rec_mobile.onnx": 8,
+    "rec/korean_PP-OCRv5_rec_mobile.onnx": 13.5,
+    "rec/cyrillic_PP-OCRv5_rec_mobile.onnx": 8.1,
+    "rec/el_PP-OCRv5_rec_mobile.onnx": 7.8,
+    "rec/en_PP-OCRv5_rec_mobile.onnx": 7.9,
+    "rec/th_PP-OCRv5_rec_mobile.onnx": 7.9,
+    "rec/latin_PP-OCRv5_rec_mobile.onnx": 7.9,
+    "rec/ch_PP-OCRv5_rec_mobile.onnx": 16.6
+  },
+  "results": [
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "ch",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ja.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-zh.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-en.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-game-dark.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/screen-1920x1080.png"
+      ],
+      "loadBefore": 1.8,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "ch",
+        "loadMs": 436,
+        "firstRunMs": 434,
+        "firstLines": 5,
+        "coldToFirstResultMs": 1087,
+        "perImage": {
+          "region-ja.png": {
+            "n": 15,
+            "p50": 332.8,
+            "p90": 397.1,
+            "min": 308,
+            "max": 460.8,
+            "lines": 5,
+            "det": 53,
+            "detPost": 2,
+            "rec": 262,
+            "text": [
+              "設定を保存しました。",
+              "このアイテムを使用しますか?",
+              "明日の会議は午後三時に始まります。",
+              "ダウンロードが完了しました",
+              "キャンセル次へ"
+            ]
+          },
+          "region-zh.png": {
+            "n": 15,
+            "p50": 351,
+            "p90": 466.7,
+            "min": 276.8,
+            "max": 510.6,
+            "lines": 6,
+            "det": 38,
+            "detPost": 1,
+            "rec": 295,
+            "text": [
+              "你好，世界！",
+              "请输入您的密码。",
+              "这个游戏的剧情非常精彩。",
+              "下载已完成，请重新启动。",
+              "取消",
+              "确定"
+            ]
+          },
+          "region-en.png": {
+            "n": 15,
+            "p50": 326.5,
+            "p90": 501,
+            "min": 269.6,
+            "max": 517.6,
+            "lines": 5,
+            "det": 43,
+            "detPost": 2,
+            "rec": 358,
+            "text": [
+              "Settings saved successfully.",
+              "Do you want to install the update now?",
+              "Your session will expire in 5 minutes.",
+              "Click Continue to keep working.",
+              "Error 404: file not found"
+            ]
+          },
+          "region-game-dark.png": {
+            "n": 15,
+            "p50": 223.7,
+            "p90": 249.7,
+            "min": 188.2,
+            "max": 259.5,
+            "lines": 5,
+            "det": 49,
+            "detPost": 1,
+            "rec": 208,
+            "text": [
+              "勇者よ、よくぞ来た！",
+              "この先は危険な森だ。",
+              "準備はできているか？",
+              "はい",
+              "いいえ"
+            ]
+          },
+          "screen-1920x1080.png": {
+            "n": 15,
+            "p50": 1518.9,
+            "p90": 2119.2,
+            "min": 1229.6,
+            "max": 2523.5,
+            "lines": 23,
+            "det": 784,
+            "detPost": 13,
+            "rec": 828,
+            "text": [
+              "設定－ Glimpse Sample",
+              "Chat",
+              "一般",
+              "起動時に自動的に開く",
+              "Li Wei",
+              "你好！今天晚上一起玩游戏吗？",
+              "表示",
+              "通知を表示する",
+              "Anna",
+              "ショートカット",
+              "翻訳先の言語：英語",
+              "Ja, gernel Ich bin um acht Uhr online.",
+              "アカウント",
+              "変更を保存しますか？",
+              "Li Wei",
+              "好的，我们在服务器上见。",
+              "詳細設定",
+              "Anna",
+              "Vergiss nicht, das Update zu installieren.",
+              "Li Wei",
+              "已经下载好了，谢谢提醒。",
+              "保存する",
+              "We have to leave before the storm arrives."
+            ]
+          }
+        },
+        "peakRssMB": 1213
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "2",
+        "ch",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ja.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/screen-1920x1080.png"
+      ],
+      "loadBefore": 3.85,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 2,
+        "rec": "ch",
+        "loadMs": 428,
+        "firstRunMs": 604,
+        "firstLines": 5,
+        "coldToFirstResultMs": 1204,
+        "perImage": {
+          "region-ja.png": {
+            "n": 15,
+            "p50": 503.5,
+            "p90": 676.5,
+            "min": 445.3,
+            "max": 691.6,
+            "lines": 5,
+            "det": 47,
+            "detPost": 2,
+            "rec": 512,
+            "text": [
+              "設定を保存しました。",
+              "このアイテムを使用しますか?",
+              "明日の会議は午後三時に始まります。",
+              "ダウンロードが完了しました",
+              "キャンセル次へ"
+            ]
+          },
+          "screen-1920x1080.png": {
+            "n": 15,
+            "p50": 1985,
+            "p90": 2348.5,
+            "min": 1828.1,
+            "max": 2457.1,
+            "lines": 23,
+            "det": 882,
+            "detPost": 14,
+            "rec": 1463,
+            "text": [
+              "設定－ Glimpse Sample",
+              "Chat",
+              "一般",
+              "起動時に自動的に開く",
+              "Li Wei",
+              "你好！今天晚上一起玩游戏吗？",
+              "表示",
+              "通知を表示する",
+              "Anna",
+              "ショートカット",
+              "翻訳先の言語：英語",
+              "Ja, gernel Ich bin um acht Uhr online.",
+              "アカウント",
+              "変更を保存しますか？",
+              "Li Wei",
+              "好的，我们在服务器上见。",
+              "詳細設定",
+              "Anna",
+              "Vergiss nicht, das Update zu installieren.",
+              "Li Wei",
+              "已经下载好了，谢谢提醒。",
+              "保存する",
+              "We have to leave before the storm arrives."
+            ]
+          }
+        },
+        "peakRssMB": 1173
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "8",
+        "ch",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ja.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/screen-1920x1080.png"
+      ],
+      "loadBefore": 3.56,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 8,
+        "rec": "ch",
+        "loadMs": 438,
+        "firstRunMs": 495,
+        "firstLines": 5,
+        "coldToFirstResultMs": 1146,
+        "perImage": {
+          "region-ja.png": {
+            "n": 15,
+            "p50": 533.9,
+            "p90": 1203.2,
+            "min": 344.6,
+            "max": 1261.1,
+            "lines": 5,
+            "det": 65,
+            "detPost": 2,
+            "rec": 473,
+            "text": [
+              "設定を保存しました。",
+              "このアイテムを使用しますか?",
+              "明日の会議は午後三時に始まります。",
+              "ダウンロードが完了しました",
+              "キャンセル次へ"
+            ]
+          },
+          "screen-1920x1080.png": {
+            "n": 15,
+            "p50": 1505.9,
+            "p90": 1989.4,
+            "min": 1136.1,
+            "max": 2106.9,
+            "lines": 23,
+            "det": 470,
+            "detPost": 15,
+            "rec": 689,
+            "text": [
+              "設定－ Glimpse Sample",
+              "Chat",
+              "一般",
+              "起動時に自動的に開く",
+              "Li Wei",
+              "你好！今天晚上一起玩游戏吗？",
+              "表示",
+              "通知を表示する",
+              "Anna",
+              "ショートカット",
+              "翻訳先の言語：英語",
+              "Ja, gernel Ich bin um acht Uhr online.",
+              "アカウント",
+              "変更を保存しますか？",
+              "Li Wei",
+              "好的，我们在服务器上见。",
+              "詳細設定",
+              "Anna",
+              "Vergiss nicht, das Update zu installieren.",
+              "Li Wei",
+              "已经下载好了，谢谢提醒。",
+              "保存する",
+              "We have to leave before the storm arrives."
+            ]
+          }
+        },
+        "peakRssMB": 1204
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "web",
+        "4",
+        "ch",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ja.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/screen-1920x1080.png"
+      ],
+      "loadBefore": 6.24,
+      "result": {
+        "case": "ocr",
+        "runtime": "web",
+        "threads": 4,
+        "rec": "ch",
+        "loadMs": 901,
+        "firstRunMs": 738,
+        "firstLines": 5,
+        "coldToFirstResultMs": 1781,
+        "perImage": {
+          "region-ja.png": {
+            "n": 15,
+            "p50": 677,
+            "p90": 932.8,
+            "min": 550.8,
+            "max": 954.2,
+            "lines": 5,
+            "det": 52,
+            "detPost": 2,
+            "rec": 531,
+            "text": [
+              "設定を保存しました。",
+              "このアイテムを使用しますか?",
+              "明日の会議は午後三時に始まります。",
+              "ダウンロードが完了しました",
+              "キャンセル次へ"
+            ]
+          },
+          "screen-1920x1080.png": {
+            "n": 15,
+            "p50": 2780.5,
+            "p90": 4265.7,
+            "min": 2177.4,
+            "max": 4531.2,
+            "lines": 23,
+            "det": 824,
+            "detPost": 16,
+            "rec": 2027,
+            "text": [
+              "設定－ Glimpse Sample",
+              "Chat",
+              "一般",
+              "起動時に自動的に開く",
+              "Li Wei",
+              "你好！今天晚上一起玩游戏吗？",
+              "表示",
+              "通知を表示する",
+              "Anna",
+              "ショートカット",
+              "翻訳先の言語：英語",
+              "Ja, gernel Ich bin um acht Uhr online.",
+              "アカウント",
+              "変更を保存しますか？",
+              "Li Wei",
+              "好的，我们在服务器上见。",
+              "詳細設定",
+              "Anna",
+              "Vergiss nicht, das Update zu installieren.",
+              "Li Wei",
+              "已经下载好了，谢谢提醒。",
+              "保存する",
+              "We have to leave before the storm arrives."
+            ]
+          }
+        },
+        "peakRssMB": 1478
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "web",
+        "1",
+        "ch",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ja.png"
+      ],
+      "loadBefore": 5.45,
+      "result": {
+        "case": "ocr",
+        "runtime": "web",
+        "threads": 1,
+        "rec": "ch",
+        "loadMs": 1209,
+        "firstRunMs": 1929,
+        "firstLines": 5,
+        "coldToFirstResultMs": 3249,
+        "perImage": {
+          "region-ja.png": {
+            "n": 15,
+            "p50": 1572.2,
+            "p90": 1602.9,
+            "min": 1458.6,
+            "max": 1758.8,
+            "lines": 5,
+            "det": 124,
+            "detPost": 2,
+            "rec": 1405,
+            "text": [
+              "設定を保存しました。",
+              "このアイテムを使用しますか?",
+              "明日の会議は午後三時に始まります。",
+              "ダウンロードが完了しました",
+              "キャンセル次へ"
+            ]
+          }
+        },
+        "peakRssMB": 644
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "en",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-en.png"
+      ],
+      "loadBefore": 3.9,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "en",
+        "loadMs": 366,
+        "firstRunMs": 357,
+        "firstLines": 5,
+        "coldToFirstResultMs": 785,
+        "perImage": {
+          "region-en.png": {
+            "n": 15,
+            "p50": 286.3,
+            "p90": 372,
+            "min": 249.7,
+            "max": 397.2,
+            "lines": 5,
+            "det": 30,
+            "detPost": 2,
+            "rec": 196,
+            "text": [
+              "Settings saved successfully.",
+              "Do you want to install the update now?",
+              "Your session will expire in 5 minutes.",
+              "Click Continue to keep working.",
+              "Error 404: file not found"
+            ]
+          }
+        },
+        "peakRssMB": 272
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "latin",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-de.png"
+      ],
+      "loadBefore": 3.91,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "latin",
+        "loadMs": 389,
+        "firstRunMs": 459,
+        "firstLines": 5,
+        "coldToFirstResultMs": 921,
+        "perImage": {
+          "region-de.png": {
+            "n": 15,
+            "p50": 337.8,
+            "p90": 418.4,
+            "min": 276.2,
+            "max": 557.4,
+            "lines": 5,
+            "det": 40,
+            "detPost": 2,
+            "rec": 285,
+            "text": [
+              "Die Datei konnte nicht gespeichert werden.",
+              "Möchten Sie die Änderungen übernehmen?",
+              "Wir sehen uns morgen am Bahnhof.",
+              "Größe: 12 MB · Übertragung läuft",
+              "Abbrechen Weiter"
+            ]
+          }
+        },
+        "peakRssMB": 275
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "korean",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ko.png",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/screen-1920x1080.png"
+      ],
+      "loadBefore": 4.16,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "korean",
+        "loadMs": 384,
+        "firstRunMs": 353,
+        "firstLines": 5,
+        "coldToFirstResultMs": 888,
+        "perImage": {
+          "region-ko.png": {
+            "n": 15,
+            "p50": 265.9,
+            "p90": 359,
+            "min": 217.3,
+            "max": 429.3,
+            "lines": 5,
+            "det": 37,
+            "detPost": 2,
+            "rec": 206,
+            "text": [
+              "설정이 저장되었습니다.",
+              "이 아이템을 사용하시겠습니까?",
+              "내일 회의는 오후 세 시에 시작합니다.",
+              "다운로드가 완료되었습니다",
+              "취소 다음"
+            ]
+          },
+          "screen-1920x1080.png": {
+            "n": 15,
+            "p50": 1368.1,
+            "p90": 1601,
+            "min": 1249.9,
+            "max": 1728.3,
+            "lines": 17,
+            "det": 591,
+            "detPost": 10,
+            "rec": 718,
+            "text": [
+              "—Glimpse Sample",
+              "Chat",
+              "<",
+              "LiWei",
+              "! ?",
+              "Anna",
+              ":",
+              "Ja, gernel Ich bin um acht Uhr online.",
+              "?",
+              "LiWei",
+              "Anna",
+              "Vergiss nicht, das Update zu installieren.",
+              "LiWei",
+              "상인",
+              "어서 오세요!오늘은 특별한 물건이 많이 있습니다.",
+              "무엇을 도와드릴까요?",
+              "We have to leave before the storm arrives."
+            ]
+          }
+        },
+        "peakRssMB": 1068
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "eslav",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ru.png"
+      ],
+      "loadBefore": 4.15,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "eslav",
+        "loadMs": 382,
+        "firstRunMs": 505,
+        "firstLines": 5,
+        "coldToFirstResultMs": 958,
+        "perImage": {
+          "region-ru.png": {
+            "n": 15,
+            "p50": 277.2,
+            "p90": 329.3,
+            "min": 232.4,
+            "max": 349.1,
+            "lines": 5,
+            "det": 73,
+            "detPost": 2,
+            "rec": 275,
+            "text": [
+              "Настройки сохранены.",
+              "Вы хотите установить обновление?",
+              "Встретимся завтра на вокзале.",
+              "Загрузка завершена",
+              "Отмена Далее"
+            ]
+          }
+        },
+        "peakRssMB": 261
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "cyrillic",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ru.png"
+      ],
+      "loadBefore": 4.38,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "cyrillic",
+        "loadMs": 385,
+        "firstRunMs": 356,
+        "firstLines": 5,
+        "coldToFirstResultMs": 802,
+        "perImage": {
+          "region-ru.png": {
+            "n": 15,
+            "p50": 284.5,
+            "p90": 422.4,
+            "min": 224.5,
+            "max": 428.2,
+            "lines": 5,
+            "det": 48,
+            "detPost": 2,
+            "rec": 292,
+            "text": [
+              "Настройки сохранены.",
+              "Вы хотите установить обновление?",
+              "Встретимся завтра на вокзале.",
+              "Загрузка завершена",
+              "Отмена Далее"
+            ]
+          }
+        },
+        "peakRssMB": 261
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "arabic",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-ar.png"
+      ],
+      "loadBefore": 4.35,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "arabic",
+        "loadMs": 496,
+        "firstRunMs": 314,
+        "firstLines": 4,
+        "coldToFirstResultMs": 924,
+        "perImage": {
+          "region-ar.png": {
+            "n": 15,
+            "p50": 154.6,
+            "p90": 354.9,
+            "min": 117.7,
+            "max": 469.2,
+            "lines": 4,
+            "det": 46,
+            "detPost": 1,
+            "rec": 93,
+            "text": [
+              "تم حفظ الإعدادات بنجاح",
+              "هل تريد تثبيت التحديث الآن؟",
+              "سنلتقي غداً في المحطة",
+              "اكتمل التنزيل"
+            ]
+          }
+        },
+        "peakRssMB": 216
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "devanagari",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-hi.png"
+      ],
+      "loadBefore": 4.56,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "devanagari",
+        "loadMs": 322,
+        "firstRunMs": 244,
+        "firstLines": 4,
+        "coldToFirstResultMs": 643,
+        "perImage": {
+          "region-hi.png": {
+            "n": 15,
+            "p50": 141.2,
+            "p90": 348.7,
+            "min": 118.7,
+            "max": 461.3,
+            "lines": 4,
+            "det": 37,
+            "detPost": 1,
+            "rec": 108,
+            "text": [
+              "सेटिंग्स सहेजी गई",
+              "क्या आप अभी अपडेट करना चाहते हैं?",
+              "कल स्टेशन पर मिलते हैं",
+              "डाउनलोड पूरा हुआ"
+            ]
+          }
+        },
+        "peakRssMB": 214
+      }
+    },
+    {
+      "argv": [
+        "ocr",
+        "node",
+        "4",
+        "th",
+        "/home/abdul/.t3/projects/glimpse/.claude/worktrees/agent-a2b59fd5d3996983e/spikes/inference/samples/region-th.png"
+      ],
+      "loadBefore": 4.68,
+      "result": {
+        "case": "ocr",
+        "runtime": "node",
+        "threads": 4,
+        "rec": "th",
+        "loadMs": 372,
+        "firstRunMs": 265,
+        "firstLines": 4,
+        "coldToFirstResultMs": 703,
+        "perImage": {
+          "region-th.png": {
+            "n": 15,
+            "p50": 168.5,
+            "p90": 257.5,
+            "min": 145.9,
+            "max": 264.1,
+            "lines": 4,
+            "det": 35,
+            "detPost": 1,
+            "rec": 129,
+            "text": [
+              "บันทึกการตั้งค่าแล้ว",
+              "คุณต้องการติดตั้งการอัปเดตหรือไม่",
+              "พบกันพรุ่งนี้ที่สถานี",
+              "ดาวน์โหลดเสร็จแล้ว"
+            ]
+          }
+        },
+        "peakRssMB": 217
+      }
+    },
+    {
+      "argv": [
+        "mt"
+      ],
+      "loadBefore": 4.87,
+      "result": {
+        "case": "mt",
+        "runtimeMs": 93,
+        "packLoadMs": {
+          "ja-en": 468,
+          "zh-Hans-en": 420,
+          "de-en": 262,
+          "en-de": 211
+        },
+        "routes": {
+          "ja→en": {
+            "firstCallMs": 792,
+            "perSentence": {
+              "n": 15,
+              "p50": 49.7,
+              "p90": 107.7,
+              "min": 30.6,
+              "max": 114.8
+            },
+            "batch5": {
+              "n": 15,
+              "p50": 321.2,
+              "p90": 345.2,
+              "min": 299.1,
+              "max": 363.3
+            },
+            "sample": [
+              "設定を保存しました。 -> Save the settings.",
+              "このアイテムを使用しますか？ -> Do you want to use this item?",
+              "明日の会議は午後三時に始まります。 -> Tomorrow's meeting starts at 3pm.",
+              "勇者よ、よくぞ来た！この先は危険な森だ。 -> Brave, well here you are! It is a dangerous forest from now on.",
+              "ダウンロードが完了しました -> The download is complete."
+            ]
+          },
+          "zh→en": {
+            "firstCallMs": 689,
+            "perSentence": {
+              "n": 15,
+              "p50": 51,
+              "p90": 65.9,
+              "min": 35.2,
+              "max": 68.7
+            },
+            "batch5": {
+              "n": 15,
+              "p50": 271.7,
+              "p90": 288.7,
+              "min": 257,
+              "max": 311.6
+            },
+            "sample": [
+              "你好，世界！ -> Hello, world!",
+              "请输入您的密码。 -> Please enter your password.",
+              "这个游戏的剧情非常精彩。 -> The plot of this game is great.",
+              "下载已完成，请重新启动。 -> Download is complete, please restart.",
+              "已经下载好了，谢谢提醒。 -> Downloaded it, thanks for the reminder."
+            ]
+          },
+          "de→en": {
+            "firstCallMs": 363,
+            "perSentence": {
+              "n": 15,
+              "p50": 51.2,
+              "p90": 63.7,
+              "min": 12.4,
+              "max": 68.5
+            },
+            "batch5": {
+              "n": 15,
+              "p50": 262.5,
+              "p90": 303.8,
+              "min": 237.2,
+              "max": 333.5
+            },
+            "sample": [
+              "Einstellungen -> Settings",
+              "Die Datei konnte nicht gespeichert werden. -> The file could not be saved.",
+              "Möchten Sie die Änderungen übernehmen? -> Do you want to take the changes?",
+              "Wir sehen uns morgen am Bahnhof. -> See you at the station tomorrow.",
+              "Vergiss nicht, das Update zu installieren. -> Don’t forget to install the update."
+            ]
+          },
+          "en→de": {
+            "firstCallMs": 258,
+            "perSentence": {
+              "n": 15,
+              "p50": 48.2,
+              "p90": 66.4,
+              "min": 13.4,
+              "max": 68.1
+            },
+            "batch5": {
+              "n": 15,
+              "p50": 254.3,
+              "p90": 333.4,
+              "min": 220.3,
+              "max": 437.9
+            },
+            "sample": [
+              "Settings -> Einstellungen",
+              "The file could not be saved. -> Die Datei konnte nicht gespeichert werden.",
+              "Do you want to install the update now? -> Möchten Sie das Update jetzt installieren?",
+              "See you tomorrow at the station. -> Wir sehen uns morgen auf der Station.",
+              "We have to leave before the storm arrives. -> Wir müssen gehen, bevor der Sturm eintrifft."
+            ]
+          },
+          "ja→en→de": {
+            "firstCallMs": 99,
+            "perSentence": {
+              "n": 15,
+              "p50": 107.8,
+              "p90": 262,
+              "min": 68.3,
+              "max": 263.7
+            },
+            "batch5": {
+              "n": 15,
+              "p50": 613.5,
+              "p90": 672,
+              "min": 556.8,
+              "max": 791.1
+            },
+            "sample": [
+              "設定を保存しました。 -> Speichern Sie die Einstellungen.",
+              "このアイテムを使用しますか？ -> Möchten Sie diesen Artikel verwenden?",
+              "明日の会議は午後三時に始まります。 -> Das morgen Treffen beginnt um 15Uhr.",
+              "勇者よ、よくぞ来た！この先は危険な森だ。 -> Tapfer, nun, hier bist du! Es ist von nun an ein gefährlicher Wald.",
+              "ダウンロードが完了しました -> Der Download ist komplett."
+            ]
+          }
+        },
+        "peakRssMB": 830
+      }
+    },
+    {
+      "argv": [
+        "snip",
+        "node",
+        "4",
+        "1",
+        "0"
+      ],
+      "loadBefore": 4.31,
+      "result": {
+        "case": "snip",
+        "runtime": "node",
+        "threads": 4,
+        "workers": 1,
+        "prewarm": false,
+        "mtWorkerInitMs": 742,
+        "readyAtMs": 796,
+        "firstSnip": {
+          "total": 1771,
+          "ocr": 559,
+          "mt": 1211
+        },
+        "coldToFirstSnipMs": 2593,
+        "warm": {
+          "n": 15,
+          "p50": 847.5,
+          "p90": 1232.5,
+          "min": 562.1,
+          "max": 1240.6
+        },
+        "warmOcr": {
+          "n": 15,
+          "p50": 539.9,
+          "p90": 881.8,
+          "min": 319.2,
+          "max": 964.1
+        },
+        "warmMt": {
+          "n": 15,
+          "p50": 275.6,
+          "p90": 380.8,
+          "min": 242.8,
+          "max": 411
+        },
+        "output": [
+          "Save the settings.",
+          "Do you want to use this item?",
+          "Tomorrow's meeting starts at 3pm.",
+          "The download is complete.",
+          "Cancel Next"
+        ],
+        "peakRssMB": 744
+      }
+    },
+    {
+      "argv": [
+        "snip",
+        "node",
+        "4",
+        "1",
+        "1"
+      ],
+      "loadBefore": 5.22,
+      "result": {
+        "case": "snip",
+        "runtime": "node",
+        "threads": 4,
+        "workers": 1,
+        "prewarm": true,
+        "mtWorkerInitMs": 816,
+        "readyAtMs": 1768,
+        "firstSnip": {
+          "total": 773,
+          "ocr": 478,
+          "mt": 295
+        },
+        "coldToFirstSnipMs": 2568,
+        "warm": {
+          "n": 15,
+          "p50": 603.5,
+          "p90": 684.3,
+          "min": 505.9,
+          "max": 735.6
+        },
+        "warmOcr": {
+          "n": 15,
+          "p50": 330.4,
+          "p90": 434.2,
+          "min": 250.9,
+          "max": 460.5
+        },
+        "warmMt": {
+          "n": 15,
+          "p50": 265.9,
+          "p90": 297.1,
+          "min": 246.9,
+          "max": 297.1
+        },
+        "output": [
+          "Save the settings.",
+          "Do you want to use this item?",
+          "Tomorrow's meeting starts at 3pm.",
+          "The download is complete.",
+          "Cancel Next"
+        ],
+        "peakRssMB": 723
+      }
+    },
+    {
+      "argv": [
+        "snip",
+        "node",
+        "4",
+        "2",
+        "1"
+      ],
+      "loadBefore": 4.65,
+      "result": {
+        "case": "snip",
+        "runtime": "node",
+        "threads": 4,
+        "workers": 2,
+        "prewarm": true,
+        "mtWorkerInitMs": 516,
+        "readyAtMs": 1305,
+        "firstSnip": {
+          "total": 538,
+          "ocr": 383,
+          "mt": 155
+        },
+        "coldToFirstSnipMs": 1870,
+        "warm": {
+          "n": 15,
+          "p50": 483.7,
+          "p90": 547.4,
+          "min": 411.2,
+          "max": 626.9
+        },
+        "warmOcr": {
+          "n": 15,
+          "p50": 332.5,
+          "p90": 372,
+          "min": 264.9,
+          "max": 470.6
+        },
+        "warmMt": {
+          "n": 15,
+          "p50": 156.3,
+          "p90": 175.4,
+          "min": 141,
+          "max": 205.9
+        },
+        "output": [
+          "Save the settings.",
+          "Do you want to use this item?",
+          "Tomorrow's meeting starts at 3pm.",
+          "The download is complete.",
+          "Cancel Next"
+        ],
+        "peakRssMB": 1132
+      }
+    },
+    {
+      "argv": [
+        "m2m"
+      ],
+      "loadBefore": 4.45,
+      "result": {
+        "case": "m2m",
+        "log": [
+          "load 6872 ms",
+          "3494 ms  明日の会議は午後三時に始まります。 -> Tomorrow’s meeting begins at 3 a.m.",
+          "1890 ms  明日の会議は午後三時に始まります。 -> Tomorrow’s meeting begins at 3 a.m.",
+          "1775 ms  明日の会議は午後三時に始まります。 -> Tomorrow’s meeting begins at 3 a.m.",
+          "peak RSS 1872 MB"
+        ]
+      }
+    }
+  ]
+}
