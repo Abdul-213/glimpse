@@ -37,6 +37,9 @@ typography:
 rounded:
   control: "6px"
   control-win: "4px"
+  popup: "12px"
+  popup-win: "8px"
+  popup-win10: "0px"
 spacing:
   "1": "4px"
 ---
@@ -64,6 +67,9 @@ spacing:
 		expect(css).toContain("--text-body--line-height: 1.45;");
 		expect(css).toContain("--radius-control: 0.375rem;");
 		expect(css).toContain("--radius-control: var(--radius-control-win);");
+		expect(css).toContain(
+			':root[data-os="windows"][data-os-version="10"] {\n\t--radius-popup: var(--radius-popup-win10);\n}',
+		);
 		expect(css).toContain("--duration-fast: 100ms;");
 		expect(css).toContain("--ease-out: cubic-bezier(0.16, 1, 0.3, 1);");
 		expect(css).not.toContain("spring-dock");

@@ -34,7 +34,10 @@ const ACCENT_DERIVED = new Set([
 	"box-linked-fill",
 ]);
 
-/** Radii with a Windows variant (`<key>-win`), swapped in by `:root[data-os="windows"]`. */
+/**
+ * Radii with a Windows variant (`<key>-win`), swapped in by `:root[data-os="windows"]`, and
+ * optionally a Windows 10 one (`<key>-win10`), swapped in by `[data-os-version="10"]`.
+ */
 const PLATFORM_RADII = ["control", "popup"];
 
 /** Extract and parse the `---` YAML frontmatter at the top of DESIGN.md. */
@@ -163,6 +166,15 @@ export function generateTokensCss(design: DesignFrontmatter, motion: MotionToken
 		line("/* Windows radii: the shell sets data-os on <html>. */");
 		line(':root[data-os="windows"] {');
 		for (const k of platform) line(`\t--radius-${k}: var(--radius-${k}-win);`);
+		line("}");
+		line();
+	}
+
+	const win10 = PLATFORM_RADII.filter((k) => design.rounded[`${k}-win10`]);
+	if (win10.length > 0) {
+		line("/* Windows 10: DWM does not round windows, so popups are square (DESIGN.md Shapes). */");
+		line(':root[data-os="windows"][data-os-version="10"] {');
+		for (const k of win10) line(`\t--radius-${k}: var(--radius-${k}-win10);`);
 		line("}");
 		line();
 	}

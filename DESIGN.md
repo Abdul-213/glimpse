@@ -115,6 +115,8 @@ rounded:
   control-win: "4px"
   popup: "12px"
   popup-win: "8px"
+  # Windows 10 has no DWM corner rounding, so the window is square and the veil must match.
+  popup-win10: "0px"
   pill: "999px"
 spacing:
   "0": "0px"
@@ -173,6 +175,43 @@ components:
     textColor: "{colors.text-secondary}"
     typography: "{typography.label}"
     height: "20px"
+  block-live:
+    textColor: "{colors.text-primary}"
+    typography: "{typography.translation}"
+    rounded: "{rounded.control}"
+    padding: "4px 8px 4px 20px"
+  change-mark:
+    backgroundColor: "{colors.change-mark}"
+    rounded: "{rounded.pill}"
+    size: "6px"
+  language-tag:
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.label}"
+  skeleton-bar:
+    backgroundColor: "{colors.overlay-pressed}"
+    rounded: "{rounded.box}"
+    height: "10px"
+  popup-footer:
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.label}"
+    padding: "0 8px"
+    height: "24px"
+  live-strip:
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.label}"
+    height: "28px"
+  status-dot:
+    backgroundColor: "{colors.accent}"
+    rounded: "{rounded.pill}"
+    size: "8px"
+  cloud-row:
+    height: "24px"
+  tooltip:
+    backgroundColor: "{colors.surface-popup-solid}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.label}"
+    rounded: "{rounded.kbd}"
+    padding: "4px 8px"
   button-primary:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.on-accent}"
@@ -223,6 +262,27 @@ components:
     rounded: "{rounded.kbd}"
     padding: "2px 6px"
     height: "20px"
+  picker-hint-bar:
+    backgroundColor: "{colors.picker-hud}"
+    textColor: "{colors.picker-hud-text}"
+    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    padding: "4px 8px"
+    height: "28px"
+  picker-loupe:
+    rounded: "{rounded.popup}"
+    size: "120px"
+  picker-handle:
+    backgroundColor: "{colors.picker-stroke}"
+    rounded: "{rounded.box}"
+    size: "8px"
+  region-tag:
+    backgroundColor: "{colors.picker-hud}"
+    textColor: "{colors.picker-hud-text}"
+    typography: "{typography.label}"
+    rounded: "{rounded.kbd}"
+    padding: "2px 6px"
+    height: "20px"
   detection-box:
     rounded: "{rounded.box}"
   detection-box-linked:
@@ -237,6 +297,8 @@ components:
   re-run `/impeccable document` once the first surfaces ship, so the file describes what was built.
   Extensions the frontmatter schema cannot hold (shadows, motion, focus, materials, per-script
   typography, tonal ramps) live in `.impeccable/design.json`.
+  GLIM-93 folded in the decisions from the region-picker, Snip popup and Live popup specs
+  (docs/design/specs/); where this file and a spec disagree, fix whichever is wrong in the same PR.
 -->
 
 # Design System: Glimpse
@@ -267,6 +329,7 @@ Motion explains three things and nothing else: a surface arriving at its anchor,
 - **Easing:** `ease-out` `cubic-bezier(0.16, 1, 0.3, 1)` for arrivals; `ease-standard` `cubic-bezier(0.2, 0, 0, 1)` for state changes; `ease-exit` `cubic-bezier(0.4, 0, 1, 1)` for departures; `linear` only for the settle decay and progress fill. No bounce, no elastic, no overshoot.
 - **Spring** (for a spring-based motion library, used only for size and position changes of the Live popup and of Live blocks): stiffness 520, damping 44, mass 1 (damping ratio about 0.96, no visible overshoot, settles in about 220 ms). CSS fallback: `base` duration with `ease-out`.
 - **Popup enter:** opacity 0 → 1 and scale 0.98 → 1, transform-origin on the edge facing the selection, `base` + `ease-out`. Exit: opacity only, `exit` + `ease-exit`. The window is pre-created; the animation must never delay first paint of content.
+- **Expanding the skipped line** in Snip is instant (the chevron rotates in `fast`); the spring is reserved for Live. In Live, a removed block's height collapses with the spring while its content fades in `exit`. The Live window grows to its new height at once and animates content inside it; it shrinks only after the content animation ends.
 - **Progressive fill:** detected source text appears with no animation. Each translation replaces its pending source line with a `fast` opacity crossfade; streamed tokens append with no per-token animation. No shimmer, no spinner inside content.
 - **Live change:** the changed block's background jumps to `change-flash` at once (no fade-in: the change must be visible on the frame it happens), then decays linearly to `change-rest` over `settle`. A changed block's height change uses the spring; no other block moves except to make room.
 - **Reduced motion** (OS setting, or Glimpse's own motion preference set to Reduced): no scale, translate or spring anywhere; size changes are instant. Opacity crossfades shorten to `fast` or below. The Live change shows `change-rest` plus the change mark immediately with no decay. Nothing that carries meaning is removed: the tint, the mark and the text update all still happen.
@@ -279,7 +342,8 @@ Tokens map one-to-one to CSS custom properties and to Tailwind v4 `@theme` names
 - **OS accent:** the shell injects the system accent as `--os-accent` (and `--os-accent-dark` from Windows' AccentLight/AccentDark ramp or macOS `controlAccentColor`). `--color-accent`, `--color-focus-ring`, `--color-change-*`, `--color-overlay-selected` and `--color-box-linked-fill` are then derived with `color-mix(in oklab, var(--os-accent) N%, transparent)` at the alpha each token's hex encodes. The hex values in the frontmatter are the fallback when no accent is injected. `--color-on-accent` is chosen at runtime (white or `#1D1D1F`, whichever contrasts more with the injected accent).
 - **Typography:** `--font-ui` holds the shared stack; each role becomes `--text-<role>` (size) with `--text-<role>--line-height` and `--text-<role>--font-weight`, which Tailwind v4 reads as `text-translation`, `text-label`, etc. Per-script stacks and line heights are `--font-<script>` and `--leading-<script>` (see Typography).
 - **Spacing:** Tailwind v4's `--spacing: 4px` (emit as `0.25rem`) generates every step in the frontmatter (`p-3` = 12px). Keep the frontmatter keys as the allowed set; do not use off-scale values such as `p-[7px]`.
-- **Radii:** `--radius-<key>`; the platform variants are applied by the shell setting `data-os="windows" | "macos"` on `:root`, which remaps `--radius-control` and `--radius-popup`.
+- **Radii:** `--radius-<key>`; the platform variants are applied by the shell setting `data-os="windows" | "macos"` on `:root`, which remaps `--radius-control` and `--radius-popup`. Windows 10 also gets `data-os-version="10"`, which sets `--radius-popup` to `popup-win10` (0): DWM does not round Windows 10 windows, so the veil must be square too.
+- **Material:** the shell sets `data-material="native"` on `:root` when the window has a working native material, and `data-material="none"` when it doesn't (Windows 10, "Transparency effects" off, "Reduce transparency" on, or the helper is unavailable). Popup and window shells paint their translucent veil only under `native`, and the `-solid` surface otherwise. `prefers-reduced-transparency: reduce` is honoured as `none` where the webview exposes it.
 - **Sizes in rem:** emit every px value as rem (px ÷ 16) so OS text scaling, which the shell passes through as webview zoom, scales the whole UI evenly.
 
 ## Colors
@@ -311,7 +375,7 @@ A neutral, untinted grey system that disappears into OS chrome, with the OS acce
 ### Picker overlay
 - **Scrim** (`picker-scrim`, black at 45%): dims everything outside the selection, in both themes.
 - **Stroke** (`picker-stroke`) over **Halo** (`picker-halo`): every line the picker draws (selection edge, crosshair, detection boxes) is a 1px white line with a 1px dark halo, so it reads on any content.
-- **HUD** (`picker-hud`, `picker-hud-text`, `picker-hud-text-secondary`): size readout, loupe caption and mode hint chips. Always dark, regardless of OS appearance.
+- **HUD** (`picker-hud`, `picker-hud-text`, `picker-hud-text-secondary`): the size readout, the hint bar with its Snip/Live switch and key chips, and the Live region tag. Always dark, regardless of OS appearance. The loupe has no caption.
 - **Linked Box** (`box-linked-fill`): fill of the detected box linked to the focused or hovered popup block.
 
 ### Named Rules
@@ -331,11 +395,11 @@ A neutral, untinted grey system that disappears into OS chrome, with the OS acce
 
 ### Hierarchy
 - **Title** (600, 20px, 1.3): onboarding step headings and the settings window's pane title. One per view.
-- **Heading** (600, 15px, 1.35): settings group headings and the Live popup's paused/error state line.
+- **Heading** (600, 15px, 1.35): settings group headings and the title line of Snip and Live error and consent states. The Live paused and stale lines are `body`, not `heading`.
 - **Translation** (400, 15px, 1.5): translated text in Snip and Live popups. The largest text on any popup, because it is the content. Popups cap measure at about 60ch (the popup's max width enforces it).
 - **Source** (400, 13px; 14px on Windows; 1.5): original OCR text, shown under the translation when "Show original" is on, and as the pending placeholder before a translation arrives.
 - **Body** (400, 13px; 14px on Windows; 1.45): settings and onboarding copy, control text, descriptions.
-- **Label** (500, 12px, 1.35): small control labels, the "N blocks skipped" line, provider indicators, tooltip text, `kbd` chips. Sentence case, never uppercase, no extra tracking.
+- **Label** (500, 12px, 1.35): small control labels, the "N blocks skipped" line, per-block language tags, provider indicators, the popup footer status, the Live status label, tooltip text, `kbd` chips and HUD chips. Sentence case, never uppercase, no extra tracking.
 - **Numeric** (500, 12px, 1.35, tabular figures): picker size readout, download progress, byte counts, timers.
 
 ### Script stacks and sizing
@@ -360,25 +424,25 @@ UI chrome (labels, buttons) uses the user's UI language, set by the same rules. 
 
 ## Layout
 
-All layout uses logical properties (`margin-inline-start`, `padding-block`, `inset-inline-end`) so every surface mirrors correctly when the UI language is RTL. Text blocks use `unicode-bidi: plaintext` so a mixed Hebrew and English block orders itself.
+All layout uses logical properties (`margin-inline-start`, `padding-block`, `inset-inline-end`) so every surface mirrors correctly when the UI language is RTL. Text blocks use `dir="auto"` and `unicode-bidi: plaintext` so a mixed Hebrew and English block orders itself; inline labels inside a block (language tags) use `unicode-bidi: isolate` so they never reorder the text around them. Popup chrome follows the UI direction; block text follows its own detected direction.
 
 **Spacing rhythm.** A 4px base with the steps in the frontmatter. Inside popups: 12px outer padding, 8px between blocks, 4px between a translation and its source line, 8px above the footer row. In settings: 24px window padding, 20px between groups, 12px row padding, 8px between a label and its control. More space above a heading than below it (20px / 8px).
 
-**Snip popup placement.** Placed 8px outside the selection: below it if there is room, then above, then the inline-end side, then the inline-start side. It never overlaps the selected region. Width follows the region (280px minimum, 480px maximum); height grows with content up to 60% of the screen's work area, then the block list scrolls and the footer stays pinned.
+**Snip popup placement.** Placed 8px outside the selection and at least 8px inside the work area: below it if there are 200px of room, then above (same test), then the inline-end side, then the inline-start side (each needs 280px), then below or above, whichever is larger, if it has at least 96px. Below and above align the popup's inline-start edge with the region's; sides align their tops. It never overlaps the selected region, with one last resort: when the region fills nearly the whole display, the popup sits inside its block-end, inline-end corner, inset 8px, and can be dragged away. Width follows the region (280px minimum, 480px maximum) and is fixed at show time; height grows with content up to 60% of the screen's work area, then the block list scrolls and the footer stays pinned. The edge facing the region is anchored. Exact rules: `docs/design/specs/snip-popup.md` §3.
 
-**Live popup.** Docked 8px from the pinned region on the side chosen at pin time, and it stays on that side for the session. Width matches the region, clamped to 240–640px. A 28px control strip sits at the top (Live status, pause, re-pin, stop). New or resized blocks change only their own height; the popup's anchored edge never moves.
+**Live popup.** Docked 8px from the pinned region on the side chosen at pin time, and it stays on that side for the session (sides tested in the Snip order, with 160px / 240px / 80px thresholds). Below or above, it is **centred** on the region (subtitles and dialogue boxes are centred) and its width matches the region, clamped to 240–640px; on a side its width is clamped to 240–400px. It is not draggable. A 28px control strip sits at the top (status, local indicator, Private, pause/resume, re-pin, stop; no Hide button, which lives in the tray). Under it, a 24px cloud row while a cloud provider is in use, then a state row when paused, empty or in error. The strip has three widths: **compact** below 300px (local indicator icon-only, no " · Private" in the label), **regular** 300–359px, **wide** from 360px ("On device" spelled out). Live blocks pad 20px at inline-start so the change mark has room and text never shifts. New or resized blocks change only their own height; the popup's anchored edge never moves. Exact rules: `docs/design/specs/live-popup.md` §2–3.
 
 **Settings.** A fixed-size window (720 × 520 minimum, resizable) with a 200px navigation list at the inline-start side and a scrolling pane. On macOS the list sits on sidebar vibrancy; on Windows it uses the Mica navigation-view convention.
 
 **Onboarding.** One step per view in a 560 × 480 window: title, one paragraph of body copy, the step's control or status, and the primary action at the block-end, inline-end corner (Back at inline-start).
 
-**Picker.** Full-screen per display. The size readout sits 8px outside the selection's block-end, inline-end corner and flips inside when it would leave the screen. The loupe (120px, 8× zoom, pixel grid at 8×) follows the pointer 24px away and flips away from screen edges.
+**Picker.** Full-screen per display. The size readout sits 8px outside the selection's bottom-right corner (bottom-left for an RTL UI), flips to the other side when it would leave the screen, and moves inside the selection when neither fits. The loupe is a 120px rounded square (`rounded.popup`, so the pixel grid reads cleanly), showing 15 × 15 device px at 8 × 8 CSS px each with a grid, and no caption; it follows the pointer 24px right and below and flips away from screen edges. The hint bar sits at the top centre of the work area, 16px in, and jumps (no animation) to the bottom when the pointer or selection comes within 48px of it. Live selections stay on one display. Exact rules: `docs/design/specs/region-picker.md` §2 and §4.
 
 ## Elevation & Depth
 
 Depth comes from the OS, not from CSS. Popups, settings and onboarding are real windows with the platform's own window shadow and corner rounding (macOS window server; Windows 11 DWM rounded corners and shadow). The webview draws no shadow around its own window.
 
-**Materials.** macOS: `NSVisualEffectView` with the `.popover` material for Snip and Live popups, `.windowBackground` for settings and onboarding, and `.sidebar` for the settings navigation list, all in `.behindWindow` blending. Windows 11: Acrylic (`DWMSBT_TRANSIENTWINDOW`) for popups, which blurs what is behind them, and Mica (`DWMSBT_MAINWINDOW`) for settings and onboarding. Windows 10, transparency turned off, or "Reduce transparency" on: solid surfaces (`surface-popup-solid`, and the solid equivalents of window and group). The webview background is transparent and paints the veil tokens over the material. Never fake a material with CSS `backdrop-filter`; a webview cannot blur what is behind its own window.
+**Materials.** macOS: `NSVisualEffectView` with the `.popover` material for Snip and Live popups, `.windowBackground` for settings and onboarding, and `.sidebar` for the settings navigation list, all in `.behindWindow` blending. Windows 11: Acrylic (`DWMSBT_TRANSIENTWINDOW`) for popups, which blurs what is behind them, and Mica (`DWMSBT_MAINWINDOW`) for settings and onboarding. Windows 10, transparency turned off, or "Reduce transparency" on: solid surfaces (`surface-popup-solid`, and the solid equivalents of window and group), signalled by `data-material="none"`. Windows 10 windows are also square (`popup-win10`, 0). The webview background is transparent and paints the veil tokens over the material. Never fake a material with CSS `backdrop-filter`; a webview cannot blur what is behind its own window.
 
 **Hairline.** Every popup has a 1px inner stroke in `border-hairline`, drawn by the webview just inside the window edge, so it separates from content of the same brightness. In dark appearance, also add the 0.5px outer dark line (`0 0 0 0.5px #000000A6`) that macOS uses for dark panels.
 
@@ -394,7 +458,7 @@ In-webview elevation only (full values in the sidecar):
 
 ## Shapes
 
-Corners follow each platform. macOS: 12px popups, 6px controls. Windows 11: 8px popups, 4px controls (Fluent). The shell sets `data-os`, which swaps `rounded.popup` / `rounded.control` for their `-win` values; the window's own corner (DWM or the macOS window server) must match the webview's radius. Shared on both: 3px detection boxes, 4px `kbd` chips and HUD readouts, pill for progress bars and the egress indicator. Window radius follows the platform even if the platform changes it; the token is the contract to update.
+Corners follow each platform. macOS: 12px popups, 6px controls. Windows 11: 8px popups, 4px controls (Fluent). Windows 10: square popups (0), 4px controls. The shell sets `data-os`, which swaps `rounded.popup` / `rounded.control` for their `-win` values; the window's own corner (DWM or the macOS window server) must match the webview's radius. Shared on both: 3px detection boxes, 4px `kbd` chips and HUD readouts, pill for progress bars and the egress indicator. Window radius follows the platform even if the platform changes it; the token is the contract to update.
 
 Borders are 1px everywhere: `border-hairline` for window edges, `border-control` for fields and secondary buttons (3:1 against the surface), `divider` for separators. No borders thicker than 1px except the focus ring (2px). Icons: one outlined family, 16px on a 1.5px stroke (20px in onboarding), with rounded joins. Tray icons are monochrome: template images on macOS, light and dark variants on Windows.
 
@@ -406,41 +470,53 @@ Borders are 1px everywhere: `border-hairline` for window edges, `border-control`
 - Visible only for keyboard focus (`:focus-visible`). Every surface, including the picker and every popup control, is reachable and dismissible from the keyboard.
 
 ### Snip popup
-- **Structure:** the block list, then a footer row: the provider indicator at inline-start, the skipped line (when any), and copy status at inline-end. No header, no title, no logo.
-- **Pending state:** as soon as OCR returns, each block shows its source text in `block-source` style. Before OCR returns, static skeleton bars (`overlay-pressed`, 10px tall, `rounded.box`), one per detected box. No shimmer.
-- **Copy feedback:** the footer's copy status changes to "Copied" with a check icon for 2 s. No toast.
+- **Structure:** the block list (which scrolls, and ends with the skipped line when there is one), then a 24px footer row (`popup-footer`): the provider indicator and Private mark at inline-start, the status text, then the Show original, Copy and Close icon buttons at inline-end. No header, no title, no logo. A 1px `divider` appears above the footer only when the list overflows.
+- **Pending state:** as soon as OCR returns, each block shows its source text in `block-source` style. Before OCR returns, static skeleton bars (`skeleton-bar`: `overlay-pressed`, 10px tall, `rounded.box`, centred in a 22px line, width the detected box's share of the region clamped to 30–100%), one per detected box. No shimmer.
+- **Missing language packs:** one row per missing language at the top of the list ("Japanese isn't downloaded yet." + Download), never a row per block.
+- **Copy feedback:** the footer's status changes to "Copied" with a check icon for 2 s. No toast.
+- **Cloud footer wrap:** the egress pill is never truncated; if the footer can't hold it, it moves to its own 24px row above the status row, and if it still doesn't fit it uses the provider's short name.
+- **Dismissal:** Esc, Close, or a click outside. The picker's overlays act as the hit-catcher, so the outside click is consumed and does not reach the app below.
 
 ### Translation block
 - Text in `translation`, source line (when shown) in `source` beneath it, both set per-script.
+- **Language tag** (`language-tag`): a trailing inline span, 6px after the text, in the UI language, `unicode-bidi: isolate`. Shown only when the region holds two or more source languages (or Settings says always), and always on blocks in the skipped expansion.
 - **Hover / focus:** `overlay-hover` background, and the block's detected box on screen takes `box-linked-fill`. This is the linked gloss.
 - **Neutral blocks** (numbers, `OK`, keys): shown as-is in `source` style, never highlighted as changed, never counted as skipped.
 
 ### Live changed block
-- **On change:** background `change-flash` at once, decaying to `change-rest` over the settle duration, plus a 6px `change-mark` dot centred on the first line at the inline-start edge (inside the block's padding). The mark and the rest tint stay until the next capture that changes something; then they move to the newly changed blocks.
+- **Every Live block** uses `block-live` padding (20px at inline-start), changed or not, so the mark never shifts text.
+- **On change:** background `change-flash` at once, decaying to `change-rest` over the settle duration, plus a 6px `change-mark` dot 8px from the inline-start edge, centred on the first line. The mark and the rest tint stay until the next capture that changes something; then the previous set's marks are removed at once and only the newest set is marked.
+- **No greying while settling.** While pixels are still changing nothing dims; the status label says "Updating" only after 1 s of processing a settled change.
 - **Never** a coloured side stripe, outline or bold change. Only changed blocks are re-rendered; unchanged blocks keep their DOM nodes.
 - **Screen readers:** changed text is announced politely (approach still open in PRODUCT.md); the visual mark is not the only signal.
 
 ### "N blocks skipped" line
-- One quiet row in `skipped-line` style: a chevron, "3 blocks skipped" and the detected language names in `text-secondary` ("Japanese, Korean"). It is a button: hover shows `overlay-hover`, and activating it expands the skipped blocks inline in `source` style with their language label. It never uses a warning colour; skipping is the user's filter working, not an error.
+- One quiet row in `skipped-line` style, always the **last item of the block list** (not the footer, so its expansion scrolls with the list): a 12px chevron pointing inline-end (rotating 90° when open), then "3 blocks skipped · Japanese, Korean" in `text-secondary`. It is a `<button aria-expanded>`: hover shows `overlay-hover`, and activating it expands the skipped blocks inline in `source` style with their language tag, followed by two text buttons, "Translate these" and "Edit source languages…". It never uses a warning colour; skipping is the user's filter working, not an error.
 
 ### Provider indicators
-- **Local:** `local-indicator`: a chip icon and "On device" in `text-secondary`. Always present, never louder than that.
-- **Cloud in use:** `egress-indicator`: a pill in `egress-tint` with a cloud icon and "Sent to <Provider>" in `egress`. Shown on every result a cloud provider handled, in the Live control strip for the whole session, and as a violet-tinted cloud badge on the tray icon. It cannot be dismissed or hidden while the provider is active.
+- **Local:** `local-indicator`: a chip icon and "On device" in `text-secondary`. Always present when no cloud provider is involved, never louder than that. In a compact Live strip it is icon-only, with the words in its tooltip and `aria-label`.
+- **Cloud in use:** `egress-indicator`: a pill in `egress-tint` with a cloud icon and "Sent to <Provider>" in `egress`. Shown on every result a cloud provider handled (in the Snip footer), in the Live popup's cloud row under the strip for the whole session (including while paused), and as a violet-tinted cloud badge on the tray icon. It cannot be dismissed or hidden while the provider is active.
 
 ### Live control strip
-- 28px tall: a status dot and "Live" (label, `text-secondary`; the dot is `accent` while running, a hollow `text-secondary` ring when paused, `danger` on error) at inline-start; `button-icon` pause, re-pin and stop at inline-end. The dot does not pulse.
+- 28px tall (`live-strip`): at inline-start an 8px `status-dot` and the status label ("Live", "Updating", "Paused", plus " · Private" when wide enough), then the local indicator; at inline-end `button-icon` Private (pressed state), pause/resume, re-pin and stop, 4px apart. The dot is `accent` while running, a hollow 1.5px `text-secondary` ring when paused or awaiting consent, `danger` on error. The dot never pulses.
+- **Stale state** (paused, error, screen locked): hollow or danger dot, every block's text in `text-secondary`, and a `body` state row "Showing text from 3 min ago". Error and consent states add a `heading` title, a `body` paragraph and buttons in the state row.
 
 ### Pinned-region frame
-- While Live runs, a click-through frame marks the pinned region with 12px corner ticks only (no full rectangle, so it never crosses the source text): 2px `accent` over a 1px `picker-halo`. Paused: the ticks turn `picker-stroke` at 60% opacity.
+- Drawn by a native click-through window, not a webview. While Live runs, it marks the pinned region with 12px corner ticks only (no full rectangle): 2px `accent` over a 1px `picker-halo`, drawn **outside** the region (the ticks' inner edge 1px outside the rect), so they never cover a pixel of it. Paused or error: the ticks turn `picker-stroke` at 60% opacity.
+- **Region tag** (`region-tag`): only while the popup is hidden, a HUD chip 4px above the top-left tick: "Live", "Live · Paused", or with a cloud icon "Live · Google" in `egress-dark`, so sending is never invisible.
 
 ### Region picker
-- Outside the selection: `picker-scrim`. Selection edge, crosshair and snapping guides: `picker-stroke` with `picker-halo`. Window-snap candidates show the same stroke at 60% opacity before commit.
+- Outside the selection: `picker-scrim`. Selection edge, crosshair and snapping guides: `picker-stroke` with `picker-halo`. Window-snap candidates cut a hole in the scrim (so they're obvious over dark content) and show the same stroke at 60% opacity before commit.
+- **Hint bar** (`picker-hint-bar`): the Snip/Live switch, the hint and key chips; when the mode will use a cloud provider, it adds the egress pill in its dark-appearance colours.
+- **Handles** (`picker-handle`) only while adjusting: 8px squares with a halo ring and 20px hit areas.
+- Esc or right-click cancels from any phase.
 - `picker-readout` shows "W × H" in tabular figures; a second chip hints the mode ("Snip · Tab for Live") with keys rendered as `kbd` in HUD colours.
 - **Detected boxes** (after the drag, while the popup is open): a 1px `picker-stroke` + `picker-halo` outline with `rounded.box`, no fill at rest. Linked box: `box-linked-fill`. Skipped blocks: the same stroke dashed (3px dash, 3px gap) at 60% opacity. Neutral blocks: no box.
 
 ### Buttons, fields and keys
 - **Primary** (`button-primary`): one per view at most; onboarding's next step, settings' confirm actions. Hover layers `overlay-hover` over the fill; pressed layers `overlay-pressed`.
-- **Secondary** (`button-secondary`) with a 1px `border-control` edge; **icon** buttons (`button-icon`) with a tooltip naming the action and its shortcut.
+- **Secondary** (`button-secondary`) with a 1px `border-control` edge; **icon** buttons (`button-icon`) with a tooltip naming the action and its shortcut. Toggling icon buttons (Show original, Private) use `aria-pressed`; pressed shows `overlay-selected` behind a `text-primary` icon.
+- **Tooltip** (`tooltip`): `surface-popup-solid`, `label` type, `rounded.kbd`, shadow **Tooltip**, after a 500 ms hover or at once on keyboard focus.
 - **Fields** (`field`) with a 1px `border-control` edge; on focus the edge is replaced by the focus ring. Errors: `danger` edge plus an inline message in `danger` below.
 - **kbd** chips show OS-native glyphs (⌃⇧S on macOS, Alt+Shift+S on Windows) in `label` type.
 - **Control height:** 28px on macOS, 32px on Windows (Fluent standard); icon buttons stay 24px in popups on both.
@@ -469,7 +545,7 @@ Borders are 1px everywhere: `border-hairline` for window edges, `border-control`
 - **Don't** use egress violet for anything except data leaving the device, and never rely on colour alone for it.
 - **Don't** use emoji or Unicode glyphs as icons, celebration states, confetti or mascots.
 - **Don't** animate a whole popup, or any unchanged block, when Live content updates.
-- **Don't** let any Glimpse surface cover the selected or pinned region.
+- **Don't** let any Glimpse surface cover the selected or pinned region. The only exception is the last-resort inside placement, when the region fills nearly the whole display.
 
 ## Open questions for review
 
@@ -486,6 +562,6 @@ Where Impeccable's process would have asked, a choice was made and is listed her
 9. **Translation text size.** 15px by default. Should settings offer a text-size control (suggested: three steps, 13 / 15 / 18px), separate from OS scaling?
 10. **Noto delivery.** The stacks list Noto last, but nothing is bundled yet. Bundle a subset (which scripts?), offer an optional "extra scripts" font download, or rely on OS fonts plus whatever Noto the user has installed? CJK Noto is around 15–20 MB per region per weight.
 11. **macOS 26+ Liquid Glass.** Is `NSGlassEffectView` used where available instead of `NSVisualEffectView`? It changes the material, and probably the popup radius (12px may need to grow to match concentric system corners).
-12. **Windows 10.** Mica and Acrylic need Windows 11. Is Windows 10 supported at all? If it is, it gets the solid surfaces.
+12. **Windows 10.** Mica and Acrylic need Windows 11. Is Windows 10 supported at all? If it is, it gets the solid surfaces and square popups (`popup-win10`, decided in the popup specs).
 13. **Icon set.** One outlined family at a 1.5px stroke was specified but not picked (for example Lucide, or authored icons modelled on SF Symbols / Fluent). Native look on each OS argues for authored icons.
 14. **`light-dark()` and `color-mix()` support.** Both need a recent WebView2 (Chromium 123+) and WebKit (Safari 17.5+). Confirm the minimum macOS version once the shell spike lands; the media-query fallback is specified either way.
