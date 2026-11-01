@@ -70,8 +70,8 @@ bun run models -- --all
 bun run bench:ocr --write-baseline --report=docs/benchmarks/ocr-results.md
 ```
 
-The baseline's latency is from the CI runner (ubuntu-latest), so take `totalP50` from a CI run's
-`ocr-bench` artifact when the corpus changes; a dev machine under load reads 1.5–2x slower.
+The baseline's latency is from the CI runner (ubuntu-latest, 2 cores), so take `totalP50` from a CI
+run's `ocr-bench` artifact when the corpus changes (a loaded 8-core dev machine read 1.7x slower).
 
 ## Findings (2026-11-02)
 
@@ -108,7 +108,9 @@ one- and two-word button labels. What the corpus caught:
    word spaces sometimes dropped ("그럼역 앞카페에서", WER 39 % at 2 % CER), Arabic "هذه" → "هه"
    and "رद्द" → "रह" on the JPEG'd dark UIs, kana "う" read as "ラ" in vertical text. Worth
    watching, not worth tuning for yet.
-5. **Latency** (CI runner, 2 ORT threads): see [ocr-results.md](ocr-results.md). Regions read in
-   roughly 150–500 ms warm, a 760x300 window in about twice that, and mixed subsets that run two
-   recognisers (`ch` + a specialist) cost the most. First calls that load an on-demand
-   recogniser add 0.3–1.5 s.
+5. **Latency** (CI runner: 2-core EPYC 7763, ORT 1 thread, so a slow machine): warm p50 per
+   case 108–611 ms for regions up to 640x240 and 948 ms for the 760x300 window; over all runs
+   p50 221 ms, p90 581 ms. Cost follows line count more than pixels (`cjk-zh-hans-article`,
+   `cyrillic-ru-dialog` with two recognisers, and `latin-en-dialog` are the slow regions). Provider
+   init 248 ms, warmup 133 ms; a first call that loads an on-demand recogniser adds up to ~130 ms here.
+   Per-case numbers in [ocr-results.md](ocr-results.md).

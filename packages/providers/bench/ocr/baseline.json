@@ -1,5 +1,5 @@
 {
-	"machine": "AMD EPYC Processor (with IBPB), 8 cores, linux 6.8.0-139-generic, ORT threads auto",
+	"machine": "GitHub ubuntu-latest: AMD EPYC 7763, 2 cores, ORT threads auto (1)",
 	"scripts": {
 		"Latin": {
 			"cer": 0.0204,
@@ -42,5 +42,5 @@
 			"detection": 1
 		}
 	},
-	"totalP50": 11978
+	"totalP50": 7016
 }
