@@ -14,6 +14,7 @@ import {
 	planRoute,
 	type SettingsPatch,
 	sourceLanguageChoices,
+	type UpdateStatus,
 } from "@glimpse/core";
 import type { AppInfo } from "../../shared/rpc.ts";
 import {
@@ -52,6 +53,16 @@ export interface SettingsDeps {
 	readonly reveal: (path: string) => boolean;
 	readonly settingsWarnings: readonly string[];
 	readonly uiLocale: string;
+	/** Update notification (GLIM-70); absent = never any update to show. */
+	readonly updates?: UpdatesApi;
+}
+
+/** What Settings needs from the update checker (services/update-check.ts). */
+export interface UpdatesApi {
+	status(): UpdateStatus;
+	subscribe(listener: (status: UpdateStatus) => void): () => void;
+	/** Open the newer release's page; false when there is none or the browser didn't open. */
+	openPage(): boolean;
 }
 
 const ACTION_NAMES: Record<HotkeyAction, string> = {
@@ -84,6 +95,7 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 		loginItem: await deps.loginItem.status(),
 		providers: deps.providers(),
 		settingsWarnings: deps.settingsWarnings,
+		update: deps.updates?.status() ?? { state: "current", lastCheckAt: null },
 	});
 
 	/** Apply bindings with the OS; on refusal for `action`, put the old ones back. */
@@ -232,6 +244,8 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 		resetLiveConsent: () => deps.cloud.resetLiveConsent(),
 		openCloudLink: (params: unknown): ActionResult =>
 			deps.cloud.openLink(isPlainObject(params) ? params["link"] : undefined),
+		openUpdatePage: (): ActionResult =>
+			deps.updates?.openPage() ? { ok: true } : bad("Couldn't open the download page."),
 	};
 }
 

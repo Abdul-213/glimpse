@@ -254,6 +254,13 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			translation: [{ id: "bergamot", name: "Firefox Translations (Bergamot)", kind: "local" }],
 		},
 		settingsWarnings: [],
+		update: settings.updates.check
+			? {
+					state: "available",
+					release: { version: "0.2.0", url: "https://github.com/Abdul-213/glimpse/releases/tag/v0.2.0" },
+					lastCheckAt: Date.UTC(2026, 10, 1, 9, 30),
+				}
+			: { state: "off" },
 	});
 
 	const update = (patch: SettingsPatch) => {
@@ -362,6 +369,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 		},
 		openCloudLink: async () => ok,
 		openOnboarding: async () => ok,
+		openUpdatePage: async () => ok,
 	};
 
 	return {

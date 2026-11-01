@@ -2,7 +2,7 @@
 // (ARCHITECTURE.md §5 rule 1): it holds what main last sent and replaces it with whatever main
 // answers or pushes. Edits are sent as intents; nothing is applied optimistically except the
 // value a control is already showing.
-import type { Settings } from "@glimpse/core";
+import type { Settings, UpdateStatus } from "@glimpse/core";
 import { createSignal } from "solid-js";
 import type {
 	CloudSnapshot,
@@ -25,12 +25,15 @@ export function createSettingsState(client: SettingsClient) {
 	const [cloud, setCloud] = createSignal<CloudSnapshot | null>(null);
 	const [languages, setLanguages] = createSignal<SourceLanguagesSnapshot | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
+	// GLIM-70: a newer release, from the snapshot and then `updateChanged`.
+	const [update, setUpdate] = createSignal<UpdateStatus | null>(null);
 
 	client.listen({
 		settingsChanged: (s) => setSettings(s),
 		hotkeysChanged: (s) => setHotkeys(s),
 		modelsChanged: (s) => setModels(s),
 		cloudChanged: (s) => setCloud(s),
+		updateChanged: (s) => setUpdate(s),
 	});
 
 	const load = async () => {
@@ -40,6 +43,7 @@ export function createSettingsState(client: SettingsClient) {
 			setSettings(s.settings);
 			setHotkeys(s.hotkeys);
 			setLoginItem(s.loginItem);
+			setUpdate(s.update);
 		} catch {
 			setError("Couldn't reach the Glimpse app process. Close Settings and open it again from the tray.");
 		}
@@ -52,6 +56,7 @@ export function createSettingsState(client: SettingsClient) {
 		loginItem,
 		models,
 		cloud,
+		updateStatus: update,
 		languages,
 		error,
 		load,
