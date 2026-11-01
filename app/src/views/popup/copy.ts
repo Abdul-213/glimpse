@@ -20,6 +20,8 @@ export const COPY = {
 	editSources: "Edit source languages…",
 	clipboardUnchanged: "Clipboard not changed",
 	showingOriginal: "Showing original",
+	copied: "Copied",
+	copyTranslation: "Copy translation",
 	showOriginal: "Show original",
 	showTranslation: "Show translation",
 } as const;
@@ -43,6 +45,8 @@ export function statusText(s: SnipStatus): string {
 			return COPY.clipboardUnchanged;
 		case "original":
 			return COPY.showingOriginal;
+		case "copied":
+			return COPY.copied;
 	}
 }
 
@@ -50,13 +54,15 @@ export function statusText(s: SnipStatus): string {
  * What the status region announces (§10): only "Reading text", "Translating" and the
  * final line, never each block.
  */
-export function announcement(s: SnipStatus, translated: number, finished: boolean): string {
+export function announcement(s: SnipStatus, translated: number, finished: boolean, autoCopied = false): string {
 	if (s.kind === "reading") return COPY.reading;
 	if (s.kind === "translating") return "Translating";
 	if (s.kind === "clipboardUnchanged") return "";
 	if (s.kind === "original") return COPY.showingOriginal;
-	if (!finished || translated === 0) return "";
-	return `Translated ${translated} ${translated === 1 ? "block" : "blocks"}.`;
+	if (s.kind === "copied" && !finished) return COPY.copied;
+	if (!finished || translated === 0) return s.kind === "copied" ? COPY.copied : "";
+	const head = `Translated ${translated} ${translated === 1 ? "block" : "blocks"}.`;
+	return autoCopied ? `${head} Copied to clipboard.` : head;
 }
 
 // ---- Pack rows (§2.2) and error bodies (§4.1) ------------------------------------------

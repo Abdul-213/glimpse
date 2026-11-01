@@ -231,6 +231,11 @@ export const SCENARIOS: readonly Scenario[] = [
 	{ name: "s3-streaming", caption: "S3 streaming: 1 of 3", state: () => run(MAIN, { upTo: 1, finish: false }) },
 	{ name: "s4-done", caption: "S4 done", state: () => run(MAIN) },
 	{
+		name: "s4-copied",
+		caption: "S4 done, copied to the clipboard (2 s)",
+		state: () => run(MAIN, { extra: [{ type: "copied", what: "translation", auto: true }] }),
+	},
+	{
 		name: "s7-skipped-expanded",
 		caption: "S7 skipped line expanded",
 		state: () => run(MAIN, { extra: [{ type: "toggleSkipped", expanded: true }] }),
