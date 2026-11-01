@@ -1,6 +1,6 @@
 # GLIM-85: Decision on the default translation model (licence)
 
-Status: **Proposed** (needs sign-off) · Date: 2026-10-30 · Scope: Windows + macOS, local (offline) translation provider only; Bun/TypeScript first, Rust sidecar or Tauri fallback. Not legal advice. Get a quick licence check before the first public release.
+Status: **Accepted, provisional** (2026-11-01, adopted so build work can start; the owner can override) · Date: 2026-10-30 · Scope: Windows + macOS, local (offline) translation provider only; Bun/TypeScript first, Rust sidecar or Tauri fallback. Not legal advice. Get a quick licence check before the first public release.
 
 ## Recommendation
 

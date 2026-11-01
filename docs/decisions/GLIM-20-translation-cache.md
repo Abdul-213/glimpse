@@ -1,6 +1,6 @@
 # GLIM-20: Decision on the translation cache
 
-Status: **Proposed** (needs sign-off) · Date: 2026-10-30 · Scope: Windows + macOS; translation, language-detection and OCR result caching for Snip and Live; Bun/TypeScript first, Rust sidecar or Tauri fallback. Assumes the GLIM-85 proposal (Bergamot packs with an English pivot, optional Hy-MT2 "Enhanced", SMaLL-100 long tail), which is not yet accepted. The design doesn't depend on that choice. Only the key fields would change.
+Status: **Accepted, provisional** (2026-11-01, adopted so build work can start; the owner can override) · Date: 2026-10-30 · Scope: Windows + macOS; translation, language-detection and OCR result caching for Snip and Live; Bun/TypeScript first, Rust sidecar or Tauri fallback. Assumes the GLIM-85 proposal (Bergamot packs with an English pivot, optional Hy-MT2 "Enhanced", SMaLL-100 long tail), which is not yet accepted. The design doesn't depend on that choice. Only the key fields would change.
 
 ## Recommendation
 

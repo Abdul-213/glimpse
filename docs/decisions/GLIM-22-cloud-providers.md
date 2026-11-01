@@ -1,6 +1,6 @@
 # GLIM-22: Decision on the first cloud OCR and translation providers
 
-Status: **Proposed** (needs sign-off) · Date: 2026-10-30 · Scope: Windows + macOS; the first cloud OCR provider (ticket 9.3) and the first cloud translation provider (9.4), plus a ranked list for later. Bring-your-own-key only, with keys in the OS keychain, called with plain `fetch` from the Bun process. Assumes the GLIM-85 (local model) and GLIM-20 (cache) proposals, neither accepted yet. Pricing and terms were read from public pages on 2026-10-30. No accounts were created and no APIs were called. Not legal advice.
+Status: **Accepted, provisional** (2026-11-01, adopted so build work can start; the owner can override) · Date: 2026-10-30 · Scope: Windows + macOS; the first cloud OCR provider (ticket 9.3) and the first cloud translation provider (9.4), plus a ranked list for later. Bring-your-own-key only, with keys in the OS keychain, called with plain `fetch` from the Bun process. Assumes the GLIM-85 (local model) and GLIM-20 (cache) proposals, neither accepted yet. Pricing and terms were read from public pages on 2026-10-30. No accounts were created and no APIs were called. Not legal advice.
 
 ## Recommendation
 
