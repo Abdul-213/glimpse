@@ -158,6 +158,37 @@ describe("TranslationService", () => {
 	});
 });
 
+describe("TranslationService: wipe on lock and sleep (GLIM-107)", () => {
+	test("wipeForAway clears the app cache and Private session caches while clearCacheOnLock is on", async () => {
+		const { service, change, sink } = setup();
+		await service.start();
+		await service.snip(capture, rect(0, 0, 100, 40), () => {});
+		expect(service.caches.app.stats().entries).toBeGreaterThan(0);
+		const live = service.caches.openSession(true);
+		live.cache.set(
+			{ text: "x", from: L("ja"), to: L("en"), fingerprint: { providerId: "p", modelRevision: "r", optionsHash: "o" } },
+			{
+				text: "X",
+				provider: { id: "p", name: "P", kind: "local", providerId: "p", modelRevision: "r", optionsHash: "o" },
+				createdAt: 1,
+			},
+		);
+		expect(service.wipeForAway("lock")).toBe(true);
+		expect(service.caches.app.stats().entries).toBe(0);
+		expect(live.cache.stats().entries).toBe(0);
+		expect(sink.records.some((r) => r.message === "translation cache cleared" && r.fields?.["reason"] === "lock")).toBe(
+			true,
+		);
+
+		await service.snip(capture, rect(0, 0, 100, 40), () => {});
+		await change({ privacy: { clearCacheOnLock: false } });
+		expect(service.wipeForAway("sleep")).toBe(false);
+		expect(service.caches.app.stats().entries).toBeGreaterThan(0);
+		live.close();
+		await service.dispose();
+	});
+});
+
 describe("TranslationService: settings changes at runtime (GLIM-108)", () => {
 	const snipProvider = async (service: TranslationService<unknown>) =>
 		(await service.snip(capture, rect(0, 0, 100, 40), () => {})).translations["b1"]?.provider?.id;

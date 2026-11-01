@@ -331,7 +331,7 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   detaches; `clear` also blocks late writes). `TranslationCaches` owns the app-wide cache, the
   Private scopes (non-storing Snip cache, isolated per Live session) and the wipes: user,
   idle (an open Live session counts as activity), sleep (detected from a wall-clock jump
-  between `tick()`s), lock (reported by the app).
+  between `tick()`s, and the native notification), lock (native notifications through `PresenceTracker` → `TranslationService.wipeForAway`, GLIM-107). Lock and sleep wipes follow `privacy.clearCacheOnLock`.
 
 ### Settings (GLIM-53)
 

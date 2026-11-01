@@ -466,7 +466,9 @@ picker.onRegionSelected((region) => {
 
 // Screen lock / unlock and sleep / wake (GLIM-119) from the native helpers: Live pauses at
 // once ("Paused while the screen was locked", L17) and resumes when the user is back, unless
-// they had paused it themselves. PresenceTracker folds the OS's overlapping notifications.
+// they had paused it themselves; the translation cache is wiped on each lock and sleep when
+// Settings › Privacy says so (GLIM-20, GLIM-107). PresenceTracker folds the OS's overlapping
+// notifications.
 const sessionNative = platform === "macos" ? macNative : platform === "windows" ? loadWindowsCapture() : null;
 const systemSession = new SystemSession({
 	binding: sessionNative?.binding ?? null,
@@ -478,8 +480,7 @@ const presence = new PresenceTracker(
 	{
 		pause: (reason) => live.pause(reason),
 		resume: (reason) => live.resume(reason),
-		// The cache wipe on lock and sleep (GLIM-20) is wired by GLIM-107.
-		wipe: () => {},
+		wipe: (reason) => void translation.wipeForAway(reason),
 	},
 	systemTimers,
 );
