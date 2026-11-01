@@ -62,6 +62,7 @@ render(
 								pointerEntered: (sessionId) => rpc.send.livePointerEntered({ sessionId }),
 								blurred: (sessionId) => rpc.send.liveBlurred({ sessionId }),
 								copy: (sessionId, what) => rpc.send.copyRequested({ sessionId, what }),
+								skipped: (sessionId, expanded) => rpc.send.skippedToggled({ sessionId, expanded }),
 							}}
 						/>
 					)}

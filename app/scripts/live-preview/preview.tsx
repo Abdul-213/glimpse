@@ -56,6 +56,7 @@ function Frame(props: { scenario: (typeof LIVE_SCENARIOS)[number] }) {
 					pointerEntered: noop,
 					blurred: noop,
 					copy: noop,
+					skipped: noop,
 				}}
 			/>
 		</div>

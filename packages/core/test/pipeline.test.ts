@@ -113,10 +113,16 @@ describe("pipeline: Snip event order (snip-popup.md §4, §8)", () => {
 	});
 
 	test("the source subset turns other languages into skipped blocks; all skipped is E5", async () => {
-		const { pipeline } = await setup({ blocks: [blocks.ja, blocks.ko] });
+		const { pipeline, translator } = await setup({ blocks: [blocks.ja, blocks.ko] });
 		const { result } = await run(pipeline, { sources: [L("ko")] });
 		expect(result.blocks.map((b) => b.cls)).toEqual(["skip", "translate"]);
 		expect(result.error).toBeNull();
+		// GLIM-82: skipped blocks are never sent to the translator (Snip and Live alike).
+		const sent = () => translator.calls.flatMap((c) => c.segments.map((s) => s.from));
+		expect(sent()).toEqual([L("ko")]);
+		await run(pipeline, { sources: [L("ko")], mode: "live" });
+		expect(sent()).toEqual([L("ko"), L("ko")]);
+		expect(result.translations["b1"]).toBeUndefined();
 		const none = await run(pipeline, { sources: [L("de")] });
 		expect(none.result.blocks.map((b) => b.cls)).toEqual(["skip", "skip"]);
 		expect(none.result.error?.kind).toBe("nothingToTranslate");

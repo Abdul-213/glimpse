@@ -12,6 +12,7 @@ import {
 	type LivePopupState,
 	type LiveSessionEvent,
 	languageCode,
+	listedLiveBlocks,
 	livePopupFrame,
 	liveShowsEmpty,
 	liveStrip,
@@ -20,6 +21,7 @@ import {
 	rect,
 	reduceLivePopup,
 	revealedTranslations,
+	skippedLiveBlocks,
 	staleAge,
 	stripLayout,
 } from "@glimpse/core";
@@ -328,4 +330,31 @@ describe("reduceLivePopup", () => {
 	});
 
 	test("hold constant", () => expect(LIVE_HOLD_MS).toBe(600));
+});
+
+describe("skipped blocks in Live (GLIM-82)", () => {
+	test("skip-class blocks leave the list for the skipped line, keep their original text, never marked", () => {
+		const s0 = firstFill();
+		const { s } = run(
+			[
+				frame(
+					2,
+					[block("K", "Bis morgen!", { cls: "skip", lang: languageCode("de"), order: 2, changed: false })],
+					["L1", "L2", "K"],
+				),
+			],
+			s0,
+		);
+		expect(listedLiveBlocks(s).map((b) => b.id)).toEqual(["L1", "L2"]);
+		expect(skippedLiveBlocks(s).map((b) => [b.source, b.translation, b.changeId])).toEqual([
+			["Bis morgen!", null, null],
+		]);
+		// A class flip (hysteresis rarely allows it) moves the block without a mark.
+		const { s: flipped } = run(
+			[frame(3, [block("K", "Bis morgen!", { order: 2, translation: "See you tomorrow!" })], ["L1", "L2", "K"])],
+			s,
+		);
+		expect(listedLiveBlocks(flipped).map((b) => b.id)).toEqual(["L1", "L2", "K"]);
+		expect(flipped.blocks[2]?.changeId).toBeNull();
+	});
 });

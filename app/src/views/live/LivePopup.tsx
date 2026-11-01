@@ -12,6 +12,7 @@ import {
 	listedLiveBlocks,
 	liveShowsEmpty,
 	liveStrip,
+	skippedLiveBlocks,
 	stripLayout,
 } from "@glimpse/core";
 import {
@@ -20,7 +21,9 @@ import {
 	EgressBadge,
 	IconButton,
 	LocalIndicator,
+	languageName,
 	PopupShell,
+	SkippedLine,
 	StateMessage,
 	StatusIndicator,
 	TextBlock,
@@ -55,6 +58,7 @@ export interface LivePopupIntents {
 	pointerEntered(sessionId: string): void;
 	blurred(sessionId: string): void;
 	copy(sessionId: string, what: "translation" | "original"): void;
+	skipped(sessionId: string, expanded: boolean): void;
 }
 
 export interface LivePopupProps {
@@ -370,6 +374,32 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 							/>
 						)}
 					</For>
+					{/* GLIM-82: blocks outside the source subset, never translated; the count and
+					    languages update silently and the expansion persists for the session. */}
+					<Show when={skippedLiveBlocks(state()).length > 0}>
+						<SkippedLine
+							count={skippedLiveBlocks(state()).length}
+							languages={skippedLanguages(state()).map((l) => languageName(l, uiLang()))}
+							uiLocale={uiLang()}
+							expanded={state().skippedExpanded}
+							onExpandedChange={(x) => props.intents.skipped(id(), x)}
+						>
+							<For each={skippedLiveBlocks(state())}>
+								{(b) => (
+									<TextBlock
+										variant="live"
+										state="done"
+										kind="neutral"
+										source={b.source}
+										sourceLang={b.lang ?? undefined}
+										tag={b.lang ? languageName(b.lang, uiLang()) : undefined}
+										tagLang={uiLang()}
+										stale={state().stale}
+									/>
+								)}
+							</For>
+						</SkippedLine>
+					</Show>
 				</Show>
 			</BlockList>
 			<span class="sr-only" role="status">
@@ -435,4 +465,9 @@ function trapTab(shell: HTMLElement, e: KeyboardEvent): void {
 	const next = e.shiftKey ? (at <= 0 ? order.length - 1 : at - 1) : at < 0 || at >= order.length - 1 ? 0 : at + 1;
 	e.preventDefault();
 	order[next]?.focus();
+}
+
+/** Languages of the skipped blocks, first-seen order, no repeats. */
+function skippedLanguages(s: LivePopupState): string[] {
+	return [...new Set(skippedLiveBlocks(s).flatMap((b) => (b.lang ? [b.lang] : [])))];
 }
