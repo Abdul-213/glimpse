@@ -1,0 +1,78 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": {
+		"includes": [
+			"app/**",
+			"packages/**",
+			"*.json",
+			"*.ts",
+			"!**/.hutch",
+			"!**/.cottontail-tmp",
+			"!**/dist",
+			"!**/build",
+			"!**/artifacts",
+			"!**/*.md",
+			"!packages/ui/src/styles/tokens.css"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 120
+	},
+	"css": {
+		"parser": { "tailwindDirectives": true },
+		"formatter": { "enabled": true },
+		"linter": { "enabled": true }
+	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"style": {
+				"noNonNullAssertion": "error",
+				"useImportType": "error",
+				"useNodejsImportProtocol": "error"
+			},
+			"complexity": {
+				"useLiteralKeys": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "error",
+				"noConsole": "off"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["packages/core/src/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["electrobun", "electrobun/*"],
+										"message": "@glimpse/core is OS-free: put Electrobun code in app/src/bun and pass data in."
+									},
+									{
+										"group": ["bun:*", "node:*", "fs", "path", "os", "child_process"],
+										"message": "@glimpse/core is pure: no runtime, filesystem or OS modules. Take an interface (port) instead."
+									},
+									{
+										"group": ["solid-js", "solid-js/*", "@glimpse/ui", "@glimpse/app"],
+										"message": "@glimpse/core must not depend on UI or the app."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		}
+	]
+}

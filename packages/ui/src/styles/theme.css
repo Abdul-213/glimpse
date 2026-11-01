@@ -1,0 +1,53 @@
+/*
+ * Glimpse Tailwind entry. Every view's stylesheet starts with:
+ *   @import "@glimpse/ui/theme.css";
+ *   @source "./";
+ * Values come from tokens.css (generated from DESIGN.md). This file only holds the
+ * rules DESIGN.md states in prose, which the frontmatter cannot express.
+ */
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Let Tailwind see the classes used by the shared components. */
+@source "../components";
+
+:root {
+	/* Buttons and fields: 28px on macOS, 32px on Windows (DESIGN.md Buttons, fields and keys). */
+	--control-height: 1.75rem;
+}
+
+:root[data-os="windows"] {
+	--control-height: 2rem;
+	/* Body and source text are 14px on Windows (DESIGN.md Typography > Hierarchy). */
+	--text-body: 0.875rem;
+	--text-source: 0.875rem;
+}
+
+@layer base {
+	html {
+		font-family: var(--font-ui);
+		color: var(--color-text-primary);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	body {
+		margin: 0;
+		font-size: var(--text-body);
+		line-height: var(--text-body--line-height);
+		/* The webview is transparent over the native material; surfaces paint their own veil. */
+		background: transparent;
+	}
+
+	/* Focus ring: 2px focus-ring at a 2px offset, keyboard focus only (DESIGN.md Focus). */
+	:focus-visible {
+		outline: 2px solid var(--color-focus-ring);
+		outline-offset: 2px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-base: var(--duration-fast);
+		--duration-slow: var(--duration-fast);
+	}
+}

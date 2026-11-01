@@ -1,0 +1,4 @@
+[test]
+# spikes/ are throwaway references with their own setups; .hutch/ holds the Electrobun
+# devkit, which ships its own tests.
+pathIgnorePatterns = ["spikes/**", "**/.hutch/**", "**/build/**", "**/dist/**"]
