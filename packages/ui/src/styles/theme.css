@@ -3,21 +3,57 @@
  *   @import "@glimpse/ui/theme.css";
  *   @source "./";
  * Values come from tokens.css (generated from DESIGN.md). This file only holds the
- * rules DESIGN.md states in prose, which the frontmatter cannot express.
+ * rules DESIGN.md states in prose, which the frontmatter cannot express; component
+ * rules that need platform, material or motion selectors live in components.css.
  */
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./components.css";
 
 /* Let Tailwind see the classes used by the shared components. */
 @source "../components";
 
+/* Platform and preference variants, set by the shell on <html> (DESIGN.md Token mapping). */
+@custom-variant win (&:where([data-os="windows"] *));
+@custom-variant mac (&:where([data-os="macos"] *));
+@custom-variant reduce-motion {
+	@media (prefers-reduced-motion: reduce) {
+		@slot;
+	}
+	&:where([data-motion="reduced"] *) {
+		@slot;
+	}
+}
+
 :root {
 	/* Buttons and fields: 28px on macOS, 32px on Windows (DESIGN.md Buttons, fields and keys). */
 	--control-height: 1.75rem;
+	/* Menu rows: 24px on macOS, control height on Windows. */
+	--menu-item-height: 1.5rem;
+
+	/* Surfaces: solid unless the shell says a native material is behind the webview. */
+	--veil-popup: var(--color-surface-popup-solid);
+	--veil-window: var(--color-surface-window-solid);
+	--veil-group: var(--color-surface-group-solid);
+}
+
+:root[data-material="native"] {
+	--veil-popup: var(--color-surface-popup);
+	--veil-window: var(--color-surface-window);
+	--veil-group: var(--color-surface-group);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	:root[data-material="native"] {
+		--veil-popup: var(--color-surface-popup-solid);
+		--veil-window: var(--color-surface-window-solid);
+		--veil-group: var(--color-surface-group-solid);
+	}
 }
 
 :root[data-os="windows"] {
 	--control-height: 2rem;
+	--menu-item-height: 2rem;
 	/* Body and source text are 14px on Windows (DESIGN.md Typography > Hierarchy). */
 	--text-body: 0.875rem;
 	--text-source: 0.875rem;
@@ -25,7 +61,7 @@
 
 @layer base {
 	html {
-		font-family: var(--font-ui);
+		/* font-family comes from the per-script rules in tokens.css (:root and every [lang]). */
 		color: var(--color-text-primary);
 		-webkit-font-smoothing: antialiased;
 	}
@@ -43,6 +79,21 @@
 		outline: 2px solid var(--color-focus-ring);
 		outline-offset: 2px;
 	}
+
+	/* Browser surfaces carry the design too: selection, scrollbars, caret. */
+	::selection {
+		background: var(--color-overlay-selected);
+	}
+
+	input,
+	textarea {
+		caret-color: var(--color-accent);
+	}
+
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-overlay-pressed) transparent;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -50,4 +101,9 @@
 		--duration-base: var(--duration-fast);
 		--duration-slow: var(--duration-fast);
 	}
+}
+
+:root[data-motion="reduced"] {
+	--duration-base: var(--duration-fast);
+	--duration-slow: var(--duration-fast);
 }

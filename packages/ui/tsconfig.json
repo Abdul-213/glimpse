@@ -3,7 +3,11 @@
 	"compilerOptions": {
 		"lib": ["ESNext", "DOM", "DOM.Iterable"],
 		"jsx": "preserve",
-		"jsxImportSource": "solid-js"
+		"jsxImportSource": "solid-js",
+		// Solid components forward optional props as `prop={props.x}` (always present,
+		// possibly undefined), and Kobalte's prop types reject that under this flag. The
+		// app relaxes it for the same kind of reason. Everything else in the base applies.
+		"exactOptionalPropertyTypes": false
 	},
 	"include": ["src", "scripts", "test"]
 }

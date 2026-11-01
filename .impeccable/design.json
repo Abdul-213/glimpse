@@ -1185,7 +1185,19 @@
       {
         "name": "popup-outline-dark",
         "value": "inset 0 0 0 1px #FFFFFF1F, 0 0 0 0.5px #000000A6",
-        "purpose": "Dark-appearance popup edge: hairline inside, dark line outside. Light appearance uses the inset hairline only (inset 0 0 0 1px #0000001F)."
+        "purpose": "Dark-appearance popup edge: hairline inside, dark line outside. Light appearance uses the inset hairline only (inset 0 0 0 1px #0000001F). Implemented with the popup-outline colour token (transparent in light), so one box-shadow serves both appearances."
+      },
+      {
+        "name": "knob",
+        "value": "0 1px 2px #00000033, 0 0 0 0.5px #0000000F",
+        "dark": "0 1px 2px #00000066, 0 0 0 0.5px #00000033",
+        "purpose": "macOS switch knob."
+      },
+      {
+        "name": "segment",
+        "value": "0 1px 2px #0000001F, 0 0 0 0.5px #0000000F",
+        "dark": "0 1px 2px #00000052, 0 0 0 0.5px #FFFFFF14",
+        "purpose": "Selected segment of a segmented control."
       }
     ],
     "motion": [

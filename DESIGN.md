@@ -10,10 +10,20 @@ colors:
   surface-popup-solid-dark: "#262628"
   surface-window: "#F2F2F4B8"
   surface-window-dark: "#1F1F21B8"
+  surface-window-solid: "#F2F2F4"
+  surface-window-solid-dark: "#1F1F21"
   surface-group: "#FFFFFFE6"
   surface-group-dark: "#2C2C2FE6"
+  surface-group-solid: "#FFFFFF"
+  surface-group-solid-dark: "#2C2C2F"
   surface-control: "#FFFFFF"
   surface-control-dark: "#3A3A3D"
+  # The 0.5px dark line macOS draws outside dark panels; nothing in light appearance.
+  popup-outline: "#00000000"
+  popup-outline-dark: "#000000A6"
+  # macOS switch knob (white in light, near-white in dark, as AppKit draws it).
+  knob: "#FFFFFF"
+  knob-dark: "#E6E6E9"
   overlay-hover: "#0000000F"
   overlay-hover-dark: "#FFFFFF14"
   overlay-pressed: "#0000001A"
@@ -255,6 +265,57 @@ components:
     backgroundColor: "{colors.accent}"
     rounded: "{rounded.pill}"
     height: "4px"
+  switch:
+    backgroundColor: "{colors.overlay-pressed}"
+    rounded: "{rounded.pill}"
+    width: "32px"
+    height: "18px"
+  switch-knob:
+    backgroundColor: "{colors.knob}"
+    rounded: "{rounded.pill}"
+    size: "14px"
+  switch-checked:
+    backgroundColor: "{colors.accent}"
+  switch-win:
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.pill}"
+    width: "40px"
+    height: "20px"
+  switch-win-knob:
+    size: "12px"
+  segmented:
+    backgroundColor: "{colors.overlay-hover}"
+    rounded: "{rounded.control}"
+    padding: "2px"
+  segmented-selected:
+    backgroundColor: "{colors.surface-control}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.control}"
+  menu:
+    backgroundColor: "{colors.surface-popup-solid}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.control}"
+    padding: "4px"
+  menu-item:
+    rounded: "{rounded.kbd}"
+    padding: "0 8px"
+    height: "24px"
+  menu-item-highlighted:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.on-accent}"
+  settings-group:
+    backgroundColor: "{colors.surface-group}"
+    rounded: "{rounded.control}"
+  settings-row:
+    typography: "{typography.body}"
+    padding: "12px"
+  banner:
+    backgroundColor: "{colors.surface-group}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.control}"
+    padding: "12px"
   picker-readout:
     backgroundColor: "{colors.picker-hud}"
     textColor: "{colors.picker-hud-text}"
@@ -338,7 +399,7 @@ Motion explains three things and nothing else: a surface arriving at its anchor,
 
 Tokens map one-to-one to CSS custom properties and to Tailwind v4 `@theme` names. Do not invent parallel names.
 
-- **Colours:** each pair becomes one property: `--color-<key>: light-dark(<key>, <key>-dark)`, with `color-scheme: light dark` on `:root` so it follows the OS. Tailwind v4 reads `--color-*` from `@theme`, giving `bg-surface-popup`, `text-text-secondary`, `border-border-hairline`, and so on. The `-dark` keys are never emitted as their own utilities. Where `light-dark()` is unavailable, emit the light set on `:root` and the dark set under `@media (prefers-color-scheme: dark)`.
+- **Colours:** each pair becomes one property: `--color-<key>: light-dark(<key>, <key>-dark)`, with `color-scheme: light dark` on `:root` so it follows the OS. Tailwind v4 reads `--color-*` from `@theme`, giving `bg-surface-popup`, `text-text-secondary`, `border-border-hairline`, and so on. The `-dark` keys are never emitted as their own utilities. Where `light-dark()` is unavailable, emit the light set on `:root` and the dark set under `@media (prefers-color-scheme: dark)`. Two build-pipeline caveats (GLIM-42): the translucent accent-derived tokens (`change-*`, `overlay-selected`, `box-linked-fill`) are aliased in `@theme` to `--mix-<key>` properties set in plain `:root` rules (one per property, light then a `prefers-color-scheme: dark` override), because the Tailwind/Bun color-mix lowering otherwise flattens them to the opaque accent; and Bun's CSS bundler lowers `light-dark()` to variables keyed on `prefers-color-scheme`, so appearance follows the OS (the webview's), not a per-element `color-scheme`.
 - **OS accent:** the shell injects the system accent as `--os-accent` (and `--os-accent-dark` from Windows' AccentLight/AccentDark ramp or macOS `controlAccentColor`). `--color-accent`, `--color-focus-ring`, `--color-change-*`, `--color-overlay-selected` and `--color-box-linked-fill` are then derived with `color-mix(in oklab, var(--os-accent) N%, transparent)` at the alpha each token's hex encodes. The hex values in the frontmatter are the fallback when no accent is injected. `--color-on-accent` is chosen at runtime (white or `#1D1D1F`, whichever contrasts more with the injected accent).
 - **Typography:** `--font-ui` holds the shared stack; each role becomes `--text-<role>` (size) with `--text-<role>--line-height` and `--text-<role>--font-weight`, which Tailwind v4 reads as `text-translation`, `text-label`, etc. Per-script stacks and line heights are `--font-<script>` and `--leading-<script>` (see Typography).
 - **Spacing:** Tailwind v4's `--spacing: 4px` (emit as `0.25rem`) generates every step in the frontmatter (`p-3` = 12px). Keep the frontmatter keys as the allowed set; do not use off-scale values such as `p-[7px]`.
@@ -520,6 +581,17 @@ Borders are 1px everywhere: `border-hairline` for window edges, `border-control`
 - **Fields** (`field`) with a 1px `border-control` edge; on focus the edge is replaced by the focus ring. Errors: `danger` edge plus an inline message in `danger` below.
 - **kbd** chips show OS-native glyphs (⌃⇧S on macOS, Alt+Shift+S on Windows) in `label` type.
 - **Control height:** 28px on macOS, 32px on Windows (Fluent standard); icon buttons stay 24px in popups on both.
+
+### Settings and onboarding controls
+Each follows its OS's own control, drawn from tokens; `packages/ui` implements them on unstyled Kobalte primitives.
+- **Switch:** macOS `switch` (32 × 18 track, 14px `knob` with a soft shadow, `overlay-pressed` off, `accent` on). Windows `switch-win` (40 × 20, off: 1px `border-control` outline and a 12px `text-secondary` knob; on: `accent` fill and an `on-accent` knob; the knob grows 2px on hover). The knob slides `fast` with `ease-standard`; reduced motion jumps.
+- **Segmented control** (`segmented`): two to four short options on an `overlay-hover` trough with 2px padding; the selected segment is `surface-control` with `text-primary`. Used for small enums (motion: System / Reduced); anything longer is a select.
+- **Select and language picker:** a field-shaped trigger (`field`) with up-down chevrons on macOS and a down chevron on Windows; the list is a `menu` (`surface-popup-solid`, shadow **Menu**, 4px padding) of 24px `menu-item`s (Windows: control height), highlighted with `accent` / `on-accent` on macOS and `overlay-hover` on Windows, the chosen item marked with a check. The language picker is the same list with a search field: it matches the language's name in the UI language, its own name ("日本語") and its code, ignoring accents, and shows the own name in `text-secondary` after the UI name.
+- **Hotkey recorder:** a field showing `kbd` chips. Activating it says "Type a shortcut", previews modifiers as they're held, saves on the first valid combo, Esc cancels, Backspace clears. GLIM-23's rules decide what's blocked (inline `danger` message, nothing saved) and what's warned (`warning` message under the field, combo kept). A conflict reported by the app process is a `danger` message.
+- **Secret field:** a `field` in `ui-monospace` (a key is literal data) with a show/hide icon button inside its inline-end edge. A saved key is never shown back; the field says it is stored in the Keychain / Credential Manager and offers Replace.
+- **Settings groups and rows:** a `heading` above each group (20px above, 8px below). macOS: one `settings-group` container with a 1px `border-hairline` edge and `divider` lines between `settings-row`s. Windows: each row is its own `settings-group` card, 2px apart, as Windows Settings stacks setting cards. A row is the label (`body`) with an optional description (`label`, `text-secondary`) at inline-start and its control at inline-end.
+- **Banner:** a `banner` with a 16px status icon in the status colour, a `body` title in weight 600, optional body copy in `text-secondary` and up to two buttons. For unsigned-build guidance, permissions and errors in settings and onboarding; never in popups (they use the state row). No coloured side stripe; the icon and words carry the status.
+- **Inline error:** `label` type in `danger` with a 16px alert icon, directly under the field it belongs to, linked with `aria-describedby`.
 
 ### Model download progress (onboarding, settings)
 - `progress-track` with a `progress-fill` advanced linearly, plus a `numeric` line: "412 MB of 1.2 GB · about 3 min left". Real progress only; an indeterminate state shows the words "Preparing download" and no animated bar.

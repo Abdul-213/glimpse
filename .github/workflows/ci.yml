@@ -53,6 +53,22 @@ jobs:
           bun run harness snip --rect 20,15,160,90
           bun run harness live --rect 0,0,360,120 --fps 4
 
+      # GLIM-42: render the component gallery headlessly (macOS/Windows variants,
+      # light/dark, LTR/RTL); fails on console errors or an empty render.
+      - name: Gallery screenshots
+        working-directory: app
+        run: |
+          node_modules/.bin/playwright-core install --with-deps --only-shell chromium
+          bun scripts/gallery.ts --shots "$RUNNER_TEMP/gallery"
+
+      - name: Upload gallery screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery
+          path: ${{ runner.temp }}/gallery
+          retention-days: 7
+
       # Bundled OCR models + Bergamot runtime (app/models/manifest.json, ~29 MB download), fetched
       # by the preBuild hook. Cached by manifest hash so most runs download nothing.
       - name: Cache bundled models
