@@ -55,6 +55,10 @@ and tries one small capture.
 
 Run `typecheck`, `lint` and `bun test` before pushing; CI runs the same on Linux.
 
+ONNX Runtime's official builds send usage telemetry to Microsoft unless `ORT_DISABLE_TELEMETRY=1`
+is set (GLIM-112). The app and `bun test` set it themselves; when you run a script that loads
+onnxruntime directly (`packages/providers/scripts/*`), export it in your shell first.
+
 ## Headless harness (Linux, CI, quick checks anywhere)
 
 The harness drives the main-process services without Electrobun or a webview. On Linux, capture

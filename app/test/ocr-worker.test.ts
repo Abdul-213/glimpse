@@ -6,6 +6,7 @@
 // app-shaped folder outside the repo (no node_modules to fall back on), runs one OCR call and
 // loads onnxruntime from that folder. The same check runs on a built Linux app
 // (app/build/<env>-linux-x64/..., when `bun run build` has been run).
+import { CString, dlopen, FFIType, ptr } from "bun:ffi";
 import { afterAll, describe, expect, test } from "bun:test";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,6 +25,8 @@ import {
 	vcRuntimeImports,
 } from "../scripts/onnxruntime.ts";
 import { peImports } from "../scripts/pe-imports.ts";
+import { setProcessEnv } from "../src/bun/native/process-env.ts";
+import { disableOrtTelemetry, ORT_CI_VARIABLES, ORT_TELEMETRY_ENV } from "../src/bun/services/ocr/ort-telemetry.ts";
 import { appModelManifest, paddleModelSource } from "../src/bun/services/ocr/paddle-models.ts";
 import { OCR_WORKER_FILE, ocrSpawner, resolveOcrWorker } from "../src/bun/services/ocr/paddle-worker.ts";
 
@@ -160,6 +163,54 @@ describe("Visual C++ runtime for Windows (GLIM-111)", () => {
 	});
 });
 
+describe("onnxruntime telemetry (GLIM-112)", () => {
+	test("the shipped runtime still reads ORT_DISABLE_TELEMETRY (and still has the 1DS uploader)", () => {
+		for (const [os, arch, lib] of [
+			["linux", "x64", "libonnxruntime.so.1"],
+			["darwin", "arm64", "libonnxruntime.1.dylib"],
+			["win32", "x64", "onnxruntime.dll"],
+		] as const) {
+			const text = readFileSync(join(ortBinDir(), os, arch, lib)).toString("latin1");
+			expect(text).toContain(ORT_TELEMETRY_ENV);
+			// If this ever disappears, re-check docs/decisions/GLIM-112-onnxruntime-telemetry.md.
+			expect(text).toContain("mobile.events.data.microsoft.com");
+		}
+	});
+
+	test("the variable reaches the native environment, not only Bun's process.env", () => {
+		const name = "GLIMPSE_TEST_NATIVE_ENV";
+		expect(setProcessEnv(name, "on")).toBe(["linux", "darwin", "win32"].includes(process.platform));
+		if (process.platform === "linux") {
+			const libc = dlopen("libc.so.6", { getenv: { args: [FFIType.ptr], returns: FFIType.ptr } });
+			const key = Buffer.from(`${name}\0`);
+			const value = libc.symbols.getenv(ptr(key));
+			expect(value ? new CString(value).toString() : null).toBe("on");
+			libc.close();
+		}
+		expect(process.env[name]).toBe("on");
+	});
+
+	test("the OCR spawner switches telemetry off before any Worker exists", () => {
+		const calls: string[] = [];
+		ocrSpawner(
+			"/app/src/bun",
+			{},
+			() => false,
+			() => {
+				calls.push("off");
+				return true;
+			},
+		);
+		expect(calls).toEqual(["off"]);
+		const set: [string, string][] = [];
+		disableOrtTelemetry((n, v) => {
+			set.push([n, v]);
+			return true;
+		});
+		expect(set).toEqual([[ORT_TELEMETRY_ENV, "1"]]);
+	});
+});
+
 describe("app model source", () => {
 	test("the compiled-in manifest lists the on-demand recognisers; files resolve through the manager", () => {
 		expect(appModelManifest.models.some((m) => m.recognizer && !m.bundled)).toBe(true);
@@ -194,11 +245,11 @@ const haveModels = bundledModels.every((m) =>
 const smoke = resolve(import.meta.dir, "..", "scripts", "ocr-smoke.ts");
 
 /** Run one OCR call through the Worker in `appDir` in a fresh process (see ocr-smoke.ts). */
-function runSmoke(appDir: string): { text: string[]; ms: number; ortLibs: string[] } {
+function runSmoke(appDir: string, env: Record<string, string> = {}): { text: string[]; ms: number; ortLibs: string[] } {
 	const p = Bun.spawnSync([process.execPath, smoke, appDir], {
 		stdout: "pipe",
 		stderr: "pipe",
-		env: { ...process.env },
+		env: { ...process.env, ...env },
 	});
 	if (p.exitCode !== 0) throw new Error(`ocr-smoke failed: ${p.stderr.toString()}`);
 	const out = JSON.parse(p.stdout.toString().trim().split("\n").at(-1) ?? "{}");
@@ -239,7 +290,13 @@ describe.skipIf(process.platform !== "linux" || !haveModels)("OCR inside an app-
 			join(appDir, "models"),
 			{ cacheDir: cache },
 		);
-		expectInside(runSmoke(appDir), appDir);
+		// GLIM-112: ORT must not create its telemetry device id / event store. ORT skips telemetry
+		// by itself when it sees a CI variable, so blank those to test what users get.
+		const xdg = join(tmp, "xdg-cache");
+		mkdirSync(xdg, { recursive: true });
+		const noCi = Object.fromEntries(ORT_CI_VARIABLES.map((v) => [v, ""]));
+		expectInside(runSmoke(appDir, { ...noCi, XDG_CACHE_HOME: xdg, ORT_DISABLE_TELEMETRY: "" }), appDir);
+		expect(existsSync(join(xdg, "Microsoft"))).toBe(false);
 	}, 120_000);
 
 	const app = builtApp();

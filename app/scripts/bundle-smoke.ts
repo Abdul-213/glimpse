@@ -6,11 +6,14 @@
 //
 //   bun scripts/bundle-smoke.ts
 //
-// Fails unless the text is read, every onnxruntime library came from the bundle and, on Windows,
-// the Visual C++ runtime DLLs in use are the app-local copies (GLIM-111).
-import { cpSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+// Fails unless the text is read, every onnxruntime library came from the bundle, on Windows the
+// Visual C++ runtime DLLs in use are the app-local copies (GLIM-111), and ONNX Runtime created no
+// telemetry device id or event store (GLIM-112). ORT skips telemetry by itself when it sees a CI
+// variable, so the OCR call runs with those blanked, as on a user's machine.
+import { cpSync, existsSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { ORT_CI_VARIABLES, ortTelemetryPaths } from "../src/bun/services/ocr/ort-telemetry.ts";
 import { OCR_WORKER_FILE } from "../src/bun/services/ocr/paddle-worker.ts";
 
 const dist = resolve(import.meta.dir, "..", "dist");
@@ -24,9 +27,18 @@ try {
 	cpSync(join(dist, "onnxruntime"), join(appDir, "native", "onnxruntime"), { recursive: true });
 	cpSync(join(dist, "models"), join(appDir, "models"), { recursive: true });
 
+	const telemetry = ortTelemetryPaths(process.platform, process.env, homedir());
+	const before = telemetry.filter((p) => existsSync(p));
+	if (before.length > 0) console.log(`note: ORT telemetry folders existed before the run: ${before.join(", ")}`);
+	const userEnv = {
+		...process.env,
+		...Object.fromEntries(ORT_CI_VARIABLES.map((v) => [v, ""])),
+		ORT_DISABLE_TELEMETRY: "",
+	};
 	const p = Bun.spawnSync([process.execPath, join(import.meta.dir, "ocr-smoke.ts"), appDir], {
 		stdout: "pipe",
 		stderr: "pipe",
+		env: userEnv,
 	});
 	if (p.exitCode !== 0) fail(`ocr-smoke failed:\n${p.stderr.toString()}`);
 	const out = JSON.parse(p.stdout.toString().trim().split("\n").at(-1) ?? "{}") as {
@@ -49,6 +61,14 @@ try {
 		// Copies already loaded by the process (a newer system runtime) are fine; report them.
 		if (outside.length > 0) console.log(`note: Visual C++ runtime DLLs loaded from elsewhere: ${outside.join(", ")}`);
 		if (!out.crtLibs.some(inside)) fail("none of the app-local Visual C++ runtime DLLs was used");
+	}
+	for (const path of telemetry) {
+		if (!before.includes(path) && existsSync(path)) fail(`onnxruntime created its telemetry folder ${path}`);
+	}
+	if (process.platform === "win32") {
+		const key = "HKCU\\SOFTWARE\\Microsoft\\DeveloperTools\\.onnxruntime";
+		const reg = Bun.spawnSync(["reg", "query", key], { stdout: "pipe", stderr: "pipe" });
+		if (reg.exitCode === 0) fail(`onnxruntime wrote its device id to ${key}:\n${reg.stdout.toString()}`);
 	}
 	console.log("bundle-smoke: ok");
 } catch (error) {

@@ -117,7 +117,8 @@ jobs:
         run: hutch electrobun build --env=stable
 
       # One OCR call through the staged Worker, onnxruntime and models; checks the Visual C++
-      # runtime DLLs in use are the app-local copies (GLIM-111).
+      # runtime DLLs in use are the app-local copies (GLIM-111) and that onnxruntime wrote no
+      # telemetry device id (GLIM-112).
       - name: OCR smoke test (bundled onnxruntime)
         working-directory: app
         run: bun scripts/bundle-smoke.ts
