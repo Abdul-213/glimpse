@@ -19,6 +19,7 @@ import { exclusionOpsFor } from "./native/exclusion.ts";
 import { frameNativesFor } from "./native/frame.ts";
 import { loadMacNative } from "./native/macos.ts";
 import { overlayOpsFor } from "./native/overlay.ts";
+import { loadWindowsCapture } from "./native/windows.ts";
 import { platform } from "./platform.ts";
 import { AppSettings } from "./services/app-settings.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
@@ -42,6 +43,8 @@ import { type AppProviderContext, providerContext, registerProviders } from "./s
 import { ScreenAccess, screenAccessNotice } from "./services/screen-access.ts";
 import { screenAccessOS } from "./services/screen-access-os.ts";
 import { KeychainSecretStore } from "./services/secrets.ts";
+import { PresenceTracker } from "./services/session/presence.ts";
+import { SystemSession } from "./services/session/system-session.ts";
 import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
 import { watchTaskbarTheme } from "./services/taskbar-theme.ts";
@@ -461,6 +464,28 @@ picker.onRegionSelected((region) => {
 	return undefined;
 });
 
+// Screen lock / unlock and sleep / wake (GLIM-119) from the native helpers: Live pauses at
+// once ("Paused while the screen was locked", L17) and resumes when the user is back, unless
+// they had paused it themselves. PresenceTracker folds the OS's overlapping notifications.
+const sessionNative = platform === "macos" ? macNative : platform === "windows" ? loadWindowsCapture() : null;
+const systemSession = new SystemSession({
+	binding: sessionNative?.binding ?? null,
+	unavailableReason:
+		sessionNative && !sessionNative.status.available ? sessionNative.status.reason : `no native helper on ${platform}`,
+	log: log.child("session"),
+});
+const presence = new PresenceTracker(
+	{
+		pause: (reason) => live.pause(reason),
+		resume: (reason) => live.resume(reason),
+		// The cache wipe on lock and sleep (GLIM-20) is wired by GLIM-107.
+		wipe: () => {},
+	},
+	systemTimers,
+);
+systemSession.subscribe((event) => presence.handle(event.kind));
+systemSession.start();
+
 const diagnostics = () =>
 	buildDiagnostics({
 		appInfo,
@@ -484,6 +509,8 @@ const diagnostics = () =>
 			// Counters and timings only (GLIM-58 per-grab costs), never text.
 			liveStats: live.stats(),
 			liveFrame: frameNatives.status,
+			systemSession: systemSession.status.state,
+			presence: presence.state,
 		}),
 		logTail: () => logs.file.tail(200),
 		redactor: log.redactor,
@@ -539,6 +566,8 @@ commands.handle("app.quit", () => {
 	popupWindow.close();
 	picker?.dispose();
 	pickerNatives.sampler.stop();
+	presence.dispose();
+	systemSession.dispose();
 	liveAnnouncements.dispose();
 	livePopup?.dispose();
 	livePopupWindow.close();
@@ -655,5 +684,6 @@ log.info("started", {
 	capture: capture.status,
 	picker: pickerNatives.status,
 	liveFrame: frameNatives.status,
+	systemSession: systemSession.status.state,
 	hotkeys: hotkeys.backendName,
 });

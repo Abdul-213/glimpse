@@ -11,6 +11,7 @@ import { rect } from "@glimpse/core";
 import { loadAnnounceNative } from "../src/bun/native/announce.ts";
 import { FRAME_PALETTE_ORDER, type FrameNativeBinding, rgbaOf } from "../src/bun/native/frame.ts";
 import { loadMacNative } from "../src/bun/native/macos.ts";
+import type { SessionEventKind, SessionNativeBinding } from "../src/bun/native/session.ts";
 import { loadWindowsCapture } from "../src/bun/native/windows.ts";
 import { MacCaptureSource } from "../src/bun/services/capture/macos.ts";
 import { displaysFromMac, displaysFromWindows } from "../src/bun/services/capture/native-displays.ts";
@@ -58,6 +59,33 @@ function frameSmoke(binding: FrameNativeBinding, check: (info: Record<string, nu
 	}
 }
 
+// Lock / sleep notifications (GLIM-119): start the observer, have the helper deliver each kind
+// through its real path (macOS: a distributed notification; Windows: the real
+// WM_WTSSESSION_CHANGE / WM_POWERBROADCAST to the watcher window), and check every one reaches
+// this worker through the threadsafe callback. A failure fails the job.
+async function sessionSmoke(binding: SessionNativeBinding): Promise<void> {
+	const got: string[] = [];
+	const start = binding.sessionStart((kind, source) => got.push(`${kind}:${source}`));
+	console.log(`session start ${start}:`, JSON.stringify(binding.sessionInfo()));
+	if (start !== 0) process.exit(1);
+	const kinds: SessionEventKind[] = ["lock", "unlock", "sleep", "wake"];
+	for (const kind of kinds) {
+		const r = binding.sessionSimulate(kind);
+		if (r !== 0) console.log(`session simulate ${kind}: status ${r}`);
+	}
+	for (let i = 0; i < 40 && got.length < kinds.length; i++) {
+		binding.sessionPump(50);
+		await Bun.sleep(10);
+	}
+	binding.sessionStop();
+	console.log("session events:", JSON.stringify(got), "after stop:", JSON.stringify(binding.sessionInfo()));
+	const missing = kinds.filter((k) => !got.some((g) => g.startsWith(`${k}:`)));
+	if (missing.length > 0) {
+		console.log(`session events missing: ${missing.join(", ")}`);
+		process.exit(1);
+	}
+}
+
 const tryCapture = Bun.argv.includes("--try-capture");
 
 async function attempt(label: string, run: () => Promise<{ width: number; height: number }>): Promise<void> {
@@ -87,6 +115,7 @@ if (process.platform === "win32") {
 	const physical = binding.physicalDisplays();
 	console.log("monitors:", JSON.stringify(physical));
 	pickerSmoke(binding, () => windowsWindows(binding.listWindows(), displaysFromWindows(physical), physical));
+	await sessionSmoke(binding);
 	frameSmoke(binding, (info) => {
 		const problems: string[] = [];
 		const ex = info["exStyle"] ?? 0;
@@ -126,6 +155,7 @@ if (process.platform === "win32") {
 	console.log("displays:", JSON.stringify(displays), "screen recording granted:", binding.preflight());
 	binding.setExcludedWindows([]);
 	pickerSmoke(binding, () => macWindows(binding.listWindows()));
+	await sessionSmoke(binding);
 	frameSmoke(binding, (info) => {
 		const problems: string[] = [];
 		if (info["ignoresMouseEvents"] !== 1) problems.push("ignoresMouseEvents is off");

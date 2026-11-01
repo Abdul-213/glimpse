@@ -5,6 +5,13 @@ import { FFIType, JSCallback, type Pointer, ptr } from "bun:ffi";
 import type { Rect, RgbaImage } from "@glimpse/core";
 import type { FrameHandle, FrameNativeBinding, FrameNativeStyle } from "./frame.ts";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
+import {
+	SESSION_KIND_CODE,
+	type SessionEventKind,
+	type SessionNativeBinding,
+	sessionKindFor,
+	sessionSourceName,
+} from "./session.ts";
 import { captureErrorFor, GLIM_E_NO_FRAME } from "./status.ts";
 import { listNativeWindows, type NativeWindowInfo } from "./window-info.ts";
 
@@ -63,6 +70,12 @@ const symbols = {
 	glim_frame_window_id: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
 	glim_frame_destroy: { args: [FFIType.u64], returns: FFIType.i32 },
 	glim_frame_info: { args: [FFIType.u64, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	// GLIM-119 lock / sleep notifications (session.m)
+	glim_session_start: { args: [FFIType.function], returns: FFIType.i32 },
+	glim_session_stop: { args: [], returns: FFIType.i32 },
+	glim_session_simulate: { args: [FFIType.i32], returns: FFIType.i32 },
+	glim_session_pump: { args: [FFIType.i32], returns: FFIType.i32 },
+	glim_session_info: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
 } as const;
 
 /** A display as CoreGraphics reports it: global points + backing scale. */
@@ -142,9 +155,16 @@ export interface MacHotkeyBinding {
 type Symbols = NonNullable<ReturnType<typeof loadNativeLibrary<typeof symbols>>["symbols"]>;
 
 class LibGlimpse
-	implements MacCaptureBinding, MacWindowBinding, MacPickerBinding, MacHotkeyBinding, FrameNativeBinding
+	implements
+		MacCaptureBinding,
+		MacWindowBinding,
+		MacPickerBinding,
+		MacHotkeyBinding,
+		FrameNativeBinding,
+		SessionNativeBinding
 {
 	private hotkeyCallback: JSCallback | null = null;
+	private sessionCallback: JSCallback | null = null;
 	private readonly src = new Float64Array(4);
 	private readonly dest = new Int32Array(4);
 	private readonly u32 = new Uint32Array(1);
@@ -320,6 +340,47 @@ class LibGlimpse
 		this.hotkeyCallback = null;
 	}
 
+	// ---- GLIM-119 lock / sleep notifications ----
+
+	sessionStart(onEvent: (kind: SessionEventKind, source: string) => void): number {
+		// Runs on the AppKit main thread; threadsafe queues it onto this worker.
+		const cb = new JSCallback(
+			(kind: number, source: number) => {
+				const k = sessionKindFor(kind);
+				if (k) onEvent(k, sessionSourceName("macos", source));
+			},
+			{ args: [FFIType.i32, FFIType.i32], returns: FFIType.void, threadsafe: true },
+		);
+		const r = this.sym.glim_session_start(cb);
+		if (r !== 0) {
+			cb.close();
+			return r;
+		}
+		// The helper now calls the new callback; the old one can go.
+		this.sessionCallback?.close();
+		this.sessionCallback = cb;
+		return 0;
+	}
+
+	sessionStop(): void {
+		this.sym.glim_session_stop();
+		this.sessionCallback?.close();
+		this.sessionCallback = null;
+	}
+
+	sessionSimulate(kind: SessionEventKind): number {
+		return this.sym.glim_session_simulate(SESSION_KIND_CODE[kind]);
+	}
+
+	sessionPump(ms: number): void {
+		this.sym.glim_session_pump(Math.max(0, Math.round(ms)));
+	}
+
+	sessionInfo(): Record<string, number> | null {
+		const json = readNativeString((b, c) => this.sym.glim_session_info(ptr(b), c), 256);
+		return json.startsWith("{") ? (JSON.parse(json) as Record<string, number>) : null;
+	}
+
 	// ---- GLIM-90 pinned Live frame ----
 
 	frameCreate(): FrameHandle {
@@ -392,7 +453,14 @@ let lib: LibGlimpse | { status: NativeStatus } | undefined;
 /** Load libglimpse.dylib once. `binding` is null when it is missing or broken (see `status`). */
 export function loadMacNative(): {
 	status: NativeStatus;
-	binding: (MacCaptureBinding & MacWindowBinding & MacPickerBinding & MacHotkeyBinding & FrameNativeBinding) | null;
+	binding:
+		| (MacCaptureBinding &
+				MacWindowBinding &
+				MacPickerBinding &
+				MacHotkeyBinding &
+				FrameNativeBinding &
+				SessionNativeBinding)
+		| null;
 } {
 	if (!lib) {
 		if (process.platform !== "darwin") {
