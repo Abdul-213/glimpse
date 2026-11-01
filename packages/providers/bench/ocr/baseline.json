@@ -1,0 +1,46 @@
+{
+	"machine": "AMD EPYC Processor (with IBPB), 8 cores, linux 6.8.0-139-generic, ORT threads auto",
+	"scripts": {
+		"Latin": {
+			"cer": 0.0204,
+			"grouping": 0.8,
+			"detection": 1
+		},
+		"CJK": {
+			"cer": 0.0145,
+			"grouping": 0.75,
+			"detection": 1
+		},
+		"Arabic": {
+			"cer": 0.0435,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Cyrillic": {
+			"cer": 0.7183,
+			"grouping": 0.5556,
+			"detection": 0.3333
+		},
+		"Devanagari": {
+			"cer": 0.0292,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Thai": {
+			"cer": 0,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Greek": {
+			"cer": 0.2373,
+			"grouping": 0,
+			"detection": 1
+		},
+		"Mixed": {
+			"cer": 0,
+			"grouping": 1,
+			"detection": 1
+		}
+	},
+	"totalP50": 11978
+}

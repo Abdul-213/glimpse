@@ -45,20 +45,35 @@ jobs:
       - name: Lint and format check
         run: bun run lint:ci
 
-      # Bundled OCR models + Bergamot runtime (app/models/manifest.json, ~29 MB download), used by
-      # the real-model OCR tests and the preBuild hook. Cached by manifest hash so most runs
-      # download nothing.
-      - name: Cache bundled models
+      # Every model in app/models/manifest.json (~120 MB download: the bundled set plus the
+      # on-demand recognisers the OCR benchmark needs, GLIM-64), used by the real-model OCR tests,
+      # the benchmark and the preBuild hook. Cached by manifest hash so most runs download nothing.
+      - name: Cache models
         uses: actions/cache@v4
         with:
           path: ~/.cache/glimpse/models
-          key: glimpse-models-${{ hashFiles('app/models/manifest.json') }}
+          key: glimpse-models-all-${{ hashFiles('app/models/manifest.json') }}
 
-      - name: Fetch bundled models
-        run: bun run models
+      - name: Fetch models
+        run: bun run models -- --all
 
       - name: Unit tests
         run: bun test
+
+      # GLIM-64: OCR accuracy (CER/WER per script, grouping, detection) and latency over
+      # packages/providers/bench/ocr; fails only on large regressions against baseline.json.
+      - name: OCR benchmark
+        run: |
+          bun run bench:ocr --check --report="$RUNNER_TEMP/ocr-bench/ocr-results.md" --json="$RUNNER_TEMP/ocr-bench/ocr-results.json"
+          cat "$RUNNER_TEMP/ocr-bench/ocr-results.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload OCR benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-bench
+          path: ${{ runner.temp }}/ocr-bench
+          retention-days: 14
 
       - name: Headless harness (file-based capture GLIM-86, pipeline GLIM-102, Snip popup GLIM-118)
         run: |
