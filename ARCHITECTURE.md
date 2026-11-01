@@ -200,6 +200,35 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   library: config must be **repaired field by field** (bad value → default + an `Issue`), never
   rejected whole. See the header of `packages/core/src/schema/index.ts`.
 
+### Pipeline and translation cache (GLIM-102, GLIM-20)
+
+- **`TranslationPipeline`** (`packages/core/src/pipeline/`): `snip(capture, rect, opts)`,
+  `run(image, opts)` (one frame) and `translate(blocks, opts)` (Retry with `bypassCache`,
+  "Translate these" with `includeSkipped`, blocks waiting on a pack once it lands). Stages:
+  OCR (boxes first) → `BlockGrouper` → `LanguageDetector` → `classifyBlock` (translate / skip /
+  neutral / target, subset filter) → `planTranslation` (provider routing, pack rows, unsupported)
+  → `executeTranslation` (normalise, split sentences, cache per sentence and hop, batches).
+  Grouping (GLIM-56) and detection (GLIM-49) come in through those two ports; the defaults are
+  `identityGrouper` and a script-table `scriptLanguageDetector`.
+- **Events** (`pipeline/events.ts`) follow snip-popup.md §4/§8: `started` → `detected` →
+  `recognised` (authoritative block list) → `packs` → `translation` per block (non-final ones
+  show translated sentences + remaining source) → `progress` → exactly one `done` with the
+  `PipelineResult` (error kinds E1–E7, provenance, `cloud`, `private`). Cancellation rejects with
+  `cancelled` and emits nothing more. Every event carries `runId`.
+- **Batching:** direct routes send every block's sentences as one batch (chunked to provider
+  limits); pivot routes go block by block (hop 1 then hop 2), so the first block shows first.
+- **Live:** `LivePipelineSession` feeds settled frames through `run`, latest frame wins (the
+  older run is dropped, but only cancelled after the newer one has joined the sentences they
+  share), and keeps the session detection memo and session cache.
+- **Cache** (`packages/core/src/cache/`): `normaliseSegment` (the GLIM-20 normaliser, the text
+  that is hashed is the text that is sent), `keyHash`/`keyIdentity` (versions, text, codes as
+  sent, hop fingerprint, context hash), `TranslationCache` (byte- and entry-bounded LRU, 16 MB /
+  20,000; `lookup` = hit / join in-flight / claim; only `complete` writes; a waiter that cancels
+  detaches; `clear` also blocks late writes). `TranslationCaches` owns the app-wide cache, the
+  Private scopes (non-storing Snip cache, isolated per Live session) and the wipes: user,
+  idle (an open Live session counts as activity), sleep (detected from a wall-clock jump
+  between `tick()`s), lock (reported by the app).
+
 ### Settings (GLIM-53)
 
 - **Schema** (`packages/core/src/settings/schema.ts`): `Settings` = language (target, source
@@ -360,10 +389,13 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
      `app/test/fixtures/capture/sample` (two displays, 2x + 1x); regenerate it with
      `bun run --filter @glimpse/app fixtures:capture`.
    - **Runner** (`app/src/harness/run.ts`): `runSnip` / `runLive` with pluggable **stages**.
-     `pipelineStage({ ocr, detect, translation, to })` runs frame → `OcrProvider` → detector →
-     `TranslationProvider` → blocks (tests drive it with the core fakes); the core pipeline,
-     real detection and change detection replace it as they land (GLIM-48, 39, 56, 58). CLI: `bun run harness <displays|snip|live> [--frames dir] [--rect
-     x,y,w,h] [--fps n] [--count n] [--realtime] [--out dir] [--json]`. It exits 1 on a capture
+     `pipelineStage({ ocr, detect?, translation, to, sources?, cache? })` runs the core
+     `TranslationPipeline` on each frame (tests drive it with the core fakes); change detection
+     (GLIM-58) plugs in as another stage. CLI: `bun run harness <displays|snip|live> [--frames dir] [--rect
+     x,y,w,h] [--fps n] [--count n] [--realtime] [--out dir] [--json]`, plus `--pipeline
+     [--ocr-text "a|b"] [--translator fake|bergamot] [--to de] [--sources ja,de] [--private]`
+     (scripted OCR; `bergamot` uses the real WASM provider over packs already installed in
+     `~/.cache/glimpse/test-installs`, offline). It exits 1 on a capture
      error. `--native` runs the same flows against the real backend on a Windows PC or Mac,
      without Electrobun.
 6. **Real hardware:** what only Windows/macOS can show (materials, overlays above fullscreen apps,
