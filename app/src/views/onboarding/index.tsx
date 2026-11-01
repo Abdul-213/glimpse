@@ -13,6 +13,8 @@ const rpc = connect<OnboardingRPC>(
 		requests: {},
 		messages: {
 			screenAccessChanged: (s) => handlers?.screenAccessChanged(s),
+			downloadsChanged: (d) => handlers?.downloadsChanged(d),
+			hotkeysChanged: (s) => handlers?.hotkeysChanged(s),
 		},
 	},
 	30_000,

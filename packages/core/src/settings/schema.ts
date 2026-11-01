@@ -29,6 +29,7 @@ import {
 	withDefault,
 } from "../schema/index.ts";
 import { type HotkeyBindings, hotkeyBindingsSchema } from "./hotkeys.ts";
+import { ONBOARDING_STEPS, type OnboardingStep } from "./onboarding.ts";
 
 export const SETTINGS_VERSION = 1;
 
@@ -89,6 +90,12 @@ export interface Settings {
 	};
 	readonly onboarding: {
 		readonly completed: boolean;
+		/** The step setup resumes at (GLIM-76). */
+		readonly step: OnboardingStep;
+		/** "Skip setup" was pressed: don't open setup at launch (the tray still offers it). */
+		readonly dismissed: boolean;
+		/** Languages picked to read in setup's download step, so a resumed setup shows them again. */
+		readonly languages: readonly LanguageCode[];
 	};
 	readonly permissions: {
 		/** What Glimpse last knew about macOS Screen Recording (GLIM-45; see capture/screen-access.ts). */
@@ -150,6 +157,9 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		}),
 		onboarding: object({
 			completed: withDefault(boolean(), false),
+			step: withDefault(oneOf(ONBOARDING_STEPS), "welcome"),
+			dismissed: withDefault(boolean(), false),
+			languages: withDefault(array(languageCodeSchema(), { maxLength: 64, uniqueBy: (c) => c }), []),
 		}),
 		permissions: object({
 			screenAccess: withDefault(oneOf(SCREEN_ACCESS_MEMORY), "unknown"),

@@ -16,7 +16,7 @@ export class SettingsWindow {
 	private unsubscribe: (() => void)[] = [];
 
 	constructor(
-		private readonly deps: SettingsDeps,
+		readonly deps: SettingsDeps,
 		private readonly exclusion: CaptureExclusion,
 	) {}
 
@@ -57,6 +57,7 @@ export class SettingsWindow {
 					setProvider: h.setProvider,
 					resetLiveConsent: h.resetLiveConsent,
 					openCloudLink: h.openCloudLink,
+					openOnboarding: h.openOnboarding,
 				},
 				messages: {
 					closeSettings: () => this.window?.close(),

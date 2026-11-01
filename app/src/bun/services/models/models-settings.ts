@@ -67,6 +67,17 @@ export interface ModelsSettingsOptions {
 
 type CatalogueState = ModelsSnapshot["catalogue"];
 
+export interface LanguagePlanItem {
+	readonly id: string;
+	readonly bytes: number;
+	readonly state: ModelRowState;
+}
+
+export interface LanguagePlan {
+	readonly status: "same" | "unavailable" | "ready" | "needs-download";
+	readonly items: readonly LanguagePlanItem[];
+}
+
 export class ModelsSettings {
 	readonly #o: ModelsSettingsOptions;
 	readonly #sizes = new Map<string, number>();
@@ -158,6 +169,38 @@ export class ModelsSettings {
 			if (entry) void this.#o.manager.install(packInstallable(entry));
 		}
 		return { ok: true };
+	}
+
+	/**
+	 * What reading `language` in the current target needs (onboarding's download step, GLIM-76):
+	 * `same` (it is the target), `unavailable` (no pack route, or the catalogue isn't loaded),
+	 * `ready`, or the downloads still missing (packs on the route, plus the translation engine)
+	 * with their sizes and states.
+	 */
+	languagePlan(language: string): LanguagePlan {
+		const from = sourceLanguageFor(language);
+		if (!from) return { status: "unavailable", items: [] };
+		const to = this.#o.target();
+		const installed: LanguagePair[] = this.#o.packs.installed().map((p) => ({ source: p.source, target: p.target }));
+		const catalogue = this.#catalogueEntries();
+		const plan = planRouteWithDownloads(from, to, installed, catalogue);
+		if (!plan) return { status: "unavailable", items: [] };
+		if (plan.route.kind === "identity") return { status: "same", items: [] };
+		const items: LanguagePlanItem[] = [];
+		const runtime = this.#o.manifest?.models.find((m) => m.kind === "translation-runtime");
+		if (runtime && !this.#o.manager.modelDir(runtime.id)) {
+			const state = this.#o.manager.state(runtime.id);
+			if (state.status !== "installed")
+				items.push({ id: runtime.id, bytes: downloadSize(runtime), state: rowState(state) });
+		}
+		for (const hop of plan.downloads) {
+			const entry = catalogue.find((p) => p.source === hop.source && p.target === hop.target);
+			if (!entry) continue;
+			const state = this.#o.manager.state(entry.id);
+			if (state.status === "installed") continue;
+			items.push({ id: entry.id, bytes: packDownloadSize(entry), state: rowState(state) });
+		}
+		return { status: items.length === 0 ? "ready" : "needs-download", items };
 	}
 
 	cancel(id: string): ActionResult {

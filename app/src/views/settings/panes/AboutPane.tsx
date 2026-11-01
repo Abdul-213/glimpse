@@ -12,6 +12,7 @@ export function AboutPane(props: { state: SettingsState }): JSX.Element {
 	const s = () => props.state.settings() as Settings;
 	const copy = createAction("Copied. Paste it into your bug report.");
 	const logs = createAction();
+	const setup = createAction();
 	const os = () => (snap()?.app.platform ?? "macos") as Os;
 
 	return (
@@ -34,6 +35,27 @@ export function AboutPane(props: { state: SettingsState }): JSX.Element {
 					</Banner>
 				</div>
 			</Show>
+
+			<SettingsGroup title="Setup">
+				<SettingsRow
+					label="First-run setup"
+					description={
+						<>
+							<span class="block">
+								Screen access, the language to translate into, downloads and shortcuts, step by step.
+							</span>
+							{setup.view()}
+						</>
+					}
+				>
+					<Button
+						disabled={setup.busy()}
+						onClick={() => void setup.run(() => props.state.client.request.openOnboarding())}
+					>
+						{s().onboarding.completed ? "Run setup again" : "Finish setup"}
+					</Button>
+				</SettingsRow>
+			</SettingsGroup>
 
 			<SettingsGroup
 				title="Troubleshooting"

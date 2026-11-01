@@ -8,7 +8,6 @@ import {
 	screenAccessNotice,
 } from "../src/bun/services/screen-access.ts";
 import { buildTrayMenu, type TrayState } from "../src/bun/tray-menu.ts";
-import { createOnboardingHandlers } from "../src/bun/windows/onboarding-handlers.ts";
 import { screenAccessCopy } from "../src/views/onboarding/copy.ts";
 
 function fakeOS(over: Partial<ScreenAccessOS> & { granted?: boolean } = {}) {
@@ -143,30 +142,7 @@ describe("GLIM-45 tray notice", () => {
 	});
 });
 
-describe("GLIM-45 onboarding handlers and copy", () => {
-	test("handlers go through the service", () => {
-		const t = make();
-		const opened: string[] = [];
-		const h = createOnboardingHandlers(
-			{
-				appInfo: { name: "Glimpse", version: "1", platform: "macos", electrobun: "x", bun: "y" },
-				screenAccess: t.access,
-				openUrl: (u) => {
-					opened.push(u);
-					return true;
-				},
-				installGuideUrl: "https://example.invalid/install",
-			},
-			() => "screen-access",
-		);
-		expect(h.getSnapshot().screenAccess.state).toBe("not-determined");
-		expect(h.requestScreenAccess().state).toBe("denied");
-		expect(h.openScreenAccessSettings().settingsOpened).toBe(true);
-		expect(h.openInstallGuide()).toEqual({ ok: true });
-		expect(opened).toEqual(["https://example.invalid/install"]);
-		expect(h.restartApp()).toEqual({ ok: true });
-	});
-
+describe("GLIM-45 screen-access copy", () => {
 	test("every state has one primary action", () => {
 		const s = (state: Parameters<typeof screenAccessCopy>[0]["state"], settingsOpened = false, canRestart = true) =>
 			screenAccessCopy({ state, settingsOpened, canRestart });

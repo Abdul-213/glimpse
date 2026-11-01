@@ -5,7 +5,7 @@
 // lives in @glimpse/core; OS calls live in src/bun/native/ behind interfaces.
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { loadSettings, ProviderRegistry, parseModelManifest } from "@glimpse/core";
+import { loadSettings, opensAtLaunch, ProviderRegistry, parseModelManifest } from "@glimpse/core";
 import Electrobun, { Utils } from "electrobun/main";
 import modelManifestJson from "../../models/manifest.json" with { type: "json" };
 import pkg from "../../package.json" with { type: "json" };
@@ -49,6 +49,7 @@ import { pipelineStages } from "./services/translation/pipeline-stages.ts";
 import { TranslationPacks } from "./services/translation/translation-packs.ts";
 import { TranslationService, warmPairsFor } from "./services/translation/translation-service.ts";
 import { createTray } from "./tray.ts";
+import { finishSetupNotice } from "./tray-menu.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
 import { OnboardingWindow } from "./windows/onboarding.ts";
 import { electrobunOverlayFactory, screenProbe } from "./windows/picker.ts";
@@ -185,15 +186,6 @@ const screenAccess = new ScreenAccess({
 	quit: () => void commands.dispatch("app.quit", "internal"),
 	log: captureLog.child("screen-access"),
 });
-const onboarding = new OnboardingWindow(
-	{
-		appInfo,
-		screenAccess,
-		openUrl: (url) => Utils.openExternal(url),
-		installGuideUrl: INSTALL_GUIDE_URL,
-	},
-	exclusion,
-);
 const whenScreenAccess = (start: () => void) => () => {
 	if (screenAccess.canCapture) start();
 	else onboarding.open("screen-access");
@@ -256,6 +248,19 @@ const settings = new SettingsWindow(
 		reveal: (path) => Utils.openPath(path),
 		settingsWarnings: loadedSettings.warnings,
 		uiLocale: locale,
+	},
+	exclusion,
+);
+// First-run setup and the screen-access window (GLIM-45, GLIM-76). Shares the Settings
+// window's services, so shortcuts, launch at login and downloads follow the same rules.
+const onboarding = new OnboardingWindow(
+	{
+		appInfo,
+		screenAccess,
+		settingsDeps: settings.deps,
+		openUrl: (url) => Utils.openExternal(url),
+		installGuideUrl: INSTALL_GUIDE_URL,
+		locale,
 	},
 	exclusion,
 );
@@ -417,6 +422,7 @@ commands.handle("live.start", () => {
 	else whenScreenAccess(() => picker?.toggle("live"))();
 });
 commands.handle("screen-access.open", () => onboarding.open("screen-access"));
+commands.handle("onboarding.open", () => onboarding.open("setup"));
 commands.handle("live.stop", () => live.stop());
 commands.handle("live.pause", () => live.pause("user"));
 commands.handle("live.resume", () => live.resume());
@@ -443,6 +449,10 @@ commands.handle("app.quit", () => {
 	Utils.quit();
 });
 
+// Problems and unfinished setup, listed first in the tray (GLIM-45, GLIM-76).
+const trayNotices = () =>
+	[screenAccessNotice(screenAccess.state), finishSetupNotice(appSettings.current.onboarding)].filter((n) => n !== null);
+
 const firstTranslator = () => {
 	const id = appSettings.current.providers.translation[0];
 	const factory = id ? providers.get(id) : undefined;
@@ -458,11 +468,14 @@ const tray = createTray(
 		translation: firstTranslator(),
 		hotkeys: { snip: loadedSettings.settings.hotkeys.snip, live: loadedSettings.settings.hotkeys.live },
 		taskbarTheme: "dark",
-		notices: [screenAccessNotice(screenAccess.state)].filter((n) => n !== null),
+		notices: trayNotices(),
 	},
 	commands,
 );
-screenAccess.subscribe((s) => tray.update({ notices: [screenAccessNotice(s.state)].filter((n) => n !== null) }));
+screenAccess.subscribe(() => tray.update({ notices: trayNotices() }));
+appSettings.subscribe((next, previous) => {
+	if (next.onboarding !== previous.onboarding) tray.update({ notices: trayNotices() });
+});
 
 // The service updates the tray through onPrivateChange.
 commands.handle("private.toggle", () => translation.setPrivate(!translation.private));
@@ -500,10 +513,11 @@ if (platform === "windows") {
 	watchTaskbarTheme((taskbarTheme) => tray.update({ taskbarTheme }));
 }
 
-// Until onboarding (GLIM-76) exists, show Settings on launch so a start is visible. After an
-// update an unsigned build has lost Screen Recording (GLIM-45): say so at once instead.
-if (screenAccess.refresh().state === "lost") onboarding.open("screen-access");
-else settings.open();
+// Launch (GLIM-76): first-run setup until it is finished or skipped, resuming at the saved
+// step. After an update an unsigned build has lost Screen Recording (GLIM-45): say so at
+// once. Otherwise Glimpse starts quietly in the tray / menu bar.
+if (opensAtLaunch(appSettings.current.onboarding)) onboarding.open("setup");
+else if (screenAccess.refresh().state === "lost") onboarding.open("screen-access");
 
 log.info("started", {
 	version: appInfo.version,

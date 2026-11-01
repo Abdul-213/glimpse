@@ -141,6 +141,13 @@ export function buildTrayMenu(state: TrayState): TrayMenuItem[] {
 	];
 }
 
+/** "Finish setting up…" while first-run setup is unfinished (GLIM-76), skipped or not. */
+export function finishSetupNotice(onboarding: { readonly completed: boolean }): TrayNotice | null {
+	return onboarding.completed
+		? null
+		: { label: { windows: "Finish setting up…", macos: "Finish Setting Up…" }, action: "onboarding.open" };
+}
+
 /**
  * Tray icon (DESIGN.md Shapes: monochrome). macOS: a template image the system tints for the
  * menu bar. Windows: the light glyph on a dark taskbar, the dark glyph on a light one. Linux

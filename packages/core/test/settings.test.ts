@@ -46,7 +46,7 @@ describe("settings defaults", () => {
 			system: { launchAtLogin: false },
 			cloud: { liveConsent: [] },
 			models: { directory: null },
-			onboarding: { completed: false },
+			onboarding: { completed: false, step: "welcome", dismissed: false, languages: [] },
 			permissions: { screenAccess: "unknown" },
 			diagnostics: { logLevel: "info" },
 		});

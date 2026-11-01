@@ -215,6 +215,8 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 			(await deps.dispatch("cache.clear", "settings")) ? { ok: true } : bad("Couldn't clear the cache."),
 		copyDiagnostics: async (): Promise<ActionResult> =>
 			(await deps.dispatch("diagnostics.copy", "settings")) ? { ok: true } : bad("Couldn't copy diagnostics."),
+		openOnboarding: async (): Promise<ActionResult> =>
+			(await deps.dispatch("onboarding.open", "settings")) ? { ok: true } : bad("Couldn't open setup."),
 		openLogs: async (): Promise<ActionResult> =>
 			(await deps.dispatch("logs.open", "settings")) ? { ok: true } : bad("Couldn't open the logs folder."),
 

@@ -423,6 +423,24 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   opens the window at once. Capture consumers that see `permission-denied` call
   `screenAccess.reportCaptureDenied()`.
 
+### First-run setup (GLIM-76)
+
+- Steps are data in core (`settings/onboarding.ts`): welcome → screen access (macOS only) →
+  translate into → downloads → shortcuts → done. `settings.onboarding` stores `completed`, the
+  `step` reached (setup resumes there after a quit or a Restart), `dismissed` ("Skip setup":
+  don't open at launch) and the `languages` picked to read.
+- At launch, `index.ts` opens setup while `opensAtLaunch` holds. Otherwise it opens the
+  screen-access window if the grant was `lost`, and otherwise opens nothing (tray app). The
+  tray offers "Finish setting up…" until setup is complete, and Settings › About can reopen it
+  (`onboarding.open`).
+- `windows/onboarding-handlers.ts` reuses the Settings window's services (`settings.deps`), and
+  the Settings handlers for shortcuts and launch at login, so both windows apply the same
+  rules. Downloads go through `ModelsSettings.languagePlan` / `addLanguage` (packs on the route
+  plus the engine); the window pushes `downloadsChanged` from the models subscription.
+- View: `app/src/views/onboarding/` (`OnboardingApp` → `SetupFlow` or the screen-access step).
+  Preview: `views/onboarding-preview`. Run `bun app/scripts/onboarding-shots.ts --shots
+  docs/design/screens/onboarding` to regenerate the committed screenshots.
+
 ## 5. Views and RPC
 
 **Build.** `app/scripts/build-views.ts` builds every `app/src/views/<name>/index.html` with
