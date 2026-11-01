@@ -44,6 +44,7 @@ describe("settings defaults", () => {
 			privacy: { privateByDefault: false, clearCacheAfterIdleMinutes: 15, clearCacheOnLock: true },
 			system: { launchAtLogin: false },
 			onboarding: { completed: false },
+			diagnostics: { logLevel: "info" },
 		});
 	});
 

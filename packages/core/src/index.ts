@@ -4,6 +4,7 @@
 export * from "./block.ts";
 export * from "./geometry.ts";
 export * from "./language.ts";
+export * from "./logging/index.ts";
 export * from "./providers/index.ts";
 export * from "./region.ts";
 export * from "./schema/index.ts";

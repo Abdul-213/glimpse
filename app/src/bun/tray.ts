@@ -1,9 +1,10 @@
 import { Tray } from "electrobun/main";
 import type { Platform } from "../shared/rpc.ts";
 
-export type TrayAction = "settings" | "quit";
+export type TrayAction = "settings" | "copy-diagnostics" | "open-logs" | "quit";
 
-const isTrayAction = (value: unknown): value is TrayAction => value === "settings" || value === "quit";
+const TRAY_ACTIONS: readonly string[] = ["settings", "copy-diagnostics", "open-logs", "quit"];
+const isTrayAction = (value: unknown): value is TrayAction => typeof value === "string" && TRAY_ACTIONS.includes(value);
 
 /**
  * Tray icon per platform (DESIGN.md Shapes: monochrome; template image on macOS,
@@ -25,6 +26,18 @@ export function createTray(platform: Platform, onAction: (action: TrayAction) =>
 	const tray = new Tray({ ...trayIconFor(platform), width: 16, height: 16 });
 	tray.setMenu([
 		{ type: "normal", label: "Settings…", action: "settings" },
+		{
+			type: "normal",
+			label: "Troubleshooting",
+			submenu: [
+				{
+					type: "normal",
+					label: platform === "macos" ? "Copy Diagnostics" : "Copy diagnostics",
+					action: "copy-diagnostics",
+				},
+				{ type: "normal", label: platform === "macos" ? "Open Logs Folder" : "Open logs folder", action: "open-logs" },
+			],
+		},
 		{ type: "divider" },
 		{ type: "normal", label: "Quit Glimpse", action: "quit" },
 	]);

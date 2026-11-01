@@ -131,7 +131,7 @@ Don't create packages for grouping alone; use folders.
 | Window controllers (create, position, show/hide, materials, capture exclusion) | `app/src/bun/windows/<surface>.ts` | One class per window type, like `SettingsWindow`. |
 | `bun:ffi` bindings | `app/src/bun/native/macos.ts`, `windows.ts`, `load.ts` | The only `dlopen` calls. Each exported function returns typed results, never raw pointers to callers outside `native/`. |
 | Native helper sources | `app/native/macos/`, `app/native/windows/` | See section 6. |
-| Logging and diagnostics | `app/src/bun/services/log.ts` (+ a core `Logger` port) | GLIM-35 |
+| Logging and diagnostics | `packages/core/src/logging/` (`Logger` port, `Redactor`, line format, diagnostics bundle) + `app/src/bun/services/log.ts` (rotating file in `Utils.paths.userLogs`), `services/diagnostics.ts` | GLIM-35. Everything logged passes the `Redactor`: no keys, no screen text (wrap it in `sensitive()`), never pixels. |
 | Shared UI components | `packages/ui/src/components/` | GLIM-42. Tokens only, no raw colours or off-scale sizes. |
 | Surface UI | `app/src/views/<surface>/` | Thin: render state from main, send intents back. |
 
@@ -199,7 +199,7 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   subset; empty = all), hotkeys (canonical `Alt+Shift+S` strings, GLIM-23 defaults per OS),
   providers (`ProvidersConfig`), appearance (theme, motion), live (fps, diff threshold, stability
   ms), privacy (Private by default, idle cache wipe, wipe on lock), system (launch at login),
-  onboarding (completed). Every field has a default; machine-dependent defaults come in through
+  onboarding (completed), diagnostics (log level). Every field has a default; machine-dependent defaults come in through
   `SettingsEnv` (built by `app/src/bun/services/settings-env.ts`).
 - **File**: `<Utils.paths.userData>/settings.json`, `{ "version": N, ...settings }`, no secrets
   (keys live in the keychain). `FileSettingsStore` implements the core `SettingsStore` port:
