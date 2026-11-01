@@ -9,6 +9,7 @@ import { loadSettings, ProviderRegistry, parseModelManifest } from "@glimpse/cor
 import Electrobun, { Utils } from "electrobun/main";
 import modelManifestJson from "../../models/manifest.json" with { type: "json" };
 import pkg from "../../package.json" with { type: "json" };
+import { INSTALL_GUIDE_URL } from "../shared/onboarding-rpc.ts";
 import type { AppInfo } from "../shared/rpc.ts";
 import { CommandBus } from "./commands.ts";
 import { readDisplays } from "./displays.ts";
@@ -36,6 +37,8 @@ import { ModelsSettings } from "./services/models/models-settings.ts";
 import { bundledModelsDir, catalogueCacheFile, modelsRoot } from "./services/models/paths.ts";
 import { createPickerNatives } from "./services/picker/index.ts";
 import { type AppProviderContext, providerContext, registerProviders } from "./services/providers.ts";
+import { ScreenAccess, screenAccessNotice } from "./services/screen-access.ts";
+import { screenAccessOS } from "./services/screen-access-os.ts";
 import { KeychainSecretStore } from "./services/secrets.ts";
 import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
@@ -47,6 +50,7 @@ import { TranslationPacks } from "./services/translation/translation-packs.ts";
 import { TranslationService, warmPairsFor } from "./services/translation/translation-service.ts";
 import { createTray } from "./tray.ts";
 import { CaptureExclusion } from "./windows/capture-exclusion.ts";
+import { OnboardingWindow } from "./windows/onboarding.ts";
 import { electrobunOverlayFactory, screenProbe } from "./windows/picker.ts";
 import { PickerController } from "./windows/picker-controller.ts";
 import { ElectrobunPopupWindow } from "./windows/popup.ts";
@@ -168,6 +172,32 @@ const hotkeyRegistrar = new ServiceHotkeyRegistrar(hotkeys, {
 	snip: () => void commands.dispatch("snip.start", "hotkey"),
 	live: () => void commands.dispatch("live.start", "hotkey"),
 });
+
+// Screen Recording permission (GLIM-45): macOS only. Snip and Live open the screen-access
+// window instead of the picker while it's missing; the tray lists it first.
+const screenAccess = new ScreenAccess({
+	os: screenAccessOS(platform, macNative?.binding ? () => macNative.binding?.preflight() ?? false : null),
+	memory: () => appSettings.current.permissions.screenAccess,
+	saveMemory: async (screenAccess) => {
+		await appSettings.update({ permissions: { screenAccess } });
+	},
+	// `commands` is declared below; this only runs from the window's Restart button.
+	quit: () => void commands.dispatch("app.quit", "internal"),
+	log: captureLog.child("screen-access"),
+});
+const onboarding = new OnboardingWindow(
+	{
+		appInfo,
+		screenAccess,
+		openUrl: (url) => Utils.openExternal(url),
+		installGuideUrl: INSTALL_GUIDE_URL,
+	},
+	exclusion,
+);
+const whenScreenAccess = (start: () => void) => () => {
+	if (screenAccess.canCapture) start();
+	else onboarding.open("screen-access");
+};
 
 const loginItem = new LoginItem(
 	loginTarget({ platform, execPath: process.execPath, home: homedir(), exists: (p) => existsSync(p) }),
@@ -374,17 +404,19 @@ const diagnostics = () =>
 const commands = new CommandBus(log.child("commands"));
 // The picker owns the start commands up to "region selected"; Snip / Live take it from there.
 // A new Snip or Live hotkey closes an open Snip popup without restoring focus: the new
-// picker takes over (snip-popup.md §7.4).
+// picker takes over (snip-popup.md §7.4). Without screen access (GLIM-45) the picker would only
+// show the wallpaper, so the screen-access window opens instead.
 commands.handle("snip.start", () => {
 	snipPopup?.dismiss(null, "hotkey");
-	picker?.toggle("snip");
+	whenScreenAccess(() => picker?.toggle("snip"))();
 });
 commands.handle("live.start", () => {
 	snipPopup?.dismiss(null, "hotkey");
 	// live-popup.md §6.3: the Live hotkey stops a pinned session; otherwise it opens the picker.
 	if (live.active && !picker?.isOpen) live.stop();
-	else picker?.toggle("live");
+	else whenScreenAccess(() => picker?.toggle("live"))();
 });
+commands.handle("screen-access.open", () => onboarding.open("screen-access"));
 commands.handle("live.stop", () => live.stop());
 commands.handle("live.pause", () => live.pause("user"));
 commands.handle("live.resume", () => live.resume());
@@ -426,9 +458,11 @@ const tray = createTray(
 		translation: firstTranslator(),
 		hotkeys: { snip: loadedSettings.settings.hotkeys.snip, live: loadedSettings.settings.hotkeys.live },
 		taskbarTheme: "dark",
+		notices: [screenAccessNotice(screenAccess.state)].filter((n) => n !== null),
 	},
 	commands,
 );
+screenAccess.subscribe((s) => tray.update({ notices: [screenAccessNotice(s.state)].filter((n) => n !== null) }));
 
 // The service updates the tray through onPrivateChange.
 commands.handle("private.toggle", () => translation.setPrivate(!translation.private));
@@ -466,8 +500,10 @@ if (platform === "windows") {
 	watchTaskbarTheme((taskbarTheme) => tray.update({ taskbarTheme }));
 }
 
-// Until onboarding (GLIM-76) exists, show Settings on launch so a start is visible.
-settings.open();
+// Until onboarding (GLIM-76) exists, show Settings on launch so a start is visible. After an
+// update an unsigned build has lost Screen Recording (GLIM-45): say so at once instead.
+if (screenAccess.refresh().state === "lost") onboarding.open("screen-access");
+else settings.open();
 
 log.info("started", {
 	version: appInfo.version,

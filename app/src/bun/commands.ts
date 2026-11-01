@@ -16,6 +16,7 @@ export const COMMANDS = [
 	"private.toggle",
 	"cache.clear",
 	"settings.open",
+	"screen-access.open",
 	"diagnostics.copy",
 	"logs.open",
 	"app.quit",

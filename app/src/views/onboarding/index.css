@@ -1,0 +1,118 @@
+@import "@glimpse/ui/theme.css";
+@source "./";
+
+/*
+ * Onboarding window chrome (DESIGN.md Layout > Onboarding): the window veil over the native
+ * material, a hairline above the footer, and the step strip. Solid surfaces until the native
+ * helper can put Mica / vibrancy behind the webview.
+ */
+@layer components {
+	.onboarding-shell {
+		background: var(--veil-window);
+	}
+
+	.onboarding-shell ::selection {
+		background: var(--color-overlay-selected);
+	}
+
+	.onboarding-body {
+		scrollbar-gutter: stable;
+	}
+
+	.onboarding-footer {
+		border-block-start: 1px solid var(--color-divider);
+	}
+
+	.onboarding-status {
+		color: var(--color-text-secondary);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.onboarding-status[data-tone="success"] {
+		color: var(--color-text-primary);
+	}
+
+	/* Step strip: one segment per step, a 2px bar under the current and finished ones. */
+	.onboarding-strip {
+		display: flex;
+		gap: calc(var(--spacing) * 2);
+		padding: calc(var(--spacing) * 4) calc(var(--spacing) * 6) 0;
+		margin: 0;
+		list-style: none;
+	}
+
+	.onboarding-strip-item {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.onboarding-strip-button {
+		display: flex;
+		flex-direction: column;
+		gap: calc(var(--spacing) * 1.5);
+		width: 100%;
+		padding: 0;
+		font: inherit;
+		font-size: var(--text-label);
+		color: var(--color-text-secondary);
+		text-align: start;
+		background: none;
+		border: 0;
+		cursor: default;
+	}
+
+	.onboarding-strip-button::before {
+		display: block;
+		height: 2px;
+		content: "";
+		background: var(--color-divider);
+		border-radius: var(--radius-pill);
+	}
+
+	.onboarding-strip-button[data-state="done"]::before {
+		background: var(--color-text-secondary);
+	}
+
+	.onboarding-strip-button[aria-current="step"] {
+		color: var(--color-text-primary);
+		font-weight: 600;
+	}
+
+	.onboarding-strip-button[aria-current="step"]::before {
+		background: var(--color-accent);
+	}
+
+	.onboarding-strip-button:enabled:hover {
+		color: var(--color-text-primary);
+	}
+
+	.onboarding-strip-button:focus-visible {
+		outline: 2px solid var(--color-focus-ring);
+		outline-offset: 2px;
+		border-radius: var(--radius-box);
+	}
+
+	.onboarding-choice {
+		display: flex;
+		gap: calc(var(--spacing) * 3);
+		align-items: center;
+		width: 100%;
+		padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
+		font: inherit;
+		font-size: var(--text-body);
+		color: var(--color-text-primary);
+		text-align: start;
+		background: transparent;
+		border: 0;
+		cursor: default;
+	}
+
+	.onboarding-choice:hover {
+		background: var(--color-overlay-hover);
+	}
+
+	.onboarding-choice:focus-visible {
+		outline: 2px solid var(--color-focus-ring);
+		outline-offset: -2px;
+	}
+}

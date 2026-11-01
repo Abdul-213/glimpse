@@ -47,6 +47,7 @@ describe("settings defaults", () => {
 			cloud: { liveConsent: [] },
 			models: { directory: null },
 			onboarding: { completed: false },
+			permissions: { screenAccess: "unknown" },
 			diagnostics: { logLevel: "info" },
 		});
 	});

@@ -8,6 +8,7 @@
 // Changing the shape: bump SETTINGS_VERSION and add a migration (migrations.ts) when old
 // files would otherwise lose data. Adding a field with a default needs no migration.
 
+import { SCREEN_ACCESS_MEMORY, type ScreenAccessMemory } from "../capture/screen-access.ts";
 import { type LanguageCode, languageCode, parseLanguageCode, sourceLanguageFor } from "../language.ts";
 import { LOG_LEVELS, type LogLevel } from "../logging/types.ts";
 import type { ProvidersConfig } from "../providers/registry.ts";
@@ -89,6 +90,10 @@ export interface Settings {
 	readonly onboarding: {
 		readonly completed: boolean;
 	};
+	readonly permissions: {
+		/** What Glimpse last knew about macOS Screen Recording (GLIM-45; see capture/screen-access.ts). */
+		readonly screenAccess: ScreenAccessMemory;
+	};
 	readonly diagnostics: {
 		/** Local log file threshold (GLIM-35). `GLIMPSE_LOG_LEVEL` overrides it for a run. */
 		readonly logLevel: LogLevel;
@@ -145,6 +150,9 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 		}),
 		onboarding: object({
 			completed: withDefault(boolean(), false),
+		}),
+		permissions: object({
+			screenAccess: withDefault(oneOf(SCREEN_ACCESS_MEMORY), "unknown"),
 		}),
 		diagnostics: object({
 			logLevel: withDefault(oneOf(LOG_LEVELS), "info"),
