@@ -19,11 +19,6 @@ on:
       - app/src/bun/services/live/frame-layout.ts
       - app/scripts/native-smoke.ts
       - .github/workflows/native.yml
-  # TEMPORARY (GLIM-90): run on this PR to compile the frame helpers; removed before merge.
-  pull_request:
-    branches: [develop]
-    paths:
-      - app/native/**
   workflow_dispatch:
 
 concurrency:
