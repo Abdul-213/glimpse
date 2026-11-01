@@ -1139,7 +1139,7 @@
       {
         "lang": "lo, km",
         "selector": ":lang(lo), :lang(km)",
-        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Lao Sangam MN', 'Khmer Sangam MN', 'Leelawadee UI', 'Noto Sans Lao', 'Noto Sans Khmer', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Lao Sangam MN', 'Khmer Sangam MN', 'Lao UI', 'Khmer UI', 'Leelawadee UI', 'Noto Sans Lao', 'Noto Sans Khmer', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
         "sizeScale": 1.0667,
         "lineHeight": {
           "translation": 1.8,
@@ -1156,6 +1156,28 @@
           "translation": 1.9,
           "source": 1.9,
           "body": 1.85
+        }
+      },
+      {
+        "lang": "am, ti (Ethiopic)",
+        "selector": ":lang(am), :lang(ti), :lang(tig), :lang(gez)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Kefa', 'Ebrima', 'Noto Sans Ethiopic', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.6,
+          "source": 1.6,
+          "body": 1.55
+        }
+      },
+      {
+        "lang": "zgh, tzm-Tfng, taq-Tfng (Tifinagh)",
+        "selector": ":lang(zgh), :lang(tzm-Tfng), :lang(taq-Tfng)",
+        "fontFamily": "-apple-system, BlinkMacSystemFont, 'Ebrima', 'Noto Sans Tifinagh', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif",
+        "sizeScale": 1,
+        "lineHeight": {
+          "translation": 1.6,
+          "source": 1.6,
+          "body": 1.55
         }
       }
     ],
