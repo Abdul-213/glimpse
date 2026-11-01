@@ -10,7 +10,9 @@ import type { AppInfo } from "../shared/rpc.ts";
 import { CommandBus } from "./commands.ts";
 import { readDisplays } from "./displays.ts";
 import { ELECTROBUN_VERSION } from "./electrobun-version.ts";
+import { exclusionOpsFor } from "./native/exclusion.ts";
 import { platform } from "./platform.ts";
+import { createCaptureSource } from "./services/capture/index.ts";
 import { buildDiagnostics } from "./services/diagnostics.ts";
 import { createAppLogger } from "./services/log.ts";
 import { ModelManager } from "./services/models/model-manager.ts";
@@ -19,6 +21,7 @@ import { settingsEnvFor } from "./services/settings-env.ts";
 import { FileSettingsStore } from "./services/settings-store.ts";
 import { watchTaskbarTheme } from "./services/taskbar-theme.ts";
 import { createTray } from "./tray.ts";
+import { CaptureExclusion } from "./windows/capture-exclusion.ts";
 import { SettingsWindow } from "./windows/settings.ts";
 
 const logs = createAppLogger({ dir: Utils.paths.userLogs });
@@ -55,7 +58,14 @@ models
 	.then(() => log.child("models").info("scan complete", { installed: models.installedIds().length }))
 	.catch((error) => log.child("models").warn("model scan failed", { error }));
 
-const settings = new SettingsWindow(appInfo);
+// Capture (GLIM-36). Nothing captures yet: the Snip and Live pipelines (GLIM-48, GLIM-56)
+// take `capture.source`. Every window controller gets `exclusion` so Glimpse never
+// captures its own windows.
+const captureLog = log.child("capture");
+const capture = createCaptureSource({ shellDisplays: readDisplays, log: (message) => captureLog.info(message) });
+const exclusion = new CaptureExclusion(exclusionOpsFor(), capture.source, (message) => captureLog.warn(message));
+
+const settings = new SettingsWindow(appInfo, exclusion);
 
 const diagnostics = () =>
 	buildDiagnostics({
@@ -97,6 +107,7 @@ commands.handle("logs.open", () => {
 });
 commands.handle("app.quit", () => {
 	log.info("quit");
+	capture.source.dispose();
 	logs.file.close();
 	Utils.quit();
 });
@@ -140,4 +151,5 @@ log.info("started", {
 	displays: readDisplays().length,
 	settings: loadedSettings.source,
 	logLevel: log.level,
+	capture: capture.status,
 });

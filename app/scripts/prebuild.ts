@@ -1,7 +1,9 @@
 // Electrobun preBuild hook (electrobun.config.ts `scripts.preBuild`). Hutch imports
 // this file from a runner, so `import.meta.main` is false here: do the work at top level.
 // Hutch sets ELECTROBUN_BUILD_ENV (dev | canary | stable) and ELECTROBUN_OS.
-import { rmSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
+import { resolve } from "node:path";
+import { NATIVE_LIBS } from "../electrobun.config.ts";
 import { buildViews, viewsOut } from "./build-views.ts";
 import { defaultCacheDir, loadManifest, modelsOut, stageBundled, writeStagingExtras } from "./model-cache.ts";
 
@@ -24,4 +26,13 @@ try {
 	console.warn(`[prebuild] WARNING: bundled models unavailable, building without them.\n${String(err)}`);
 	rmSync(modelsOut, { recursive: true, force: true });
 	writeStagingExtras(modelsOut, { schema: manifest.schema, models: [] });
+}
+
+// Native helper: electrobun.config.ts copies it only if it was built first.
+const nativeLib = { darwin: NATIVE_LIBS.darwin.from, win32: NATIVE_LIBS.win32.from }[
+	process.platform as "darwin" | "win32"
+];
+if (nativeLib && !existsSync(resolve(import.meta.dir, "..", nativeLib))) {
+	const how = process.platform === "darwin" ? "sh native/macos/build.sh" : "pwsh native/windows/build.ps1";
+	console.warn(`[prebuild] WARNING: ${nativeLib} is not built; screen capture will be unavailable. Run: ${how}`);
 }

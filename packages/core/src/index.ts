@@ -2,6 +2,7 @@
 // (enforced by biome.json). See ARCHITECTURE.md for what belongs here.
 
 export * from "./block.ts";
+export * from "./capture/index.ts";
 export * from "./geometry.ts";
 export * from "./language/index.ts";
 export * from "./logging/index.ts";

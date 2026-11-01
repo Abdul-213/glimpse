@@ -1,5 +1,6 @@
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { AppInfo, SettingsRPC } from "../../shared/rpc.ts";
+import type { CaptureExclusion } from "./capture-exclusion.ts";
 
 /**
  * The Settings window: one instance, created on demand, re-activated if already open.
@@ -10,7 +11,10 @@ import type { AppInfo, SettingsRPC } from "../../shared/rpc.ts";
 export class SettingsWindow {
 	private window: BrowserWindow | null = null;
 
-	constructor(private readonly appInfo: AppInfo) {}
+	constructor(
+		private readonly appInfo: AppInfo,
+		private readonly exclusion: CaptureExclusion,
+	) {}
 
 	open(): void {
 		if (this.window) {
@@ -33,10 +37,13 @@ export class SettingsWindow {
 			url: "views://settings/index.html",
 			frame: { width: 720, height: 520 },
 			rpc,
+			// Created hidden so it is excluded from capture before it is ever on screen.
+			hidden: true,
 		});
 		win.on("close", () => {
 			this.window = null;
 		});
 		this.window = win;
+		this.exclusion.protect(win, () => win.show());
 	}
 }
