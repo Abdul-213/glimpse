@@ -269,6 +269,8 @@ export type SettingsRPC = {
 			setProvider: { params: SetProviderParams; response: CloudActionResult };
 			resetLiveConsent: { params: undefined; response: CloudActionResult };
 			openCloudLink: { params: { link: CloudLink }; response: ActionResult };
+			/** Open first-run setup again (GLIM-76). */
+			openOnboarding: { params: undefined; response: ActionResult };
 		};
 		messages: {
 			closeSettings: undefined;

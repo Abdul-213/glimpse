@@ -17,6 +17,7 @@ export const COMMANDS = [
 	"cache.clear",
 	"settings.open",
 	"screen-access.open",
+	"onboarding.open",
 	"diagnostics.copy",
 	"logs.open",
 	"app.quit",

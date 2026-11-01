@@ -518,6 +518,14 @@ describe("Models settings (GLIM-96)", () => {
 		expect(models.addLanguage("ja")).toMatchObject({ ok: false });
 	});
 
+	test("languagePlan: the target itself, and nothing to plan without a catalogue (GLIM-76)", async () => {
+		const { manager, models } = setup();
+		await manager.scan();
+		expect(models.languagePlan("en")).toEqual({ status: "same", items: [] });
+		expect(models.languagePlan("ja")).toEqual({ status: "unavailable", items: [] });
+		expect(models.languagePlan("not a language")).toEqual({ status: "unavailable", items: [] });
+	});
+
 	test("moving the folder moves installed models and saves the setting", async () => {
 		const { manager, models, saved } = setup();
 		await manager.scan();

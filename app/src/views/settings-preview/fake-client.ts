@@ -361,6 +361,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			return cloudResult();
 		},
 		openCloudLink: async () => ok,
+		openOnboarding: async () => ok,
 	};
 
 	return {

@@ -21,15 +21,40 @@ const v = (name: string, query: string, colorScheme: "light" | "dark"): GalleryV
 	fullPage: false,
 });
 
+const SA = "mode=screen-access";
+
 export const ONBOARDING_VARIANTS: GalleryVariant[] = [
-	v("access-not-determined-macos-light", "os=macos&access=not-determined", "light"),
-	v("access-not-determined-macos-dark", "os=macos&access=not-determined", "dark"),
-	v("access-denied-macos-light", "os=macos&access=denied", "light"),
-	v("access-restart-macos-light", "os=macos&access=denied-opened", "light"),
-	v("access-lost-macos-light", "os=macos&access=lost", "light"),
-	v("access-lost-macos-dark", "os=macos&access=lost-opened", "dark"),
-	v("access-granted-macos-light", "os=macos&access=granted", "light"),
-	v("access-lost-macos-light-rtl", "os=macos&access=lost&dir=rtl", "light"),
+	// First-run setup (GLIM-76)
+	v("setup-welcome-macos-light", "os=macos&step=welcome&scenario=pick", "light"),
+	v("setup-welcome-windows-light", "os=windows&step=welcome&scenario=pick", "light"),
+	v("setup-screen-access-macos-light", "os=macos&step=screen-access", "light"),
+	v("setup-screen-access-macos-dark-restart", "os=macos&step=screen-access&access=denied-opened", "dark"),
+	v("setup-language-macos-light", "os=macos&step=language&access=granted", "light"),
+	v("setup-language-windows-dark", "os=windows&step=language", "dark"),
+	v("setup-downloads-macos-light-pick", "os=macos&step=downloads&scenario=pick&access=granted", "light"),
+	v("setup-downloads-macos-light-downloading", "os=macos&step=downloads&scenario=downloading&access=granted", "light"),
+	v("setup-downloads-windows-dark-downloading", "os=windows&step=downloads&scenario=downloading", "dark"),
+	v("setup-downloads-macos-light-offline", "os=macos&step=downloads&scenario=offline&access=granted", "light"),
+	v("setup-downloads-macos-light-failed", "os=macos&step=downloads&scenario=failed&access=granted", "light"),
+	v(
+		"setup-downloads-macos-light-resumed",
+		"os=macos&step=downloads&scenario=downloading&resumed=1&access=granted",
+		"light",
+	),
+	v("setup-shortcuts-macos-light", "os=macos&step=shortcuts&access=granted", "light"),
+	v("setup-shortcuts-windows-light-conflict", "os=windows&step=shortcuts&scenario=conflict", "light"),
+	v("setup-done-macos-light", "os=macos&step=done&access=granted", "light"),
+	v("setup-done-windows-dark", "os=windows&step=done", "dark"),
+	v("setup-language-macos-light-rtl", "os=macos&step=language&access=granted&dir=rtl", "light"),
+	// Screen access alone (GLIM-45)
+	v("access-not-determined-macos-light", `${SA}&os=macos&access=not-determined`, "light"),
+	v("access-not-determined-macos-dark", `${SA}&os=macos&access=not-determined`, "dark"),
+	v("access-denied-macos-light", `${SA}&os=macos&access=denied`, "light"),
+	v("access-restart-macos-light", `${SA}&os=macos&access=denied-opened`, "light"),
+	v("access-lost-macos-light", `${SA}&os=macos&access=lost`, "light"),
+	v("access-lost-macos-dark", `${SA}&os=macos&access=lost-opened`, "dark"),
+	v("access-granted-macos-light", `${SA}&os=macos&access=granted`, "light"),
+	v("access-lost-macos-light-rtl", `${SA}&os=macos&access=lost&dir=rtl`, "light"),
 ];
 
 if (import.meta.main) {

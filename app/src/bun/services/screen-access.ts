@@ -54,6 +54,11 @@ export class ScreenAccess {
 		this.#o = options;
 	}
 
+	/** This OS gates capture behind a permission (onboarding shows the step). */
+	get required(): boolean {
+		return this.#o.os.required;
+	}
+
 	get state(): ScreenAccessState {
 		return this.status().state;
 	}

@@ -14,7 +14,7 @@ const SCREEN_ACCESS_POLL_MS = 2000;
  */
 export class OnboardingWindow {
 	private window: BrowserWindow | null = null;
-	private mode: OnboardingMode = "screen-access";
+	private mode: OnboardingMode = "setup";
 	private cleanup: (() => void)[] = [];
 
 	constructor(
@@ -26,6 +26,10 @@ export class OnboardingWindow {
 		return this.window !== null;
 	}
 
+	/**
+	 * Open in `mode`. If the window is already open it is brought forward; setup already
+	 * contains the screen-access step, so asking for `screen-access` doesn't replace it.
+	 */
 	open(mode: OnboardingMode): void {
 		if (this.window) {
 			this.window.activate();
@@ -43,6 +47,15 @@ export class OnboardingWindow {
 					refreshScreenAccess: h.refreshScreenAccess,
 					restartApp: h.restartApp,
 					openInstallGuide: h.openInstallGuide,
+					goToStep: h.goToStep,
+					setTarget: h.setTarget,
+					pickLanguages: h.pickLanguages,
+					downloadLanguages: h.downloadLanguages,
+					cancelDownloads: h.cancelDownloads,
+					loadPackCatalogue: h.loadPackCatalogue,
+					setHotkey: h.setHotkey,
+					skipSetup: h.skipSetup,
+					finishSetup: h.finishSetup,
 				},
 				messages: {
 					closeOnboarding: () => this.window?.close(),
@@ -50,7 +63,7 @@ export class OnboardingWindow {
 			},
 		});
 		const win = new BrowserWindow({
-			title: "Glimpse",
+			title: mode === "setup" ? "Set up Glimpse" : "Glimpse",
 			url: "views://onboarding/index.html",
 			frame: { width: 560, height: 480 },
 			rpc,
@@ -58,8 +71,13 @@ export class OnboardingWindow {
 			hidden: true,
 		});
 		const poll = setInterval(() => this.deps.screenAccess.refresh(), SCREEN_ACCESS_POLL_MS);
+		const { models, hotkeys } = this.deps.settingsDeps;
 		this.cleanup = [
 			this.deps.screenAccess.subscribe((s) => rpc.send.screenAccessChanged(s)),
+			models.subscribe(() => {
+				void h.downloads().then((d) => rpc.send.downloadsChanged(d));
+			}),
+			hotkeys.subscribe((s) => rpc.send.hotkeysChanged(s)),
 			() => clearInterval(poll),
 		];
 		win.on("close", () => {
