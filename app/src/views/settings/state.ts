@@ -6,6 +6,7 @@ import type { Settings } from "@glimpse/core";
 import { createSignal } from "solid-js";
 import type {
 	HotkeyStatus,
+	LoginItemStatus,
 	ModelsSnapshot,
 	SettingsEdit,
 	SettingsSnapshot,
@@ -17,6 +18,7 @@ export function createSettingsState(client: SettingsClient) {
 	const [snapshot, setSnapshot] = createSignal<SettingsSnapshot | null>(null);
 	const [settings, setSettings] = createSignal<Settings | null>(null);
 	const [hotkeys, setHotkeys] = createSignal<HotkeyStatus | null>(null);
+	const [loginItem, setLoginItem] = createSignal<LoginItemStatus | null>(null);
 	const [models, setModels] = createSignal<ModelsSnapshot | null>(null);
 	const [languages, setLanguages] = createSignal<SourceLanguagesSnapshot | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
@@ -33,6 +35,7 @@ export function createSettingsState(client: SettingsClient) {
 			setSnapshot(s);
 			setSettings(s.settings);
 			setHotkeys(s.hotkeys);
+			setLoginItem(s.loginItem);
 		} catch {
 			setError("Couldn't reach the Glimpse app process. Close Settings and open it again from the tray.");
 		}
@@ -42,6 +45,7 @@ export function createSettingsState(client: SettingsClient) {
 		snapshot,
 		settings,
 		hotkeys,
+		loginItem,
 		models,
 		languages,
 		error,
@@ -61,6 +65,7 @@ export function createSettingsState(client: SettingsClient) {
 		setModels,
 		setHotkeys,
 		setSettings,
+		setLoginItem,
 	};
 }
 

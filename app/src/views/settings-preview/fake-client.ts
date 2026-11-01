@@ -165,6 +165,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 		settings,
 		defaultHotkeys: hotkeyDefaults,
 		hotkeys,
+		loginItem: { enabled: false, supported: true },
 		providers: {
 			ocr: { id: "paddleocr", name: "PaddleOCR (PP-OCRv5)", kind: "local" },
 			translation: [{ id: "bergamot", name: "Firefox Translations (Bergamot)", kind: "local" }],
@@ -208,6 +209,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			});
 		},
 		resetHotkeys: async () => setBindings(hotkeyDefaults),
+		setLaunchAtLogin: async ({ enabled }) => ({ enabled, supported: true }),
 		getModels: async () => models,
 		loadPackCatalogue: async () => {
 			models = { ...models, catalogue: "ready" };

@@ -272,7 +272,8 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
 - **Settings window (GLIM-69)**: `app/src/shared/settings-rpc.ts` is the contract. The view
   may patch only `language`, `appearance`, `live`, `privacy`, `diagnostics`; hotkeys go
   through `setHotkey` (Glimpse conflict check, then the `HotkeyRegistrar` port in
-  `services/hotkeys-port.ts`; an OS refusal keeps the old binding), models through
+  `services/hotkeys-port.ts`; an OS refusal keeps the old binding), launch at login through
+  `LoginItem` (`services/login-item.ts`, GLIM-77 decision), the models folder through
   `ModelsSettings` (`services/models/models-settings.ts`; the folder setting is GLIM-96).
   Handlers live in `windows/settings-handlers.ts` (tested on Linux). The view is a mirror:
   `views/settings/state.ts` holds what main sent. `views/settings-preview` (dev-only) renders

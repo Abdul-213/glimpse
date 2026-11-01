@@ -36,6 +36,7 @@ export class SettingsWindow {
 					getSourceLanguages: h.getSourceLanguages,
 					setHotkey: h.setHotkey,
 					resetHotkeys: h.resetHotkeys,
+					setLaunchAtLogin: h.setLaunchAtLogin,
 					getModels: h.getModels,
 					loadPackCatalogue: h.loadPackCatalogue,
 					downloadModel: h.downloadModel,
