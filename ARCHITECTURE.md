@@ -125,7 +125,7 @@ Don't create packages for grouping alone; use folders.
 | Translation cache, single-flight, OCR reuse | `packages/core/src/cache/` | GLIM-20 decision, GLIM-67 |
 | Settings schema, defaults, migrations | `packages/core/src/settings/` | GLIM-53. Pure: `(unknown json) -> Settings`. |
 | Settings persistence (file in the user data dir) | `app/src/bun/services/settings-store.ts` | Implements a core `SettingsStore` port. |
-| Secrets (`Bun.secrets`) | `app/src/bun/services/secrets.ts` | GLIM-40. Core sees a `SecretStore` port. |
+| Secrets (`Bun.secrets`) | `app/src/bun/services/secrets.ts` | GLIM-40. Core sees a `SecretStore` port (`packages/core/src/secrets/`: id pattern, no empty values, 2560-byte cap, error kinds, `maskSecret`); fake: `MemorySecretStore`. Service `dev.glimpse.app`, one item per `secretId`, Windows `persist: "local"`, no plaintext fallback. Headless Linux: `app/scripts/linux-headless-keyring.sh`. |
 | Capture backends (DXGI/GDI, ScreenCaptureKit, file-based for Linux) | `app/src/bun/services/capture/` + native helpers | GLIM-36, GLIM-86. All implement core's `CaptureSource`. |
 | Hotkeys | `app/src/bun/services/hotkeys.ts` | Electrobun `GlobalShortcut` on Windows, Carbon via the dylib on macOS (GLIM-23, spikes/hotkeys). |
 | Window controllers (create, position, show/hide, materials, capture exclusion) | `app/src/bun/windows/<surface>.ts` | One class per window type, like `SettingsWindow`. |

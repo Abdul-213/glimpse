@@ -7,4 +7,5 @@ export * from "./language.ts";
 export * from "./providers/index.ts";
 export * from "./region.ts";
 export * from "./schema/index.ts";
+export * from "./secrets/index.ts";
 export * from "./settings/index.ts";
