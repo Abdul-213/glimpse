@@ -1,0 +1,23 @@
+{
+	"name": "@glimpse/ui",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Shared Solid components and the Tailwind theme generated from DESIGN.md",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./theme.css": "./src/styles/theme.css",
+		"./tokens.css": "./src/styles/tokens.css"
+	},
+	"scripts": {
+		"tokens": "bun scripts/generate-tokens.ts",
+		"typecheck": "tsc --noEmit -p .",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"solid-js": "1.9.18"
+	},
+	"devDependencies": {
+		"tailwindcss": "4.3.3"
+	}
+}

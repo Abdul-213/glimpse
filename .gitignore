@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Electrobun / Hutch (devkit, toolchains, temp)
+.hutch/
+.cottontail-tmp/
+
+# Build output
+build/
+dist/
+artifacts/
+*.tsbuildinfo
+
+# Native helper builds
+app/native/macos/build/
+app/native/windows/build/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

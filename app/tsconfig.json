@@ -1,0 +1,15 @@
+{
+	// The devkit tsconfig (written by `hutch electrobun sync`) maps electrobun/* imports
+	// to the pinned SDK sources under .hutch/devkit/api.
+	"extends": ["../tsconfig.base.json", "./.hutch/devkit/tsconfig.json"],
+	"compilerOptions": {
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"jsx": "preserve",
+		"jsxImportSource": "solid-js",
+		// The Electrobun SDK is compiled from source (.ts, so skipLibCheck does not cover
+		// it) and does not pass this flag. Everything else in the base config applies.
+		"exactOptionalPropertyTypes": false
+	},
+	"include": ["src", "scripts", "test", "electrobun.config.ts", "hutch.config.ts"],
+	"exclude": ["node_modules", "build", "artifacts", "dist", ".hutch"]
+}
