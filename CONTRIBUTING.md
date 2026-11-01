@@ -93,8 +93,12 @@ then uploads **unsigned** artifacts, kept for 14 days:
 There is no Intel macOS build yet: onnxruntime-node ships no darwin-x64 binary (GLIM-89).
 
 Release builds are Electrobun's self-extracting wrappers: the first launch unpacks the real app
-(`Resources/<hash>.tar.zst`) and starts it, so the first start is slower. On macOS the unpacked
-app's binaries are all signed but its bundle seal doesn't verify yet (GLIM-113).
+(`Resources/<hash>.tar.zst`) and starts it, so the first start is slower. On macOS the
+launcher unpacks the real app into Application Support and installs it in place of the wrapper
+(same path). Electrobun leaves that inner app unsealed, so desktop.yml unpacks the archive after
+the build, ad-hoc seals the inner `Glimpse.app` and packs it back
+(`app/scripts/macos-seal-inner.sh`, GLIM-113); a first-launch step on the runner then checks the
+installed app verifies with `codesign --verify --deep --strict`.
 
 **When it runs.** Windows minutes cost 2x and macOS 10x on the free plan, so it never runs on PRs.
 It runs on pushes to `develop` that change `app/`, `packages/`, `package.json`, `bun.lock` or the

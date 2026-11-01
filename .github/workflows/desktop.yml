@@ -4,7 +4,7 @@
 #
 #   glimpse-<version>-<sha>-windows-x64.zip         portable app (Glimpse\bin\launcher.exe)
 #   glimpse-<version>-<sha>-windows-x64-setup.zip   Electrobun's installer (Glimpse-Setup.exe)
-#   glimpse-<version>-<sha>-macos-arm64.zip         Glimpse.app, ad-hoc signed
+#   glimpse-<version>-<sha>-macos-arm64.zip         Glimpse.app, ad-hoc signed (inner app sealed too, GLIM-113)
 #   glimpse-<version>-<sha>-macos-arm64.dmg         the same app in a DMG
 #
 # Intel macOS is not built: onnxruntime-node has no darwin-x64 build (GLIM-89).
@@ -244,33 +244,19 @@ jobs:
           mkdir -p "$dist"
 
           # Glimpse.app here is Electrobun's self-extracting wrapper: Contents/MacOS/launcher plus
-          # Resources/<hash>.tar.zst holding the real app, unpacked on first launch.
+          # Resources/<hash>.tar.zst holding the real app, unpacked on first launch. Seal the
+          # inner app first (GLIM-113: Electrobun leaves it unsealed), then the wrapper.
           app=$(find app/build -maxdepth 2 -name '*.app' | head -1)
           [ -n "$app" ] || { echo "no .app in app/build"; exit 1; }
+          sh app/scripts/macos-seal-inner.sh "$app"
           codesign --force --deep --sign - "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
 
-          # Report (don't fail on) the signature state of the inner app the wrapper unpacks. Its
-          # Mach-Os are all signed, but the bundle seal doesn't verify (GLIM-113).
-          inner="$RUNNER_TEMP/inner"
-          mkdir -p "$inner"
-          tar -xf "$app"/Contents/Resources/*.tar.zst -C "$inner"
-          # Reporting only: never fail the packaging on it (pipefail + grep -q/head SIGPIPE).
-          (set +e +o pipefail
-          for bundle in "$inner"/*.app; do
-            codesign --verify --deep --strict --verbose=2 "$bundle" || echo "::warning::inner app bundle seal does not verify (GLIM-113)"
-            find "$bundle" -type f | while read -r f; do
-              file -b "$f" | grep -q Mach-O || continue
-              printf '%s: %s\n' "${f#"$bundle"/}" "$(codesign -dv "$f" 2>&1 | grep -E '^Signature|flags=' | tr '\n' ' ')"
-            done
-          done) || true
-
-          # GLIM-106: both the wrapper and the app it unpacks are accessory apps (no Dock icon).
-          for plist in "$app/Contents/Info.plist" "$inner"/*.app/Contents/Info.plist; do
-            value=$(plutil -extract LSUIElement raw "$plist" 2>/dev/null || echo missing)
-            echo "LSUIElement=$value in ${plist#"$RUNNER_TEMP"/}"
-            [ "$value" = true ] || echo "::warning::LSUIElement is not set in $plist (GLIM-106)"
-          done
+          # GLIM-106: both the wrapper and the app it unpacks are accessory apps (no Dock icon);
+          # macos-seal-inner.sh checks the inner one.
+          value=$(plutil -extract LSUIElement raw "$app/Contents/Info.plist" 2>/dev/null || echo missing)
+          echo "LSUIElement=$value in the wrapper"
+          [ "$value" = true ] || echo "::warning::LSUIElement is not set in the wrapper's Info.plist (GLIM-106)"
 
           ditto -c -k --keepParent "$app" "$dist/$base.zip"
 
@@ -291,6 +277,45 @@ jobs:
           ls -la "$dist"
           echo "zip=$dist/$base.zip" >> "$GITHUB_OUTPUT"
           echo "dmg=$dist/$base.dmg" >> "$GITHUB_OUTPUT"
+
+      # First launch of the zipped app, as a user would after removing the quarantine flag: the
+      # launcher unpacks the inner app and starts it. Checks every Glimpse.app it leaves behind
+      # verifies (GLIM-113), then quits it. Fails only on a bad signature; a launch that can't be
+      # observed on the runner is a warning.
+      - name: First launch check
+        env:
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          set -u
+          dir="$RUNNER_TEMP/launch"
+          mkdir -p "$dir"
+          ditto -x -k "$ZIP" "$dir"
+          marker="$RUNNER_TEMP/launch-marker"
+          touch "$marker"
+          sleep 1
+          "$dir/Glimpse.app/Contents/MacOS/launcher" > "$RUNNER_TEMP/launch.log" 2>&1 &
+          started=0
+          for _ in $(seq 1 45); do
+            sleep 2
+            if pgrep -f 'Glimpse.app/Contents/MacOS/bun' >/dev/null; then started=1; break; fi
+          done
+          sleep 5
+          echo "--- launcher output"; cat "$RUNNER_TEMP/launch.log"; echo "---"
+          pgrep -fl 'Glimpse.app' || true
+          [ "$started" = 1 ] || echo "::warning::the unpacked app's bun process never appeared"
+          bad=0
+          for root in "$dir" "$HOME/Applications" "$HOME/Library/Application Support" /Applications; do
+            [ -d "$root" ] || continue
+            find "$root" -name 'Glimpse.app' -type d -prune -newer "$marker" 2>/dev/null
+          done | sort -u > "$RUNNER_TEMP/launched-apps.txt"
+          [ -s "$RUNNER_TEMP/launched-apps.txt" ] || echo "$dir/Glimpse.app" > "$RUNNER_TEMP/launched-apps.txt"
+          while read -r bundle; do
+            echo "== $bundle"
+            ls "$bundle/Contents/MacOS" | head -20
+            codesign --verify --deep --strict --verbose=2 "$bundle" || bad=1
+          done < "$RUNNER_TEMP/launched-apps.txt"
+          pkill -f 'Glimpse.app/Contents/MacOS' || true
+          [ "$bad" = 0 ] || { echo "::error::an unpacked Glimpse.app does not verify (GLIM-113)"; exit 1; }
 
       - name: Upload the app
         uses: actions/upload-artifact@v7
