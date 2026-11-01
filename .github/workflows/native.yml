@@ -17,15 +17,6 @@ on:
       - app/src/bun/services/capture/**
       - app/scripts/native-smoke.ts
       - .github/workflows/native.yml
-  # TEMPORARY (GLIM-36): lets the PR run this before it is merged. Remove before merge.
-  pull_request:
-    branches: [develop]
-    paths:
-      - app/native/**
-      - app/src/bun/native/**
-      - app/src/bun/services/capture/**
-      - app/scripts/native-smoke.ts
-      - .github/workflows/native.yml
   workflow_dispatch:
 
 concurrency:
