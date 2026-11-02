@@ -179,27 +179,52 @@ export function finishSetupNotice(onboarding: { readonly completed: boolean }): 
 		: { label: { windows: "Finish setting up…", macos: "Finish Setting Up…" }, action: "onboarding.open" };
 }
 
+/** The icon's badge (flows/tray.html "Icon states"; drawn by scripts/make-tray-icons.ts, GLIM-99). */
+export type TrayBadge = "none" | "live" | "paused" | "cloud" | "attention";
+
+/** A cloud provider is selected for OCR or translation (the tray says so before any Snip). */
+const usesCloud = (state: TrayState): boolean => state.translation?.kind === "cloud" || !!state.cloudOcr;
+
+/**
+ * One badge, by priority: needs attention > cloud in use > Live (flows/tray.html). The menu
+ * and the accessible name carry everything the badge leaves out.
+ */
+export function trayBadge(state: TrayState): TrayBadge {
+	if ((state.notices?.length ?? 0) > 0) return "attention";
+	if (usesCloud(state)) return "cloud";
+	if (state.live === "running") return "live";
+	if (state.live === "paused") return "paused";
+	return "none";
+}
+
 /**
  * Tray icon (DESIGN.md Shapes: monochrome). macOS: a template image the system tints for the
- * menu bar. Windows: the light glyph on a dark taskbar, the dark glyph on a light one. Linux
- * (dev only): dark glyph. PNGs are copied to views://assets/ by electrobun.config.ts.
+ * menu bar. Windows: the light glyph on a dark taskbar, the dark glyph on a light one (the
+ * cloud badge in Egress Violet). Linux (dev only): dark glyph. PNGs are copied to
+ * views://assets/ by electrobun.config.ts.
  */
 export function trayIconFor(
 	platform: Platform,
 	taskbarTheme: TaskbarTheme = "dark",
+	badge: TrayBadge = "none",
 ): { image: string; template: boolean } {
+	const suffix = badge === "none" ? "" : `-${badge}`;
 	switch (platform) {
 		case "macos":
-			return { image: "views://assets/tray-template.png", template: true };
+			return { image: `views://assets/tray-template${suffix}.png`, template: true };
 		case "windows":
 			return {
-				image: taskbarTheme === "light" ? "views://assets/tray-dark.png" : "views://assets/tray-light.png",
+				image: `views://assets/tray-${taskbarTheme === "light" ? "dark" : "light"}${suffix}.png`,
 				template: false,
 			};
 		default:
-			return { image: "views://assets/tray-dark.png", template: false };
+			return { image: `views://assets/tray-dark${suffix}.png`, template: false };
 	}
 }
+
+/** The icon for a whole tray state (`trayIconFor` with its badge). */
+export const trayIconForState = (state: TrayState): { image: string; template: boolean } =>
+	trayIconFor(state.platform, state.taskbarTheme, trayBadge(state));
 
 /**
  * What VoiceOver and Narrator call the tray item (GLIM-136): the app name, plus the Live state
@@ -207,14 +232,19 @@ export function trayIconFor(
  * Windows shows it as the icon's tooltip too, so it stays short and plain.
  */
 export function trayAccessibleName(state: TrayState): string {
-	switch (state.live) {
-		case "running":
-			return "Glimpse — Live running";
-		case "paused":
-			return "Glimpse — Live paused";
-		default:
-			return "Glimpse";
-	}
+	// What the badges show (GLIM-99), in words: a screen reader doesn't see the icon.
+	const parts = [
+		...((state.notices?.length ?? 0) > 0 ? ["needs attention"] : []),
+		...(state.live === "running" ? ["Live running"] : state.live === "paused" ? ["Live paused"] : []),
+		...(usesCloud(state) ? [`cloud: ${cloudCompany(state)}`] : []),
+	];
+	return parts.length > 0 ? `Glimpse — ${parts.join(", ")}` : "Glimpse";
+}
+
+/** "Google" for "Google Cloud Translation" (GLIM-22: name the company; flows/tray.html tooltip). */
+function cloudCompany(state: TrayState): string {
+	const name = state.translation?.kind === "cloud" ? state.translation.name : (state.cloudOcr ?? "");
+	return name.split(" ")[0] || "cloud";
 }
 
 /** The native side tray.ts wraps (Electrobun `Tray`). */
@@ -258,7 +288,7 @@ export class TrayController {
 			this.#host.setMenu(menu);
 			this.rebuilds++;
 		}
-		const { image } = trayIconFor(this.#state.platform, this.#state.taskbarTheme);
+		const { image } = trayIconForState(this.#state);
 		if (image !== this.#image) {
 			// The first image is set by the Tray constructor; later changes go through setImage.
 			if (this.#image !== "") this.#host.setImage(image);

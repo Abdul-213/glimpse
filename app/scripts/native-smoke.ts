@@ -7,11 +7,13 @@
 // Exits 1 if the helper doesn't load. --try-capture also attempts one small capture and
 // prints the outcome without failing (CI runners may have no usable desktop or no
 // Screen Recording grant).
+import { join } from "node:path";
 import { rect } from "@glimpse/core";
 import { loadAnnounceNative } from "../src/bun/native/announce.ts";
 import { FRAME_PALETTE_ORDER, type FrameNativeBinding, rgbaOf } from "../src/bun/native/frame.ts";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import type { SessionEventKind, SessionNativeBinding } from "../src/bun/native/session.ts";
+import { loadTrayImageNative } from "../src/bun/native/tray-image.ts";
 import { loadTrayLabelNative } from "../src/bun/native/tray-label.ts";
 import { loadWindowsCapture, loadWindowsChrome } from "../src/bun/native/windows.ts";
 import { MacCaptureSource } from "../src/bun/services/capture/macos.ts";
@@ -202,6 +204,12 @@ if (process.platform === "darwin") {
 	console.log("tray label:", JSON.stringify(status));
 	if (!native) process.exit(1);
 	console.log("tray label set (expect false, no tray here):", native.setAccessibilityLabel(1, "Glimpse"));
+	// Tray badge image (GLIM-99): same, the status item isn't there; the PNG must still load.
+	const image = loadTrayImageNative();
+	console.log("tray image:", JSON.stringify(image.status));
+	if (!image.native) process.exit(1);
+	const png = join(import.meta.dir, "..", "assets", "tray", "tray-template-live.png");
+	console.log("tray image set (expect false, no tray here):", image.native.setTemplateImage(1, png, 16));
 }
 
 if (process.platform === "win32") {
