@@ -117,7 +117,7 @@ Pure function `placeLivePopup(region, display, uiDir) → { side, frame, maxHeig
 | L7 | **Empty** (no text for ≥ 5 s) | accent · "Live" | Blocks replaced by the state row "No text in this area right now. Watching for changes." Shorter gaps (between subtitle lines) keep the last blocks unchanged. |
 | L8 | **Private on** | "Live · Private" (≥ 300px) | Toggle pressed. Nothing else changes. |
 | L9 | **Cloud in use** | accent · "Live" | Cloud row under the strip for the whole session. |
-| L10 | **Cloud consent** (first cloud Live session, flows C1) | hollow · "Live" | State row: heading, body, buttons "Pin with {provider}" (primary), "Use on-device", "Cancel", plus a checkbox "Don't ask again for Live". No capture runs until answered. The popup is **activated** for this state only (§7). |
+| L10 | **Cloud consent** (first cloud Live session, flows C1) | hollow · "Live" | State row: heading, body, buttons "Pin with {provider}" (primary), "Use on-device", "Cancel", plus a checkbox "Don't ask again for Live". With a cloud OCR provider (asked every session, no checkbox) "Use on-device" reads with the on-device OCR instead and is offered only when one is installed (GLIM-122). No capture runs until answered. The popup is **activated** for this state only (§7). |
 | L11 | **Skipped blocks** | – | Skipped line, as Snip. |
 | L12 | **Pack missing** | accent · "Live" | Pack row at the top of the list; those blocks show source text; the rest translate. The session keeps running. |
 | L13 | **Cloud transient error** (timeout, 5xx, offline) | accent · "Can't reach {company}" / "Offline" | Changed blocks show new source text pending. Retries after 2 s, 5 s, 10 s. After 3 failures in a row or 30 s: L14 with `timeout`/`offline` copy. |

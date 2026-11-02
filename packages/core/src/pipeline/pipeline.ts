@@ -49,6 +49,11 @@ import { executeTranslation, planTranslation } from "./translate.ts";
 export interface PipelineDeps {
 	/** The selected OCR provider (read per run, so a settings change applies to the next run). */
 	readonly ocr: () => OcrProvider | null;
+	/**
+	 * GLIM-122: an on-device OCR provider for `localOnly` runs when `ocr` is a cloud one (Live
+	 * "Use on-device"). Without it such runs end in `ocrFailed` instead of sending an image.
+	 */
+	readonly localOcr?: () => OcrProvider | null;
 	/** The translation chain in settings order (GLIM-43). */
 	readonly chain: () => readonly TranslationProvider[];
 	readonly grouper?: BlockGrouper;
@@ -84,8 +89,7 @@ export interface RunOptions {
 	readonly blockIds?: { assign(blocks: readonly OcrBlock[]): readonly OcrBlock[] };
 	/**
 	 * Live, "Use on-device" at the cloud consent (live-popup.md L10): cloud translators are left
-	 * out of the chain for this run. (Cloud OCR has no local stand-in yet; Live doesn't offer
-	 * this answer when the OCR provider is a cloud one.)
+	 * out of the chain for this run, and a cloud OCR provider is replaced by `localOcr` (GLIM-122).
 	 */
 	readonly localOnly?: boolean;
 }
@@ -264,8 +268,19 @@ export class TranslationPipeline {
 		return opts.localOnly ? chain.filter((p) => p.info.kind !== "cloud") : chain;
 	}
 
-	#started(opts: RunOptions): void {
+	/**
+	 * The OCR provider for a run. `localOnly` (GLIM-122) never uses a cloud one: the on-device
+	 * stand-in from `localOcr`, or none (the run ends in `ocrFailed`; no image leaves the device).
+	 */
+	#ocrFor(opts: { readonly localOnly?: boolean }): OcrProvider | null {
 		const ocr = this.#deps.ocr();
+		if (!opts.localOnly || !ocr || ocr.info.kind !== "cloud") return ocr;
+		const local = this.#deps.localOcr?.() ?? null;
+		return local && local.info.kind !== "cloud" ? local : null;
+	}
+
+	#started(opts: RunOptions): void {
+		const ocr = this.#ocrFor(opts);
 		const translation = this.#chainFor(opts).find((p) => p.status.state === "ready") ?? null;
 		const ref = (p: { info: ProviderRef } | null): ProviderRef | null =>
 			p ? { id: p.info.id, kind: p.info.kind, name: p.info.name } : null;
@@ -288,7 +303,7 @@ export class TranslationPipeline {
 		const runId = opts.runId as string;
 		const { signal } = opts;
 		throwIfAborted(signal);
-		const ocr = this.#deps.ocr();
+		const ocr = this.#ocrFor(opts);
 		if (!ocr) {
 			return this.#finish(opts, started, {
 				blocks: [],
