@@ -447,7 +447,8 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   (`windows/onboarding.ts`, mode `screen-access`) instead of the picker. The tray lists
   "Allow Screen Access…" first (`TrayState.notices`), and a launch that finds the grant `lost`
   opens the window at once. Capture consumers that see `permission-denied` call
-  `screenAccess.reportCaptureDenied()`.
+  `screenAccess.reportCaptureDenied()`: Snip and Live capture through `withDeniedReport`
+  (`services/capture/denied-report.ts`, GLIM-121), which reports it and rethrows the error.
 
 ### First-run setup (GLIM-76)
 
