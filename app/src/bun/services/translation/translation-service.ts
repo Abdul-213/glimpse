@@ -81,6 +81,7 @@ export class TranslationService<Ctx> {
 		this.caches = new TranslationCaches({
 			now: options.now ?? Date.now,
 			idleMinutes: settings.privacy.clearCacheAfterIdleMinutes,
+			wipeOnSleep: settings.privacy.clearCacheOnLock,
 			onClear: (reason, stats) => this.#log.info("translation cache cleared", { reason, entries: stats.entries }),
 		});
 		this.pipeline = new TranslationPipeline({
@@ -184,6 +185,9 @@ export class TranslationService<Ctx> {
 	async applySettings(next: Settings, previous: Settings): Promise<void> {
 		if (next.privacy.clearCacheAfterIdleMinutes !== previous.privacy.clearCacheAfterIdleMinutes) {
 			this.caches.setIdleMinutes(next.privacy.clearCacheAfterIdleMinutes);
+		}
+		if (next.privacy.clearCacheOnLock !== previous.privacy.clearCacheOnLock) {
+			this.caches.setWipeOnSleep(next.privacy.clearCacheOnLock);
 		}
 		const { target, sources } = next.language;
 		const targetChanged = !sameLanguage(target, previous.language.target);
@@ -337,6 +341,17 @@ export class TranslationService<Ctx> {
 	/** The `cache.clear` command, and lock / sleep / key-change wipes. */
 	clearCache(reason: CacheClearReason = "user"): void {
 		this.caches.clear(reason);
+	}
+
+	/**
+	 * The screen locked or the system is going to sleep (GLIM-107, native notifications):
+	 * wipe the app cache and every session cache, Private ones included, unless Settings ›
+	 * Privacy turned "Clear on lock and sleep" off. Returns whether it wiped.
+	 */
+	wipeForAway(reason: "lock" | "sleep"): boolean {
+		if (!this.#opts.settings().privacy.clearCacheOnLock) return false;
+		this.clearCache(reason);
+		return true;
 	}
 
 	/** Start the wipe timer (idle and sleep detection). */

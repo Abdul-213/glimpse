@@ -6,9 +6,10 @@
 //   cache, dropped when the session ends or Private is turned off.
 // - Wipes: `clear("user")` (tray, Settings) clears the app cache and every session cache;
 //   after `idleMinutes` with no Snip or Live activity (an open Live session counts as
-//   activity); on screen lock / system sleep (the app reports them with `clear`). `tick()`
-//   also detects a system sleep on its own: if the wall clock jumped much further than the
-//   tick interval, the machine was suspended, so the cache is wiped.
+//   activity); on screen lock / system sleep (the app reports them with `clear`, from the
+//   native notifications, GLIM-107). `tick()` also detects a system sleep on its own: if the
+//   wall clock jumped much further than the tick interval, the machine was suspended, so the
+//   cache is wiped. Both follow the "wipe on lock and sleep" setting (`wipeOnSleep`).
 //
 // Pure: time comes from an injected clock; the app calls `tick()` from a timer.
 
@@ -25,6 +26,8 @@ export interface TranslationCachesOptions extends CacheLimits {
 	 */
 	readonly tickIntervalMs?: number;
 	readonly sleepGapMs?: number;
+	/** Wipe when `tick()` detects a sleep (privacy.clearCacheOnLock). Default true. */
+	readonly wipeOnSleep?: boolean;
 	/** Told about every wipe (for the log; never contains text). */
 	readonly onClear?: (reason: CacheClearReason, stats: CacheStats) => void;
 }
@@ -44,6 +47,7 @@ export class TranslationCaches {
 	readonly #noStore = new TranslationCache({ store: false, name: "private-snip" });
 	#openSessions = 0;
 	#idleMs: number;
+	#wipeOnSleep: boolean;
 	#lastActivity: number;
 	#lastTick: number;
 	#sessionSeq = 0;
@@ -52,6 +56,7 @@ export class TranslationCaches {
 		this.#opts = options;
 		this.app = new TranslationCache({ ...limits(options), name: "app" });
 		this.#idleMs = (options.idleMinutes ?? 15) * 60_000;
+		this.#wipeOnSleep = options.wipeOnSleep ?? true;
 		this.#lastActivity = options.now();
 		this.#lastTick = this.#lastActivity;
 	}
@@ -59,6 +64,11 @@ export class TranslationCaches {
 	/** Settings changed the idle wipe (minutes; 0 = only on quit). */
 	setIdleMinutes(minutes: number): void {
 		this.#idleMs = Math.max(0, minutes) * 60_000;
+	}
+
+	/** Settings changed "wipe on lock and sleep": whether a detected sleep wipes. */
+	setWipeOnSleep(on: boolean): void {
+		this.#wipeOnSleep = on;
 	}
 
 	/** The cache for one Snip. Private: a cache that never stores anything. */
@@ -121,7 +131,7 @@ export class TranslationCaches {
 		const gap = this.#opts.sleepGapMs ?? 60_000;
 		const sinceTick = now - this.#lastTick;
 		this.#lastTick = now;
-		if (sinceTick > interval + gap) {
+		if (sinceTick > interval + gap && this.#wipeOnSleep) {
 			this.clear("sleep");
 			this.#lastActivity = now;
 			return "sleep";

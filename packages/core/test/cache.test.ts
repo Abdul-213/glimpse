@@ -251,7 +251,7 @@ describe("single-flight", () => {
 });
 
 describe("TranslationCaches (scopes and wipes)", () => {
-	const make = (over: { idleMinutes?: number } = {}) => {
+	const make = (over: { idleMinutes?: number; wipeOnSleep?: boolean } = {}) => {
 		const clock = new ManualClock(1_000_000);
 		const wipes: string[] = [];
 		const caches = new TranslationCaches({ now: clock.now, onClear: (r) => wipes.push(r), ...over });
@@ -344,6 +344,18 @@ describe("TranslationCaches (scopes and wipes)", () => {
 		clock.advance(10 * 60_000);
 		expect(caches.tick()).toBe("sleep");
 		expect(caches.app.stats().entries).toBe(0);
+		expect(wipes).toEqual(["sleep"]);
+	});
+
+	test("wipeOnSleep off (clearCacheOnLock = false): a detected sleep keeps the cache", () => {
+		const { caches, clock, wipes } = make({ idleMinutes: 0, wipeOnSleep: false });
+		caches.app.set(key("a"), value("A"));
+		clock.advance(10 * 60_000);
+		expect(caches.tick()).toBeNull();
+		expect(caches.app.stats().entries).toBe(1);
+		caches.setWipeOnSleep(true);
+		clock.advance(10 * 60_000);
+		expect(caches.tick()).toBe("sleep");
 		expect(wipes).toEqual(["sleep"]);
 	});
 });
