@@ -371,6 +371,17 @@ export class LiveService {
 		}
 	}
 
+	/**
+	 * Re-read the region on the next grab, without the frame ring (GLIM-123): a language pack
+	 * landed, so blocks that were waiting for it translate in place. The session keeps running.
+	 */
+	refresh(reason: "pack-installed"): void {
+		const cur = this.#current;
+		if (!cur) return;
+		cur.runner.invalidate();
+		this.#d.log.info("live: re-reading the region", { session: cur.id, reason });
+	}
+
 	stats(): (LiveRunnerStats & { readonly session: string }) | null {
 		const cur = this.#current;
 		return cur ? { ...cur.runner.stats(), session: cur.id } : null;
@@ -406,6 +417,12 @@ export class LiveService {
 				changed: event.changeSet.length,
 				blocks: event.order.length,
 				reused: event.reused,
+			});
+		} else if (event.type === "packs") {
+			this.#d.log.info("live: language packs missing", {
+				session: event.sessionId,
+				langs: event.rows.map((r) => r.lang).join(","),
+				blocks: event.rows.reduce((n, r) => n + r.segmentIds.length, 0),
 			});
 		}
 		this.#emit(event);

@@ -20,6 +20,7 @@
 import type { Rect } from "../geometry.ts";
 import type { LanguageCode } from "../language/code.ts";
 import type { TextDirection } from "../language/script.ts";
+import type { InstallState } from "../models/install-state.ts";
 import type { BlockClass } from "../pipeline/events.ts";
 import type {
 	LiveError,
@@ -29,6 +30,10 @@ import type {
 	LiveStatus,
 } from "../pipeline/live-events.ts";
 import type { ProviderRef } from "../providers/provenance.ts";
+import { packRowState, packRowView, type SnipPackRow } from "./snip-state.ts";
+
+/** A missing language pack row at the top of the Live list (L12): the Snip pack row. */
+export type LivePackRow = SnipPackRow;
 
 /** How long a changed block keeps its old translation while the new one is on its way (§8). */
 export const LIVE_HOLD_MS = 600;
@@ -89,6 +94,8 @@ export interface LivePopupState {
 	readonly private: boolean;
 	readonly providers: LiveSessionProviders;
 	readonly consent: LiveConsentQuestion | null;
+	/** L12: one row per source language the shown blocks wait for, first-seen order. */
+	readonly packs: readonly LivePackRow[];
 }
 
 export type LivePopupAction =
@@ -97,7 +104,9 @@ export type LivePopupAction =
 	| { readonly type: "holdExpired"; readonly id: string; readonly frameSeq: number }
 	/** App-wide Private changed (tray or popup). */
 	| { readonly type: "private"; readonly on: boolean }
-	| { readonly type: "skipped"; readonly expanded: boolean };
+	| { readonly type: "skipped"; readonly expanded: boolean }
+	/** A pack row's resources changed install state (the model manager, GLIM-123). */
+	| { readonly type: "packInstall"; readonly lang: LanguageCode; readonly states: readonly InstallState[] };
 
 export const initialLivePopupState: LivePopupState = {
 	sessionId: null,
@@ -115,6 +124,7 @@ export const initialLivePopupState: LivePopupState = {
 	private: false,
 	providers: { cloud: null, localOnly: false },
 	consent: null,
+	packs: [],
 };
 
 export function reduceLivePopup(state: LivePopupState, action: LivePopupAction): LivePopupState {
@@ -125,6 +135,8 @@ export function reduceLivePopup(state: LivePopupState, action: LivePopupAction):
 			return state.skippedExpanded === action.expanded ? state : { ...state, skippedExpanded: action.expanded };
 		case "holdExpired":
 			return holdExpired(state, action.id, action.frameSeq);
+		case "packInstall":
+			return packInstall(state, action.lang, action.states);
 		case "session":
 			return onEvent(state, action.event);
 	}
@@ -167,7 +179,36 @@ function onEvent(state: LivePopupState, event: LiveSessionEvent): LivePopupState
 			return onFrame(state, event);
 		case "translation":
 			return onTranslation(state, event);
+		case "packs":
+			return onPacks(state, event.rows);
 	}
+}
+
+/**
+ * The latest capture's pack rows replace the shown ones. A row this popup started
+ * downloading keeps its progress (the next `packInstall` updates it), so a frame read before
+ * the model manager saw the download doesn't flip it back to "Download".
+ */
+function onPacks(state: LivePopupState, rows: Extract<LiveSessionEvent, { type: "packs" }>["rows"]): LivePopupState {
+	if (rows.length === 0 && state.packs.length === 0) return state;
+	const before = new Map(state.packs.map((p) => [p.lang, p]));
+	const packs = rows.map((r) => {
+		const next = packRowView(r);
+		const prev = before.get(r.lang);
+		return prev?.state === "downloading" && next.state !== "downloading"
+			? { ...next, state: prev.state, received: prev.received, total: prev.total }
+			: next;
+	});
+	return { ...state, packs };
+}
+
+function packInstall(state: LivePopupState, lang: LanguageCode, states: readonly InstallState[]): LivePopupState {
+	const row = state.packs.find((p) => p.lang === lang);
+	if (!row) return state;
+	const view = packRowState(row, states);
+	const packs =
+		view === "installed" ? state.packs.filter((p) => p !== row) : state.packs.map((p) => (p === row ? view : p));
+	return { ...state, packs };
 }
 
 function onFrame(state: LivePopupState, f: Extract<LiveSessionEvent, { type: "frame" }>): LivePopupState {
@@ -348,6 +389,7 @@ export function livePopupSummary(s: LivePopupState): string {
 		s.stale ? "stale" : "",
 		s.private ? "private" : "",
 		s.providers.cloud ? `cloud:${s.providers.cloud.id}` : "",
+		s.packs.length > 0 ? `packs:${s.packs.map((p) => `${p.lang}=${p.state}`).join(",")}` : "",
 	]
 		.filter(Boolean)
 		.join(" ");

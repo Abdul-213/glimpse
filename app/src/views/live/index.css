@@ -81,6 +81,11 @@ body,
 		accent-color: var(--color-accent);
 	}
 
+	/* L12 pack rows (GLIM-123): the Snip rows, under the strip; the list follows at 4px. */
+	.live-packs {
+		margin-block: var(--spacing) 0;
+	}
+
 	.live-list {
 		flex: 0 1 auto;
 		margin-block-start: var(--spacing);

@@ -3,6 +3,7 @@
 // the real `reduceLivePopup`, so a screenshot shows what main would push.
 import {
 	type BlockClass,
+	type InstallState,
 	initialLivePopupState,
 	type LiveBlockUpdate,
 	type LivePopupAction,
@@ -228,6 +229,18 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 		},
 	},
 	{
+		name: "l12-pack-missing",
+		note: "A block waits for the German pack: the row at the top, its source shown, the rest translated",
+		width: 400,
+		events: () => packEvents(null),
+	},
+	{
+		name: "l12-pack-downloading",
+		note: "Downloading the pack while the session keeps running",
+		width: 400,
+		events: () => packEvents({ status: "downloading", receivedBytes: 12_400_000, totalBytes: 38_600_000 }),
+	},
+	{
 		name: "l11-skipped",
 		note: "Skipped blocks (outside the source subset): one quiet line, never translated",
 		width: 400,
@@ -251,10 +264,45 @@ function skippedEvents(expanded: boolean): (LiveSessionEvent | LivePopupAction)[
 	return [opened(), status("starting"), frame(lines), status("live"), { type: "skipped", expanded }];
 }
 
+function packEvents(download: InstallState | null): (LiveSessionEvent | LivePopupAction)[] {
+	seq = 0;
+	const de = languageCode("de");
+	const waiting: LiveBlockUpdate = {
+		...up(["P1", "Sprich zuerst mit der Wache.", null, "translate", "de"], 1),
+		waitingForPack: true,
+	};
+	const f = frame([DOOR]);
+	const withPack: LiveSessionEvent =
+		f.type === "frame" ? { ...f, upserts: [...f.upserts, waiting], order: ["L1", "P1"] } : f;
+	const out: (LiveSessionEvent | LivePopupAction)[] = [
+		opened(),
+		status("starting"),
+		withPack,
+		status("live"),
+		{
+			type: "packs",
+			sessionId: S,
+			frameSeq: seq,
+			rows: [
+				{
+					lang: de,
+					state: "missing",
+					resourceIds: ["bergamot-deen"],
+					bytes: 38_600_000,
+					progress: null,
+					segmentIds: ["P1"],
+				},
+			],
+		},
+	];
+	if (download) out.push({ type: "packInstall", lang: de, states: [download] });
+	return out;
+}
+
 export function liveScenarioState(s: LiveScenario): LivePopupState {
 	let state = initialLivePopupState;
 	for (const e of s.events()) {
-		const own = ["session", "holdExpired", "private", "skipped"].includes(e.type);
+		const own = ["session", "holdExpired", "private", "skipped", "packInstall"].includes(e.type);
 		state = reduceLivePopup(state, own ? (e as LivePopupAction) : { type: "session", event: e as LiveSessionEvent });
 	}
 	return state;

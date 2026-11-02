@@ -100,3 +100,13 @@ export function errorCopy(error: LiveError): LiveErrorCopy {
 			};
 	}
 }
+
+// L12 pack rows and the skipped line share Snip's copy (live-popup.md §11: `snip.pack.*`).
+export {
+	packDownloadText,
+	packFailedText,
+	packOfflineText,
+	packProgressLabel,
+	packProgressText,
+	packRowText,
+} from "../popup/copy.ts";

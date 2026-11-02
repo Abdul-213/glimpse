@@ -17,6 +17,7 @@ import type { CaptureFrame } from "../capture/port.ts";
 import type { Rect } from "../geometry.ts";
 import { diffLiveBlocks, type LiveBlock, type LiveBlockInput, type LiveBlockUpdate } from "../popup/live-diff.ts";
 import type { OcrImage } from "../providers/ocr.ts";
+import type { PackRow } from "../providers/readiness.ts";
 import { type ChangeDecision, ChangeDetector, shouldProcess } from "./change-detection.ts";
 import type { PipelineEvent, PipelineListener, PipelineResult, RecognisedBlock } from "./events.ts";
 import { FrameRing, frameKey } from "./frame-ring.ts";
@@ -134,6 +135,8 @@ export class LiveRunner {
 	#updatingTimer: unknown = null;
 	#emptyTimer: unknown = null;
 	#empty = false;
+	/** The last `packs` rows sent (JSON), so unchanged rows aren't re-sent every frame. */
+	#packsKey = "[]";
 	#grabs = 0;
 	#grabMs = 0;
 	#detectMs = 0;
@@ -362,6 +365,8 @@ export class LiveRunner {
 				this.#settleCount++;
 			} else if (event.type === "translation" && ids) {
 				this.#translation(seq, ids, event.translation.blockId, event.translation);
+			} else if (event.type === "packs" && ids) {
+				this.#packs(seq, ids, event.rows);
 			}
 		};
 		this.#o.processor
@@ -450,11 +455,30 @@ export class LiveRunner {
 		this.#shown = diff.blocks;
 		this.#shownAt = frame.capturedAt;
 		this.#emitFrame(seq, frame, diff.upserts, diff.removes, diff.order, diff.changeSet, reused);
+		// L12 pack rows: a fresh run sends its `packs` right after `recognised`; a frame-ring
+		// hit carries them in its result; nothing waiting clears them.
+		if (!blocks.some((b) => b.waitingForPack)) this.#packs(seq, ids, []);
+		else if (result) this.#packs(seq, ids, result.packs);
 		if (this.#empty || this.#status === "starting") {
 			this.#empty = false;
 			if (this.#status === "starting" || this.#status === "empty") this.#setStatus("live");
 		}
 		return ids;
+	}
+
+	/** Emit the pack rows (run block ids -> stable ids) when they differ from the last sent. */
+	#packs(seq: number, ids: Map<string, string>, rows: readonly PackRow[]): void {
+		const mapped = rows.map((r) => ({
+			...r,
+			segmentIds: r.segmentIds.flatMap((id) => {
+				const stable = ids.get(id);
+				return stable ? [stable] : [];
+			}),
+		}));
+		const key = JSON.stringify(mapped);
+		if (key === this.#packsKey) return;
+		this.#packsKey = key;
+		this.#o.onEvent({ type: "packs", sessionId: this.#o.sessionId, frameSeq: seq, rows: mapped });
 	}
 
 	#translation(
@@ -496,6 +520,7 @@ export class LiveRunner {
 			this.#shown = [];
 			this.#shownAt = frame.capturedAt;
 			this.#emitFrame(seq, frame, [], removes, [], [], false);
+			this.#packs(seq, new Map(), []);
 			if (this.#status === "live" || this.#status === "updating") this.#setStatus("empty");
 		};
 		const delay = this.#o.emptyAfterMs ?? 5000;

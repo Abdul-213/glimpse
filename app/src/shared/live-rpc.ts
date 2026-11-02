@@ -16,6 +16,7 @@
 //                privateToggled    the strip's Private toggle (app-wide, shared with the tray)
 //                consentAnswered   L10: cloud / local / cancel (+ "Don't ask again")
 //                skippedToggled    the "N blocks skipped" line expanded / collapsed
+//                downloadPack      L12 "Download ({size})" on a pack row: consent to fetch that pack (GLIM-123)
 //                blockHovered      the frame lights that block's box (null = none)
 //                copyRequested     Ctrl/⌘C, Ctrl/⌘⇧C (manual only: Live never copies by itself)
 //                liveBlurred       Esc: hand focus back to the previous app
@@ -69,6 +70,8 @@ export type LiveRPC = {
 			privateToggled: { sessionId: string; on: boolean };
 			consentAnswered: { sessionId: string; answer: LiveConsentAnswer; remember: boolean };
 			skippedToggled: { sessionId: string; expanded: boolean };
+			/** GLIM-123: the pack row's Download (the user's consent, GLIM-57). */
+			downloadPack: { sessionId: string; lang: string };
 			/** A block is hovered / focused: the frame shows its box (null = none). */
 			blockHovered: { sessionId: string; id: string | null };
 			copyRequested: { sessionId: string; what: "translation" | "original" };

@@ -106,27 +106,6 @@ body,
 		padding-inline: calc(var(--spacing) * 2);
 	}
 
-	/* Pack rows (§2.2): one per missing language, at the top of the list. */
-	.snip-packs {
-		display: flex;
-		flex: none;
-		flex-direction: column;
-		gap: calc(var(--spacing) * 2);
-		margin-block-end: calc(var(--spacing) * 2);
-		padding-inline: calc(var(--spacing) * 2);
-	}
-
-	.snip-pack {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: calc(var(--spacing) * 1.5);
-	}
-
-	.snip-pack > :last-child:not(button) {
-		align-self: stretch;
-	}
-
 	.snip-skipped-actions {
 		display: flex;
 		flex-wrap: wrap;
