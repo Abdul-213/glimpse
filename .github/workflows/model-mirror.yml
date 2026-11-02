@@ -1,0 +1,84 @@
+# OCR model mirror (GLIM-95): uploads the PaddleOCR PP-OCRv5 ONNX files from
+# app/models/manifest.json, byte-for-byte and SHA-256 verified, as assets of a GitHub release
+# `models-ocr-v<RapidOCR version>` (today models-ocr-v3.10.0), with NOTICE.txt, the Apache-2.0
+# licence and SHA256SUMS. The manifest lists each asset's URL second, after ModelScope, so
+# downloads fall back to it when ModelScope is slow or blocked.
+#
+# Manual runs only (Actions tab, "Run workflow"), Linux only, a few minutes. Re-running replaces
+# the assets (`--clobber`); the release is published as a prerelease and never marked latest,
+# so the app's update check (releases/latest, GLIM-70) ignores it, and release.yml's notes
+# (tags matching v*) don't see its tag.
+#
+# Note: while the repository is private, release assets need a GitHub login, so users only get
+# the mirror once the repository (or a public mirror repository) is public.
+name: OCR model mirror
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only stage and verify the files (upload them as an artifact, no release)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: model-mirror
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    name: Mirror the OCR models
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check the manifest lists the mirror
+        working-directory: app
+        run: bun scripts/model-mirror.ts --check
+
+      # Fetches from the manifest's URLs (ModelScope first) and verifies every SHA-256.
+      - name: Stage the release assets
+        working-directory: app
+        env:
+          GLIMPSE_MODEL_CACHE: ${{ runner.temp }}/model-cache
+        run: |
+          set -eu
+          bun scripts/model-mirror.ts --stage "$RUNNER_TEMP/mirror"
+          bun scripts/model-mirror.ts --notes > "$RUNNER_TEMP/notes.md"
+          bun scripts/model-mirror.ts --tag > "$RUNNER_TEMP/tag"
+          (cd "$RUNNER_TEMP/mirror" && sha256sum -c SHA256SUMS && ls -la)
+
+      - name: Upload the staged files (dry run)
+        if: inputs.dry_run
+        uses: actions/upload-artifact@v7
+        with:
+          name: model-mirror-preview
+          path: ${{ runner.temp }}/mirror
+          retention-days: 3
+
+      - name: Create or update the release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag=$(cat "$RUNNER_TEMP/tag")
+          if ! gh release view "$tag" > /dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "OCR models ($tag)" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          gh release upload "$tag" "$RUNNER_TEMP"/mirror/* --clobber
+          gh release view "$tag" --json assets --jq '.assets[].name'
