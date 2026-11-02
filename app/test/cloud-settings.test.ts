@@ -77,7 +77,7 @@ describe("CloudSettings", () => {
 			[PROVIDER_IDS.googleVision, "ocr", "image", false],
 		]);
 		expect(s.local.ocr?.id).toBe(PROVIDER_IDS.paddleocr);
-		expect(s.local.translation.map((p) => p.id)).toEqual([PROVIDER_IDS.bergamot]);
+		expect(s.local.translation.map((p) => p.id)).toEqual([PROVIDER_IDS.bergamot, PROVIDER_IDS.small100]);
 	});
 
 	test("save: cleaned key goes to the keychain; the snapshot only says saved + last 4", async () => {
@@ -116,11 +116,15 @@ describe("CloudSettings", () => {
 		await cloud.saveKey(GOOGLE_SECRET_ID, KEY);
 		const unconfirmed = await cloud.setProvider({ task: "translation", id: PROVIDER_IDS.googleTranslate });
 		expect(unconfirmed.ok).toBe(false);
-		expect(settings.current.providers.translation).toEqual([PROVIDER_IDS.bergamot]);
+		expect(settings.current.providers.translation).toEqual([PROVIDER_IDS.bergamot, PROVIDER_IDS.small100]);
 
 		const ok = await cloud.setProvider({ task: "translation", id: PROVIDER_IDS.googleTranslate, confirmed: true });
 		expect(ok.ok).toBe(true);
-		expect(settings.current.providers.translation).toEqual([PROVIDER_IDS.googleTranslate, PROVIDER_IDS.bergamot]);
+		expect(settings.current.providers.translation).toEqual([
+			PROVIDER_IDS.googleTranslate,
+			PROVIDER_IDS.bergamot,
+			PROVIDER_IDS.small100,
+		]);
 		expect(ok.cloud.providers.find((p) => p.id === PROVIDER_IDS.googleTranslate)?.selected).toBe(true);
 
 		// Wrong task, unknown id.
@@ -137,7 +141,7 @@ describe("CloudSettings", () => {
 		await cloud.setProvider({ task: "ocr", id: null });
 		expect(settings.current.providers).toMatchObject({
 			ocr: PROVIDER_IDS.paddleocr,
-			translation: [PROVIDER_IDS.bergamot],
+			translation: [PROVIDER_IDS.bergamot, PROVIDER_IDS.small100],
 		});
 	});
 
@@ -150,7 +154,7 @@ describe("CloudSettings", () => {
 		expect(secrets.items.has(GOOGLE_SECRET_ID)).toBe(false);
 		expect(settings.current.providers).toMatchObject({
 			ocr: PROVIDER_IDS.paddleocr,
-			translation: [PROVIDER_IDS.bergamot],
+			translation: [PROVIDER_IDS.bergamot, PROVIDER_IDS.small100],
 		});
 		expect(r.cloud.providers.every((p) => !p.selected)).toBe(true);
 		expect(keyChanges).toEqual([GOOGLE_SECRET_ID]);

@@ -9,3 +9,4 @@ export * from "./ocr/google-vision/index.ts";
 export * from "./ocr/paddle/index.ts";
 export * from "./translation/bergamot/index.ts";
 export * from "./translation/google-v2/index.ts";
+export * from "./translation/small100/index.ts";

@@ -12,6 +12,7 @@
 		"./ocr/paddle": "./src/ocr/paddle/index.ts",
 		"./translation/bergamot": "./src/translation/bergamot/index.ts",
 		"./translation/google-v2": "./src/translation/google-v2/index.ts",
+		"./translation/small100": "./src/translation/small100/index.ts",
 		"./testing": "./src/testing.ts"
 	},
 	"scripts": {
@@ -20,6 +21,7 @@
 	},
 	"dependencies": {
 		"@glimpse/core": "workspace:*",
+		"@huggingface/tokenizers": "0.2.0",
 		"eld": "2.1.0",
 		"onnxruntime-node": "1.31.1"
 	}

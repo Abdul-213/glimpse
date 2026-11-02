@@ -5,7 +5,7 @@
 // the main bundle (<app>/bun/), where services/translation/bergamot-worker.ts and
 // services/ocr/paddle-worker.ts find them.
 //
-// The OCR Worker imports onnxruntime-node, whose binding.js loads its N-API addon with
+// The OCR and SMaLL-100 Workers import onnxruntime-node, whose binding.js loads its N-API addon with
 // require(`../bin/napi-v6/${platform}/${arch}/onnxruntime_binding.node`): a path relative to
 // the package that bundling can't follow. `ortBindingPlugin` rewrites it to the copy the build
 // ships (<app>/native/onnxruntime/, staged by scripts/onnxruntime.ts), with an override.
@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import type { BunPlugin } from "bun";
 import { OCR_WORKER_FILE } from "../src/bun/services/ocr/paddle-worker.ts";
 import { BERGAMOT_WORKER_FILE } from "../src/bun/services/translation/bergamot-worker.ts";
+import { SMALL100_WORKER_FILE } from "../src/bun/services/translation/small100-worker.ts";
 import { ORT_BINDING } from "./onnxruntime.ts";
 
 export const workersOut = resolve(import.meta.dir, "..", "dist", "workers");
@@ -66,15 +67,22 @@ export function ortPackagePlugin(packageDir: string): BunPlugin {
 
 /**
  * Worker entries: output file name -> source entry and bundler plugins. `ortPackageDir`: the
- * onnxruntime-node to bundle into the OCR Worker (default: the npm dependency).
+ * onnxruntime-node to bundle into the OCR and SMaLL-100 Workers (default: the npm dependency).
  */
 export function workerEntries(ortPackageDir?: string): Record<string, WorkerEntry> {
 	const dirOf = (specifier: string) => dirname(fileURLToPath(import.meta.resolve(specifier)));
+	const ortPlugins = ortPackageDir ? [ortPackagePlugin(ortPackageDir), ortBindingPlugin] : [ortBindingPlugin];
 	return {
 		[BERGAMOT_WORKER_FILE]: { entry: join(dirOf("@glimpse/providers/translation/bergamot"), "worker.ts"), plugins: [] },
 		[OCR_WORKER_FILE]: {
 			entry: join(dirOf("@glimpse/providers/ocr/paddle"), "worker.ts"),
-			plugins: ortPackageDir ? [ortPackagePlugin(ortPackageDir), ortBindingPlugin] : [ortBindingPlugin],
+			plugins: ortPlugins,
+		},
+		// GLIM-100: the same onnxruntime as the OCR Worker (incl. the darwin-x64 pin), plus the
+		// pure-JS tokenizer.
+		[SMALL100_WORKER_FILE]: {
+			entry: join(dirOf("@glimpse/providers/translation/small100"), "worker.ts"),
+			plugins: ortPlugins,
 		},
 	};
 }

@@ -34,6 +34,23 @@ Firefox Translations language models (downloaded on demand, not shipped in the i
   https://github.com/mozilla/translations
   Licensed under the Mozilla Public License, Version 2.0 (licenses/MPL-2.0.txt).
 
+SMaLL-100 translation model (downloaded on demand, not shipped in the installer)
+  Copyright (c) 2022 Alireza Mohammadshahi, Vassilina Nikoulina, Alexandre Berard, Caroline Brun,
+  James Henderson and Laurent Besacier.
+  https://huggingface.co/alirezamsh/small100 (revision 8ab680e), https://arxiv.org/abs/2210.11621
+  Licensed under the MIT License (licenses/MIT-small100.txt).
+  Files: encoder_model_quantized.onnx and decoder_model_merged_quantized.onnx, an int8 ONNX
+  export (Hugging Face Optimum, dynamic quantisation) published as R4kSo1997/small100-onnx-int8_v2
+  (revision d66e226), and tokenizer.json from Xenova/m2m100_418M (revision 9c374f0): the M2M-100
+  SentencePiece tokenizer SMaLL-100 shares (Copyright (c) Facebook, Inc. and its affiliates, MIT).
+  The files are unmodified.
+
+Tokenizers.js (@huggingface/tokenizers), version 0.2.0
+  Copyright Hugging Face, Inc.
+  https://github.com/huggingface/tokenizers.js
+  Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
+  Bundled into the SMaLL-100 worker script, unmodified.
+
 ELD, Efficient Language Detector (JavaScript), version 2.1.0, medium database
   Copyright 2023 Nito T.M.
   https://github.com/nitotm/efficient-language-detector-js
@@ -45,7 +62,7 @@ ONNX Runtime (onnxruntime-node and onnxruntime-common), version 1.31.1
   https://github.com/microsoft/onnxruntime
   Licensed under the MIT License (licenses/MIT-onnxruntime.txt).
   Shipped as the native runtime library and Node-API binding for this platform
-  (native/onnxruntime/), with the JavaScript bindings bundled into the OCR worker script.
+  (native/onnxruntime/), with the JavaScript bindings bundled into the OCR and SMaLL-100 worker scripts.
   Unmodified, except that the bundled binding loader points at native/onnxruntime/.
 
 Microsoft Visual C++ runtime (Windows builds only)

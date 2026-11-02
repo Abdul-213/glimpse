@@ -10,6 +10,7 @@ import {
 	type InstallState,
 	type LanguageCode,
 	languageName,
+	type ModelEntry,
 	type ModelResource,
 	type PackRow,
 	packRows,
@@ -18,7 +19,7 @@ import {
 	translationReadiness,
 } from "@glimpse/core";
 import type { PackChangedMessage } from "../../../shared/translation-packs.ts";
-import { packInstallable } from "../models/catalogue.ts";
+import { manifestInstallable, packInstallable } from "../models/catalogue.ts";
 import type { ModelManager } from "../models/model-manager.ts";
 import type { ModelManagerPackSource } from "./bergamot-packs.ts";
 
@@ -27,6 +28,11 @@ export interface TranslationPacksOptions {
 	readonly packs: ModelManagerPackSource;
 	/** The translation chain in settings order (GLIM-43). */
 	readonly chain: () => readonly TranslationProvider[];
+	/**
+	 * Whole translation models a pack row may download besides Bergamot packs: the SMaLL-100
+	 * long-tail model (GLIM-100, manifest kind `translation-model`).
+	 */
+	readonly models?: readonly ModelEntry[];
 }
 
 export class TranslationPacks {
@@ -48,11 +54,14 @@ export class TranslationPacks {
 	}
 
 	/**
-	 * Install packs the user agreed to download. Only catalogue packs are accepted; resolves
-	 * with each pack's final install state (failed installs resolve, they don't throw).
+	 * Install packs the user agreed to download. Only catalogue packs and the listed translation
+	 * models are accepted; resolves with each one's final install state (failed installs
+	 * resolve, they don't throw).
 	 */
 	async download(resourceIds: readonly string[]): Promise<InstallState[]> {
 		const items = resourceIds.map((id) => {
+			const model = this.#opts.models?.find((m) => m.id === id);
+			if (model) return manifestInstallable(model);
 			const pack = this.#opts.packs.catalogueEntry(id);
 			if (!pack) throw new Error(`not a downloadable pack: ${id}`);
 			return packInstallable(pack);
@@ -69,10 +78,11 @@ export class TranslationPacks {
 		return this.#opts.manager.state(id);
 	}
 
-	/** Install-state changes for language packs. */
+	/** Install-state changes for language packs and the listed translation models. */
 	subscribe(listener: (id: string, state: InstallState) => void): () => void {
+		const models = new Set((this.#opts.models ?? []).map((m) => m.id));
 		return this.#opts.manager.subscribe((id, state) => {
-			if (id.startsWith("bergamot-") && id !== "bergamot-runtime") listener(id, state);
+			if ((id.startsWith("bergamot-") && id !== "bergamot-runtime") || models.has(id)) listener(id, state);
 		});
 	}
 }

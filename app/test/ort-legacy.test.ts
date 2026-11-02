@@ -22,6 +22,7 @@ import {
 	type PinnedTarball,
 } from "../scripts/onnxruntime-legacy.ts";
 import { OCR_WORKER_FILE } from "../src/bun/services/ocr/paddle-worker.ts";
+import { SMALL100_WORKER_FILE } from "../src/bun/services/translation/small100-worker.ts";
 
 const tmp = mkdtempSync(join(tmpdir(), "glimpse-ort-legacy-test-"));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -74,6 +75,9 @@ describe("onnxruntime-node per target (GLIM-89)", () => {
 		const names = (dir?: string) => workerEntries(dir)[OCR_WORKER_FILE]?.plugins.map((p) => p.name);
 		expect(names()).toEqual(["glimpse-ort-binding"]);
 		expect(names("/cache/onnxruntime-node")).toEqual(["glimpse-ort-package", "glimpse-ort-binding"]);
+		// GLIM-100: the SMaLL-100 Worker loads the same native runtime, so it bundles the same package.
+		const small = workerEntries("/cache/onnxruntime-node")[SMALL100_WORKER_FILE]?.plugins.map((p) => p.name);
+		expect(small).toEqual(["glimpse-ort-package", "glimpse-ort-binding"]);
 	});
 });
 
