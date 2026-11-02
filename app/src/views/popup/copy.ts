@@ -99,7 +99,8 @@ export const packProgressLabel = (lang: string, uiLang: string, kind?: PackKind)
  */
 export function packConfirmText(row: { lang: string; bytes: number; kind?: PackKind }, uiLang: string): string {
 	const name = languageName(row.lang, uiLang);
-	const size = formatBytes(row.bytes);
+	// A no-break space keeps "618 MB" on one line in the narrow popup.
+	const size = formatBytes(row.bytes).replace(" ", "\u00a0");
 	if (row.kind === "long-tail-model") {
 		return (
 			`Download the ${LONG_TAIL_MODEL} (${size})? It translates ${name} and about 100 other languages ` +

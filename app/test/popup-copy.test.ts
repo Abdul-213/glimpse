@@ -64,11 +64,11 @@ describe("GLIM-138 large downloads", () => {
 
 	test("the question says what it is, its size and what it's for", () => {
 		expect(packConfirmText(row("sw", 618_000_000, "long-tail-model"), "en")).toBe(
-			"Download the More languages model (618 MB)? It translates Swahili and about 100 other languages on this " +
+			"Download the More languages model (618\u00a0MB)? It translates Swahili and about 100 other languages on this " +
 				"device. It's slower than language packs and uses about 1 GB of memory while it translates.",
 		);
 		expect(packConfirmText(row("el", 250_000_000), "en")).toBe(
-			"Download 250 MB to translate Greek? This is a large download.",
+			"Download 250\u00a0MB to translate Greek? This is a large download.",
 		);
 	});
 
@@ -76,7 +76,7 @@ describe("GLIM-138 large downloads", () => {
 		const sw = e2([row("sw", 618_000_000, "long-tail-model")]);
 		expect(sw.body).toContain("needs the More languages model to translate Swahili");
 		expect(sw.buttons[0]).toMatchObject({ action: "download", label: "Download (618 MB)", lang: "sw" });
-		expect(sw.buttons[0]?.confirm).toContain("More languages model (618 MB)");
+		expect(sw.buttons[0]?.confirm).toContain("More languages model (618\u00a0MB)");
 		const el = e2([row("el", 31_000_000)]);
 		expect(el.buttons[0]).toMatchObject({ label: "Download Greek (31 MB)" });
 		expect(el.buttons[0]?.confirm).toBeUndefined();
