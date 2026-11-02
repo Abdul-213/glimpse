@@ -55,6 +55,9 @@ export interface LiveStateMessage {
 
 export type LiveConsentAnswer = "cloud" | "local" | "cancel";
 
+/** The skipped line's two text buttons (GLIM-131). */
+export type LiveSkippedAction = "translateSkipped" | "editSources";
+
 export type LiveRPC = {
 	bun: RPCSchema<{
 		requests: {
@@ -72,6 +75,8 @@ export type LiveRPC = {
 			skippedToggled: { sessionId: string; expanded: boolean };
 			/** GLIM-123: the pack row's Download (the user's consent, GLIM-57). */
 			downloadPack: { sessionId: string; lang: string };
+			/** GLIM-131: "Translate these" (session-only) / "Edit source languages…". */
+			skippedAction: { sessionId: string; action: LiveSkippedAction };
 			/** A block is hovered / focused: the frame shows its box (null = none). */
 			blockHovered: { sessionId: string; id: string | null };
 			copyRequested: { sessionId: string; what: "translation" | "original" };

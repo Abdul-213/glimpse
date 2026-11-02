@@ -28,11 +28,12 @@ import {
 	StateMessage,
 	StatusIndicator,
 	TextBlock,
+	TextButton,
 	Toolbar,
 } from "@glimpse/ui";
 import { createEffect, createSignal, For, type JSX, on, onCleanup, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
-import type { LiveConsentAnswer, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
+import type { LiveConsentAnswer, LiveSkippedAction, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
 import {
 	COPY,
 	company,
@@ -68,6 +69,8 @@ export interface LivePopupIntents {
 	skipped(sessionId: string, expanded: boolean): void;
 	/** L12: the pack row's Download (GLIM-123). Optional: previews may omit it. */
 	downloadPack?(sessionId: string, lang: string): void;
+	/** GLIM-131: the skipped line's "Translate these" / "Edit source languages…". */
+	skippedAction?(sessionId: string, action: LiveSkippedAction): void;
 }
 
 export interface LivePopupProps {
@@ -433,6 +436,15 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 									/>
 								)}
 							</For>
+							{/* GLIM-131: as Snip. "Translate these" lasts for this session only. */}
+							<li class="live-skipped-actions">
+								<TextButton onClick={() => props.intents.skippedAction?.(id(), "translateSkipped")}>
+									{COPY.translateThese}
+								</TextButton>
+								<TextButton onClick={() => props.intents.skippedAction?.(id(), "editSources")}>
+									{COPY.editSources}
+								</TextButton>
+							</li>
 						</SkippedLine>
 					</Show>
 				</Show>
