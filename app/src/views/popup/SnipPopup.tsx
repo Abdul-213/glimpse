@@ -477,18 +477,24 @@ function hasSelection(root: HTMLElement | undefined): boolean {
 
 /** Focus stays inside the popup: Tab wraps from the last control to the first block (§7.6). */
 function trapTab(shell: HTMLElement, list: HTMLElement | undefined, e: KeyboardEvent): void {
+	// Every Tab stop in DOM order: buttons, the block list's active item, links. Hidden ones
+	// (display: none) can't take focus, so they don't count (GLIM-83: with no blocks the old
+	// wrap target was the hidden list and focus stuck on the last button).
 	const stops = [...shell.querySelectorAll<HTMLElement>("button, [tabindex='0'], a[href]")].filter(
-		(el) => !el.hasAttribute("disabled") && el.getAttribute("tabindex") !== "-1",
+		(el) => !el.hasAttribute("disabled") && el.getAttribute("tabindex") !== "-1" && el.getClientRects().length > 0,
 	);
-	const firstBlock = list?.querySelector<HTMLElement>("[data-block], [data-roving]") ?? list;
-	const first = firstBlock ?? stops[0];
+	const first = stops[0];
 	const last = stops.at(-1);
 	if (!first || !last) return;
 	const active = document.activeElement;
+	// The list itself takes focus when the popup opens (tabindex -1); when it comes before
+	// every stop, Shift+Tab from it wraps too.
+	const listFirst =
+		!!list && active === list && !!(list.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING);
 	if (!e.shiftKey && active === last) {
 		e.preventDefault();
 		first.focus();
-	} else if (e.shiftKey && (active === first || active === list || list?.contains(active))) {
+	} else if (e.shiftKey && (active === first || listFirst)) {
 		e.preventDefault();
 		last.focus();
 	}

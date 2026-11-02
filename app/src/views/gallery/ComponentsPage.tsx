@@ -229,10 +229,10 @@ function SnipSpecimens(props: { os: UiPlatform }): JSX.Element {
 								tag="Korean"
 							/>
 							<TextBlock state="done" kind="neutral" source="กดปุ่มใดก็ได้เพื่อดำเนินการต่อ" sourceLang="th" tag="Thai" />
-							<div class="flex gap-4 ps-2">
+							<li class="flex gap-4 ps-2">
 								<TextButton>Translate these</TextButton>
 								<TextButton>Edit source languages…</TextButton>
-							</div>
+							</li>
 						</SkippedLine>
 					</BlockList>
 					<SnipFooter os={props.os} status="Translated 1 of 2" originalPressed />
