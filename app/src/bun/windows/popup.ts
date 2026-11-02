@@ -3,14 +3,18 @@
 // create. Logic lives in popup-controller.ts; this file only adapts the window.
 //
 //   macOS    borderless, transparent (the view draws the 12px-radius veil), level 101 (pop-up
-//            menu) so it sits above the results layer (overlays lowered to 100).
+//            menu) so it sits above the results layer (overlays lowered to 100). Frames go
+//            through glim_window_set_frame (global top-left points, no Electrobun Y-flip).
 //   Windows  `hiddenInset` keeps the DWM frame (shadow, 8px corners, spike §3); tool window
 //            (no taskbar button, out of Alt+Tab) and HWND_TOPMOST, re-asserted after every
-//            show so it stays above the overlays.
+//            show so it stays above the overlays. Hidden by DWM cloak, so the webview keeps
+//            rendering and a show never flashes the previous Snip; the sizing border is
+//            client area (glimpse.dll WM_NCHITTEST).
 //   Both     the first show goes through CaptureExclusion, so the popup is never captured.
 //
-// Native materials (Acrylic, NSVisualEffectView) aren't wired yet: the view paints the
-// solid `surface-popup-solid` veil (`data-material="none"`) until they are.
+// Materials (GLIM-116) come from WindowChrome (window-chrome.ts): NSVisualEffectView on macOS,
+// Acrylic on Windows 11 22H2+, the solid veil on Windows 10 and with reduced transparency; it
+// also sets the view's `data-material`.
 import { type Display, displayAt } from "@glimpse/core";
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import {
@@ -23,8 +27,10 @@ import {
 import { loadMacNative } from "../native/macos.ts";
 import { configureOverlayWindow, raiseTopmost } from "../native/windows.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
+import { electrobunChromeTarget } from "./chrome-target.ts";
 import type { PopupWindowPort, SnipPopupController } from "./popup-controller.ts";
 import { macFlipOffset } from "./popup-init.ts";
+import type { ChromeHandle, WindowChrome } from "./window-chrome.ts";
 
 /** NSWindow level for the Snip popup: NSPopUpMenuWindowLevel, above the lowered overlays (100). */
 export const MAC_POPUP_LEVEL = 101;
@@ -36,6 +42,8 @@ export interface ElectrobunPopupDeps {
 	readonly controller: () => SnipPopupController | null;
 	readonly displays: () => readonly Display[];
 	readonly log: (message: string) => void;
+	/** Native material, cloak, edges, theme (GLIM-116). Without it: solid veil, plain hide. */
+	readonly chrome?: WindowChrome;
 }
 
 export class ElectrobunPopupWindow implements PopupWindowPort {
@@ -44,6 +52,7 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 	private protectedOnce = false;
 	private visible = false;
 	private last: SnipStateMessage | null = null;
+	private readonly chrome: ChromeHandle | null;
 	/** The display the window is on (macOS Y-flip workaround). */
 	private displayId: number | null = null;
 
@@ -107,7 +116,7 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 			title: "Glimpse",
 			url: "views://popup/index.html",
 			frame: { x: at.x + 8, y: at.y + 8, width: 360, height: 124 },
-			transparent: !win32,
+			transparent: deps.chrome ? deps.chrome.transparentFor("popup") : !win32,
 			titleBarStyle: win32 ? "hiddenInset" : "hidden",
 			styleMask: { Borderless: true, Titled: false, Closable: false, Miniaturizable: false, Resizable: false },
 			hidden: true,
@@ -116,6 +125,8 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 		});
 		this.displayId = primary?.id ?? null;
 		this.configure();
+		this.chrome = deps.chrome?.attach(electrobunChromeTarget(this.win), "popup") ?? null;
+		this.chrome?.disableResize();
 		// Key changes and moves (app switch dismisses; a footer drag re-anchors the popup).
 		this.win.on("focus", () => c()?.windowFocus(true));
 		this.win.on("blur", () => c()?.windowFocus(false));
@@ -153,14 +164,18 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 	}
 
 	setFrame(frame: { x: number; y: number; width: number; height: number }): void {
-		// Electrobun flips against the screen the window is on *before* the move.
-		const y = frame.y + this.flipOffset();
-		this.win.setFrame(frame.x, y, frame.width, frame.height);
+		if (!this.chrome?.setFrame(frame)) {
+			// Electrobun flips against the screen the window is on *before* the move.
+			const y = frame.y + this.flipOffset();
+			this.win.setFrame(frame.x, y, frame.width, frame.height);
+		}
 		const centre = { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 };
 		this.displayId = displayAt(this.deps.displays(), centre)?.id ?? this.displayId;
 	}
 
 	show(): void {
+		// Reduced transparency may have changed while hidden: material and veil follow it.
+		this.chrome?.refresh();
 		const show = () => this.win.show();
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
@@ -173,6 +188,9 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 		} else {
 			show();
 		}
+		// Cloaked (Windows): the content already rendered while hidden; uncloak after the show
+		// has activated it, so the first visible frame is the new Snip.
+		if (this.chrome?.cloaked) this.chrome.setCloaked(false);
 		this.visible = true;
 		const handle = this.win.ptr;
 		if (process.platform === "win32" && handle) {
@@ -187,6 +205,8 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 	hide(): void {
 		if (!this.visible) return;
 		this.visible = false;
+		// Windows: cloak instead of hide (snip-popup.md §13.1); falls back to hide() if DWM refuses.
+		if (this.chrome?.canCloak && this.chrome.setCloaked(true)) return;
 		this.win.hide();
 	}
 
@@ -200,6 +220,7 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 	}
 
 	close(): void {
+		this.chrome?.dispose();
 		try {
 			this.win.close();
 		} catch {

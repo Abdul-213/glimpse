@@ -19,7 +19,7 @@ import { exclusionOpsFor } from "./native/exclusion.ts";
 import { frameNativesFor } from "./native/frame.ts";
 import { loadMacNative } from "./native/macos.ts";
 import { overlayOpsFor } from "./native/overlay.ts";
-import { loadWindowsCapture } from "./native/windows.ts";
+import { loadWindowsCapture, loadWindowsChrome } from "./native/windows.ts";
 import { platform } from "./platform.ts";
 import { AppSettings } from "./services/app-settings.ts";
 import { withDeniedReport } from "./services/capture/denied-report.ts";
@@ -69,6 +69,7 @@ import { SnipPopupController } from "./windows/popup-controller.ts";
 import { snipViewInit } from "./windows/popup-init.ts";
 import { SettingsWindow } from "./windows/settings.ts";
 import { providerSummaries } from "./windows/settings-handlers.ts";
+import { WindowChrome } from "./windows/window-chrome.ts";
 
 const logs = createAppLogger({ dir: Utils.paths.userLogs });
 const log = logs.logger;
@@ -336,6 +337,14 @@ picker = new PickerController({
 	liveRunning: () => live.active,
 });
 picker.prepare();
+// Native window chrome (GLIM-116): materials, cloaked hide, popup edges, light / dark.
+const chromeLog = log.child("chrome");
+const chrome = new WindowChrome({
+	os: platform,
+	native: platform === "macos" ? (macNative?.binding ?? null) : platform === "windows" ? loadWindowsChrome() : null,
+	theme: () => "system",
+	log: (message) => chromeLog.info(message),
+});
 // Snip popup (GLIM-65): one hidden window created now, reused for every Snip. A confirmed
 // Snip region runs through the translation pipeline and streams into it; the overlays stay
 // up under it as the results layer until it closes.
@@ -347,6 +356,7 @@ const popupWindow = new ElectrobunPopupWindow({
 	controller: () => snipPopup,
 	displays: readDisplays,
 	log: (message) => popupLog.info(message),
+	chrome,
 });
 snipPopup = new SnipPopupController({
 	window: popupWindow,
