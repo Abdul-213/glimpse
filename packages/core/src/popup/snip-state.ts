@@ -302,7 +302,8 @@ export function packRowState(row: SnipPackRow, states: readonly InstallState[]):
 	return { ...row, state: "downloading", received, total: size > 0 ? size : null };
 }
 
-const packRowOf = (p: PackRow): SnipPackRow => ({
+/** A pipeline pack row as the popups show it (Snip and Live, GLIM-123). */
+export const packRowView = (p: PackRow): SnipPackRow => ({
 	lang: p.lang,
 	state: p.state,
 	bytes: p.bytes,
@@ -363,8 +364,8 @@ function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupS
 			const rows = [...state.packs];
 			for (const p of event.rows) {
 				const i = rows.findIndex((r) => r.lang === p.lang);
-				if (i >= 0) rows[i] = packRowOf(p);
-				else rows.push(packRowOf(p));
+				if (i >= 0) rows[i] = packRowView(p);
+				else rows.push(packRowView(p));
 			}
 			// Blocks named by a row wait for it.
 			const waiting = new Set(event.rows.flatMap((p) => p.segmentIds));

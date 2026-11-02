@@ -70,6 +70,7 @@ render(
 								blurred: (sessionId) => rpc.send.liveBlurred({ sessionId }),
 								copy: (sessionId, what) => rpc.send.copyRequested({ sessionId, what }),
 								skipped: (sessionId, expanded) => rpc.send.skippedToggled({ sessionId, expanded }),
+								downloadPack: (sessionId, lang) => rpc.send.downloadPack({ sessionId, lang }),
 							}}
 						/>
 					)}

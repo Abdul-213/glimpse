@@ -43,6 +43,7 @@ const VARIANTS: readonly ShotVariant[] = [
 			"l21-compact",
 			"l20-chat-side",
 			"l11-skipped-expanded",
+			"l12-pack-missing",
 		],
 	},
 	{ suffix: "macos-dark-rtl-ui", query: "os=macos&dir=rtl", colorScheme: "dark", only: ["l4-changed"] },

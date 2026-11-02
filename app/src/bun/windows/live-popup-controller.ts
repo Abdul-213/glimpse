@@ -36,6 +36,7 @@ import {
 } from "@glimpse/core";
 import type { LiveConsentAnswer, LiveLayout, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
 import { realScheduler, type Scheduler } from "./picker-controller.ts";
+import type { PackPort } from "./popup-controller.ts";
 
 /** Show the window anyway if the view hasn't reported `painted` by then (§8: ≤ 100 ms p95). */
 export const LIVE_PAINT_TIMEOUT_MS = 48;
@@ -64,6 +65,8 @@ export interface LivePopupSession {
 	answerConsent(sessionId: string, answer: LiveConsentAnswer, remember: boolean): Promise<void> | void;
 	highlightBlock(box: Rect | null, image: { readonly width: number; readonly height: number } | null): void;
 	setPopupVisible(visible: boolean): void;
+	/** Re-read the region on the next grab (a pack landed, GLIM-123). Optional for older fakes. */
+	refresh?(reason: "pack-installed"): void;
 }
 
 export interface LivePopupSettings {
@@ -87,6 +90,11 @@ export interface LivePopupControllerDeps {
 	readonly log: Logger;
 	readonly scheduler?: Scheduler;
 	readonly now?: () => number;
+	/**
+	 * L12 language-pack downloads (the app's TranslationPacks, shared with Snip). Without it the
+	 * pack row shows but Download does nothing.
+	 */
+	readonly packs?: PackPort;
 }
 
 export class LivePopupController {
@@ -108,6 +116,7 @@ export class LivePopupController {
 	#cancelStale: (() => void) | null = null;
 	readonly #holds = new Map<string, () => void>();
 	readonly #unsubscribe: () => void;
+	readonly #unsubscribePacks: (() => void) | null;
 	readonly #listeners = new Set<(prev: LivePopupState, next: LivePopupState) => void>();
 
 	constructor(deps: LivePopupControllerDeps) {
@@ -115,6 +124,7 @@ export class LivePopupController {
 		this.#scheduler = deps.scheduler ?? realScheduler;
 		this.#now = deps.now ?? Date.now;
 		this.#unsubscribe = deps.live.onEvent((e) => this.#onSession(e));
+		this.#unsubscribePacks = deps.packs?.subscribe((id) => this.#onPackState(id)) ?? null;
 	}
 
 	get state(): LivePopupState {
@@ -254,6 +264,30 @@ export class LivePopupController {
 		if (this.#mine(sessionId)) this.#dispatch({ type: "skipped", expanded });
 	}
 
+	/**
+	 * L12 "Download ({size})" on a pack row: the user's consent to fetch that language's pack
+	 * (GLIM-57). The session keeps running; the blocks translate once it lands.
+	 */
+	downloadPack(sessionId: string, lang: string): void {
+		const packs = this.#d.packs;
+		if (!this.#mine(sessionId) || !packs) return;
+		const row = this.#state.packs.find((p) => p.lang === lang);
+		if (!row || row.state === "downloading") return;
+		this.#d.log.info("live popup: pack download requested", { lang: row.lang, resources: row.resourceIds.length });
+		packs.download(row.resourceIds).catch((error) => this.#d.log.warn("live popup: pack download failed", { error }));
+		this.#dispatch({ type: "packInstall", lang: row.lang, states: row.resourceIds.map((id) => packs.state(id)) });
+	}
+
+	/** A pack resource changed install state: update its row; once it is in, re-read the region. */
+	#onPackState(resourceId: string): void {
+		const packs = this.#d.packs;
+		if (!packs || this.#state.sessionId === null) return;
+		const row = this.#state.packs.find((p) => p.resourceIds.includes(resourceId));
+		if (!row) return;
+		this.#dispatch({ type: "packInstall", lang: row.lang, states: row.resourceIds.map((id) => packs.state(id)) });
+		if (!this.#state.packs.some((p) => p.lang === row.lang)) this.#d.live.refresh?.("pack-installed");
+	}
+
 	hoverBlock(sessionId: string, id: string | null): void {
 		if (!this.#mine(sessionId)) return;
 		const b = id === null ? null : this.#state.blocks.find((x) => x.id === id);
@@ -340,6 +374,7 @@ export class LivePopupController {
 
 	dispose(): void {
 		this.#unsubscribe();
+		this.#unsubscribePacks?.();
 		this.#clearTimers();
 		this.#listeners.clear();
 	}

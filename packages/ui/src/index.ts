@@ -23,6 +23,7 @@ export {
 	type LanguageOptionGroup,
 	type MultiLanguageOption,
 } from "./components/LanguageMultiSelect.tsx";
+export { type PackRowItem, PackRows, type PackRowsProps } from "./components/PackRow.tsx";
 export { type PopupFacing, type PopupKind, PopupShell, type PopupShellProps } from "./components/PopupShell.tsx";
 export { ProgressBar, type ProgressBarProps } from "./components/ProgressBar.tsx";
 export {

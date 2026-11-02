@@ -466,6 +466,8 @@ livePopup = new LivePopupController({
 	// Manual Ctrl/⌘C only: Live never copies by itself (GLIM-71).
 	clipboard: { writeText: (text) => Utils.clipboardWriteText(text) },
 	eol: platform === "windows" ? "\r\n" : "\n",
+	// GLIM-123 (L12): the pack row's Download, the same consent path as Snip (GLIM-57).
+	packs: translationPacks,
 	log: liveLog.child("popup"),
 });
 // GLIM-92: Live changes read aloud (live-popup.md §10): the view's live regions plus the

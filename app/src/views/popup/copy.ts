@@ -73,6 +73,7 @@ export const packDownloadText = (bytes: number) => (bytes > 0 ? `Download (${for
 export const packProgressText = (done: number, total: number) => `${formatBytes(done)} of ${formatBytes(total)}`;
 export const packOfflineText = "Connect to the internet to download it.";
 export const packFailedText = "The download didn't finish.";
+export const packProgressLabel = (lang: string, uiLang: string) => `Downloading ${languageName(lang, uiLang)}`;
 
 export interface ErrorButton {
 	readonly action: SnipAction;

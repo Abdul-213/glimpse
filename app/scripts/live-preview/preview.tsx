@@ -57,6 +57,7 @@ function Frame(props: { scenario: (typeof LIVE_SCENARIOS)[number] }) {
 					blurred: noop,
 					copy: noop,
 					skipped: noop,
+					downloadPack: noop,
 				}}
 			/>
 		</div>

@@ -6,6 +6,7 @@
 import type { Rect } from "../geometry.ts";
 import type { LiveBlockUpdate } from "../popup/live-diff.ts";
 import type { ProviderRef } from "../providers/provenance.ts";
+import type { PackRow } from "../providers/readiness.ts";
 
 /** live-popup.md §4, the states the session itself knows about. */
 export type LiveStatus =
@@ -98,6 +99,18 @@ export type LiveSessionEvent =
 			/** The pinned region (global logical) and the image size the block boxes are in. */
 			readonly region: Rect;
 			readonly image: { readonly width: number; readonly height: number };
+	  }
+	/**
+	 * GLIM-123 (live-popup.md L12): the language packs the latest settled capture waits for, one
+	 * row per source language; `segmentIds` are the session's stable block ids. An empty list
+	 * clears the rows (the blocks went away, or the pack landed and the region was re-read).
+	 * Sent only when the rows change.
+	 */
+	| {
+			readonly type: "packs";
+			readonly sessionId: string;
+			readonly frameSeq: number;
+			readonly rows: readonly PackRow[];
 	  }
 	| {
 			readonly type: "translation";

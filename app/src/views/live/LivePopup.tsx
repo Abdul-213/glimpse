@@ -22,6 +22,7 @@ import {
 	IconButton,
 	LocalIndicator,
 	languageName,
+	PackRows,
 	PopupShell,
 	SkippedLine,
 	StateMessage,
@@ -39,6 +40,12 @@ import {
 	egressTooltip,
 	errorCopy,
 	type LiveErrorAction,
+	packDownloadText,
+	packFailedText,
+	packOfflineText,
+	packProgressLabel,
+	packProgressText,
+	packRowText,
 	pauseLabel,
 	staleText,
 	statusLabel,
@@ -59,6 +66,8 @@ export interface LivePopupIntents {
 	blurred(sessionId: string): void;
 	copy(sessionId: string, what: "translation" | "original"): void;
 	skipped(sessionId: string, expanded: boolean): void;
+	/** L12: the pack row's Download (GLIM-123). Optional: previews may omit it. */
+	downloadPack?(sessionId: string, lang: string): void;
 }
 
 export interface LivePopupProps {
@@ -371,6 +380,21 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 					<p class="live-quiet">{COPY.empty}</p>
 				</Show>
 			</div>
+			{/* L12 (GLIM-123): one row per missing language at the top of the list; those blocks
+			    show their source text, the rest translate and the session keeps running. */}
+			<Show when={state().status !== "consent" && state().packs.length > 0}>
+				<PackRows
+					class="live-packs"
+					rows={state().packs}
+					text={(row) => packRowText(row.lang, uiLang())}
+					downloadLabel={(row) => packDownloadText(row.bytes)}
+					offlineText={packOfflineText}
+					failedText={packFailedText}
+					progressLabel={(row) => packProgressLabel(row.lang, uiLang())}
+					progressText={packProgressText}
+					onDownload={(row) => props.intents.downloadPack?.(id(), row.lang)}
+				/>
+			</Show>
 			<BlockList ref={(el) => (list = el)} aria-label={COPY.list} class="live-list">
 				<Show when={state().status !== "consent"}>
 					<For each={listedLiveBlocks(state())}>

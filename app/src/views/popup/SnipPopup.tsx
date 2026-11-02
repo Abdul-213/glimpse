@@ -22,6 +22,7 @@ import {
 	IconButton,
 	LocalIndicator,
 	languageName,
+	PackRows,
 	PopupShell,
 	ProgressBar,
 	SkippedLine,
@@ -42,6 +43,7 @@ import {
 	packDownloadText,
 	packFailedText,
 	packOfflineText,
+	packProgressLabel,
 	packProgressText,
 	packRowText,
 	statusText,
@@ -241,36 +243,16 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 				)}
 			</Show>
 			<Show when={!state().error && state().packs.length > 0}>
-				<div class="snip-packs">
-					<For each={state().packs}>
-						{(row) => (
-							<div class="snip-pack">
-								<p class="m-0 text-body text-text-secondary">
-									{packRowText(row.lang, uiLang())}
-									<Show when={row.state === "offline"}> {packOfflineText}</Show>
-									<Show when={row.state === "failed"}> {packFailedText}</Show>
-								</p>
-								<Show
-									when={row.state === "downloading"}
-									fallback={
-										<Show when={row.state !== "offline"}>
-											<Button variant="secondary" onClick={() => act("download", row.lang)}>
-												{packDownloadText(row.bytes)}
-											</Button>
-										</Show>
-									}
-								>
-									<ProgressBar
-										label={`Downloading ${languageName(row.lang, uiLang())}`}
-										done={row.received ?? 0}
-										total={row.total ?? 0}
-										line={packProgressText(row.received ?? 0, row.total ?? 0)}
-									/>
-								</Show>
-							</div>
-						)}
-					</For>
-				</div>
+				<PackRows
+					rows={state().packs}
+					text={(row) => packRowText(row.lang, uiLang())}
+					downloadLabel={(row) => packDownloadText(row.bytes)}
+					offlineText={packOfflineText}
+					failedText={packFailedText}
+					progressLabel={(row) => packProgressLabel(row.lang, uiLang())}
+					progressText={packProgressText}
+					onDownload={(row) => act("download", row.lang)}
+				/>
 			</Show>
 			<BlockList
 				ref={(el) => (list = el)}
