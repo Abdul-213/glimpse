@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "packages/ui/src/styles/tokens.css"
+        ],
+        "createdAt": "2026-11-02T03:35:42.262Z",
+        "reason": "GLIM-52: tokens.css is generated from DESIGN.md; the per-script fallback stacks (GLIM-51, docs/decisions/GLIM-51-font-fallback.md) are declared in DESIGN.md frontmatter, outside the typography block the rule reads"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sf mono",
+        "createdAt": "2026-11-02T03:35:42.286Z",
+        "reason": "GLIM-52: DESIGN.md Typography > Mono allows ui-monospace for API-key fields; SF Mono / Cascadia Mono / Consolas are its fallbacks"
+      }
+    ]
+  }
+}

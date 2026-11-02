@@ -76,6 +76,38 @@ bun run harness snip --native --rect 0,0,400,200 --out out # Windows/macOS: the 
 Add `--json` for the full report. The app honours the same switches:
 `GLIMPSE_CAPTURE_FRAMES=<folder> bun run dev` runs it on recorded frames.
 
+## Design detector (Impeccable, GLIM-52)
+
+The Impeccable skill (`.claude/skills/impeccable`) ships a design detector. CI runs it on every
+PR, and it does not block merging yet. The report goes to the job summary and to the
+`design-detector` artifact.
+
+```sh
+bun app/scripts/design-detect.ts            # source + every preview surface (needs the Chromium headless shell)
+bun app/scripts/design-detect.ts --no-rendered
+.claude/skills/impeccable/scripts/impeccable detect app/src/views packages/ui/src   # source only, fast
+```
+
+It checks two things:
+
+- **The sources.** It scans `app/src/views` and `packages/ui/src`.
+- **Every surface, rendered.** It builds the dev previews (`app/scripts/preview-surfaces.ts`): the gallery, Settings, onboarding, the Snip popup, the Live popup and the picker. It serves them on localhost and scans each page in headless Chromium.
+
+Each URL is scanned in the default (light) appearance.
+
+**Editor hook.** To have the detector run after every UI edit in Claude Code, run
+`/impeccable hooks on` once in your checkout. It installs the hook into your own
+`.claude/settings.local.json` and records your consent in `.impeccable/config.local.json`; both
+files stay uncommitted. `/impeccable hooks off` removes it.
+
+**Rule exceptions** live in `.impeccable/config.json`. Each one has a reason. Add them only with
+`impeccable hooks ignore-value ...` and choose the narrowest scope. Fix real problems instead.
+
+| Rule | Scope | Why |
+|---|---|---|
+| `design-system-font` | `packages/ui/src/styles/tokens.css` | Generated from DESIGN.md. The per-script fallback stacks (GLIM-51) are declared in the DESIGN.md frontmatter, outside the `typography` block that the rule reads. |
+| `design-system-font` = SF Mono | everywhere | DESIGN.md Typography > Mono allows `ui-monospace` for API-key fields. SF Mono, Cascadia Mono and Consolas are its fallbacks. |
+
 ## Getting a Windows or macOS build
 
 You don't need a local toolchain to try Glimpse on a real PC or Mac: `.github/workflows/desktop.yml`

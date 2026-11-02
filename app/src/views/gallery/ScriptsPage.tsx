@@ -59,7 +59,7 @@ export function ScriptsPage(props: { params: GalleryParams }): JSX.Element {
 									</td>
 									<td class="py-2 text-label text-text-secondary">
 										<div>{os() === "macos" ? s.macos : s.windows}</div>
-										{s.check ? <div class="mt-0.5 text-text-disabled">Check: {s.check}</div> : null}
+										{s.check ? <div class="mt-0.5 text-text-secondary">Check: {s.check}</div> : null}
 									</td>
 								</tr>
 							)}

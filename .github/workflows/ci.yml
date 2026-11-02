@@ -85,6 +85,27 @@ jobs:
           path: ${{ runner.temp }}/gallery
           retention-days: 7
 
+      # GLIM-52: Impeccable design detector over the view sources and every preview surface
+      # (gallery, Settings, onboarding, Snip/Live popups, picker). Non-blocking for now; the
+      # report goes to the job summary. Exceptions: .impeccable/config.json (CONTRIBUTING.md).
+      - name: Design detector (non-blocking)
+        continue-on-error: true
+        working-directory: app
+        env:
+          DO_NOT_TRACK: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/design"
+          bun scripts/design-detect.ts --report "$RUNNER_TEMP/design/design-detector.md" --json "$RUNNER_TEMP/design/design-detector.json"
+          cat "$RUNNER_TEMP/design/design-detector.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload design detector report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-detector
+          path: ${{ runner.temp }}/design
+          retention-days: 14
+
       - name: Build the app (Linux)
         working-directory: app
         run: hutch electrobun build --env=dev
