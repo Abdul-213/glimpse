@@ -41,7 +41,8 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 │   │   ├── src/ocr/paddle/      PaddleOCR PP-OCRv5 on onnxruntime-node: engine (pure) + inference Worker + OcrProvider (GLIM-46)
 │   │   ├── src/google/          shared Google Cloud plumbing: key from SecretStore, fetch + error mapping (GLIM-22)
 │   │   ├── src/ocr/google-vision/  Google Cloud Vision OcrProvider (cloud, opt-in; GLIM-60)
-│   │   └── src/translation/google-v2/  Google Cloud Translation v2 TranslationProvider (cloud, opt-in; GLIM-61)
+│   │   ├── src/translation/google-v2/  Google Cloud Translation v2 TranslationProvider (cloud, opt-in; GLIM-61)
+│   │   └── src/translation/small100/   SMaLL-100 long-tail local TranslationProvider: TS tokenizer, greedy KV-cache decode, ORT Worker (GLIM-100)
 │   └── ui/                      @glimpse/ui: shared Solid components + Tailwind theme from DESIGN.md
 │       ├── scripts/             generate-tokens.ts: DESIGN.md frontmatter -> src/styles/tokens.css
 │       └── src/                 components/, styles/theme.css, styles/tokens.css (generated), platform.ts
@@ -124,7 +125,9 @@ Don't create packages for grouping alone; use folders.
   and the app passes a spawner for it in the provider context
   (`services/translation/bergamot-worker.ts`: `GLIMPSE_BERGAMOT_WORKER`, then the bundled file,
   else the provider's own default when running from source). The PaddleOCR Worker works the same
-  way (`<app>/bun/ocr-worker.js`, `services/ocr/paddle-worker.ts`, `GLIMPSE_OCR_WORKER`).
+  way (`<app>/bun/ocr-worker.js`, `services/ocr/paddle-worker.ts`, `GLIMPSE_OCR_WORKER`), and so
+  does the SMaLL-100 Worker (`<app>/bun/small100-worker.js`, `services/translation/small100-worker.ts`,
+  `GLIMPSE_SMALL100_WORKER`; onnxruntime binding rewrite and telemetry off as for OCR).
 - **onnxruntime-node in the app (GLIM-103).** The npm package carries every platform's binaries
   (~260 MB); `scripts/onnxruntime.ts` (preBuild) stages only the target's binding and runtime
   library for the CPU provider into `dist/onnxruntime/`, copied to `<app>/native/onnxruntime/`
@@ -252,7 +255,19 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   **translation chain**; `routeTranslation(chain, from, to)` picks the first provider that is
   ready for the pair, else the first that only lacks a download (the UI offers it), else
   unsupported. Default chain: `bergamot`, `small100`; Enhanced puts `hymt2` first. Well-known ids
-  are in `PROVIDER_IDS`.
+  are in `PROVIDER_IDS`. A provider whose capabilities say `longTail` (SMaLL-100) only gets pairs
+  no earlier provider claims: not ready ones, not ones that only lack a download (a missing
+  Bergamot pack is offered first), and not ones still starting that list both languages (GLIM-100).
+- **SMaLL-100 (GLIM-100)** (`packages/providers/src/translation/small100/`): alirezamsh/small100
+  (MIT; M2M-100 distilled to 12 encoder / 3 decoder layers), int8 ONNX encoder + merged KV-cache
+  decoder on onnxruntime-node in its own Worker, M2M-100's SentencePiece tokenizer in TS
+  (`@huggingface/tokenizers`, `tokenizer.json`), greedy decoding with a 4-gram repeat ban. One
+  on-demand download (`small100` in `app/models/manifest.json`, kind `translation-model`,
+  ~618 MB); `status` is `ready` without it and `pairSupport` says `missing` with that size, so a
+  long-tail block shows a pack row (`TranslationPacks.download` accepts the model). The Worker
+  starts on the first request (~1 GB resident) and exits after 2 min idle; `warmup()` loads
+  nothing unless `warmOnStart`. zh-Hant is a source only (the model writes Simplified).
+  Measurements and the export choice: `docs/decisions/GLIM-100-small100.md`.
 - Privacy rules live in the registry, not the UI: cloud providers can't have a `defaultRank`, and
   a cloud provider after a local one in the chain is removed on load (it would be a silent cloud
   fallback when a pack is missing).

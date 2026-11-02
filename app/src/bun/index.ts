@@ -52,6 +52,7 @@ import { watchTaskbarTheme } from "./services/taskbar-theme.ts";
 import { ModelManagerPackSource } from "./services/translation/bergamot-packs.ts";
 import { loadPackCatalogue } from "./services/translation/pack-catalogue.ts";
 import { pipelineStages } from "./services/translation/pipeline-stages.ts";
+import { small100Entry } from "./services/translation/small100-model.ts";
 import { TranslationPacks } from "./services/translation/translation-packs.ts";
 import { TranslationService, warmPairsFor } from "./services/translation/translation-service.ts";
 import { fileUpdateStateStore, UpdateChecker } from "./services/update-check.ts";
@@ -117,6 +118,7 @@ const {
 	ctx: providerCtx,
 	bergamotWorker,
 	ocrWorker,
+	small100Worker,
 } = providerContext({
 	packs: bergamotPacks,
 	// PaddleOCR (GLIM-103) reads its model files through the model manager.
@@ -130,6 +132,8 @@ const translationPacks = new TranslationPacks({
 	manager: models,
 	packs: bergamotPacks,
 	chain: () => translation.chain,
+	// GLIM-100: a long-tail pack row downloads the SMaLL-100 model.
+	models: [small100Entry()].filter((m) => m !== null),
 });
 const stages = pipelineStages(translationLog);
 const translation: TranslationService<AppProviderContext> = new TranslationService({
@@ -155,6 +159,7 @@ models
 		translationLog.info("starting providers", {
 			bergamotWorker: bergamotWorker ?? "default (source tree)",
 			ocrWorker: ocrWorker ?? "default (source tree)",
+			small100Worker: small100Worker ?? "default (source tree)",
 		});
 		void stages.detector.load();
 		return translation.start();

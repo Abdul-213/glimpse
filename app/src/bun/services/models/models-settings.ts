@@ -28,6 +28,7 @@ import {
 } from "@glimpse/core";
 import type { ActionResult, ModelRow, ModelRowState, ModelsSnapshot } from "../../../shared/settings-rpc.ts";
 import type { ModelManagerPackSource } from "../translation/bergamot-packs.ts";
+import { SMALL100_DETAIL, SMALL100_RESOURCE_NAME } from "../translation/small100-model.ts";
 import { type BergamotCatalogue, manifestInstallable, packInstallable } from "./catalogue.ts";
 import { type ModelManager, volumeFreeBytes } from "./model-manager.ts";
 
@@ -271,19 +272,23 @@ export class ModelsSettings {
 	async #manifestRow(m: ModelEntry): Promise<ModelRow> {
 		const state = this.#o.manager.state(m.id);
 		const dir = this.#o.manager.modelDir(m.id);
-		const kind = m.kind === "translation-runtime" ? "runtime" : "ocr";
+		const kind = m.kind === "translation-runtime" ? "runtime" : m.kind === "translation-model" ? "model" : "ocr";
 		const name =
 			m.kind === "ocr-detector"
 				? "Text finder"
 				: m.kind === "translation-runtime"
 					? "Translation engine"
-					: RECOGNISER_NAMES[m.recognizer ?? "latin"];
+					: m.kind === "translation-model"
+						? SMALL100_RESOURCE_NAME
+						: RECOGNISER_NAMES[m.recognizer ?? "latin"];
 		const detail =
 			m.kind === "ocr-detector"
 				? "Finds lines of text in a region"
 				: m.kind === "translation-runtime"
 					? "Runs language packs on this computer"
-					: undefined;
+					: m.kind === "translation-model"
+						? SMALL100_DETAIL
+						: undefined;
 		const bytes = dir && state.status === "installed" ? await this.#size(dir) : downloadSize(m);
 		return { id: m.id, kind, name, ...(detail ? { detail } : {}), bytes, state: rowState(state) };
 	}

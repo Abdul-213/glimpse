@@ -87,6 +87,11 @@ export interface TranslationCapabilities {
 	readonly maxCharsPerRequest: number | null;
 	/** Longer segments get an `input-too-large` error; callers should split sentences first. */
 	readonly maxCharsPerSegment: number | null;
+	/**
+	 * Long-tail provider (SMaLL-100, GLIM-100): `routeTranslation` gives it only pairs that no
+	 * earlier provider in the chain can serve, not even after a download. Absent = false.
+	 */
+	readonly longTail?: boolean;
 }
 
 export interface TranslationProvider extends ProviderLifecycle {

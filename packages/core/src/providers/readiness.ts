@@ -54,8 +54,9 @@ export type AvailabilityOf = (missing: readonly ModelResource[]) => Availability
 
 /**
  * Combine provider routing with download state. A provider that is ready for the pair
- * always wins, so an installed pivot route beats a direct pack that would need a download,
- * and a ready long-tail provider beats a missing Bergamot pack.
+ * always wins, so an installed pivot route beats a direct pack that would need a download.
+ * A `longTail` provider (SMaLL-100) is the exception: a missing Bergamot pack is offered
+ * before it is used (GLIM-100, `routeTranslation`).
  */
 export function translationReadiness(
 	chain: readonly TranslationProvider[],

@@ -109,7 +109,8 @@ export type SetHotkeyResult =
 
 // ── Models (GLIM-96) ────────────────────────────────────────────────────────────────────
 
-export type ModelKind = "ocr" | "runtime" | "pack";
+/** `model`: a whole on-demand translation model (SMaLL-100, GLIM-100). */
+export type ModelKind = "ocr" | "runtime" | "pack" | "model";
 
 export type ModelRowState =
 	| { readonly status: "installed"; readonly bundled: boolean }

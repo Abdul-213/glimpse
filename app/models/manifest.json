@@ -371,6 +371,40 @@
 					"size": 100187
 				}
 			]
+		},
+		{
+			"id": "small100",
+			"kind": "translation-model",
+			"bundled": false,
+			"licence": "MIT",
+			"attribution": "SMaLL-100 (Alireza Mohammadshahi, Vassilina Nikoulina, Alexandre Berard, Caroline Brun, James Henderson, Laurent Besacier; alirezamsh/small100), int8 ONNX export by R4kSo1997 (Optimum, merged KV-cache decoder); tokenizer.json from Xenova/m2m100_418M (M2M-100, Meta AI)",
+			"revision": "small100@8ab680e onnx-int8@d66e226 tokenizer@9c374f0",
+			"files": [
+				{
+					"name": "encoder_model_quantized.onnx",
+					"urls": [
+						"https://huggingface.co/R4kSo1997/small100-onnx-int8_v2/resolve/d66e2265495ad8062e7289f7b484bebc7c4e9510/encoder_model_quantized.onnx"
+					],
+					"sha256": "9baf2bd8ec0b8a132637c592b83efa445d88ea1a3292e0648bb179c3378bc2e9",
+					"size": 287901223
+				},
+				{
+					"name": "decoder_model_merged_quantized.onnx",
+					"urls": [
+						"https://huggingface.co/R4kSo1997/small100-onnx-int8_v2/resolve/d66e2265495ad8062e7289f7b484bebc7c4e9510/decoder_model_merged_quantized.onnx"
+					],
+					"sha256": "29cf9bed76b2e17c6567812b0b32d8d1d313aa165d4b8657f1d026584ceb1ece",
+					"size": 322618029
+				},
+				{
+					"name": "tokenizer.json",
+					"urls": [
+						"https://huggingface.co/Xenova/m2m100_418M/resolve/9c374f0b7aca709787cea97b047bfbbd1559d177/tokenizer.json"
+					],
+					"sha256": "03d9e111731c2d71f39a2c2a88499743e4c251385d07f0384b4349a23ba54363",
+					"size": 7988527
+				}
+			]
 		}
 	]
 }

@@ -153,4 +153,36 @@ describe("routeTranslation", () => {
 		expect(swRoute.status === "ready" && swRoute.provider.info.id).toBe("small100");
 		expect(routeTranslation(chain, languageCode("ko"), en).status).toBe("unsupported");
 	});
+
+	test("a longTail provider only gets pairs no earlier provider claims (GLIM-100)", async () => {
+		const bergamot = new FakeTranslationProvider({
+			id: "bergamot",
+			pairs: [
+				["ja", "en"],
+				["th", "en"],
+			],
+			missing: [["th", "en"]],
+		});
+		const small = new FakeTranslationProvider({ id: "small100", capabilities: { longTail: true } });
+		const chain = [bergamot, small];
+		await small.init();
+		// Bergamot still starting and lists ja / en: never routed to the long tail meanwhile.
+		expect(routeTranslation(chain, ja, en).status).toBe("unsupported");
+		expect(routeTranslation(chain, sw, en).status === "ready" && routeTranslation(chain, sw, en)).toMatchObject({
+			provider: { info: { id: "small100" } },
+		});
+		await bergamot.init();
+		const jaRoute = routeTranslation(chain, ja, en);
+		expect(jaRoute.status === "ready" && jaRoute.provider.info.id).toBe("bergamot");
+		// A missing Bergamot pack is offered, even though the long-tail model is ready.
+		const thRoute = routeTranslation(chain, th, en);
+		expect(thRoute.status === "missing" && thRoute.provider.info.id).toBe("bergamot");
+		const swRoute = routeTranslation(chain, sw, en);
+		expect(swRoute.status === "ready" && swRoute.provider.info.id).toBe("small100");
+		// Without the flag, ready beats missing (GLIM-57).
+		const plain = new FakeTranslationProvider({ id: "small100" });
+		await plain.init();
+		const thPlain = routeTranslation([bergamot, plain], th, en);
+		expect(thPlain.status === "ready" && thPlain.provider.info.id).toBe("small100");
+	});
 });

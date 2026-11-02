@@ -2,3 +2,4 @@
 
 export * from "./google/fake-fetch.ts";
 export * from "./translation/bergamot/fake-worker.ts";
+export * from "./translation/small100/fake-worker.ts";
