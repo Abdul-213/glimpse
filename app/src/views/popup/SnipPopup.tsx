@@ -2,6 +2,7 @@
 // main pushes (`SnipStateMessage`) and sends intents back. No state of its own beyond
 // what the DOM needs (focus, measuring).
 import {
+	downloadNeedsConfirm,
 	egressCopy,
 	type FooterLayout,
 	facingEdge,
@@ -40,7 +41,10 @@ import {
 	announcement,
 	COPY,
 	type ErrorBody,
+	type ErrorButton,
 	errorBody,
+	packConfirmCancel,
+	packConfirmText,
 	packDownloadText,
 	packFailedText,
 	packOfflineText,
@@ -205,6 +209,23 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 		),
 	);
 	const act = (action: SnipAction, lang?: string) => props.intents.action(id(), action, lang);
+	// GLIM-138: E2's Download for a large download asks first; the question replaces the buttons.
+	const [asking, setAsking] = createSignal<ErrorButton | null>(null);
+	createEffect(
+		on(
+			() => state().error,
+			() => setAsking(null),
+		),
+	);
+	const press = (b: ErrorButton) => {
+		if (!b.confirm) return act(b.action, b.lang);
+		setAsking(b);
+		raf(() => errorEl?.querySelector<HTMLButtonElement>("[data-pack-confirm]")?.focus({ preventScroll: true }));
+	};
+	const notNow = () => {
+		setAsking(null);
+		raf(() => errorEl?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true }));
+	};
 	const translatedCount = () => state().blocks.filter((b) => b.cls === "translate" && b.state === "done").length;
 	const tags = () => showLanguageTags(state());
 
@@ -231,15 +252,44 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 							<PackProgress state={state()} uiLang={uiLang()} />
 						</Show>
 						<Show when={e().buttons.length > 0 && !(state().error === "packMissing" && downloading(state()))}>
-							<div class="snip-error-actions">
-								<For each={e().buttons}>
-									{(b) => (
-										<Button variant={b.primary ? "primary" : "secondary"} onClick={() => act(b.action, b.lang)}>
-											{b.label}
-										</Button>
-									)}
-								</For>
-							</div>
+							<Show
+								when={asking()}
+								fallback={
+									<div class="snip-error-actions">
+										<For each={e().buttons}>
+											{(b) => (
+												<Button variant={b.primary ? "primary" : "secondary"} onClick={() => press(b)}>
+													{b.label}
+												</Button>
+											)}
+										</For>
+									</div>
+								}
+							>
+								{(b) => (
+									<div class="snip-error-confirm">
+										<p id={`snip-confirm-${id()}`} class="m-0 max-w-measure text-body text-text-primary">
+											{b().confirm}
+										</p>
+										<div class="snip-error-actions">
+											<Button
+												variant="primary"
+												data-pack-confirm=""
+												aria-describedby={`snip-confirm-${id()}`}
+												onClick={() => {
+													setAsking(null);
+													act(b().action, b().lang);
+												}}
+											>
+												{b().label}
+											</Button>
+											<Button variant="secondary" onClick={notNow}>
+												{packConfirmCancel}
+											</Button>
+										</div>
+									</div>
+								)}
+							</Show>
 						</Show>
 					</div>
 				)}
@@ -247,12 +297,15 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 			<Show when={!state().error && state().packs.length > 0}>
 				<PackRows
 					rows={state().packs}
-					text={(row) => packRowText(row.lang, uiLang())}
+					text={(row) => packRowText(row.lang, uiLang(), row.kind)}
 					downloadLabel={(row) => packDownloadText(row.bytes)}
 					offlineText={packOfflineText}
 					failedText={packFailedText}
-					progressLabel={(row) => packProgressLabel(row.lang, uiLang())}
+					progressLabel={(row) => packProgressLabel(row.lang, uiLang(), row.kind)}
 					progressText={packProgressText}
+					needsConfirm={downloadNeedsConfirm}
+					confirmText={(row) => packConfirmText(row, uiLang())}
+					cancelLabel={packConfirmCancel}
 					onDownload={(row) => act("download", row.lang)}
 				/>
 			</Show>
@@ -403,9 +456,13 @@ function PackProgress(props: { state: SnipPopupState; uiLang: string }): JSX.Ele
 	return (
 		<div class="snip-error-actions">
 			<ProgressBar
-				label={`Downloading ${rows()
-					.map((r) => languageName(r.lang, props.uiLang))
-					.join(", ")}`}
+				label={(() => {
+					const [only] = rows();
+					if (only && rows().length === 1) return packProgressLabel(only.lang, props.uiLang, only.kind);
+					return `Downloading ${rows()
+						.map((r) => languageName(r.lang, props.uiLang))
+						.join(", ")}`;
+				})()}
 				done={done()}
 				total={total()}
 				line={packProgressText(done(), total())}

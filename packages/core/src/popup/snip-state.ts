@@ -13,7 +13,7 @@ import type { TextDirection } from "../language/script.ts";
 import type { InstallState } from "../models/install-state.ts";
 import type { BlockClass, PipelineErrorKind, PipelineEvent } from "../pipeline/events.ts";
 import type { Provenance, ProviderRef } from "../providers/provenance.ts";
-import type { PackRow, SegmentFailureKind } from "../providers/readiness.ts";
+import type { PackKind, PackRow, SegmentFailureKind } from "../providers/readiness.ts";
 
 /** One block's state in the popup. */
 export type SnipBlockState =
@@ -82,6 +82,8 @@ export interface SnipPackRow {
 	readonly resourceIds: readonly string[];
 	/** Blocks waiting on this pack. */
 	readonly blockIds: readonly string[];
+	/** What the download is (GLIM-138); absent = a language pack. */
+	readonly kind?: PackKind;
 }
 
 export type SnipPhase = "opened" | "detected" | "recognised" | "translating" | "done" | "error";
@@ -312,6 +314,7 @@ export const packRowView = (p: PackRow): SnipPackRow => ({
 	total: p.state === "downloading" && p.bytes > 0 ? p.bytes : null,
 	resourceIds: p.resourceIds,
 	blockIds: p.segmentIds,
+	...(p.kind ? { kind: p.kind } : {}),
 });
 
 function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupState {

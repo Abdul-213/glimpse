@@ -6,6 +6,7 @@
 // running flash animations). A block's `changeId` restarts its flash → rest tint and moves the
 // mark (TextBlock); reduced motion shows the resting tint and the mark at once (CSS).
 import {
+	downloadNeedsConfirm,
 	facingEdge,
 	type LivePopupBlock,
 	type LivePopupState,
@@ -41,6 +42,8 @@ import {
 	egressTooltip,
 	errorCopy,
 	type LiveErrorAction,
+	packConfirmCancel,
+	packConfirmText,
 	packDownloadText,
 	packFailedText,
 	packOfflineText,
@@ -389,12 +392,15 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 				<PackRows
 					class="live-packs"
 					rows={state().packs}
-					text={(row) => packRowText(row.lang, uiLang())}
+					text={(row) => packRowText(row.lang, uiLang(), row.kind)}
 					downloadLabel={(row) => packDownloadText(row.bytes)}
 					offlineText={packOfflineText}
 					failedText={packFailedText}
-					progressLabel={(row) => packProgressLabel(row.lang, uiLang())}
+					progressLabel={(row) => packProgressLabel(row.lang, uiLang(), row.kind)}
 					progressText={packProgressText}
+					needsConfirm={downloadNeedsConfirm}
+					confirmText={(row) => packConfirmText(row, uiLang())}
+					cancelLabel={packConfirmCancel}
 					onDownload={(row) => props.intents.downloadPack?.(id(), row.lang)}
 				/>
 			</Show>

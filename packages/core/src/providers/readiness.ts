@@ -21,6 +21,22 @@ import type { ProviderId } from "./provenance.ts";
 import { routeTranslation } from "./routing.ts";
 import type { TranslationProvider } from "./translation.ts";
 
+/**
+ * What a pack row downloads (GLIM-138): a per-language pack (Bergamot, ~30 MB) or the one
+ * long-tail model that serves ~100 languages (SMaLL-100, ~618 MB, ~1 GB of memory). The
+ * popups name the second differently and confirm it before downloading.
+ */
+export type PackKind = "language-pack" | "long-tail-model";
+
+/**
+ * Downloads larger than this ask once before they start (GLIM-138). Bergamot packs are
+ * 20-60 MB, the SMaLL-100 model ~618 MB.
+ */
+export const LARGE_DOWNLOAD_BYTES = 200_000_000;
+
+/** Does pressing "Download" on this row need a confirm step first? */
+export const downloadNeedsConfirm = (row: { readonly bytes: number }): boolean => row.bytes > LARGE_DOWNLOAD_BYTES;
+
 /** Can `from → to` be translated right now, and if not, what would fix it? */
 export type TranslationReadiness =
 	| { readonly state: "ready"; readonly providerId: ProviderId }
@@ -30,6 +46,7 @@ export type TranslationReadiness =
 			readonly providerId: ProviderId;
 			readonly missing: readonly ModelResource[];
 			readonly bytes: number;
+			readonly kind?: PackKind;
 	  }
 	| {
 			readonly state: "downloading";
@@ -37,14 +54,21 @@ export type TranslationReadiness =
 			readonly missing: readonly ModelResource[];
 			/** 0..1 */
 			readonly progress: number;
+			readonly kind?: PackKind;
 	  }
 	/** Missing and there's no network: say "not downloaded", offer nothing that needs a connection. */
-	| { readonly state: "offline"; readonly providerId: ProviderId; readonly missing: readonly ModelResource[] }
+	| {
+			readonly state: "offline";
+			readonly providerId: ProviderId;
+			readonly missing: readonly ModelResource[];
+			readonly kind?: PackKind;
+	  }
 	| {
 			readonly state: "download-failed";
 			readonly providerId: ProviderId;
 			readonly missing: readonly ModelResource[];
 			readonly error: InstallError;
+			readonly kind?: PackKind;
 	  }
 	/** No provider in the chain can ever serve this pair. */
 	| { readonly state: "unsupported" };
@@ -69,25 +93,27 @@ export function translationReadiness(
 	const providerId = route.provider.info.id;
 	if (route.status === "ready") return { state: "ready", providerId };
 	const { missing } = route.support;
+	const kind: PackKind = route.provider.capabilities.longTail ? "long-tail-model" : "language-pack";
 	const availability = availabilityOf(missing);
 	switch (availability.kind) {
 		// The download finished but the provider hasn't picked the pack up yet. A download prompt
 		// would be wrong, so report downloading at 100% until routing catches up.
 		case "ready":
-			return { state: "downloading", providerId, missing, progress: 1 };
+			return { state: "downloading", providerId, missing, progress: 1, kind };
 		case "downloading":
-			return { state: "downloading", providerId, missing, progress: availability.progress };
+			return { state: "downloading", providerId, missing, progress: availability.progress, kind };
 		case "needs-download":
 			return {
 				state: "needs-download",
 				providerId,
 				missing,
 				bytes: availability.bytes || missing.reduce((n, m) => n + (m.bytes ?? 0), 0),
+				kind,
 			};
 		case "offline":
-			return { state: "offline", providerId, missing };
+			return { state: "offline", providerId, missing, kind };
 		case "failed":
-			return { state: "download-failed", providerId, missing, error: availability.error };
+			return { state: "download-failed", providerId, missing, error: availability.error, kind };
 	}
 }
 
@@ -103,6 +129,8 @@ export interface PackRow {
 	readonly progress: number | null;
 	/** Ids of the segments/blocks waiting on this row; they translate in place when it's done. */
 	readonly segmentIds: readonly string[];
+	/** What the download is; absent = a language pack. */
+	readonly kind?: PackKind;
 }
 
 /**
@@ -139,6 +167,7 @@ export function packRows(
 			bytes,
 			progress: r.state === "downloading" ? r.progress : null,
 			segmentIds: [segment.id],
+			...(r.kind === "long-tail-model" ? { kind: r.kind } : {}),
 		});
 	}
 	return [...rows.values()];

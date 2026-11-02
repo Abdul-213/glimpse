@@ -1,6 +1,13 @@
 // Snip popup copy (snip-popup.md §12). English for now; every string the popup shows
 // comes from here, so the i18n layer can replace this table without touching components.
-import type { PipelineErrorKind, SnipPackRow, SnipPopupState, SnipStatus } from "@glimpse/core";
+import {
+	downloadNeedsConfirm,
+	type PackKind,
+	type PipelineErrorKind,
+	type SnipPackRow,
+	type SnipPopupState,
+	type SnipStatus,
+} from "@glimpse/core";
 // The pure helpers only: this module is also unit-tested without a DOM (GLIM-80).
 import { formatBytes, languageName } from "@glimpse/ui/format";
 import type { SnipAction } from "../../shared/popup-rpc.ts";
@@ -72,18 +79,44 @@ export function announcement(s: SnipStatus, translated: number, finished: boolea
 
 // ---- Pack rows (§2.2) and error bodies (§4.1) ------------------------------------------
 
-export const packRowText = (lang: string, uiLang: string) => `${languageName(lang, uiLang)} isn't downloaded yet.`;
+/** The SMaLL-100 download's name in the popups (Settings › Models: "More languages (SMaLL-100)"). */
+export const LONG_TAIL_MODEL = "More languages model";
+
+export const packRowText = (lang: string, uiLang: string, kind?: PackKind) =>
+	kind === "long-tail-model"
+		? `${languageName(lang, uiLang)} needs the ${LONG_TAIL_MODEL}.`
+		: `${languageName(lang, uiLang)} isn't downloaded yet.`;
 export const packDownloadText = (bytes: number) => (bytes > 0 ? `Download (${formatBytes(bytes)})` : "Download");
 export const packProgressText = (done: number, total: number) => `${formatBytes(done)} of ${formatBytes(total)}`;
 export const packOfflineText = "Connect to the internet to download it.";
 export const packFailedText = "The download didn't finish.";
-export const packProgressLabel = (lang: string, uiLang: string) => `Downloading ${languageName(lang, uiLang)}`;
+export const packProgressLabel = (lang: string, uiLang: string, kind?: PackKind) =>
+	kind === "long-tail-model" ? `Downloading the ${LONG_TAIL_MODEL}` : `Downloading ${languageName(lang, uiLang)}`;
+
+/**
+ * GLIM-138: the question a large download asks first (`downloadNeedsConfirm`): what it is, its
+ * size and what it's for. The long-tail model also says what it costs to run.
+ */
+export function packConfirmText(row: { lang: string; bytes: number; kind?: PackKind }, uiLang: string): string {
+	const name = languageName(row.lang, uiLang);
+	const size = formatBytes(row.bytes);
+	if (row.kind === "long-tail-model") {
+		return (
+			`Download the ${LONG_TAIL_MODEL} (${size})? It translates ${name} and about 100 other languages ` +
+			"on this device. It's slower than language packs and uses about 1 GB of memory while it translates."
+		);
+	}
+	return `Download ${size} to translate ${name}? This is a large download.`;
+}
+export const packConfirmCancel = "Not now";
 
 export interface ErrorButton {
 	readonly action: SnipAction;
 	readonly label: string;
 	readonly primary: boolean;
 	readonly lang?: string;
+	/** GLIM-138: a large download asks this first ("Download" / "Not now") before acting. */
+	readonly confirm?: string;
 }
 
 export interface ErrorBody {
@@ -138,10 +171,18 @@ export function errorBody(
 			const bytes = rows.reduce((n, r) => n + r.bytes, 0);
 			const size = bytes > 0 ? ` (${formatBytes(bytes)})` : "";
 			const offline = rows.length > 0 && rows.every((r) => r.state === "offline");
+			const longTail = rows.length === 1 && only?.kind === "long-tail-model";
+			const confirm =
+				only && downloadNeedsConfirm({ bytes })
+					? rows.length === 1
+						? packConfirmText(only, uiLang)
+						: `Download ${formatBytes(bytes)} to translate these languages? This is a large download.`
+					: undefined;
 			return {
 				title: packTitle(rows, uiLang),
-				body:
-					rows.length === 1
+				body: longTail
+					? `The text was read, but Glimpse needs the ${LONG_TAIL_MODEL} to translate ${name}. The original text is below.`
+					: rows.length === 1
 						? `The text was read, but Glimpse needs the ${name} language pack to translate it. The original text is below.`
 						: "The text was read, but Glimpse needs these language packs to translate it. The original text is below.",
 				tone: "neutral",
@@ -151,9 +192,14 @@ export function errorBody(
 						: [
 								{
 									action: "download" as const,
-									label: rows.length === 1 ? `Download ${name}${size}` : `Download all${size}`,
+									label: longTail
+										? `Download${size}`
+										: rows.length === 1
+											? `Download ${name}${size}`
+											: `Download all${size}`,
 									primary: true,
 									...(only && rows.length === 1 ? { lang: only.lang } : {}),
+									...(confirm ? { confirm } : {}),
 								},
 							]),
 					{ action: "copyOriginal", label: "Copy original", primary: offline },
