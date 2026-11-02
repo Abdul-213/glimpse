@@ -11,7 +11,7 @@ and as the `ocr-bench` artifact).
 
 `packages/providers/bench/ocr/`: `corpus.json` (ground truth) and `corpus/*.png`, rendered by
 `make-corpus.mjs` with @napi-rs/canvas and the Noto fonts (re-render instructions in its header;
-the output is deterministic). 22 cases:
+the output is deterministic). 23 cases:
 
 | Script | Cases | What they cover |
 |---|---|---|
@@ -20,7 +20,7 @@ the output is deterministic). 22 cases:
 | Arabic | 2 | RTL article (heading + right-aligned paragraph), dark UI label + buttons (JPEG q75) |
 | Cyrillic | 3 | ru dialog, uk outlined subtitle over video (JPEG q60), bg menu (generic Cyrillic recogniser) |
 | Devanagari | 2 | hi article, dark UI label + buttons (JPEG q75) |
-| Thai, Greek, Mixed | 3 | th notice, el dialog, a window with Japanese and English blocks |
+| Thai, Greek, Mixed | 4 | th notice, el dialog, a window with Japanese and English blocks, a window with Japanese, Russian and English blocks (`{ja, ru, en}`: `ch` reads first, GLIM-125) |
 
 Each case lists its blocks in reading order, each with the expected language and every line's
 text and ink box, and the **source subset** a user reading it would plausibly have (Latin cases
@@ -81,13 +81,25 @@ frame, 12 px text at 1x, ~2.3:1 low-contrast placeholder text, a game dialogue b
 perfectly. Detection is 100 % wherever OCR was right, including the mixed ja/en window and the
 one- and two-word button labels. What the corpus caught:
 
-1. **Cyrillic and Greek are read as Latin look-alikes when the subset includes English**
-   (CER 72 % Cyrillic, 24 % Greek). `planRecognizers({ru, uk, bg, en})` is `[ch, eslav]` and
-   `{el, en}` is `[ch, el]`: `ch` wins English's tie-break and goes first, reads "Сохранить" as
-   "CoxpaHnTb" with a high score, and rule 3 never re-reads it because the output *is* Latin.
-   With `{ru}` alone the same frames read correctly; the uk subtitle survives only because `ch`
-   scored it low. Detection then sees French/Catalan-looking Latin and skips the blocks. This is
-   the biggest accuracy problem the benchmark found: **GLIM-125**.
+1. **Cyrillic and Greek were read as Latin look-alikes when the subset includes English**
+   (CER 72 % Cyrillic, 24 % Greek). `planRecognizers({ru, uk, bg, en})` was `[ch, eslav]` and
+   `{el, en}` was `[ch, el]`: `ch` won English's tie-break and went first, read "Сохранить" as
+   "CoxpaHnTb" with a high score (0.8–0.95), and rule 3 never re-read it because the output *is*
+   Latin. Detection then saw French/Catalan-looking Latin and skipped the blocks.
+   **Fixed in GLIM-125** (Cyrillic CER 0 %, Greek 1.7 %, Cyrillic detection 33 % → 89 %):
+   - Every PP-OCRv5 recogniser's dictionary has basic Latin, and the Cyrillic and Greek ones read
+     the English corpus lines as well as `en` does (0.94–1.00), while `ch`, `en` and `el` read
+     Cyrillic as look-alike Latin. So English only pulls in `ch` when a CJK language needs it
+     anyway, and without `ch` non-Latin recognisers read first: `{ru, uk, bg, en}` is now
+     `[eslav, en]`, `{el, en}` `[el, en]`, `{ar, en}` `[arabic, en]`. Cyrillic and Greek lines
+     are read once; English lines are read by the specialist and re-read by `en` (rule 3).
+   - With CJK in the subset `ch` still reads first (`{ja, ru, en}` → `[ch, eslav]`), so a new
+     rule 3a re-reads Latin lines that look like misread Cyrillic/Greek (mixed scripts or
+     digits in a word, a capital after a lowercase letter, all look-alike capitals) with the
+     Cyrillic/Greek candidate; the re-read wins only if it comes back in its own script.
+     `mixed-ja-ru-window` covers this: CER 60 % before, 0 % after.
+   The remaining Cyrillic miss is detection, not OCR: the two-word bg menu item "Нов прозорец"
+   is detected as Russian.
 2. **Vietnamese loses most tone marks** (CER 20 %, WER 61 %): the `latin` recogniser reads
    "Bạn có muốn cài đặt bản cập nhật" as "Ban có muôn cài dt bn cp nhât". A model limit, not a
    pipeline one: **GLIM-126**.
@@ -109,8 +121,11 @@ one- and two-word button labels. What the corpus caught:
    and "رद्द" → "रह" on the JPEG'd dark UIs, kana "う" read as "ラ" in vertical text. Worth
    watching, not worth tuning for yet.
 5. **Latency** (CI runner: 2-core EPYC 7763, ORT 1 thread, so a slow machine): warm p50 per
-   case 108–611 ms for regions up to 640x240 and 948 ms for the 760x300 window; over all runs
-   p50 221 ms, p90 581 ms. Cost follows line count more than pixels (`cjk-zh-hans-article`,
-   `cyrillic-ru-dialog` with two recognisers, and `latin-en-dialog` are the slow regions). Provider
-   init 248 ms, warmup 133 ms; a first call that loads an on-demand recogniser adds up to ~130 ms here.
-   Per-case numbers in [ocr-results.md](ocr-results.md).
+   case 79–612 ms for regions up to 640x240 and 937 ms for the 760x300 window; over all runs
+   p50 165 ms, p90 647 ms. Cost follows line count more than pixels (`cjk-zh-hans-article`,
+   `cjk-ko-chat`, `latin-fr-article` and `latin-en-dialog` are the slow regions). Provider init
+   247 ms, warmup 133 ms; a first call that loads an on-demand recogniser adds up to ~130 ms here.
+   GLIM-125 cut the non-Latin, non-CJK cases by about half: they no longer read every line with
+   `ch` first (`cyrillic-ru-dialog` 611 → 441 ms, `greek-el-dialog` 203 → 100, `arabic-ar-article`
+   367 → 166, `devanagari-hi-article` 331 → 166, `thai-th-notice` 199 → 79; summed p50 over the
+   original 22 cases 7016 → 6026 ms). Per-case numbers in [ocr-results.md](ocr-results.md).

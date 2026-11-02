@@ -18,7 +18,15 @@ import {
 import { type Quad, type Raster, resizeNormalizeBGR } from "./image.ts";
 import { cropQuad, ctcDecode, isTallQuad, REC_HEIGHT, recBatch, recWidth, visualToLogicalRtl } from "./rec.ts";
 import { type CropHasher, fnvCropHash, RecCache } from "./rec-cache.ts";
-import { bestReading, FALLBACK_SCORE, type LineReading, preferSpecialist, specialistFor } from "./recognizers.ts";
+import {
+	bestReading,
+	FALLBACK_SCORE,
+	type LineReading,
+	lookalikeReaderFor,
+	preferLookalike,
+	preferSpecialist,
+	specialistFor,
+} from "./recognizers.ts";
 
 // Structural subset of onnxruntime-common, so tests can pass fakes.
 export interface OrtTensor {
@@ -234,10 +242,30 @@ export class OcrEngine {
 			onLine?.(i, this.#line(i, box, r));
 		};
 
+		// Rule 3a: Latin text that looks like misread Cyrillic or Greek goes to that script's reader.
+		if (candidates.length > 1) {
+			const byReader = new Map<OcrRecognizer, number[]>();
+			readings.forEach((r, i) => {
+				const s = lookalikeReaderFor(r.text, first, candidates);
+				if (s) byReader.set(s, [...(byReader.get(s) ?? []), i]);
+			});
+			for (const [name, idx] of byReader) {
+				const again = await this.#read(
+					name,
+					idx.map((i) => crops[i] as { crop: Raster; key: string }),
+					cancelled,
+					t,
+				);
+				idx.forEach((i, j) => {
+					readings[i] = preferLookalike(readings[i] as LineReading, again[j] as LineReading);
+				});
+			}
+		}
+
 		// Rule 3: re-read lines whose script has a specialist among the candidates.
 		const bySpecialist = new Map<OcrRecognizer, number[]>();
 		readings.forEach((r, i) => {
-			const s = candidates.length > 1 ? specialistFor(r.text, first, candidates) : null;
+			const s = candidates.length > 1 ? specialistFor(r.text, r.recognizer, candidates) : null;
 			if (s) bySpecialist.set(s, [...(bySpecialist.get(s) ?? []), i]);
 			else if (r.score >= FALLBACK_SCORE || candidates.length === 1) {
 				final[i] = r;
