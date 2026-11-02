@@ -70,6 +70,11 @@ export type LiveSessionEvent =
 			readonly sessionId: string;
 			readonly providers: readonly ProviderRef[];
 			readonly canRemember: boolean;
+			/**
+			 * "Use on-device" can be offered (GLIM-122): the translation can stay local, and for
+			 * `cloud-ocr` an on-device OCR provider is installed. Default: not for `cloud-ocr`.
+			 */
+			readonly localAvailable?: boolean;
 			readonly reason: "cloud-ocr" | "cloud-translation";
 	  }
 	| {

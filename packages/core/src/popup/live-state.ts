@@ -69,6 +69,8 @@ export type LivePopupStatus = LiveStatus | "consent" | "closed";
 export interface LiveConsentQuestion {
 	readonly providers: readonly ProviderRef[];
 	readonly canRemember: boolean;
+	/** Offer "Use on-device" (GLIM-122). */
+	readonly localAvailable: boolean;
 	readonly reason: "cloud-ocr" | "cloud-translation";
 }
 
@@ -162,7 +164,12 @@ function onEvent(state: LivePopupState, event: LiveSessionEvent): LivePopupState
 			return {
 				...state,
 				status: "consent",
-				consent: { providers: event.providers, canRemember: event.canRemember, reason: event.reason },
+				consent: {
+					providers: event.providers,
+					canRemember: event.canRemember,
+					reason: event.reason,
+					localAvailable: event.localAvailable ?? event.reason !== "cloud-ocr",
+				},
 			};
 		case "status":
 			if (event.status === "stopped") return { ...initialLivePopupState, private: state.private };

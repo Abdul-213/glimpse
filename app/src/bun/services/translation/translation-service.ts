@@ -66,6 +66,9 @@ export class TranslationService<Ctx> {
 	readonly #log: Logger;
 	readonly #sessions = new Set<LivePipelineSession>();
 	#ocr: OcrProvider | null = null;
+	/** GLIM-122: the on-device OCR stand-in for Live "Use on-device" while the selected OCR is cloud. */
+	#localOcr: OcrProvider | null = null;
+	#localOcrLoading: Promise<void> | null = null;
 	#chain: TranslationProvider[] = [];
 	/** Live providers by instance: what built them (`id|options`) and their status listener. */
 	readonly #built = new Map<OcrProvider | TranslationProvider, { readonly key: string; readonly off: () => void }>();
@@ -86,6 +89,8 @@ export class TranslationService<Ctx> {
 		});
 		this.pipeline = new TranslationPipeline({
 			ocr: () => this.#ocr,
+			// GLIM-122: "Use on-device" with a cloud OCR provider reads with the local one.
+			localOcr: () => this.#localOcr,
 			chain: () => this.#chain,
 			...(options.readinessOf ? { readinessOf: options.readinessOf } : {}),
 			...(options.grouper ? { grouper: options.grouper } : {}),
@@ -145,6 +150,7 @@ export class TranslationService<Ctx> {
 		const ocr = selection.ocr ? take(selection.ocr) : null;
 		const chain = selection.translation.map((t) => take(t));
 		this.#ocr = ocr;
+		if (ocr?.info.kind !== "cloud") this.#dropLocalOcr();
 		this.#chain = chain;
 		if (!ocr) this.#log.info("no OCR provider installed yet; Snip reports ocrFailed");
 		// What's left wasn't selected again. A run already using one may fail; the next uses the new set.
@@ -292,6 +298,50 @@ export class TranslationService<Ctx> {
 		);
 	}
 
+	/** An on-device OCR provider can stand in for the cloud one (offer "Use on-device", GLIM-122). */
+	get canReadLocally(): boolean {
+		return this.#ocr?.info.kind !== "cloud" || this.#localOcrFactory() !== null;
+	}
+
+	/**
+	 * GLIM-122: before a "Use on-device" Live session, when the selected OCR provider is a cloud
+	 * one, build (once) and load the best-ranked local OCR provider; `localOnly` runs read with
+	 * it. Resolves when it is loaded (or failed to: those runs then end in `ocrFailed`, and no
+	 * image is sent). Never rejects.
+	 */
+	async prepareLocalOcr(): Promise<void> {
+		if (this.#ocr?.info.kind !== "cloud") return;
+		if (!this.#localOcr) {
+			const factory = this.#localOcrFactory();
+			if (!factory) {
+				this.#log.warn("no on-device OCR provider is installed for Use on-device");
+				return;
+			}
+			const config = this.#opts.settings().providers;
+			const resolved = this.#opts.registry.resolve({ ...config, ocr: factory.info.id }).ocr;
+			if (!resolved) return;
+			const provider = resolved.factory.create(resolved.options, this.#opts.ctx);
+			this.#localOcr = provider;
+			const off = this.#watch(provider);
+			this.#localOcrLoading = this.#load(provider).finally(() => off());
+			this.#log.info("on-device OCR for Use on-device", { provider: provider.info.id });
+		}
+		await this.#localOcrLoading;
+	}
+
+	#localOcrFactory() {
+		return this.#opts.registry.list("ocr").find((f) => f.info.kind === "local" && f.info.task === "ocr") ?? null;
+	}
+
+	/** The selected OCR is local again: the stand-in isn't needed. */
+	#dropLocalOcr(): void {
+		const p = this.#localOcr;
+		if (!p) return;
+		this.#localOcr = null;
+		this.#localOcrLoading = null;
+		p.dispose().catch((error: unknown) => this.#log.warn("provider dispose failed", { provider: p.info.id, error }));
+	}
+
 	/** A Live session over the pipeline (GLIM-56/58 feed it frames). Close it when done. */
 	openLive(onEvent: PipelineListener, options: { readonly localOnly?: boolean } = {}): LivePipelineSession {
 		const settings = this.#opts.settings();
@@ -370,6 +420,9 @@ export class TranslationService<Ctx> {
 		for (const { off } of this.#built.values()) off();
 		this.#built.clear();
 		this.#ocr = null;
+		const local = this.#localOcr;
+		this.#localOcr = null;
+		if (local) all.push(local);
 		this.#chain = [];
 		this.caches.clear("session-end");
 		await Promise.all(all.map((p) => p.dispose()));

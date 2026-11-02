@@ -392,3 +392,64 @@ describe("translation reuse is logged at debug level (GLIM-67)", () => {
 		expect(text.includes("こんにちは") || text.includes("さようなら")).toBe(false);
 	});
 });
+
+describe("LiveService: Use on-device with a cloud OCR provider (GLIM-122)", () => {
+	const vision = { id: "cloud:google-vision", kind: "cloud" as const, name: "Google Cloud Vision" };
+	const localT = { id: "fake-translation", kind: "local" as const, name: "Fake" };
+
+	test("offered when an on-device OCR can stand in; it is loaded before capture starts", async () => {
+		const order: string[] = [];
+		let calls = () => 0;
+		const s = await setup([{ image: strip(RED), holdMs: 10_000 }], {
+			providers: () => ({ ocr: vision, translation: localT }),
+			canReadLocally: () => true,
+			prepareLocalOnly: async () => {
+				order.push(`prepare:${calls()}`);
+			},
+		});
+		calls = s.ocrCalls;
+		await s.live.start(REGION);
+		const consent = s.events.find((e) => e.type === "consent");
+		expect(consent?.type === "consent" && consent.reason).toBe("cloud-ocr");
+		expect(consent?.type === "consent" && consent.localAvailable).toBe(true);
+		await s.live.answerConsent(s.live.sessionId ?? "", "local");
+		await s.at(1000);
+		expect(order).toEqual(["prepare:0"]);
+		expect(s.ocrCalls()).toBe(1);
+		const last = s.events.filter((e) => e.type === "opened").at(-1);
+		expect(last?.type === "opened" && last.providers).toEqual({ cloud: null, localOnly: true });
+		s.live.stop();
+	});
+
+	test("not offered without an on-device OCR", async () => {
+		const s = await setup([{ image: strip(RED), holdMs: 10_000 }], {
+			providers: () => ({ ocr: vision, translation: localT }),
+			canReadLocally: () => false,
+		});
+		await s.live.start(REGION);
+		const consent = s.events.find((e) => e.type === "consent");
+		expect(consent?.type === "consent" && consent.localAvailable).toBe(false);
+		s.live.stop();
+	});
+
+	test("stopped while the on-device OCR loads: the session never starts", async () => {
+		let release = () => {};
+		const s = await setup([{ image: strip(RED), holdMs: 10_000 }], {
+			providers: () => ({ ocr: vision, translation: localT }),
+			canReadLocally: () => true,
+			prepareLocalOnly: () =>
+				new Promise<void>((r) => {
+					release = r;
+				}),
+		});
+		await s.live.start(REGION);
+		const answering = s.live.answerConsent(s.live.sessionId ?? "", "local");
+		s.live.stop();
+		release();
+		await answering;
+		await s.at(1000);
+		expect(s.live.active).toBe(false);
+		expect(s.ocrCalls()).toBe(0);
+		expect(s.frames.at(-1)?.disposed).toBe(true);
+	});
+});

@@ -20,6 +20,7 @@ import type { LiveStateMessage } from "../../src/shared/live-rpc.ts";
 const S = "preview";
 const NOW = Date.UTC(2026, 10, 1, 12, 0, 0);
 const GOOGLE: ProviderRef = { id: "cloud:google-translate-v2", kind: "cloud", name: "Google Cloud Translation" };
+const VISION: ProviderRef = { id: "cloud:google-vision", kind: "cloud", name: "Google Cloud Vision" };
 
 type B = readonly [id: string, source: string, translation: string | null, cls?: BlockClass, lang?: string];
 
@@ -180,6 +181,23 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 		events: () => [
 			opened(GOOGLE),
 			{ type: "consent", sessionId: S, providers: [GOOGLE], canRemember: true, reason: "cloud-translation" },
+		],
+	},
+	{
+		name: "l10-consent-cloud-ocr",
+		note: "Cloud OCR (asked every session): Use on-device reads with the local OCR instead (GLIM-122)",
+		width: 400,
+		focused: true,
+		events: () => [
+			opened(VISION),
+			{
+				type: "consent",
+				sessionId: S,
+				providers: [VISION],
+				canRemember: false,
+				reason: "cloud-ocr",
+				localAvailable: true,
+			},
 		],
 	},
 	{

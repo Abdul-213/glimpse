@@ -69,6 +69,13 @@ export interface LiveServiceDeps {
 	readonly providers?: () => { readonly ocr: ProviderRef | null; readonly translation: ProviderRef | null };
 	/** "Don't ask again for Live" for this cloud translator (`settings.cloud.liveConsent`). */
 	readonly rememberConsent?: (providerId: string) => void;
+	/**
+	 * GLIM-122: an on-device OCR provider can stand in for a cloud one, so "Use on-device" is
+	 * offered for `cloud-ocr` consent. Without it, that answer is hidden.
+	 */
+	readonly canReadLocally?: () => boolean;
+	/** GLIM-122: load the on-device OCR before a "Use on-device" session runs. */
+	readonly prepareLocalOnly?: () => Promise<void>;
 	/** App-wide Private, for the popup's first state. */
 	readonly private?: () => boolean;
 	readonly settings: () => Settings;
@@ -124,6 +131,8 @@ export class LiveService {
 	#starting: Promise<void> | null = null;
 	#popupVisible = false;
 	#lastState: LiveState = "off";
+	/** Bumped by `stop()`: a session still loading its on-device OCR doesn't start after it. */
+	#stops = 0;
 
 	constructor(deps: LiveServiceDeps) {
 		this.#d = deps;
@@ -185,6 +194,7 @@ export class LiveService {
 				providers: consent.providers,
 				canRemember: consent.canRemember,
 				reason: consent.reason,
+				localAvailable: consent.reason === "cloud-ocr" ? (this.#d.canReadLocally?.() ?? false) : true,
 			});
 			this.#d.log.info("live: waiting for cloud consent", { session: id, reason: consent.reason });
 			this.#setState("paused");
@@ -230,6 +240,15 @@ export class LiveService {
 		const timers = this.#d.timers ?? systemTimers;
 		const log = this.#d.log;
 		this.#emit({ type: "opened", sessionId: id, region, providers, private: this.#d.private?.() ?? false });
+		const stops = this.#stops;
+		if (providers.localOnly && this.#d.prepareLocalOnly) {
+			// GLIM-122: with a cloud OCR provider, load the on-device one first (no image leaves).
+			await this.#d.prepareLocalOnly();
+			if (this.#stops !== stops) {
+				pinnedFrame?.dispose();
+				return;
+			}
+		}
 		let capture: Awaited<ReturnType<CaptureSource["openSession"]>>;
 		try {
 			capture = await this.#d.capture.openSession(region, { fps: settings.live.fps });
@@ -307,6 +326,7 @@ export class LiveService {
 
 	/** Stop and unpin. Drops the session's caches (GLIM-20). Idempotent. */
 	stop(reason: "user" | "repin" | "quit" = "user"): void {
+		this.#stops++;
 		const pending = this.#pending;
 		if (pending) {
 			this.#pending = null;

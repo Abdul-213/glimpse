@@ -332,7 +332,7 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 									<Button variant="primary" onClick={() => props.intents.consent(id(), "cloud", remember())}>
 										{c().primary}
 									</Button>
-									<Show when={state().consent?.reason !== "cloud-ocr"}>
+									<Show when={state().consent?.localAvailable}>
 										<Button variant="secondary" onClick={() => props.intents.consent(id(), "local", false)}>
 											{COPY.consentLocal}
 										</Button>

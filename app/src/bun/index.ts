@@ -428,6 +428,9 @@ const live = new LiveService({
 		if (!remembered.includes(id)) void appSettings.update({ cloud: { liveConsent: [...remembered, id] } });
 	},
 	private: () => translation.private,
+	// GLIM-122: "Use on-device" with a cloud OCR provider reads with the local one.
+	canReadLocally: () => translation.canReadLocally,
+	prepareLocalOnly: () => translation.prepareLocalOcr(),
 	settings: () => appSettings.current,
 	frame: () =>
 		new PinnedFrame({
