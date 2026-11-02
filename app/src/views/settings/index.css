@@ -2,10 +2,11 @@
 @source "./";
 
 /*
- * Settings window chrome (DESIGN.md Layout > Settings). The pane paints the window veil; the
- * section list is the macOS sidebar (rounded selection) or the Windows navigation view
- * (hover tint plus the 3 x 16px accent pill at inline-start). Solid surfaces until the
- * native helper can put Mica / vibrancy behind the webview.
+ * Settings window chrome (DESIGN.md Layout > Settings). The section list is the macOS sidebar
+ * (rounded selection) or the Windows navigation view (hover tint plus the 3 x 16px accent pill
+ * at inline-start). Materials (GLIM-133): with `data-material="native"` the sidebar is the
+ * window veil over vibrancy (macOS `.sidebar`) or Mica (Windows 11 22H2+) and the pane stays
+ * solid; with `none` everything is solid.
  */
 @layer components {
 	.settings-shell {
@@ -23,6 +24,36 @@
 		padding: calc(var(--spacing) * 1);
 		background: transparent;
 		border-inline-end: 0;
+	}
+
+	:root[data-material="native"] .settings-shell {
+		background: transparent;
+	}
+
+	:root[data-material="native"] .settings-nav {
+		background: var(--veil-window);
+	}
+
+	:root[data-material="native"] .settings-main {
+		background: var(--color-surface-window-solid);
+	}
+
+	/*
+	 * macOS title bar (hiddenInset): a 28 px drag strip on top of each column; the traffic
+	 * lights sit over the sidebar's. Windows keeps its native caption, so no strip.
+	 */
+	.settings-titlebar {
+		display: none;
+	}
+
+	:root[data-os="macos"] .settings-titlebar {
+		display: block;
+		flex: none;
+		height: 1.75rem;
+	}
+
+	:root[data-os="macos"] .settings-nav > .settings-titlebar {
+		margin: calc(var(--spacing) * -2) calc(var(--spacing) * -2) calc(var(--spacing) * 2);
 	}
 
 	.settings-nav-item {

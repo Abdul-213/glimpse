@@ -532,6 +532,8 @@ class WindowsChrome implements WindowChromeNative {
 			if (hr !== 0) throw new Error(`DwmExtendFrameIntoClientArea failed: ${hresult(hr)}`);
 			const backdrop = this.setDword(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, material.backdrop);
 			if (backdrop !== 0) throw new Error(`DWMWA_SYSTEMBACKDROP_TYPE failed: ${hresult(backdrop)}`);
+			// Titled windows (Settings) keep DWM's corners and border; Mica also fills the caption.
+			if (material.systemFrame) return;
 			this.setDword(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, material.corner);
 			this.setDword(hwnd, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE);
 			return;

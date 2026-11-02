@@ -14,10 +14,19 @@ export type NativeMaterial =
 	 * (`DwmExtendFrameIntoClientArea(-1)`), with the corner preference and no DWM border (the
 	 * webview draws the hairline).
 	 */
-	| { readonly kind: "win-backdrop"; readonly backdrop: number; readonly corner: number };
+	| {
+			readonly kind: "win-backdrop";
+			readonly backdrop: number;
+			readonly corner: number;
+			/**
+			 * A titled window (Settings, GLIM-133): keep DWM's own corners and border; only the
+			 * backdrop and the glass sheet change. Popups leave it out.
+			 */
+			readonly systemFrame?: boolean;
+	  };
 
 /** NSVisualEffectMaterial raw values Glimpse uses. */
-export const NS_MATERIAL = { popover: 6, windowBackground: 12, hudWindow: 13 } as const;
+export const NS_MATERIAL = { popover: 6, sidebar: 7, windowBackground: 12, hudWindow: 13 } as const;
 /** DWM_SYSTEMBACKDROP_TYPE */
 export const DWMSBT = { auto: 0, none: 1, mainWindow: 2, transientWindow: 3, tabbedWindow: 4 } as const;
 /** DWM_WINDOW_CORNER_PREFERENCE */

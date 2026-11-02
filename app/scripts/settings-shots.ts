@@ -46,6 +46,11 @@ export const SETTINGS_VARIANTS: GalleryVariant[] = [
 	v("about-macos-light", "os=macos&pane=about", "light", 560),
 	v("about-windows-dark", "os=windows&pane=about", "dark", 560),
 	v("languages-macos-light-rtl", "os=macos&pane=languages&dir=rtl", "light"),
+	// GLIM-133: the material veils (sidebar over vibrancy / Mica, solid pane) over a stand-in desktop.
+	v("privacy-macos-light-material", "os=macos&pane=privacy&material=native", "light", 560),
+	v("privacy-macos-dark-material", "os=macos&pane=privacy&material=native", "dark", 560),
+	v("privacy-windows-light-material", "os=windows&pane=privacy&material=native", "light", 560),
+	v("privacy-windows-dark-material", "os=windows&pane=privacy&material=native", "dark", 560),
 ];
 
 if (import.meta.main) {

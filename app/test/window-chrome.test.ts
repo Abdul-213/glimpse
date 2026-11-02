@@ -9,6 +9,7 @@ import {
 	domChromeScript,
 	nativeDark,
 	planChrome,
+	settingsWindowStyle,
 	themeOverride,
 	WindowChrome,
 	wantsTransparentWindow,
@@ -41,8 +42,39 @@ describe("planChrome", () => {
 		expect(win(22000)).toMatchObject({ material: "none", osVersion: "11" });
 		expect(win(19045)).toMatchObject({ material: "none", native: { kind: "none" }, osVersion: "10" });
 	});
-	test("Settings-type windows get no material", () => {
+	test("onboarding-type windows get no material", () => {
 		expect(planChrome("window", mac).material).toBe("none");
+		expect(planChrome("window", { os: "windows", windowsBuild: 22631, reduceTransparency: false }).material).toBe(
+			"none",
+		);
+	});
+	test("Settings on macOS: square sidebar effect view, kept under reduced transparency", () => {
+		expect(planChrome("settings", mac)).toEqual({
+			material: "native",
+			native: { kind: "mac-effect", material: 7, radius: 0 },
+			osVersion: null,
+		});
+		// AppKit turns the effect view opaque by itself; the veil goes solid.
+		expect(planChrome("settings", { ...mac, reduceTransparency: true })).toEqual({
+			material: "none",
+			native: { kind: "mac-effect", material: 7, radius: 0 },
+			osVersion: null,
+		});
+	});
+	test("Settings on Windows: Mica with the system frame on 22H2+, solid elsewhere", () => {
+		const win = (build: number, reduceTransparency = false) =>
+			planChrome("settings", { os: "windows", windowsBuild: build, reduceTransparency });
+		expect(win(22631)).toEqual({
+			material: "native",
+			native: { kind: "win-backdrop", backdrop: 2, corner: 0, systemFrame: true },
+			osVersion: "11",
+		});
+		expect(win(22631, true)).toEqual({ material: "none", native: { kind: "none" }, osVersion: "11" });
+		expect(win(22000)).toMatchObject({ material: "none", native: { kind: "none" } });
+		expect(win(19045)).toMatchObject({ material: "none", osVersion: "10" });
+		expect(planChrome("settings", { os: "linux", windowsBuild: null, reduceTransparency: false }).material).toBe(
+			"none",
+		);
 	});
 	test("transparent windows only where a material can show through", () => {
 		expect(wantsTransparentWindow("popup", "macos", null)).toBe(true);
@@ -50,6 +82,20 @@ describe("planChrome", () => {
 		expect(wantsTransparentWindow("popup", "windows", 19045)).toBe(false);
 		expect(wantsTransparentWindow("window", "macos", null)).toBe(false);
 		expect(wantsTransparentWindow("popup", "linux", null)).toBe(false);
+		expect(wantsTransparentWindow("settings", "macos", null)).toBe(true);
+		expect(wantsTransparentWindow("settings", "windows", 22621)).toBe(true);
+		expect(wantsTransparentWindow("settings", "windows", 22000)).toBe(false);
+		expect(wantsTransparentWindow("settings", "linux", null)).toBe(false);
+	});
+	test("Settings window style: hiddenInset on macOS; clear only with the helper", () => {
+		const withHelper = { native: {} as WindowChromeNative, transparentFor: () => true };
+		expect(settingsWindowStyle(true, withHelper)).toEqual({ titleBarStyle: "hiddenInset", transparent: true });
+		expect(settingsWindowStyle(true, { native: null, transparentFor: () => true })).toEqual({
+			titleBarStyle: "hiddenInset",
+			transparent: false,
+		});
+		expect(settingsWindowStyle(false, undefined)).toEqual({ titleBarStyle: "default", transparent: false });
+		expect(settingsWindowStyle(false, { ...withHelper, transparentFor: () => false }).transparent).toBe(false);
 	});
 });
 
@@ -183,7 +229,7 @@ describe("WindowChrome", () => {
 		expect(h.setFrame({ x: 0, y: 0, width: 1, height: 1 })).toBe(false); // Electrobun's setFrame on Windows
 	});
 
-	test("macOS: native setFrame, no cloak; Settings windows only get the theme", () => {
+	test("macOS: native setFrame, no cloak; onboarding windows only get the theme", () => {
 		const native = new FakeNative();
 		native.build = null;
 		const chrome = new WindowChrome({ os: "macos", native, theme: () => "light", log: () => {} });
@@ -196,6 +242,31 @@ describe("WindowChrome", () => {
 		chrome.attach(t, "window");
 		expect(native.calls).toEqual(["material none", "appearance light light"]);
 		expect(scripts.at(-1)).toContain('"data-theme","light"');
+	});
+
+	test("Settings (GLIM-133): material on attach; reduced transparency only flips the veil on macOS", () => {
+		const native = new FakeNative();
+		native.build = null;
+		const chrome = new WindowChrome({ os: "macos", native, theme: () => "system", log: () => {} });
+		const { t, scripts } = target();
+		const h = chrome.attach(t, "settings");
+		expect(native.calls).toEqual(["material mac-effect", "appearance system light"]);
+		expect(scripts.at(-1)).toContain('"data-material","native"');
+		expect(h.canCloak).toBe(false);
+		native.calls = [];
+		native.reduce = true;
+		h.refresh();
+		expect(native.calls).toEqual([]);
+		expect(scripts.at(-1)).toContain('"data-material","none"');
+
+		const win = new FakeNative();
+		const wchrome = new WindowChrome({ os: "windows", native: win, theme: () => "dark", log: () => {} });
+		const wh = wchrome.attach(target().t, "settings");
+		expect(win.calls).toEqual(["material win-backdrop", "appearance dark dark"]);
+		expect(wh.canCloak).toBe(false);
+		win.reduce = true;
+		wh.refresh();
+		expect(win.calls.at(-1)).toBe("material none");
 	});
 
 	test("no helper (Linux): DOM attributes only; native failures are logged, not thrown", () => {

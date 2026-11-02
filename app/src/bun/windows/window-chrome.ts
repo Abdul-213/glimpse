@@ -10,8 +10,14 @@
 //                         no DWM border; the window is created transparent. Transparency
 //                         effects off: no backdrop, solid veil.
 //   Windows 11 21H2 / 10  solid veil; Windows 10 popups are square (`data-os-version="10"`).
-//   Settings and other    no material for now (the view paints the solid window surface),
-//   "window" roles        theme only.
+//   Settings (GLIM-133)   macOS: NSVisualEffectView .sidebar under the whole webview, square
+//                         (the titled window rounds its own corners); the view paints the
+//                         window veil on the sidebar and the solid surface on the pane. Kept
+//                         under Reduce transparency (AppKit turns it opaque by itself) so the
+//                         clear window never goes without a backdrop or shadow; only the
+//                         veil goes solid. Windows 11 22H2+: Mica (DWMSBT_MAINWINDOW) on the
+//                         glass sheet, DWM's own corners, border and caption. Else solid.
+//   Other "window" roles  (onboarding) theme only: the view paints the solid window surface.
 //
 // Theme: webviews take light / dark from the OS (prefers-color-scheme), so a forced theme sets
 // `data-theme` on <html> (tokens.css carries both palettes under it) and the native appearance
@@ -34,8 +40,11 @@ import {
 } from "../native/chrome.ts";
 
 export type ChromeOs = "macos" | "windows" | "linux";
-/** `popup`: the Snip (and Live) popups. `window`: Settings, onboarding: theme only. */
-export type WindowRole = "popup" | "window";
+/**
+ * `popup`: the Snip and Live popups. `settings`: the Settings window (sidebar material).
+ * `window`: onboarding and other titled windows: theme only.
+ */
+export type WindowRole = "popup" | "settings" | "window";
 export type ResolvedTheme = "light" | "dark";
 
 export interface ChromeEnv {
@@ -61,6 +70,7 @@ export const MAC_POPUP_RADIUS = 12;
 /** What a window of `role` gets in `env`. Pure. */
 export function planChrome(role: WindowRole, env: ChromeEnv): ChromePlan {
 	const osVersion = env.os === "windows" ? windowsVersion(env.windowsBuild) : null;
+	if (role === "settings") return planSettings(env, osVersion);
 	if (role !== "popup" || env.reduceTransparency) return { material: "none", native: NONE, osVersion };
 	if (env.os === "macos") {
 		return {
@@ -79,20 +89,56 @@ export function planChrome(role: WindowRole, env: ChromeEnv): ChromePlan {
 	return { material: "none", native: NONE, osVersion };
 }
 
+function planSettings(env: ChromeEnv, osVersion: "10" | "11" | null): ChromePlan {
+	if (env.os === "macos") {
+		// The effect view stays under Reduce transparency: AppKit makes it opaque, and the
+		// window (created clear) keeps a backdrop and its shadow. Only the veil goes solid.
+		return {
+			material: env.reduceTransparency ? "none" : "native",
+			native: { kind: "mac-effect", material: NS_MATERIAL.sidebar, radius: 0 },
+			osVersion,
+		};
+	}
+	if (env.os === "windows" && !env.reduceTransparency && (env.windowsBuild ?? 0) >= WIN11_22H2_BUILD) {
+		return {
+			material: "native",
+			native: { kind: "win-backdrop", backdrop: DWMSBT.mainWindow, corner: DWMWCP.default, systemFrame: true },
+			osVersion,
+		};
+	}
+	return { material: "none", native: NONE, osVersion };
+}
+
 function windowsVersion(build: number | null): "10" | "11" | null {
 	if (build === null) return null;
 	return build >= WIN11_BUILD ? "11" : "10";
 }
 
 /**
- * Whether a window of `role` should be created `transparent: true`. macOS popups always are
- * (the view draws the rounded veil). On Windows only where a backdrop can show through:
+ * Whether a window of `role` should be created `transparent: true`. macOS popups and Settings
+ * always are (the view draws the veil, the effect view sits under it). On Windows only where a backdrop can show through:
  * Windows 10 and 21H2 keep the opaque window GLIM-65 shipped.
  */
 export function wantsTransparentWindow(role: WindowRole, os: ChromeOs, windowsBuild: number | null): boolean {
-	if (role !== "popup") return false;
+	if (role === "window") return false;
 	if (os === "macos") return true;
 	return os === "windows" && (windowsBuild ?? 0) >= WIN11_22H2_BUILD;
+}
+
+/**
+ * Title bar and transparency for the Settings window (GLIM-133). macOS: `hiddenInset` (the
+ * view draws the drag strip). Clear only where a material can go under it, and only with the
+ * native helper: without one the view paints solid anyway, but a clear macOS window has no
+ * shadow.
+ */
+export function settingsWindowStyle(
+	mac: boolean,
+	chrome: Pick<WindowChrome, "native" | "transparentFor"> | undefined,
+): { titleBarStyle: "hiddenInset" | "default"; transparent: boolean } {
+	return {
+		titleBarStyle: mac ? "hiddenInset" : "default",
+		transparent: chrome?.native ? chrome.transparentFor("settings") : false,
+	};
 }
 
 /** The theme the views should use, or null to follow the OS (no override). Pure. */
