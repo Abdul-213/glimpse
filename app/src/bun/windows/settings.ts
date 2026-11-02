@@ -81,6 +81,8 @@ export class SettingsWindow {
 					setProvider: h.setProvider,
 					resetLiveConsent: h.resetLiveConsent,
 					openCloudLink: h.openCloudLink,
+					setSpendCap: h.setSpendCap,
+					continueCloud: h.continueCloud,
 					openOnboarding: h.openOnboarding,
 					openUpdatePage: h.openUpdatePage,
 				},

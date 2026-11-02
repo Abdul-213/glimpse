@@ -18,6 +18,7 @@
 import {
 	abortable,
 	assertUniqueSegmentIds,
+	billedCharacters,
 	chunkSegments,
 	isPlainObject,
 	type LanguageCode,
@@ -111,6 +112,7 @@ const STOPS_THE_REST: ReadonlySet<ProviderErrorCode> = new Set([
 	"needs-key",
 	"invalid-key",
 	"quota-exceeded",
+	"spend-cap",
 	"offline",
 	"rate-limited",
 ]);
@@ -350,16 +352,20 @@ export class GoogleTranslateProvider implements TranslationProvider {
 		signal: AbortSignal | undefined,
 	): Promise<string[]> {
 		const id = this.info.id;
+		const q = batch.map((s) => s.text);
+		// The spend guard (GLIM-120): nothing is sent once it has paused Translation for the month.
+		this.#ctx.usage?.admit(id);
 		const json = await callGoogle({
 			providerId: id,
 			api: "translate",
 			fetch: this.#fetch,
 			key,
 			url: TRANSLATE_V2_ENDPOINT,
-			body: { q: batch.map((s) => s.text), source, target, ...REQUEST_OPTIONS },
+			body: { q, source, target, ...REQUEST_OPTIONS },
 			signal,
 			timeoutMs: this.options.timeoutMs,
 		});
+		this.#ctx.usage?.record(id, billedCharacters(q));
 		const texts = parseTranslateReply(json);
 		if (texts === null || texts.length !== batch.length) {
 			throw new GoogleError(

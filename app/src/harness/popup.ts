@@ -82,6 +82,8 @@ export interface PopupHarnessOptions {
 	readonly packs?: PackPort;
 	readonly eol?: "\n" | "\r\n";
 	readonly providerShortName?: (id: string) => string | null;
+	/** The spend guard's "Continue this month" (GLIM-120); recorded as `continueCloud`. */
+	readonly continueCloud?: () => void;
 }
 
 export function popupHarness(o: PopupHarnessOptions): PopupHarness {
@@ -112,6 +114,10 @@ export function popupHarness(o: PopupHarnessOptions): PopupHarness {
 			snipAgain: () => targets.push("snipAgain"),
 			openSettings: (section) => targets.push(`settings:${section}`),
 			openExternal: (url) => targets.push(`url:${url}`),
+			continueCloud: async () => {
+				targets.push("continueCloud");
+				o.continueCloud?.();
+			},
 		},
 		settings: () => ({ ...DEFAULT_POPUP_SETTINGS, ...o.settings }),
 		scheduler,

@@ -107,6 +107,8 @@ export interface LivePopupControllerDeps {
 	readonly packs?: PackPort;
 	/** "Edit source languages…" on the skipped line (GLIM-131): Settings › Languages. */
 	readonly openSettings?: (section: "languages") => void;
+	/** The spend guard's "Continue this month" (GLIM-120). Without it the button only resumes. */
+	readonly continueCloud?: () => Promise<unknown>;
 }
 
 export class LivePopupController {
@@ -240,6 +242,21 @@ export class LivePopupController {
 	}
 
 	resume(sessionId: string): void {
+		if (this.#mine(sessionId)) this.#d.live.resume();
+	}
+
+	/**
+	 * The spend guard's "Continue this month" (GLIM-120): lift the pause for the rest of the
+	 * month, then resume the session it stopped.
+	 */
+	async continueCloud(sessionId: string): Promise<void> {
+		if (!this.#mine(sessionId)) return;
+		try {
+			await this.#d.continueCloud?.();
+		} catch (error) {
+			this.#d.log.warn("live popup: continue cloud failed", { error });
+			return;
+		}
 		if (this.#mine(sessionId)) this.#d.live.resume();
 	}
 

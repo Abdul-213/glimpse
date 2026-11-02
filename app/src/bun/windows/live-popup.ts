@@ -70,6 +70,7 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 					resumeRequested: (m) => str(m?.sessionId) && c()?.resume(m.sessionId),
 					stopRequested: (m) => str(m?.sessionId) && c()?.stop(m.sessionId),
 					repinRequested: (m) => str(m?.sessionId) && c()?.repin(m.sessionId),
+					continueCloudRequested: (m) => str(m?.sessionId) && void c()?.continueCloud(m.sessionId),
 					privateToggled: (m) => str(m?.sessionId) && c()?.setPrivate(m.sessionId, !!m.on),
 					consentAnswered: (m) => {
 						if (!str(m?.sessionId)) return;

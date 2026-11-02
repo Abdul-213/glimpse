@@ -221,6 +221,8 @@ export class GoogleVisionProvider implements OcrProvider {
 			throw new ProviderError("input-too-large", `encoded image is ${png.byteLength} bytes`, { providerId: id });
 		}
 		throwIfAborted(signal, id);
+		// The spend guard (GLIM-120): nothing is sent once it has paused Vision for the month.
+		this.#ctx.usage?.admit(id);
 		const hints = visionHints(request.languages);
 		const body = {
 			requests: [
@@ -241,6 +243,8 @@ export class GoogleVisionProvider implements OcrProvider {
 			signal,
 			timeoutMs: this.options.timeoutMs,
 		});
+		// One image, one feature: one billed unit, whatever the per-image result says.
+		this.#ctx.usage?.record(id, 1);
 		throwIfAborted(signal, id);
 		const responses = (json as { responses?: unknown }).responses;
 		const first = Array.isArray(responses) ? responses[0] : undefined;

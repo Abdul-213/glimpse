@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+	type CloudUsageGate,
 	collectTranslations,
 	languageCode,
 	ProviderRegistry,
 	parseOrDefault,
+	spendCapError,
 	type TranslationEvent,
 	type TranslationRequest,
 } from "@glimpse/core";
@@ -292,5 +294,55 @@ describe("Google Translation v2: registry", () => {
 		expect(after.value.translation).toEqual(["bergamot"]);
 		const first = parseOrDefault(registry.configSchema(), { translation: ["cloud:google-translate-v2", "bergamot"] });
 		expect(first.value.translation).toEqual(["cloud:google-translate-v2", "bergamot"]);
+	});
+});
+
+describe("Google Translation v2: the spend guard (GLIM-120)", () => {
+	const request: TranslationRequest = {
+		to: L("en"),
+		segments: [
+			{ id: "a", text: "eins", from: L("de") },
+			{ id: "b", text: "猫です", from: L("ja") },
+		],
+	};
+	function guarded(translate: FakeHandler = echo, paused = false) {
+		const fake = new FakeFetch()
+			.on("POST", TRANSLATE_V2_ENDPOINT, translate)
+			.on("GET", LANGUAGES_V2_ENDPOINT, { json: fixtureJson("translate-languages.json") });
+		const secrets = new MemorySecretStore({ [GOOGLE_SECRET_ID]: TEST_KEY });
+		const recorded: [string, number][] = [];
+		const usage: CloudUsageGate = {
+			admit: (id) => {
+				if (paused) throw spendCapError(id);
+			},
+			record: (id, units) => recorded.push([id, units]),
+		};
+		const p = new GoogleTranslateProvider({}, { google: { secrets, fetch: fake.fetch, usage } });
+		return { fake, p, recorded };
+	}
+
+	test("records the billed characters of each answered request", async () => {
+		const { p, recorded } = guarded();
+		await p.init();
+		await drain(p.translate(request));
+		// One batch per source language: "eins" (4) and "猫です" (3 code points).
+		expect(recorded.map(([, n]) => n).sort()).toEqual([3, 4]);
+		expect(recorded.every(([id]) => id === "cloud:google-translate-v2")).toBe(true);
+	});
+
+	test("paused: every segment errors spend-cap and nothing is sent or counted", async () => {
+		const { fake, p, recorded } = guarded(echo, true);
+		await p.init();
+		const events = await drain(p.translate(request));
+		expect(events.map((e) => e.type === "error" && e.error.code)).toEqual(["spend-cap", "spend-cap"]);
+		expect(translateCalls(fake)).toHaveLength(0);
+		expect(recorded).toEqual([]);
+	});
+
+	test("a request Google refused isn't counted", async () => {
+		const { p, recorded } = guarded(errorReply("quota-daily"));
+		await p.init();
+		await drain(p.translate(request));
+		expect(recorded).toEqual([]);
 	});
 });

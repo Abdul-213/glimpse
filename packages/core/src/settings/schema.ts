@@ -12,6 +12,7 @@ import { SCREEN_ACCESS_MEMORY, type ScreenAccessMemory } from "../capture/screen
 import { type LanguageCode, languageCode, parseLanguageCode, sourceLanguageFor } from "../language.ts";
 import { LOG_LEVELS, type LogLevel } from "../logging/types.ts";
 import type { ProvidersConfig } from "../providers/registry.ts";
+import { SPEND_CAPS, type SpendCap } from "../providers/usage.ts";
 import {
 	array,
 	boolean,
@@ -103,6 +104,11 @@ export interface Settings {
 		 * (`liveCloudConsent`). Changed only through main (Live popup, Settings › Providers).
 		 */
 		readonly liveConsent: readonly string[];
+		/**
+		 * The spend guard (GLIM-120): `freeTier` pauses a Google API once this month's free tier
+		 * is used up, until "Continue this month"; `off` only counts. Changed through main.
+		 */
+		readonly spendCap: SpendCap;
 	};
 	readonly models: {
 		/** Where downloaded models live; null = `<userData>/models` (GLIM-96). Absolute path. */
@@ -181,6 +187,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 				array(string({ maxLength: 64, pattern: /^[a-z0-9][a-z0-9:-]*$/ }), { maxLength: 16, uniqueBy: (id) => id }),
 				[],
 			),
+			spendCap: withDefault(oneOf(SPEND_CAPS), "freeTier"),
 		}),
 		models: object({
 			directory: withDefault(nullable(absolutePathSchema()), null),

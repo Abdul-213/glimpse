@@ -15,10 +15,16 @@
 
 import {
 	type AnyProviderFactory,
+	type CloudUsageSummary,
+	emptyUsage,
 	type ProviderRegistry,
 	type SecretStore,
 	SecretStoreError,
 	type Settings,
+	SPEND_CAPS,
+	type SpendCap,
+	usageMonth,
+	usageSummary,
 } from "@glimpse/core";
 import {
 	cleanGoogleKey,
@@ -46,7 +52,17 @@ export const CLOUD_LINKS: Readonly<Record<CloudLink, string>> = {
 	credentials: "https://console.cloud.google.com/apis/credentials",
 	terms: "https://cloud.google.com/translate/data-usage",
 	pricing: "https://cloud.google.com/translate/pricing",
+	visionPricing: "https://cloud.google.com/vision/pricing",
+	// Per-API daily request caps (GLIM-22 "Spend guard": the only hard stop Google offers).
+	quotas: "https://console.cloud.google.com/apis/dashboard",
 };
+
+/** The spend guard's counters (GLIM-120, services/cloud-usage.ts). */
+export interface CloudUsageView {
+	readonly summary: CloudUsageSummary;
+	subscribe(listener: (summary: CloudUsageSummary) => void): () => void;
+	continueThisMonth(): Promise<unknown>;
+}
 
 /** Keys Glimpse knows how to store and test. One today: the shared Google Cloud key. */
 const KEYS = [{ secretId: GOOGLE_SECRET_ID, vendor: "Google", label: "Google Cloud API key" }] as const;
@@ -61,6 +77,8 @@ export interface CloudSettingsDeps<Ctx> {
 	readonly onKeyChanged?: (secretId: string) => void | Promise<void>;
 	readonly openUrl: (url: string) => boolean;
 	readonly now?: () => number;
+	/** The spend guard (GLIM-120). Without it, Settings shows zero usage and the guard does nothing. */
+	readonly usage?: CloudUsageView;
 }
 
 const summary = (f: AnyProviderFactory<unknown>): ProviderSummary => ({
@@ -80,6 +98,8 @@ export class CloudSettings<Ctx> {
 		deps.settings.subscribe((next, previous) => {
 			if (next.providers !== previous.providers || next.cloud !== previous.cloud) void this.#emit();
 		});
+		// New counts reach an open Providers pane (written at most every couple of seconds).
+		deps.usage?.subscribe(() => void this.#emit());
 	}
 
 	subscribe(listener: (snapshot: CloudSnapshot) => void): () => void {
@@ -160,7 +180,29 @@ export class CloudSettings<Ctx> {
 				translation: defaults.translation.map(local).filter((p): p is ProviderSummary => p !== null),
 			},
 			liveConsent: current.cloud.liveConsent,
+			usage: this.#usage(current.cloud.spendCap),
 		};
+	}
+
+	#usage(cap: SpendCap): CloudUsageSummary {
+		if (this.#deps.usage) return this.#deps.usage.summary;
+		const month = usageMonth((this.#deps.now ?? Date.now)());
+		return usageSummary(emptyUsage(month), cap, month);
+	}
+
+	async setSpendCap(params: unknown): Promise<CloudActionResult> {
+		const cap = (params as { cap?: unknown } | null)?.cap;
+		if (!(SPEND_CAPS as readonly unknown[]).includes(cap)) return this.#result("Unknown setting.");
+		if (cap !== this.#deps.settings.current.cloud.spendCap) {
+			await this.#deps.settings.update({ cloud: { spendCap: cap as SpendCap } });
+		}
+		return this.#result();
+	}
+
+	/** "Continue this month" (Settings or a popup): resume what the guard paused. */
+	async continueCloud(): Promise<CloudActionResult> {
+		await this.#deps.usage?.continueThisMonth();
+		return this.#result();
 	}
 
 	async #result(error?: string): Promise<CloudActionResult> {
@@ -276,5 +318,14 @@ export class CloudSettings<Ctx> {
 /** What the Settings window uses (independent of the provider context type). */
 export type CloudSettingsApi = Pick<
 	CloudSettings<never>,
-	"snapshot" | "saveKey" | "removeKey" | "testKey" | "setProvider" | "resetLiveConsent" | "openLink" | "subscribe"
+	| "snapshot"
+	| "saveKey"
+	| "removeKey"
+	| "testKey"
+	| "setProvider"
+	| "resetLiveConsent"
+	| "setSpendCap"
+	| "continueCloud"
+	| "openLink"
+	| "subscribe"
 >;

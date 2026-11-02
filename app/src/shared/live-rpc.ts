@@ -70,6 +70,8 @@ export type LiveRPC = {
 			resumeRequested: { sessionId: string };
 			stopRequested: { sessionId: string };
 			repinRequested: { sessionId: string };
+			/** The spend guard's "Continue this month" (GLIM-120): resume cloud use, then Live. */
+			continueCloudRequested: { sessionId: string };
 			privateToggled: { sessionId: string; on: boolean };
 			consentAnswered: { sessionId: string; answer: LiveConsentAnswer; remember: boolean };
 			skippedToggled: { sessionId: string; expanded: boolean };

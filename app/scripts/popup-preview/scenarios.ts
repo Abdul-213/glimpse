@@ -409,6 +409,25 @@ export const ERROR_SCENARIOS: readonly Scenario[] = [
 				before: () => [failed("b1", "offline", "es")],
 			}),
 	},
+	{
+		name: "e3-spend-cap",
+		caption: "Spend guard (GLIM-120): cloud use paused at the free tier, Continue this month",
+		state: () =>
+			errorRun("spendCap", [["¿Nos vemos a las ocho?", "es", "translate"]], {
+				cloud: true,
+				before: () => [failed("b1", "spendCap", "es")],
+			}),
+	},
+	{
+		name: "e3-spend-cap-local",
+		caption: "Spend guard (GLIM-120), local packs installed: Translate on this device first",
+		localAvailable: true,
+		state: () =>
+			errorRun("spendCap", [["¿Nos vemos a las ocho?", "es", "translate"]], {
+				cloud: true,
+				before: () => [failed("b1", "spendCap", "es")],
+			}),
+	},
 	{ name: "e4-screen-access", caption: "E4 Screen Recording off (macOS)", state: () => errorRun("screenAccess", []) },
 	{ name: "e4w-capture-blank", caption: "E4 blank capture", state: () => errorRun("captureBlank", []) },
 	{

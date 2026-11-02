@@ -209,6 +209,15 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 		events: () => [...changed(), status("error", { error: { kind: "ocrFailed", message: "engine exited" } })],
 	},
 	{
+		name: "l-spend-cap",
+		note: "Spend guard (GLIM-120): cloud use paused at the free tier",
+		width: 400,
+		events: () => [
+			...changed(),
+			status("error", { error: { kind: "spendCap", message: "paused by the monthly spend guard" } }),
+		],
+	},
+	{
 		name: "l-gone",
 		note: "Area no longer on a screen",
 		width: 400,

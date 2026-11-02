@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { fromGoogle, isProviderError, languageCode, type OcrImage, ProviderRegistry } from "@glimpse/core";
+import {
+	type CloudUsageGate,
+	fromGoogle,
+	isProviderError,
+	languageCode,
+	type OcrImage,
+	ProviderRegistry,
+	spendCapError,
+} from "@glimpse/core";
 import { type ContractCheck, MemorySecretStore, ocrProviderContract } from "@glimpse/core/testing";
 import { GOOGLE_SECRET_ID, GoogleError } from "../../src/google/common.ts";
 import { FakeFetch } from "../../src/google/fake-fetch.ts";
@@ -344,5 +352,44 @@ describe("Google Vision: registry", () => {
 		expect(d?.capabilities).toMatchObject({ secretId: GOOGLE_SECRET_ID, needsNetwork: true });
 		expect(d?.isDefault).toBe(false);
 		expect(registry.defaultConfig().ocr).toBeNull();
+	});
+});
+
+describe("Google Vision: the spend guard (GLIM-120)", () => {
+	function guarded(reply: Parameters<FakeFetch["on"]>[2] = { json: documentEn }, paused = false) {
+		const fake = new FakeFetch().on("POST", VISION_ENDPOINT, reply);
+		const secrets = new MemorySecretStore({ [GOOGLE_SECRET_ID]: TEST_KEY });
+		const recorded: [string, number][] = [];
+		const usage: CloudUsageGate = {
+			admit: (id) => {
+				if (paused) throw spendCapError(id);
+			},
+			record: (id, units) => recorded.push([id, units]),
+		};
+		const p = new GoogleVisionProvider({}, { google: { secrets, fetch: fake.fetch, usage } });
+		return { fake, p, recorded };
+	}
+
+	test("one answered request counts one image", async () => {
+		const { p, recorded } = guarded();
+		await p.init();
+		await p.recognise({ image: imageEn });
+		expect(recorded).toEqual([["cloud:google-vision", 1]]);
+	});
+
+	test("paused: rejects spend-cap without sending the image", async () => {
+		const { fake, p, recorded } = guarded(undefined, true);
+		await p.init();
+		const error = await p.recognise({ image: imageEn }).catch((e: unknown) => e);
+		expect(isProviderError(error, "spend-cap")).toBe(true);
+		expect(fake.calls).toHaveLength(0);
+		expect(recorded).toEqual([]);
+	});
+
+	test("a request Google refused isn't counted", async () => {
+		const { p, recorded } = guarded(errorReply("quota-daily"));
+		await p.init();
+		await p.recognise({ image: imageEn }).catch(() => undefined);
+		expect(recorded).toEqual([]);
 	});
 });

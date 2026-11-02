@@ -150,6 +150,7 @@ export function isBlankImage(image: { readonly data: Uint8Array }): boolean {
 const PROVIDER_ERROR_KINDS: ReadonlySet<SegmentFailureKind> = new Set([
 	"providerKey",
 	"providerQuota",
+	"spendCap",
 	"providerTimeout",
 	"offline",
 ]);
@@ -341,7 +342,8 @@ export class TranslationPipeline {
 			if (e.code === "cancelled") throw e;
 			return this.#finish(opts, started, {
 				blocks: [],
-				error: { kind: "ocrFailed", message: e.message, error: e.toInfo() },
+				// Cloud OCR paused by the spend guard (GLIM-120) has its own state; nothing was sent.
+				error: { kind: e.code === "spend-cap" ? "spendCap" : "ocrFailed", message: e.message, error: e.toInfo() },
 			});
 		}
 		const ocrMs = this.#clock.now() - ocrStart;

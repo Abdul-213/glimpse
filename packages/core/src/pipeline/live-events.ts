@@ -33,7 +33,12 @@ export type LiveErrorKind =
 	| "areaGone"
 	| "captureFailed"
 	/** OCR failed or no OCR engine (L16). */
-	| "ocrFailed";
+	| "ocrFailed"
+	/**
+	 * The spend guard (GLIM-120) paused cloud use for the month: nothing more is sent until
+	 * the user chooses "Continue this month" (or the month ends).
+	 */
+	| "spendCap";
 
 export interface LiveError {
 	readonly kind: LiveErrorKind;

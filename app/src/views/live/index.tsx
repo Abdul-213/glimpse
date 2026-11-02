@@ -65,6 +65,7 @@ render(
 								resume: (sessionId) => rpc.send.resumeRequested({ sessionId }),
 								stop: (sessionId) => rpc.send.stopRequested({ sessionId }),
 								repin: (sessionId) => rpc.send.repinRequested({ sessionId }),
+								continueCloud: (sessionId) => rpc.send.continueCloudRequested({ sessionId }),
 								setPrivate: (sessionId, on) => rpc.send.privateToggled({ sessionId, on }),
 								consent: (sessionId, answer, remember) => rpc.send.consentAnswered({ sessionId, answer, remember }),
 								hoverBlock: (sessionId, id) => rpc.send.blockHovered({ sessionId, id }),

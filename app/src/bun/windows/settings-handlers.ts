@@ -247,6 +247,8 @@ export function createSettingsHandlers(deps: SettingsDeps) {
 		testApiKey: (params: unknown) => deps.cloud.testKey(isPlainObject(params) ? params["secretId"] : undefined),
 		setProvider: (params: unknown) => deps.cloud.setProvider(isPlainObject(params) ? params : null),
 		resetLiveConsent: () => deps.cloud.resetLiveConsent(),
+		setSpendCap: (params: unknown) => deps.cloud.setSpendCap(isPlainObject(params) ? params : null),
+		continueCloud: () => deps.cloud.continueCloud(),
 		openCloudLink: (params: unknown): ActionResult =>
 			deps.cloud.openLink(isPlainObject(params) ? params["link"] : undefined),
 		openUpdatePage: (): ActionResult =>

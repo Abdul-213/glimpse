@@ -5,7 +5,7 @@
 // Cloud providers (GLIM-60 Google Cloud Vision, GLIM-61 Google Cloud Translation v2) are registered too, but registering never
 // selects them: they have no default rank, and the registry drops a cloud translator listed
 // after a local one. They run only after the user picks them in Settings › Providers.
-import type { Logger, ProviderRegistry, SecretStore } from "@glimpse/core";
+import type { CloudUsageGate, Logger, ProviderRegistry, SecretStore } from "@glimpse/core";
 import type { FetchLike, GoogleCloudContext } from "@glimpse/providers/google";
 import { googleVisionFactory } from "@glimpse/providers/ocr/google-vision";
 import { type PaddleOcrContext, paddleOcrFactory } from "@glimpse/providers/ocr/paddle";
@@ -49,6 +49,8 @@ export interface ProviderContextOptions {
 	readonly secrets: SecretStore;
 	/** Default: the global `fetch` (tests pass a fake). */
 	readonly fetch?: FetchLike;
+	/** The spend guard (GLIM-120): Google providers count what they send and stop when it pauses. */
+	readonly usage?: CloudUsageGate;
 }
 
 export function providerContext(options: ProviderContextOptions): {
@@ -81,7 +83,11 @@ export function providerContext(options: ProviderContextOptions): {
 			},
 			models: paddleModelSource(options.models),
 			...(ocr.spawn ? { spawnWorker: ocr.spawn } : {}),
-			google: { secrets: options.secrets, ...(options.fetch ? { fetch: options.fetch } : {}) },
+			google: {
+				secrets: options.secrets,
+				...(options.fetch ? { fetch: options.fetch } : {}),
+				...(options.usage ? { usage: options.usage } : {}),
+			},
 			small100: {
 				// No manifest entry (a trimmed build): every pair reports missing, nothing to download.
 				model: small100ModelSource(options.models) ?? staticSmall100Source(null),

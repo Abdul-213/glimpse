@@ -19,7 +19,7 @@ import { diffLiveBlocks, type LiveBlock, type LiveBlockInput, type LiveBlockUpda
 import type { OcrImage } from "../providers/ocr.ts";
 import type { PackRow } from "../providers/readiness.ts";
 import { type ChangeDecision, ChangeDetector, shouldProcess } from "./change-detection.ts";
-import type { PipelineEvent, PipelineListener, PipelineResult, RecognisedBlock } from "./events.ts";
+import type { BlockTranslation, PipelineEvent, PipelineListener, PipelineResult, RecognisedBlock } from "./events.ts";
 import { FrameRing, frameKey } from "./frame-ring.ts";
 import { LIVE_QUIET_FOCUS, LiveBudget, type LiveBudgetOptions, type LiveBudgetState } from "./live-budget.ts";
 import type {
@@ -425,8 +425,8 @@ export class LiveRunner {
 					return;
 				}
 				this.#ocrDone++;
-				if (result.error?.kind === "ocrFailed") {
-					this.#fail({ kind: "ocrFailed", message: result.error.message });
+				if (result.error?.kind === "ocrFailed" || result.error?.kind === "spendCap") {
+					this.#fail({ kind: result.error.kind, message: result.error.message });
 					return;
 				}
 				this.#ring.set(key, result);
@@ -535,13 +535,18 @@ export class LiveRunner {
 		seq: number,
 		ids: Map<string, string>,
 		runBlockId: string,
-		t: { readonly text: string; readonly final: boolean; readonly failure: unknown },
+		t: Pick<BlockTranslation, "text" | "final" | "failure">,
 	): void {
 		const id = ids.get(runBlockId);
 		if (!id) return;
 		const shown = this.#shown.find((b) => b.id === id);
 		if (!shown) return;
 		const failed = !!t.failure;
+		// The spend guard (GLIM-120) paused cloud translation: stop sending frames until the user continues.
+		if (t.final && t.failure?.kind === "spendCap") {
+			this.#fail({ kind: "spendCap", message: t.failure.error.message });
+			return;
+		}
 		if (t.final && !failed && shown.translation === t.text) return; // unchanged block, cache hit
 		if (t.final) {
 			this.#shown = this.#shown.map((b) => (b.id === id ? { ...b, translation: failed ? null : t.text, failed } : b));

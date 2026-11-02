@@ -230,6 +230,19 @@ export function errorBody(
 					: [{ action: "retry", label: "Retry", primary: false }],
 				showOriginal: true,
 			};
+		case "spendCap":
+			// GLIM-120: Glimpse paused cloud use itself; nothing was sent. Not an error, a limit the user set.
+			return {
+				title: "Cloud use is paused for this month",
+				body: "You've used Google's free tier this month, so Glimpse stopped sending to Google Cloud. Nothing was sent. Continuing may cost money.",
+				tone: "neutral",
+				// Free first: on-device (when the packs are there) leads; continuing is one click.
+				buttons: [
+					...(localAvailable ? [{ action: "local" as const, label: "Translate on this device", primary: true }] : []),
+					{ action: "continueCloud", label: "Continue this month", primary: !localAvailable },
+				],
+				showOriginal: true,
+			};
 		case "providerTimeout":
 			return {
 				title: `${provider} didn't answer within 10 seconds`,

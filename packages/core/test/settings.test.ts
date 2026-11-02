@@ -59,7 +59,7 @@ describe("settings defaults", () => {
 				hideFromCapture: true,
 			},
 			system: { launchAtLogin: false },
-			cloud: { liveConsent: [] },
+			cloud: { liveConsent: [], spendCap: "freeTier" },
 			models: { directory: null },
 			onboarding: { completed: false, step: "welcome", dismissed: false, languages: [] },
 			permissions: { screenAccess: "unknown" },

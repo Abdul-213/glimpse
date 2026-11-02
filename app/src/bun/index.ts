@@ -26,6 +26,7 @@ import { withDeniedReport } from "./services/capture/denied-report.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
 import { MaskedCaptureSource } from "./services/capture/masked.ts";
 import { CloudSettings } from "./services/cloud-settings.ts";
+import { CloudUsage, fileCloudUsageStore } from "./services/cloud-usage.ts";
 import { buildDiagnostics } from "./services/diagnostics.ts";
 import { HotkeyService } from "./services/hotkeys.ts";
 import { CarbonHotkeyBackend } from "./services/hotkeys-carbon.ts";
@@ -114,6 +115,14 @@ const secrets = new KeychainSecretStore({
 	logger: log.child("secrets"),
 	onValue: (value) => log.redactor.addSecret(value),
 });
+// The spend guard (GLIM-120): this month's Vision images and Translation characters, counted
+// locally in <userData>/cloud-usage.json and never sent anywhere.
+const cloudUsage = new CloudUsage({
+	store: fileCloudUsageStore(Utils.paths.userData),
+	cap: () => appSettings.current.cloud.spendCap,
+	log: log.child("cloud-usage"),
+});
+void cloudUsage.load();
 const {
 	ctx: providerCtx,
 	bergamotWorker,
@@ -127,6 +136,7 @@ const {
 	warmPairs: () => warmPairsFor(appSettings.current),
 	log: translationLog,
 	secrets,
+	usage: cloudUsage,
 });
 const translationPacks = new TranslationPacks({
 	manager: models,
@@ -266,6 +276,7 @@ const cloudSettings = new CloudSettings({
 	settings: appSettings,
 	onKeyChanged: (secretId) => translation.keyChanged(secretId),
 	openUrl: (url) => Utils.openExternal(url),
+	usage: cloudUsage,
 });
 // Update notification (GLIM-70): GitHub's latest release, at most once a day, notify only.
 const updates = new UpdateChecker({
@@ -395,6 +406,8 @@ snipPopup = new SnipPopupController({
 		openExternal: (url) => {
 			if (!Utils.openExternal(url)) popupLog.warn("could not open a link", { url });
 		},
+		// The spend guard's "Continue this month" (GLIM-120).
+		continueCloud: () => cloudSettings.continueCloud(),
 	},
 	focus: pickerNatives.focus,
 	// The overlays stay up under the popup as the results layer, drawing its detection boxes (GLIM-115).
@@ -484,6 +497,8 @@ livePopup = new LivePopupController({
 	packs: translationPacks,
 	// GLIM-131: "Edit source languages…" on the skipped line.
 	openSettings: (section) => settings.open(section),
+	// GLIM-120: the spend guard's "Continue this month".
+	continueCloud: () => cloudSettings.continueCloud(),
 	log: liveLog.child("popup"),
 });
 // GLIM-92: Live changes read aloud (live-popup.md §10): the view's live regions plus the
@@ -602,6 +617,7 @@ commands.handle("logs.open", () => {
 });
 commands.handle("app.quit", () => {
 	log.info("quit");
+	void cloudUsage.flush();
 	void translation.dispose();
 	hotkeys.dispose();
 	snipPopup?.dispose();

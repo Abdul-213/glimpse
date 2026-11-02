@@ -96,6 +96,8 @@ export interface SnipActionTargets {
 	snipAgain(): void;
 	openSettings(section: "providers" | "languages" | "models"): void;
 	openExternal(url: string): void;
+	/** Spend guard (GLIM-120) "Continue this month". Optional: without it the button only retries. */
+	continueCloud?(): Promise<unknown>;
 }
 
 /** macOS Screen Recording pane (E4 "Open System Settings"). */
@@ -384,6 +386,9 @@ export class SnipPopupController {
 			case "checkKey":
 				t?.openSettings("providers");
 				return;
+			case "continueCloud":
+				void this.continueCloud(r);
+				return;
 			case "editSources":
 				t?.openSettings("languages");
 				return;
@@ -430,6 +435,30 @@ export class SnipPopupController {
 	}
 
 	// ---- follow-ups: retry, packs, translate these ----
+
+	/**
+	 * Spend guard (GLIM-120) "Continue this month": lift the pause, then redo what it stopped:
+	 * the failed blocks (translation paused), or the whole Snip of the same region (cloud OCR
+	 * paused, so nothing was read).
+	 */
+	private async continueCloud(r: Request): Promise<void> {
+		try {
+			await this.deps.targets?.continueCloud?.();
+		} catch (error) {
+			this.deps.log.warn("continue cloud failed", { error });
+			return;
+		}
+		if (!this.current(r.id)) return;
+		if (r.state.blocks.length === 0) {
+			this.open(r.region);
+			return;
+		}
+		this.followUp(
+			r,
+			r.state.blocks.filter((b) => b.cls === "translate" && b.state === "failed").map((b) => b.id),
+			{ bypassCache: true },
+		);
+	}
 
 	private followUp(
 		r: Request,

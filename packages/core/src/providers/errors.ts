@@ -26,6 +26,8 @@ export type ProviderErrorCode =
 	| "rate-limited"
 	/** The account's quota or spend guard is exhausted. */
 	| "quota-exceeded"
+	/** Glimpse's own monthly spend guard paused this cloud API (GLIM-120). Nothing was sent. */
+	| "spend-cap"
 	| "timeout"
 	/** The request breaks the interface contract (duplicate segment ids, bad image). A bug. */
 	| "invalid-request"

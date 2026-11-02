@@ -190,6 +190,7 @@ Don't create packages for grouping alone; use folders.
 | Native helper sources | `app/native/macos/`, `app/native/windows/` | See section 6. |
 | Logging and diagnostics | `packages/core/src/logging/` (`Logger` port, `Redactor`, line format, diagnostics bundle) + `app/src/bun/services/log.ts` (rotating file in `Utils.paths.userLogs`), `services/diagnostics.ts` | GLIM-35. Everything logged passes the `Redactor`: no keys, no screen text (wrap it in `sensitive()`), never pixels. |
 | Update notification | `packages/core/src/updates/` (version compare, `releases/latest` parsing, once-a-day rule) + `app/src/bun/services/update-check.ts` (`UpdateChecker`, state in `<userData>/update-check.json`) | GLIM-70. Notify only: tray item and Settings › About link to the release page; `settings.updates.check` turns it off; every failure (offline, 404 while the repo is private) is silent. |
+| Cloud spend guard | `packages/core/src/providers/usage.ts` (pure: billing month in Pacific time, counters, free tiers and list prices, `isPaused`, `CloudUsageGate` port) + `app/src/bun/services/cloud-usage.ts` (`CloudUsage`, `<userData>/cloud-usage.json`) | GLIM-120, GLIM-22 "Spend guard". The Google providers call `ctx.google.usage.admit()` before a billed request (throws `ProviderError("spend-cap")`, nothing sent) and `record()` after Google answered (1 per Vision image, code points per Translation request). `settings.cloud.spendCap`: `freeTier` (default) pauses an API at its monthly free tier until "Continue this month" (Snip E3 `spendCap`, Live error `spendCap`, Settings › Providers); `off` only counts. Numbers only, never sent anywhere. |
 | Shared UI components | `packages/ui/src/components/` | GLIM-42. Tokens only, no raw colours or off-scale sizes. |
 | Surface UI | `app/src/views/<surface>/` | Thin: render state from main, send intents back. |
 
@@ -419,7 +420,9 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   every task that used it back to this computer. Any key change calls
   `TranslationService.keyChanged` (cache wipe `key-change`, re-init/re-warm the providers on that
   key). Live consent: `settings.cloud.liveConsent` (per provider) and core's `liveCloudConsent()`
-  (cloud translation asks once, cloud OCR asks every session; GLIM-94 #16 defaults).
+  (cloud translation asks once, cloud OCR asks every session; GLIM-94 #16 defaults). The spend
+  guard (GLIM-120) adds `setSpendCap` and `continueCloud`; the snapshot's `usage` is this month's
+  counts against Google's free tiers.
 - **Source-language subset (GLIM-68)**: `packages/core/src/language/source-subset.ts`: the
   languages offered (detectable or locally translatable) and script grouping; the pipeline's
   `classifyBlock` applies the subset (empty = all). Settings stores catalogue tags only (`sourceLanguageSchema` rejects others). UI:
