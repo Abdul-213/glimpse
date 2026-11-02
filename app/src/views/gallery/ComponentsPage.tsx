@@ -82,7 +82,7 @@ function Section(props: { title: string; note?: string; children: JSX.Element })
 			<div class="flex flex-col gap-0.5">
 				<h2 class="m-0 text-heading">{props.title}</h2>
 				<Show when={props.note}>
-					<p class="m-0 max-w-[65ch] text-body text-text-secondary">{props.note}</p>
+					<p class="m-0 max-w-measure text-body text-text-secondary">{props.note}</p>
 				</Show>
 			</div>
 			<div class="flex flex-wrap items-start gap-6">{props.children}</div>

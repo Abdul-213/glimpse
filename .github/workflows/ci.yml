@@ -102,16 +102,16 @@ jobs:
           retention-days: 7
 
       # GLIM-52: Impeccable design detector over the view sources and every preview surface
-      # (gallery, Settings, onboarding, Snip/Live popups, picker). Non-blocking for now; the
-      # report goes to the job summary. Exceptions: .impeccable/config.json (CONTRIBUTING.md).
-      - name: Design detector (non-blocking)
-        continue-on-error: true
+      # (gallery, Settings, onboarding, Snip/Live popups, picker). Clean at GLIM-135, so it
+      # blocks: a new (non-advisory) finding fails the job. The report goes to the job summary
+      # either way. Exceptions: .impeccable/config.json (CONTRIBUTING.md).
+      - name: Design detector
         working-directory: app
         env:
           DO_NOT_TRACK: "1"
         run: |
           mkdir -p "$RUNNER_TEMP/design"
-          bun scripts/design-detect.ts --report "$RUNNER_TEMP/design/design-detector.md" --json "$RUNNER_TEMP/design/design-detector.json"
+          bun scripts/design-detect.ts --strict --report "$RUNNER_TEMP/design/design-detector.md" --json "$RUNNER_TEMP/design/design-detector.json" || { cat "$RUNNER_TEMP/design/design-detector.md" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
           cat "$RUNNER_TEMP/design/design-detector.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload design detector report

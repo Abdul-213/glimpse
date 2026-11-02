@@ -29,7 +29,7 @@ export function StepFrame(props: StepFrameProps): JSX.Element {
 					{props.title}
 				</h1>
 				<Show when={props.lead}>
-					<p class="m-0 mt-2 max-w-[60ch] text-body text-text-secondary">{props.lead}</p>
+					<p class="m-0 mt-2 max-w-measure text-body text-text-secondary">{props.lead}</p>
 				</Show>
 				<Show when={props.children}>
 					<div class="mt-5 flex flex-col gap-4">{props.children}</div>

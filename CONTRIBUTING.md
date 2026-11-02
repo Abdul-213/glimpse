@@ -79,8 +79,10 @@ Add `--json` for the full report. The app honours the same switches:
 ## Design detector (Impeccable, GLIM-52)
 
 The Impeccable skill (`.claude/skills/impeccable`) ships a design detector. CI runs it on every
-PR, and it does not block merging yet. The report goes to the job summary and to the
-`design-detector` artifact.
+PR with `--strict`, and since GLIM-135 it blocks: any non-advisory finding fails the job
+(advisory rules such as `straggler` are reported, never counted). The report goes to the job
+summary and to the `design-detector` artifact. Fix the finding, or record a justified
+exception (below).
 
 ```sh
 bun app/scripts/design-detect.ts            # source + every preview surface (needs the Chromium headless shell)

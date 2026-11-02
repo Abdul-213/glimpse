@@ -13,6 +13,15 @@
 /* Let Tailwind see the classes used by the shared components. */
 @source "../components";
 
+/*
+ * Reading measure (DESIGN.md Typography > Measure): prose in Settings and onboarding (step
+ * leads, descriptions, banner copy, group footers) wraps at 60ch, which in the system faces
+ * is about 70-75 characters a line. `max-w-measure` in markup; components.css uses the var.
+ */
+@theme {
+	--container-measure: 60ch;
+}
+
 /* Platform and preference variants, set by the shell on <html> (DESIGN.md Token mapping). */
 @custom-variant win (&:where([data-os="windows"] *));
 @custom-variant mac (&:where([data-os="macos"] *));

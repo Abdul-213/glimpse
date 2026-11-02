@@ -201,7 +201,7 @@ export function SetupFlow(props: SetupFlowProps): JSX.Element {
 					}
 				>
 					{resumed()}
-					<p class="m-0 text-body text-text-secondary">
+					<p class="m-0 max-w-measure text-body text-text-secondary">
 						Setup has {stepCount()} short steps and one download. You can skip any of them and finish later from{" "}
 						{trayPlace()}.
 					</p>
@@ -397,7 +397,7 @@ export function SetupFlow(props: SetupFlowProps): JSX.Element {
 						)}
 					</Show>
 					<Show when={!mac()}>
-						<p class="m-0 text-label text-text-secondary">
+						<p class="m-0 max-w-measure text-label text-text-secondary">
 							Windows may hide new icons behind the ^ arrow in the notification area. Drag Glimpse out to keep it in
 							view.
 						</p>
