@@ -121,8 +121,11 @@ one- and two-word button labels. What the corpus caught:
    and "رद्द" → "रह" on the JPEG'd dark UIs, kana "う" read as "ラ" in vertical text. Worth
    watching, not worth tuning for yet.
 5. **Latency** (CI runner: 2-core EPYC 7763, ORT 1 thread, so a slow machine): warm p50 per
-   case 108–611 ms for regions up to 640x240 and 948 ms for the 760x300 window; over all runs
-   p50 221 ms, p90 581 ms. Cost follows line count more than pixels (`cjk-zh-hans-article`,
-   `cyrillic-ru-dialog` with two recognisers, and `latin-en-dialog` are the slow regions). Provider
-   init 248 ms, warmup 133 ms; a first call that loads an on-demand recogniser adds up to ~130 ms here.
-   Per-case numbers in [ocr-results.md](ocr-results.md).
+   case 79–612 ms for regions up to 640x240 and 937 ms for the 760x300 window; over all runs
+   p50 165 ms, p90 647 ms. Cost follows line count more than pixels (`cjk-zh-hans-article`,
+   `cjk-ko-chat`, `latin-fr-article` and `latin-en-dialog` are the slow regions). Provider init
+   247 ms, warmup 133 ms; a first call that loads an on-demand recogniser adds up to ~130 ms here.
+   GLIM-125 cut the non-Latin, non-CJK cases by about half: they no longer read every line with
+   `ch` first (`cyrillic-ru-dialog` 611 → 441 ms, `greek-el-dialog` 203 → 100, `arabic-ar-article`
+   367 → 166, `devanagari-hi-article` 331 → 166, `thai-th-notice` 199 → 79; summed p50 over the
+   original 22 cases 7016 → 6026 ms). Per-case numbers in [ocr-results.md](ocr-results.md).
