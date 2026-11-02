@@ -77,8 +77,17 @@ export const PADDLE_OCR_CAPABILITIES: OcrCapabilities = {
 };
 
 export interface PaddleOcrOptions {
-	/** ORT intra-op threads; 0 = min(4, half the cores) (GLIM-17: no gain beyond 4). */
+	/** ORT intra-op threads for Snip; 0 = min(4, half the cores) (GLIM-17: no gain beyond 4). */
 	readonly threads: number;
+	/** Let Snip's ORT threads spin (busy-wait) between ops: lowest latency, most CPU. */
+	readonly spinning: boolean;
+	/**
+	 * ORT threads for Live reads (`purpose: "live"`); 0 = the Snip count capped at 2. Live gets
+	 * its own sessions, made on its first read (GLIM-134, docs/benchmarks/live-cpu.md).
+	 */
+	readonly liveThreads: number;
+	/** Let Live's ORT threads spin. Off: about half the CPU per read for some latency. */
+	readonly liveSpinning: boolean;
 	/** Detector input long-side cap, px. */
 	readonly detMaxSide: number;
 	/** Upscale small regions so the short side is at least this. 0 = never. */
@@ -99,6 +108,9 @@ export interface PaddleOcrOptions {
 
 export const PADDLE_OCR_DEFAULTS: PaddleOcrOptions = {
 	threads: 0,
+	spinning: true,
+	liveThreads: 0,
+	liveSpinning: false,
 	detMaxSide: 1920,
 	detMinSide: 0,
 	minTextScore: 0.5,
@@ -249,7 +261,14 @@ export class PaddleOcrProvider implements OcrProvider {
 			recCacheSize: this.options.recCacheSize,
 		};
 		const threads = this.options.threads > 0 ? this.options.threads : defaultThreads();
-		await client.request({ type: "init", det: det.model, threads, engine });
+		const liveThreads = this.options.liveThreads > 0 ? this.options.liveThreads : Math.min(2, threads);
+		await client.request({
+			type: "init",
+			det: det.model,
+			snip: { threads, spinning: this.options.spinning },
+			live: { threads: liveThreads, spinning: this.options.liveSpinning },
+			engine,
+		});
 		const preload = this.options.preload.filter((r) => this.#installed.has(r));
 		const first = this.#installed.keys().next();
 		if (preload.length === 0 && !first.done) preload.push(first.value);
@@ -314,7 +333,15 @@ export class PaddleOcrProvider implements OcrProvider {
 	#computeFingerprint(): ProviderFingerprint {
 		const recs = [...this.#installed.values()].map((f) => `${f.recognizer}=${f.revision}`).sort();
 		const revision = [`ort${ORT_VERSION}`, `det=${this.#det?.revision ?? "none"}`, ...recs].join(";");
-		const { threads: _threads, preload: _preload, recCacheSize: _cache, ...output } = this.options;
+		const {
+			threads: _t,
+			spinning: _s,
+			liveThreads: _lt,
+			liveSpinning: _ls,
+			preload: _preload,
+			recCacheSize: _cache,
+			...output
+		} = this.options;
 		return { providerId: this.info.id, modelRevision: hashString(revision), optionsHash: stableHash(output) };
 	}
 
@@ -366,6 +393,7 @@ export class PaddleOcrProvider implements OcrProvider {
 					image: { width, height, stride: image.stride, format: image.format, data },
 					candidates,
 					progressive: onProgress !== undefined,
+					purpose: options.purpose ?? "snip",
 				},
 				{
 					transfer: [data],

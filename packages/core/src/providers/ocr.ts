@@ -46,8 +46,17 @@ export type OcrProgress =
 	| { readonly type: "detected"; readonly boxes: readonly Rect[] }
 	| { readonly type: "block"; readonly block: OcrBlock };
 
+/**
+ * What a request is for (GLIM-134). `snip`: someone is waiting, latency first. `live`: a
+ * background read that repeats for as long as a region is pinned, CPU first. A hint: local
+ * engines may run Live reads with fewer, non-spinning threads; others ignore it.
+ */
+export type OcrPurpose = "snip" | "live";
+
 export interface OcrOptions {
 	readonly signal?: AbortSignal;
+	/** Default `snip`. */
+	readonly purpose?: OcrPurpose;
 	/** Called only by providers with `capabilities.progressive`. Must not throw. */
 	readonly onProgress?: (event: OcrProgress) => void;
 }
