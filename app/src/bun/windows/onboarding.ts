@@ -1,7 +1,9 @@
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { OnboardingMode, OnboardingRPC } from "../../shared/onboarding-rpc.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
+import { electrobunChromeTarget } from "./chrome-target.ts";
 import { createOnboardingHandlers, type OnboardingDeps } from "./onboarding-handlers.ts";
+import type { WindowChrome } from "./window-chrome.ts";
 
 /** How often the open window re-checks Screen Recording (preflight is a cheap local call). */
 const SCREEN_ACCESS_POLL_MS = 2000;
@@ -20,6 +22,8 @@ export class OnboardingWindow {
 	constructor(
 		private readonly deps: OnboardingDeps,
 		private readonly exclusion: CaptureExclusion,
+		/** Light / dark from Settings › General › Theme (GLIM-110). */
+		private readonly chrome?: WindowChrome,
 	) {}
 
 	get isOpen(): boolean {
@@ -80,7 +84,9 @@ export class OnboardingWindow {
 			hotkeys.subscribe((s) => rpc.send.hotkeysChanged(s)),
 			() => clearInterval(poll),
 		];
+		const chrome = this.chrome?.attach(electrobunChromeTarget(win), "window");
 		win.on("close", () => {
+			chrome?.dispose();
 			for (const c of this.cleanup) c();
 			this.cleanup = [];
 			this.window = null;

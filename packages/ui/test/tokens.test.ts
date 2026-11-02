@@ -107,6 +107,18 @@ spacing:
 		expect(css).toContain("--color-picker-scrim: #00000073;");
 	});
 
+	test("GLIM-110: data-theme spells out both palettes, so a forced theme beats the OS", () => {
+		const block = (scheme: string) => css.slice(css.indexOf(`:root[data-theme="${scheme}"] {`)).split("}")[0] ?? "";
+		expect(block("light")).toContain("color-scheme: light;");
+		expect(block("light")).toContain("--color-surface: #FFFFFF;");
+		expect(block("dark")).toContain("color-scheme: dark;");
+		expect(block("dark")).toContain("--color-surface: #000000;");
+		expect(block("dark")).toContain("--shadow-tooltip: 0 2px 8px #00000066;");
+		// Same in both themes: not repeated.
+		expect(block("dark")).not.toContain("--color-picker-scrim");
+		expect(css).toContain(':root[data-theme="dark"] { --mix-change-flash:');
+	});
+
 	test("accent tokens follow the injected OS accent", () => {
 		expect(css).toContain("--color-accent: light-dark(var(--os-accent, #0A63C9), var(--os-accent-dark, #2A6FD9));");
 		expect(css).toContain("color-mix(in oklab, var(--os-accent, #0A63C9) 14.1%, transparent)");

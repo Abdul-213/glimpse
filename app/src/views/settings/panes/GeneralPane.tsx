@@ -195,7 +195,19 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 				</SettingsRow>
 			</SettingsGroup>
 
-			<SettingsGroup title="Motion">
+			<SettingsGroup title="Appearance">
+				<SettingsRow label="Theme" description="System follows your computer's light or dark appearance.">
+					<SegmentedControl
+						label="Theme"
+						value={s().appearance.theme}
+						onChange={(v) => void props.state.update({ appearance: { theme: v as Settings["appearance"]["theme"] } })}
+						options={[
+							{ value: "system", label: "System" },
+							{ value: "light", label: "Light" },
+							{ value: "dark", label: "Dark" },
+						]}
+					/>
+				</SettingsRow>
 				<SettingsRow
 					label="Animations"
 					description="Reduced turns off fades and slides. Changed Live text is still marked."
