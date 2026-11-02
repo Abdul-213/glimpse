@@ -61,8 +61,12 @@ How it works (`app/scripts/onnxruntime-legacy.ts`):
 - Linux, manual: the Worker bundled against 1.23.2, with 1.23.2's **linux-x64** binding from the
   same tarball, read all four strings of the OCR smoke fixture (1.2 s). This checks the 1.23.2 JS
   together with our Worker and engine; only the darwin binary itself is left.
-- Intel runner: one run of a temporary workflow on `macos-15-intel` (the legacy tests, the stable
-  prebuild, `bundle-smoke.ts`). Result in the GLIM-89 PR.
+- **Intel runner, passed** (2026-11-02, run 41385714016, a temporary workflow on `macos-15-intel`:
+  x86_64, macOS 15.7.9). Steps: the legacy tests with the real tarballs; the OCR Worker bundled
+  against 1.23.2; the darwin-x64 files and the models staged; `bundle-smoke.ts`. The bundled
+  Worker read all four fixture strings, with `onnxruntime_binding.node` and
+  `libonnxruntime.1.23.2.dylib` both loaded from the app folder (first call 7.0 s, cold, on the
+  shared runner).
 - Not done: a full `electrobun build` for darwin-x64 (Electrobun's Intel Mac support is
   untested here), and a manual check on a real Intel Mac (steps in the ticket).
 

@@ -7,7 +7,8 @@
 #   glimpse-<version>-<sha>-macos-arm64.zip         Glimpse.app, ad-hoc signed (inner app sealed too, GLIM-113)
 #   glimpse-<version>-<sha>-macos-arm64.dmg         the same app in a DMG
 #
-# Intel macOS is not built: onnxruntime-node has no darwin-x64 build (GLIM-89).
+#   glimpse-<version>-<sha>-macos-x64.zip           Intel Mac (job macos-intel: on demand and releases only, GLIM-89)
+#
 # Lint runs only on Linux (ci.yml); it is platform-independent.
 #
 # Windows minutes count 2x and macOS 10x on the free tier, so this never runs on PRs:
@@ -334,3 +335,90 @@ jobs:
           archive: false
           retention-days: 14
           if-no-files-found: warn
+
+  # Intel macOS (GLIM-89): onnxruntime-node 1.23.2, pinned and fetched at build time
+  # (scripts/onnxruntime-legacy.ts, docs/decisions/GLIM-89-intel-mac-onnxruntime.md). Never on
+  # pushes (macOS minutes count 10x): only on demand and when release.yml calls this workflow.
+  # Typecheck and tests run on the arm64 job; this one builds, smoke-tests the bundled OCR and
+  # uploads an unsigned, ad-hoc signed zip.
+  macos-intel:
+    name: macOS x64 (Intel)
+    if: github.event_name != 'push'
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Hutch and the Electrobun devkit
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hutch
+            app/.hutch
+          key: hutch-${{ runner.os }}-x64-${{ hashFiles('app/hutch.config.ts') }}
+
+      - name: Install Hutch
+        run: |
+          [ -x "$HOME/.hutch/bin/hutch" ] || curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the Electrobun devkit
+        working-directory: app
+        run: hutch electrobun sync
+
+      - name: Cache bundled models and onnxruntime-node 1.23.2
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/glimpse/models
+            ~/.cache/glimpse/onnxruntime-node-1.23.2
+          key: glimpse-intel-${{ hashFiles('app/models/manifest.json', 'app/scripts/onnxruntime-legacy.ts') }}
+
+      - name: Fetch bundled models
+        run: bun run models
+
+      - name: Build libglimpse.dylib
+        env:
+          ARCHS: x86_64
+        run: sh app/native/macos/build.sh
+
+      # The preBuild hook fetches and verifies onnxruntime-node 1.23.2 for this target.
+      - name: Build the app (stable)
+        working-directory: app
+        env:
+          GLIMPSE_REQUIRE_MODELS: "1"
+        run: hutch electrobun build --env=stable
+
+      - name: OCR smoke test (bundled onnxruntime 1.23.2)
+        working-directory: app
+        run: bun scripts/bundle-smoke.ts
+
+      - name: Ad-hoc sign and package
+        id: package
+        run: |
+          set -eu
+          version=$(bun -e 'console.log(require("./app/package.json").version)')
+          base="glimpse-$version-${GITHUB_SHA::7}-macos-x64"
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+          app=$(find app/build -maxdepth 2 -name '*.app' | head -1)
+          [ -n "$app" ] || { echo "no .app in app/build"; exit 1; }
+          sh app/scripts/macos-seal-inner.sh "$app"
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          ditto -c -k --keepParent "$app" "$dist/$base.zip"
+          echo "zip=$dist/$base.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.zip }}
+          archive: false
+          retention-days: 14
