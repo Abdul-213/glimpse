@@ -4,6 +4,7 @@
 // none of that CPU work lands on the app's Bun worker. Jobs run one at a time; `cancel` is
 // handled immediately and checked between ORT runs.
 
+import type { OcrPurpose, OcrRecognizer } from "@glimpse/core";
 import * as ort from "onnxruntime-node";
 import {
 	CancelledError,
@@ -14,13 +15,19 @@ import {
 	type OrtSession,
 } from "./engine.ts";
 import { type Raster, rasterOf } from "./image.ts";
-import type { FromWorker, ToWorker } from "./protocol.ts";
+import type { FromWorker, OrtProfile, ToWorker } from "./protocol.ts";
 import { buildCharset } from "./rec.ts";
 
 declare const self: Worker;
 
-let engine: OcrEngine | null = null;
-let sessionOptions: ort.InferenceSession.SessionOptions = {};
+// GLIM-134: two engines over the same model files. `snip` (latency first) is made at init;
+// `live` (fewer, non-spinning threads: about half the CPU per read) on the first Live request.
+// ORT fixes the thread pool per session, so a profile is a set of sessions.
+const engines = new Map<OcrPurpose, OcrEngine>();
+let profiles: Record<OcrPurpose, OrtProfile> | null = null;
+let detPath = "";
+let engineOptions: Partial<EngineOptions> = {};
+const recFiles = new Map<OcrRecognizer, { readonly model: string; readonly charset: readonly string[] }>();
 const cancelled = new Set<number>();
 let queue: Promise<void> = Promise.resolve();
 
@@ -28,39 +35,66 @@ const post = (msg: FromWorker) => self.postMessage(msg);
 
 const bunHash = (crop: Raster): string => `${crop.width}x${crop.height}:${Bun.hash(crop.data).toString(16)}`;
 
-async function createSession(path: string): Promise<OrtSession> {
-	return (await ort.InferenceSession.create(path, sessionOptions)) as unknown as OrtSession;
+function sessionOptions(p: OrtProfile): ort.InferenceSession.SessionOptions {
+	return {
+		intraOpNumThreads: p.threads,
+		interOpNumThreads: 1,
+		// GLIM-17: the default arena grows to ~1.2 GB over many tensor shapes; off it peaks
+		// at ~370 MB with no measurable slowdown.
+		enableCpuMemArena: false,
+		enableMemPattern: false,
+		graphOptimizationLevel: "all",
+		// "session.intra_op.allow_spinning": spinning threads busy-wait between ops (GLIM-134).
+		extra: { session: { intra_op: { allow_spinning: p.spinning ? "1" : "0" } } },
+	};
+}
+
+async function createSession(path: string, p: OrtProfile): Promise<OrtSession> {
+	return (await ort.InferenceSession.create(path, sessionOptions(p))) as unknown as OrtSession;
+}
+
+const tensor = (data: Float32Array, dims: readonly number[]) => new ort.Tensor("float32", data, [...dims]);
+
+/** The engine for a purpose, made on first use; recognisers load into it as requests need them. */
+async function engineFor(purpose: OcrPurpose): Promise<OcrEngine> {
+	const have = engines.get(purpose);
+	if (have) return have;
+	if (!profiles) throw new Error("worker not initialised");
+	const p = profiles[purpose];
+	const e = new OcrEngine(tensor, await createSession(detPath, p), engineOptions, bunHash);
+	engines.set(purpose, e);
+	return e;
+}
+
+async function ensureRecognizer(e: OcrEngine, purpose: OcrPurpose, r: OcrRecognizer): Promise<void> {
+	if (e.hasRecognizer(r)) return;
+	const files = recFiles.get(r);
+	if (!files || !profiles) throw new Error(`recogniser ${r} is not loaded`);
+	e.addRecognizer(r, await createSession(files.model, profiles[purpose]), files.charset);
 }
 
 function requireEngine(): OcrEngine {
-	if (!engine) throw new Error("worker not initialised");
-	return engine;
+	const e = engines.get("snip");
+	if (!e) throw new Error("worker not initialised");
+	return e;
 }
 
 async function handle(msg: ToWorker): Promise<void> {
 	switch (msg.type) {
 		case "init": {
-			sessionOptions = {
-				intraOpNumThreads: msg.threads,
-				interOpNumThreads: 1,
-				// GLIM-17: the default arena grows to ~1.2 GB over many tensor shapes; off it peaks
-				// at ~370 MB with no measurable slowdown.
-				enableCpuMemArena: false,
-				enableMemPattern: false,
-				graphOptimizationLevel: "all",
-			};
-			const det = await createSession(msg.det);
-			const tensor = (data: Float32Array, dims: readonly number[]) => new ort.Tensor("float32", data, [...dims]);
-			engine = new OcrEngine(tensor, det, msg.engine as Partial<EngineOptions>, bunHash);
+			profiles = { snip: msg.snip, live: msg.live };
+			detPath = msg.det;
+			engineOptions = msg.engine;
+			await engineFor("snip");
 			post({ type: "ok", id: msg.id });
 			return;
 		}
 		case "load": {
-			const e = requireEngine();
-			if (!e.hasRecognizer(msg.recognizer)) {
-				const [session, dict] = await Promise.all([createSession(msg.model), Bun.file(msg.dict).text()]);
-				e.addRecognizer(msg.recognizer, session, buildCharset(dict));
+			if (!recFiles.has(msg.recognizer)) {
+				const charset = buildCharset(await Bun.file(msg.dict).text());
+				recFiles.set(msg.recognizer, { model: msg.model, charset });
 			}
+			for (const [purpose, e] of engines) await ensureRecognizer(e, purpose, msg.recognizer);
 			post({ type: "ok", id: msg.id });
 			return;
 		}
@@ -88,7 +122,8 @@ async function handle(msg: ToWorker): Promise<void> {
 			return;
 		}
 		case "ocr": {
-			const e = requireEngine();
+			const e = await engineFor(msg.purpose);
+			for (const r of msg.candidates) await ensureRecognizer(e, msg.purpose, r);
 			const isCancelled = () => cancelled.has(msg.id);
 			const img = rasterOf({ ...msg.image, data: new Uint8Array(msg.image.data) });
 			const timings = newTimings();
@@ -108,12 +143,14 @@ async function handle(msg: ToWorker): Promise<void> {
 			return;
 		}
 		case "clear-cache":
-			engine?.cache.clear();
+			for (const e of engines.values()) e.cache.clear();
 			post({ type: "ok", id: msg.id });
 			return;
 		case "dispose":
-			await engine?.release();
-			engine = null;
+			await Promise.all([...engines.values()].map((e) => e.release()));
+			engines.clear();
+			recFiles.clear();
+			profiles = null;
 			post({ type: "ok", id: msg.id });
 			return;
 		case "cancel":

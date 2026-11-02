@@ -3,6 +3,7 @@
 
 import {
 	array,
+	boolean,
 	type Infer,
 	number,
 	OCR_RECOGNIZERS,
@@ -24,6 +25,9 @@ const d = PADDLE_OCR_DEFAULTS;
 
 export const paddleOcrOptionsSchema = object({
 	threads: withDefault(number({ min: 0, max: 64, integer: true }), d.threads),
+	spinning: withDefault(boolean(), d.spinning),
+	liveThreads: withDefault(number({ min: 0, max: 64, integer: true }), d.liveThreads),
+	liveSpinning: withDefault(boolean(), d.liveSpinning),
 	detMaxSide: withDefault(number({ min: 320, max: 4096, integer: true }), d.detMaxSide),
 	detMinSide: withDefault(number({ min: 0, max: 1920, integer: true }), d.detMinSide),
 	minTextScore: withDefault(number({ min: 0, max: 1 }), d.minTextScore),

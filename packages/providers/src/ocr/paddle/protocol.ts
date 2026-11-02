@@ -1,7 +1,7 @@
 // Messages between the PaddleOCR provider (pipeline side) and its inference Worker. Plain data
 // only (structured clone); image bytes travel as a transferred ArrayBuffer.
 
-import type { OcrImage, OcrRecognizer } from "@glimpse/core";
+import type { OcrImage, OcrPurpose, OcrRecognizer } from "@glimpse/core";
 import type { EngineLine, EngineOptions, EngineTimings } from "./engine.ts";
 import type { Quad } from "./image.ts";
 
@@ -13,12 +13,21 @@ export interface WireImage {
 	readonly data: ArrayBuffer;
 }
 
+/** ORT intra-op threads, and whether they busy-wait between ops (GLIM-134). */
+export interface OrtProfile {
+	readonly threads: number;
+	readonly spinning: boolean;
+}
+
 export type ToWorker =
 	| {
 			readonly type: "init";
 			readonly id: number;
 			readonly det: string;
-			readonly threads: number;
+			/** ORT settings for Snip-like requests (`purpose: "snip"`, the default). */
+			readonly snip: OrtProfile;
+			/** ORT settings for Live requests: a second set of sessions, made on first use (GLIM-134). */
+			readonly live: OrtProfile;
 			readonly engine: Partial<EngineOptions>;
 	  }
 	| {
@@ -34,6 +43,7 @@ export type ToWorker =
 			readonly image: WireImage;
 			readonly candidates: readonly OcrRecognizer[];
 			readonly progressive: boolean;
+			readonly purpose: OcrPurpose;
 	  }
 	| { readonly type: "warmup"; readonly id: number }
 	| { readonly type: "cancel"; readonly id: number; readonly target: number }

@@ -13,7 +13,7 @@ import {
 	type TranslationProvider,
 } from "@glimpse/core";
 import { FakeOcrProvider, FakeTranslationProvider } from "@glimpse/core/testing";
-import { cacheModelSource, PaddleOcrProvider } from "@glimpse/providers/ocr/paddle";
+import { cacheModelSource, type PaddleOcrOptions, PaddleOcrProvider } from "@glimpse/providers/ocr/paddle";
 import { BergamotTranslationProvider } from "@glimpse/providers/translation/bergamot";
 import { defaultCacheDir, loadManifest } from "../../scripts/model-cache.ts";
 import { loadBergamotCatalogue } from "../bun/services/models/catalogue.ts";
@@ -113,8 +113,11 @@ export function subtitleOcr(lines: readonly string[], id = "harness-subtitle-ocr
  * Real PaddleOCR (GLIM-46) over the dev model cache (`bun run models`), in its Worker, loaded
  * and warmed. Throws when the models aren't there.
  */
-export async function paddleOcr(cacheDir = defaultCacheDir()): Promise<OcrProvider> {
-	const provider = new PaddleOcrProvider({}, { models: cacheModelSource(loadManifest(), cacheDir) });
+export async function paddleOcr(
+	cacheDir = defaultCacheDir(),
+	options: Partial<PaddleOcrOptions> = {},
+): Promise<OcrProvider> {
+	const provider = new PaddleOcrProvider(options, { models: cacheModelSource(loadManifest(), cacheDir) });
 	const status = await provider.init();
 	if (status.state !== "ready") {
 		await provider.dispose();

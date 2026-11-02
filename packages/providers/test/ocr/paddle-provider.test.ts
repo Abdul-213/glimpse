@@ -89,6 +89,31 @@ describe.skipIf(!hasBundled)("PaddleOCR: real models", () => {
 	);
 
 	test(
+		"GLIM-134: Live reads run on their own lean sessions and read the same text",
+		async () => {
+			const p = new PaddleOcrProvider(
+				{ threads: 2, liveThreads: 1, liveSpinning: false, recCacheSize: 0 },
+				{ models: cacheSource },
+			);
+			try {
+				expect((await p.init()).state).toBe("ready");
+				const image = await fixture("region-en.png");
+				const languages = [languageCode("en"), languageCode("ja")];
+				const snip = await p.recognise({ image, languages });
+				const live = await p.recognise({ image, languages }, { purpose: "live" });
+				expect(live.blocks.map((b) => b.text)).toEqual(snip.blocks.map((b) => b.text));
+				expect(snip.blocks.length).toBeGreaterThan(0);
+				// Spinning and thread counts don't change what is read: same cache identity.
+				const other = new PaddleOcrProvider({ threads: 1, spinning: false, liveThreads: 2 }, { models: cacheSource });
+				expect(other.fingerprint().optionsHash).toBe(p.fingerprint().optionsHash);
+			} finally {
+				await p.dispose();
+			}
+		},
+		T,
+	);
+
+	test(
 		"reads Japanese, Chinese, English and German; progressive events match; BGRA with padded rows",
 		async () => {
 			const p = make();

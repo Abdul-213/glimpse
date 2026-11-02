@@ -2,7 +2,7 @@
 //
 // Live runs for as long as a region is pinned, often on battery, so it has a budget: on
 // average over a rolling window, Live may use at most `shareOfCore` of one CPU core
-// (docs/benchmarks/live-cpu.md: 35 % over 30 s, measured costs and why). The runner reads the process
+// (docs/benchmarks/live-cpu.md: 25 % over 30 s since GLIM-134, measured costs and why). The runner reads the process
 // CPU (or its own cost estimate) on every grab. When the window's average is over budget the
 // budget steps up a level, and each level captures less often and reads less often:
 //
@@ -50,7 +50,7 @@ export interface LiveBudgetOptions {
 }
 
 export const LIVE_BUDGET_DEFAULTS: LiveBudgetOptions = {
-	shareOfCore: 0.35,
+	shareOfCore: 0.25,
 	windowMs: 30_000,
 	relaxBelow: 0.5,
 	relaxAfterMs: 60_000,

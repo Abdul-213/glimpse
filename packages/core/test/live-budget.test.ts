@@ -75,8 +75,8 @@ describe("LiveBudget", () => {
 		for (let t = 9_000; t < 18_000; t += 1000) expect(b.sample(t, t * 0.9)).toBeNull();
 	});
 
-	test("defaults: 35 % of one core over 30 s", () => {
-		expect(LIVE_BUDGET_DEFAULTS.shareOfCore).toBe(0.35);
+	test("defaults: 25 % of one core over 30 s (GLIM-134)", () => {
+		expect(LIVE_BUDGET_DEFAULTS.shareOfCore).toBe(0.25);
 		expect(LIVE_BUDGET_DEFAULTS.windowMs).toBe(30_000);
 		expect(LIVE_BUDGET_LEVELS.map((l) => l.ocrGapMs)).toEqual([0, 1000, 2000, 3000]);
 	});

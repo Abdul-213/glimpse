@@ -18,6 +18,7 @@ import {
 	systemTimers,
 } from "@glimpse/core";
 import { makeImage } from "@glimpse/core/testing";
+import { defaultThreads, type PaddleOcrOptions } from "@glimpse/providers/ocr/paddle";
 import { createFileCaptureSource } from "../src/bun/services/capture/file.ts";
 import {
 	LIVE_SCENARIO_DIR,
@@ -169,13 +170,23 @@ const rows: Row[] = [];
 	rows.push(await scenario("GLIM-114 subtitles over moving video, scripted OCR (virtual time)", true, v, false, []));
 }
 if (process.argv.includes("--paddle")) {
-	const p = await paddleOcr();
-	try {
-		const ja = [languageCode("ja")];
-		rows.push(await scenario("GLIM-58 static scene, PaddleOCR (real time)", false, p, true, ja));
-		rows.push(await scenario("GLIM-114 subtitles over moving video, PaddleOCR (real time)", true, p, true, ja));
-	} finally {
-		await p.dispose();
+	// GLIM-134: Live reads use their own ORT profile (2 threads, no spinning by default); the
+	// "Snip profile" rows run Live with Snip's settings, which is what Live used before.
+	const profiles: [string, Partial<PaddleOcrOptions>][] = [
+		["Live profile", {}],
+		["Snip profile", { liveThreads: defaultThreads(), liveSpinning: true }],
+	];
+	for (const [label, options] of profiles) {
+		const p = await paddleOcr(undefined, options);
+		try {
+			const ja = [languageCode("ja")];
+			rows.push(await scenario(`GLIM-58 static scene, PaddleOCR, ${label} (real time)`, false, p, true, ja));
+			rows.push(
+				await scenario(`GLIM-114 subtitles over moving video, PaddleOCR, ${label} (real time)`, true, p, true, ja),
+			);
+		} finally {
+			await p.dispose();
+		}
 	}
 }
 

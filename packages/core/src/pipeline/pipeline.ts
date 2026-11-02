@@ -321,6 +321,7 @@ export class TranslationPipeline {
 				{ image, languages: opts.sources, ...(opts.regions ? { regions: opts.regions } : {}) },
 				{
 					...(signal ? { signal } : {}),
+					purpose: opts.mode,
 					onProgress: (event) => {
 						if (event.type !== "detected" || detectedSent) return;
 						detectedSent = true;
