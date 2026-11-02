@@ -15,6 +15,7 @@ import {
 	groupLines,
 	hashString,
 	type LanguageCode,
+	localOcrIsPartial,
 	type ModelResource,
 	OCR_RECOGNIZERS,
 	type OcrBlock,
@@ -302,7 +303,9 @@ export class PaddleOcrProvider implements OcrProvider {
 		if (this.#cell.status.state !== "ready") return { status: "unsupported" };
 		const families = recognizersFor(lang);
 		if (families.length === 0) return { status: "unsupported" };
-		if (families.some((r) => this.#installed.has(r))) return { status: "ready" };
+		if (families.some((r) => this.#installed.has(r))) {
+			return localOcrIsPartial(lang) ? { status: "ready", partial: true } : { status: "ready" };
+		}
 		const resource = families.map((r) => this.#missing.get(r)).find((r) => r !== undefined);
 		return resource ? { status: "missing", missing: [resource] } : { status: "unsupported" };
 	}

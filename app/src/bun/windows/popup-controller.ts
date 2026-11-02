@@ -387,6 +387,9 @@ export class SnipPopupController {
 			case "editSources":
 				t?.openSettings("languages");
 				return;
+			case "ocrSettings":
+				t?.openSettings("providers");
+				return;
 			case "openSystemSettings":
 				t?.openExternal(SCREEN_RECORDING_SETTINGS_URL);
 				return;

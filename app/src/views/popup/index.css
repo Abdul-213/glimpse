@@ -106,6 +106,14 @@ body,
 		padding-inline: calc(var(--spacing) * 2);
 	}
 
+	.snip-ocr-note {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: calc(var(--spacing) * 1);
+		padding-inline: calc(var(--spacing) * 2);
+	}
+
 	.snip-skipped-actions {
 		display: flex;
 		flex-wrap: wrap;

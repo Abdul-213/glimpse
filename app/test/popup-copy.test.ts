@@ -1,7 +1,7 @@
 // GLIM-80: E3 "Translate on this device" appears only when the local packs are installed.
 import { describe, expect, test } from "bun:test";
 import { initialSnipState, type SnipPopupState } from "@glimpse/core";
-import { errorBody } from "../src/views/popup/copy.ts";
+import { errorBody, partialOcrText } from "../src/views/popup/copy.ts";
 
 const state: SnipPopupState = {
 	...initialSnipState("r"),
@@ -31,5 +31,13 @@ describe("E3 actions (snip-popup.md §12)", () => {
 
 	test("other errors never offer it", () => {
 		expect(actions("noText", true)).not.toContain("local");
+	});
+});
+
+describe("GLIM-126 partial on-device OCR note", () => {
+	test("names the languages", () => {
+		expect(partialOcrText(["Vietnamese"])).toBe(
+			"Vietnamese tone marks are often lost when text is read on this device.",
+		);
 	});
 });

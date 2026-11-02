@@ -17,6 +17,10 @@ describe("source-language subset (GLIM-68)", () => {
 		expect(ja).toMatchObject({ name: "Japanese", nativeName: "日本語", detectable: true, localOcr: true });
 		const he = choices.find((c) => c.code === "he");
 		expect(he?.localOcr).toBe(false); // PP-OCRv5 has no Hebrew recogniser
+		// GLIM-126: Vietnamese is read, but the latin recogniser drops most tone marks.
+		expect(choices.find((c) => c.code === "vi")).toMatchObject({ localOcr: true, localOcrPartial: true });
+		expect(ja?.localOcrPartial).toBe(false);
+		expect(he?.localOcrPartial).toBe(false);
 	});
 
 	test("groups by script, Han scripts together, small scripts in Other", () => {

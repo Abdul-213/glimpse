@@ -339,11 +339,13 @@ describe("loading and error states (GLIM-73)", () => {
 		h.controller.action("snip-1", "editSources");
 		h.controller.action("snip-1", "openSystemSettings");
 		h.controller.action("snip-1", "why");
+		h.controller.action("snip-1", "ocrSettings");
 		expect(h.targets).toEqual([
 			"settings:providers",
 			"settings:languages",
 			`url:${SCREEN_RECORDING_SETTINGS_URL}`,
 			`url:${SCREEN_RECORDING_HELP_URL}`,
+			"settings:providers",
 		]);
 		h.controller.action("snip-1", "close");
 		expect(h.focusRestores()).toBe(1);

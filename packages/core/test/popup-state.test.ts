@@ -8,6 +8,7 @@ import {
 	listedBlocks,
 	type PipelineEvent,
 	type PipelineResult,
+	partialOcrLanguages,
 	type RecognisedBlock,
 	rect,
 	reduceSnip,
@@ -124,6 +125,20 @@ describe("reduceSnip: the main path (snip-popup.md §4 S0-S4)", () => {
 		expect(skippedBlocks(s).map((b) => b.id)).toEqual(["e"]);
 		expect(skippedLanguages(s)).toEqual([L("ru")]);
 		expect(snipStatus(s)).toEqual({ kind: "translating", done: 0, total: 2 });
+	});
+
+	test("GLIM-126: Vietnamese read on this device asks for cloud OCR; cloud OCR or other languages don't", () => {
+		const vi = [block("v", 0, "Ban có muôn cài dt", "vi", "translate"), ...MIXED];
+		expect(partialOcrLanguages(fold([started, { type: "recognised", runId: RUN, blocks: vi }]))).toEqual([L("vi")]);
+		expect(partialOcrLanguages(fold([started, { type: "recognised", runId: RUN, blocks: MIXED }]))).toEqual([]);
+		const cloudStarted = {
+			...started,
+			ocr: { id: "google-vision", kind: "cloud", name: "Google Cloud Vision" },
+		} as PipelineEvent;
+		expect(partialOcrLanguages(fold([cloudStarted, { type: "recognised", runId: RUN, blocks: vi }]))).toEqual([]);
+		// A skipped Vietnamese block isn't read for translation: no hint.
+		const skipped = [block("v", 0, "Ban có muôn cài dt", "vi", "skip")];
+		expect(partialOcrLanguages(fold([started, { type: "recognised", runId: RUN, blocks: skipped }]))).toEqual([]);
 	});
 
 	test("S3 slot stability: a late translation for block 1 never moves block 3", () => {

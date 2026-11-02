@@ -7,6 +7,7 @@ import {
 	facingEdge,
 	footerLayout,
 	listedBlocks,
+	partialOcrLanguages,
 	type SnipBlock,
 	type SnipPopupState,
 	showLanguageTags,
@@ -46,6 +47,7 @@ import {
 	packProgressLabel,
 	packProgressText,
 	packRowText,
+	partialOcrText,
 	statusText,
 } from "./copy.ts";
 
@@ -279,6 +281,15 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 							/>
 						)}
 					</For>
+				</Show>
+				<Show when={!error() && state().phase === "done" && partialOcrLanguages(state()).length > 0}>
+					{/* GLIM-126: on-device OCR drops Vietnamese tone marks; offer cloud OCR. */}
+					<li class="snip-ocr-note">
+						<p class="m-0 max-w-measure text-body text-text-secondary">
+							{partialOcrText(partialOcrLanguages(state()).map((l) => languageName(l, uiLang())))}
+						</p>
+						<TextButton onClick={() => act("ocrSettings")}>{COPY.useCloudOcr}</TextButton>
+					</li>
 				</Show>
 				<Show when={skippedBlocks(state()).length > 0}>
 					<SkippedLine

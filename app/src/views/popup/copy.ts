@@ -19,6 +19,7 @@ export const COPY = {
 	retry: "Retry",
 	translateThese: "Translate these",
 	editSources: "Edit source languages…",
+	useCloudOcr: "Use cloud OCR…",
 	clipboardUnchanged: "Clipboard not changed",
 	showingOriginal: "Showing original",
 	copied: "Copied",
@@ -29,6 +30,9 @@ export const COPY = {
 
 export const translatingText = (done: number, total: number) => `Translating ${done} of ${total}`;
 export const partialText = (done: number, total: number) => `Translated ${done} of ${total}`;
+/** GLIM-126: "Vietnamese tone marks are often lost when text is read on this device." */
+export const partialOcrText = (languages: readonly string[]) =>
+	`${languages.join(", ")} tone marks are often lost when text is read on this device.`;
 export const alreadyIn = (target: string, uiLang: string) => `Already in ${languageName(target, uiLang)}`;
 
 /** The visible footer status (§2.4). */
