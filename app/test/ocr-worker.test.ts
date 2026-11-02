@@ -58,8 +58,9 @@ describe("onnxruntime files per target (CPU only)", () => {
 		expect(ortFilesFor("darwin", "arm64")).toEqual([ORT_BINDING, "libonnxruntime.1.dylib"]);
 		expect(ortFilesFor("win32", "x64")).toEqual([ORT_BINDING, "onnxruntime.dll"]);
 		expect(ortFilesFor("win32", "arm64")).toEqual([ORT_BINDING, "onnxruntime.dll"]);
-		// GLIM-89: no Intel Mac build in onnxruntime-node >= 1.24.
-		expect(ortFilesFor("darwin", "x64")).toBeNull();
+		// GLIM-89: Intel Macs ship the pinned 1.23.2's files (onnxruntime-legacy.ts).
+		expect(ortFilesFor("darwin", "x64")).toEqual([ORT_BINDING, "libonnxruntime.1.23.2.dylib"]);
+		expect(ortFilesFor("freebsd", "x64")).toBeNull();
 	});
 
 	test("every listed file exists in the npm package; DirectML and the duplicate dylib are left out", () => {
@@ -81,8 +82,8 @@ describe("onnxruntime files per target (CPU only)", () => {
 	});
 
 	test("an unsupported target stages nothing (the build goes on, OCR reports unavailable)", () => {
-		const dir = join(tmp, "stage-darwin-x64");
-		expect(stageOnnxRuntime({ os: "darwin", arch: "x64" }, dir)).toBeNull();
+		const dir = join(tmp, "stage-freebsd-x64");
+		expect(stageOnnxRuntime({ os: "freebsd", arch: "x64" }, dir)).toBeNull();
 		expect(readdirSync(dir)).toEqual([]);
 		expect(ortTarget({ GLIMPSE_ORT_TARGET: "darwin-x64" })).toEqual({ os: "darwin", arch: "x64" });
 		expect(ortTarget({})).toEqual({ os: process.platform, arch: process.arch });

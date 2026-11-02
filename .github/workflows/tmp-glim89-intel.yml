@@ -1,0 +1,34 @@
+# TEMPORARY (GLIM-89): one verification run of the darwin-x64 onnxruntime path on an Intel
+# runner. Removed again before the PR is merged.
+name: GLIM-89 Intel Mac check (temporary)
+on:
+  push:
+    branches: [glim-89-intel-mac-ort]
+    paths: [.github/workflows/tmp-glim89-intel.yml]
+permissions:
+  contents: read
+jobs:
+  intel:
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: uname -m && sw_vers
+      - run: bun install --frozen-lockfile
+      - run: bun run models
+      - name: Legacy onnxruntime tests (network)
+        env:
+          GLIMPSE_ORT_LEGACY_TEST: "1"
+        run: bun test app/test/ort-legacy.test.ts
+      - name: Prebuild (stable)
+        working-directory: app
+        env:
+          ELECTROBUN_BUILD_ENV: stable
+          GLIMPSE_REQUIRE_MODELS: "1"
+        run: bun scripts/prebuild.ts
+      - name: OCR smoke test (bundled onnxruntime 1.23.2)
+        working-directory: app
+        run: bun scripts/bundle-smoke.ts

@@ -4,6 +4,8 @@
 //
 //   linux  x64/arm64  onnxruntime_binding.node + libonnxruntime.so.1      (RUNPATH $ORIGIN)
 //   darwin arm64      onnxruntime_binding.node + libonnxruntime.1.dylib   (@rpath, @loader_path)
+//   darwin x64        onnxruntime_binding.node + libonnxruntime.1.23.2.dylib  (GLIM-89: pinned 1.23.2,
+//                     the last Intel Mac build; see onnxruntime-legacy.ts)
 //   win32  x64/arm64  onnxruntime_binding.node + onnxruntime.dll
 //
 // Left out on purpose:
@@ -12,8 +14,6 @@
 // - win32 DirectML.dll + dxcompiler.dll (36 MB): onnxruntime.dll only delay-loads DirectML.dll
 //   (with d3d12/dxgi) when the DirectML provider is used, and dxcompiler.dll is LoadLibrary'd
 //   by the WebGPU provider. Checked from the PE import tables of 1.31.1; we only use CPU.
-// - darwin x64: onnxruntime-node >= 1.24 ships no Intel Mac build (GLIM-89). The build
-//   still succeeds; the app reports local OCR as unavailable there.
 //
 // Windows: onnxruntime.dll and the binding link the Microsoft Visual C++ runtime (MSVCP140*.dll,
 // VCRUNTIME140*.dll), which is not part of Windows. A PC without the VC++ 2015-2022
@@ -38,6 +38,8 @@ const LIBS: Readonly<Record<string, readonly string[]>> = {
 	"linux-x64": ["libonnxruntime.so.1"],
 	"linux-arm64": ["libonnxruntime.so.1"],
 	"darwin-arm64": ["libonnxruntime.1.dylib"],
+	// GLIM-89: from the pinned onnxruntime-node 1.23.2 (onnxruntime-legacy.ts), not the npm dependency.
+	"darwin-x64": ["libonnxruntime.1.23.2.dylib"],
 	"win32-x64": ["onnxruntime.dll"],
 	"win32-arm64": ["onnxruntime.dll"],
 };
