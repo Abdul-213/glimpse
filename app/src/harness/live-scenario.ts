@@ -17,6 +17,24 @@ export const LIVE_SCENARIO_LINES = {
 export const LIVE_SCENARIO_RECT: Rect = rect(0, 150, 800, 90);
 
 /**
+ * GLIM-114: the same strip with burned-in subtitles over a moving video (every pixel of the
+ * background changes every 125 ms). Rendered by app/scripts/make-live-fixtures.ts.
+ */
+export const MOVING_VIDEO_DIR = resolve(import.meta.dir, "../../test/fixtures/capture/moving-video");
+
+/** What the moving-video recording shows, in order (`none`: no subtitle). */
+export const MOVING_VIDEO_TIMELINE: readonly {
+	readonly key: keyof typeof LIVE_SCENARIO_LINES | "none";
+	readonly ms: number;
+}[] = [
+	{ key: "a", ms: 3000 },
+	{ key: "none", ms: 500 },
+	{ key: "b", ms: 3000 },
+	{ key: "c", ms: 3000 },
+	{ key: "a", ms: 2500 },
+];
+
+/**
  * Which frame file a timed recording shows at `t` ms (for timelines), from its frames.json;
  * "" when the folder has no manifest.
  */

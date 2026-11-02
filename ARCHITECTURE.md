@@ -316,7 +316,16 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   fades and scrolling never get read half-way. Once still for `stabilityMs` (Settings, 300) the
   frame is compared with the last *processed* one and only ≥ `diffThreshold` (Settings, 2 %)
   re-runs OCR; a caret blink or a flicker that came back doesn't. The first frame and
-  `resume()` skip the wait. **Frame ring** (`pipeline/frame-ring.ts`, GLIM-20): the last 8
+  `resume()` skip the wait. **Moving backgrounds (GLIM-114):** after 1.5 s of whole-region
+  motion on every grab (`backgroundMs`; longer than a typewriter line or a scroll) the detector
+  switches to *text focus* (`pipeline/stillness.ts`, `StillnessMap`): per sampled pixel it knows
+  when it last changed, so overlay text (still) is told apart from the video behind it. Motion is
+  then still pixels that changed plus pixels that just became still, inside the last OCR
+  result's text boxes (`LiveRunner` calls `setTextAreas`; the whole region before anything was
+  read), and the settle compares only pixels still for 2x `stabilityMs` with the processed
+  frame. Moving text is never still, so typewriters and scrolls still never get read half-way;
+  when the region stops moving it is whole-region detection again. Traces carry `scope: "text"`;
+  `bun run harness live-session --scenario moving-video` replays subtitles over a moving video. **Frame ring** (`pipeline/frame-ring.ts`, GLIM-20): the last 8
   processed frames by exact 64-bit hash → `PipelineResult`, so A → B → A reuses A's result.
 - **Live runner** (`pipeline/live-runner.ts`): one pinned region end to end over ports (frame
   source, `Timers`, `LiveProcessor` = `LivePipelineSession`): loop → detector → ring → pipeline

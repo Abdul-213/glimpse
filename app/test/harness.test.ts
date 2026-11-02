@@ -150,6 +150,31 @@ describe("harness CLI", () => {
 		]);
 	});
 
+	test("live-session over subtitles on a moving video (GLIM-114): each new subtitle read once, once stable", () => {
+		// The recording is 12 s (A, gap, B, C, A); stop when it ends, while the video still plays.
+		const p = run("live-session", "--scenario", "moving-video", "--fps", "4", "--duration", "12000", "--json");
+		expect(p.exitCode).toBe(0);
+		const r = JSON.parse(p.stdout.toString());
+		expect(r.ocrCalls).toBe(4);
+		expect(r.stats.focusEntered).toBe(1);
+		const frames = r.events.filter((e: { type: string }) => e.type === "frame");
+		expect(frames.map((e: { upserts: { source: string }[] }) => e.upserts[0]?.source)).toEqual([
+			"明日の会議は午後三時に始まります。",
+			"請求書を保存しました。",
+			"次の駅で降りてください。",
+			"明日の会議は午後三時に始まります。",
+		]);
+		// Each read comes after its subtitle appeared (3.5 s, 6.5 s, 9.5 s) and has been still for 300 ms.
+		const at = frames.map((e: { t: number }) => e.t);
+		expect(at[1]).toBeGreaterThanOrEqual(3800);
+		expect(at[2]).toBeGreaterThanOrEqual(6800);
+		expect(at[3]).toBeGreaterThanOrEqual(9800);
+		for (const [i, start] of [3500, 6500, 9500].entries()) expect(at[i + 1] - start).toBeLessThan(1500);
+		// The gap (no subtitle) is never read as a change of its own.
+		const acted = r.traces.filter((t: { action: string }) => t.action !== "none");
+		expect(acted.every((t: { scope?: string; t: number }) => t.t === 0 || t.scope === "text")).toBe(true);
+	});
+
 	test("a capture error exits 1 with the error code", () => {
 		const p = run("snip", "--rect", "5000,5000,10,10");
 		expect(p.exitCode).toBe(1);

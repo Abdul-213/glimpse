@@ -109,6 +109,9 @@ export interface LiveRunnerStats {
 	readonly meanSettleToFrameMs: number;
 	readonly frameSeq: number;
 	readonly loop: ReturnType<LiveCaptureLoop["stats"]>;
+	/** Grabs decided in text focus over a moving background, and how often focus started (GLIM-114). */
+	readonly focusedGrabs: number;
+	readonly focusEntered: number;
 }
 
 const ERROR_FOR_CODE: Readonly<Record<string, LiveErrorKind>> = {
@@ -278,6 +281,8 @@ export class LiveRunner {
 			meanSettleToFrameMs: this.#settleCount === 0 ? 0 : this.#settleMs / this.#settleCount,
 			frameSeq: this.#frameSeq,
 			loop: this.#loop.stats(),
+			focusedGrabs: this.#detector.stats().focusedGrabs,
+			focusEntered: this.#detector.stats().focusEntered,
 		};
 	}
 
@@ -314,6 +319,7 @@ export class LiveRunner {
 					: decision.kind === "below-threshold"
 						? { fraction: decision.diff.fraction }
 						: {}),
+			...("scope" in decision && decision.scope ? { scope: decision.scope } : {}),
 			action,
 			grabMs: info.grabMs,
 			detectMs,
@@ -433,6 +439,8 @@ export class LiveRunner {
 			return ids;
 		}
 		this.#clearTimer("empty");
+		// Over a moving background, change detection watches where this text is (GLIM-114).
+		this.#detector.setTextAreas(blocks.map((b) => b.box));
 		const inputs: LiveBlockInput[] = blocks.map((b) => {
 			const t = result?.translations[b.id];
 			return {
@@ -509,6 +517,8 @@ export class LiveRunner {
 
 	/** A settled capture with no text. Short gaps keep the last blocks; after 5 s: L7. */
 	#noText(seq: number, frame: CaptureFrame): void {
+		// Nothing to watch: text focus (GLIM-114) watches the whole region again.
+		this.#detector.setTextAreas([]);
 		if (this.#status === "starting") this.#setStatus("live");
 		if (this.#empty || this.#emptyTimer !== null) return;
 		const epoch = this.#epoch;
