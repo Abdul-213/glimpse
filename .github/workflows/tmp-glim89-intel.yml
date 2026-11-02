@@ -23,12 +23,25 @@ jobs:
         env:
           GLIMPSE_ORT_LEGACY_TEST: "1"
         run: bun test app/test/ort-legacy.test.ts
-      - name: Prebuild (stable)
+      # The OCR half of the preBuild hook (no views: they need the Electrobun devkit).
+      - name: Stage the OCR Worker, onnxruntime 1.23.2 and the models
         working-directory: app
-        env:
-          ELECTROBUN_BUILD_ENV: stable
-          GLIMPSE_REQUIRE_MODELS: "1"
-        run: bun scripts/prebuild.ts
+        run: |
+          cat > "$RUNNER_TEMP/stage.ts" <<'TS'
+          import { join } from "node:path";
+          const app = process.cwd();
+          const { buildWorkers } = await import(join(app, "scripts/build-workers.ts"));
+          const { ortOut, ortTarget, stageOnnxRuntime } = await import(join(app, "scripts/onnxruntime.ts"));
+          const { ensureLegacyOrt, ortPackageFor } = await import(join(app, "scripts/onnxruntime-legacy.ts"));
+          const { defaultCacheDir, loadManifest, modelsOut, stageBundled } = await import(join(app, "scripts/model-cache.ts"));
+          const target = ortTarget();
+          console.log("target", target, ortPackageFor(target));
+          const dir = await ensureLegacyOrt({ log: console.log });
+          console.log(await buildWorkers({ dev: false, ortPackageDir: dir }));
+          console.log(stageOnnxRuntime(target, ortOut, join(dir, "bin", "napi-v6")));
+          console.log(await stageBundled(loadManifest(), modelsOut, { cacheDir: defaultCacheDir(), log: () => {} }));
+          TS
+          bun "$RUNNER_TEMP/stage.ts"
       - name: OCR smoke test (bundled onnxruntime 1.23.2)
         working-directory: app
         run: bun scripts/bundle-smoke.ts
