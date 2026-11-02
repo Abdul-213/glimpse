@@ -331,7 +331,14 @@ describe("HotkeyService", () => {
 			this.disposed = true;
 		}
 	}
-	const bindings = { snip: "Alt+Shift+S", live: "Alt+Shift+L", pauseLive: null, resnip: null, toggleLivePopup: null };
+	const bindings = {
+		snip: "Alt+Shift+S",
+		live: "Alt+Shift+L",
+		pauseLive: null,
+		resnip: null,
+		toggleLivePopup: null,
+		focusLivePopup: null,
+	};
 
 	test("registers bound actions, reports conflicts without rebinding, fires handlers", () => {
 		const backend = new FakeBackend();

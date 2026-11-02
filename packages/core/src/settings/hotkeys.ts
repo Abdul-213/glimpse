@@ -116,21 +116,37 @@ export const hotkeySchema = (): Schema<Hotkey> =>
 		(s) => canonicalHotkey(s) ?? s,
 	);
 
-/** Global actions. Only Snip and Live are bound by default (GLIM-23). */
+/** Global actions. Only Snip and Live are bound by default (GLIM-23); the Live extras are optional (GLIM-130). */
 export interface HotkeyBindings {
 	readonly snip: Hotkey | null;
 	readonly live: Hotkey | null;
 	readonly pauseLive: Hotkey | null;
 	readonly resnip: Hotkey | null;
 	readonly toggleLivePopup: Hotkey | null;
+	/** GLIM-130: move keyboard focus to the Live popup (keyboard and screen-reader users). */
+	readonly focusLivePopup: Hotkey | null;
 }
 
 export type HotkeyAction = keyof HotkeyBindings;
 
 /** GLIM-23 defaults. Same letters on both OSes, least-conflicting modifiers per OS. */
 export const DEFAULT_HOTKEYS: { readonly windows: HotkeyBindings; readonly macos: HotkeyBindings } = {
-	windows: { snip: "Alt+Shift+S", live: "Alt+Shift+L", pauseLive: null, resnip: null, toggleLivePopup: null },
-	macos: { snip: "Ctrl+Shift+S", live: "Ctrl+Shift+L", pauseLive: null, resnip: null, toggleLivePopup: null },
+	windows: {
+		snip: "Alt+Shift+S",
+		live: "Alt+Shift+L",
+		pauseLive: null,
+		resnip: null,
+		toggleLivePopup: null,
+		focusLivePopup: null,
+	},
+	macos: {
+		snip: "Ctrl+Shift+S",
+		live: "Ctrl+Shift+L",
+		pauseLive: null,
+		resnip: null,
+		toggleLivePopup: null,
+		focusLivePopup: null,
+	},
 };
 
 /**
@@ -145,6 +161,7 @@ export function hotkeyBindingsSchema(defaults: HotkeyBindings): Schema<HotkeyBin
 		pauseLive: withDefault(nullable(hotkeySchema()), defaults.pauseLive),
 		resnip: withDefault(nullable(hotkeySchema()), defaults.resnip),
 		toggleLivePopup: withDefault(nullable(hotkeySchema()), defaults.toggleLivePopup),
+		focusLivePopup: withDefault(nullable(hotkeySchema()), defaults.focusLivePopup),
 	});
 	return {
 		parse(input, ctx) {

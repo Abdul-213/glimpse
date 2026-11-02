@@ -20,6 +20,11 @@ const ACTIONS: readonly { action: HotkeyAction; label: string; description: stri
 	{ action: "pauseLive", label: "Pause or resume Live", description: "Optional." },
 	{ action: "resnip", label: "Snip the last region again", description: "Optional." },
 	{ action: "toggleLivePopup", label: "Show or hide the Live popup", description: "Optional." },
+	{
+		action: "focusLivePopup",
+		label: "Focus the Live popup",
+		description: "Optional. Moves the keyboard to the popup's controls; Esc hands it back.",
+	},
 ];
 
 const labelOf = (a: HotkeyAction) => ACTIONS.find((x) => x.action === a)?.label ?? a;
