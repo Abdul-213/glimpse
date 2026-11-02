@@ -574,7 +574,11 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
    config). `app/test/views.test.ts` builds the real webviews and checks the Solid, Tailwind and
    devkit wiring. Never import `electrobun/main` in a test: it loads the native core.
 4. **Providers** (`packages/providers`) are tested on Linux with small fixture images/models and a
-   fake `fetch` for cloud ones. Accuracy and latency benchmarks are separate (GLIM-64).
+   fake `fetch` for cloud ones. Accuracy and latency are benchmarked separately (GLIM-64):
+   `bun run bench:ocr` scores PaddleOCR + grouping + detection over `packages/providers/bench/ocr/`
+   (rendered and screenshot-like frames per script with ground truth; CER/WER, grouping, detection,
+   p50/p90) and `--check` fails CI only on large regressions against `baseline.json`. Method,
+   thresholds and findings: `docs/benchmarks/ocr.md`.
 5. **Linux headless harness (GLIM-86):** runs the real main-process services and pipeline with the
    file-based capture backend and a fake display list, so Snip and Live flows can be exercised end
    to end in CI without a desktop.
@@ -602,7 +606,7 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
    Windows/macOS CI builds (GLIM-34) and GLIM-87. PRs say what is unverified.
 
 CI (`.github/workflows/ci.yml`) runs on ubuntu-latest for PRs to and pushes on `develop`:
-install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, a harness Snip (with the popup, GLIM-118) + Live run
+install, `hutch electrobun sync`, typecheck, `biome ci`, `bun test`, the OCR benchmark gate, a harness Snip (with the popup, GLIM-118) + Live run
 over the sample recording, and a Linux `electrobun build`. Windows and macOS runners are only used by their dedicated, path-filtered workflows
 (`native.yml`; `desktop.yml`, which also uploads the unsigned builds, see CONTRIBUTING.md).
 

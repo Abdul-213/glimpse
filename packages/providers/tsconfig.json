@@ -3,5 +3,5 @@
 	"compilerOptions": {
 		"lib": ["ESNext"]
 	},
-	"include": ["src", "scripts", "test"]
+	"include": ["src", "scripts", "test", "bench"]
 }

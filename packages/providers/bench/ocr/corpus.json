@@ -1,0 +1,1246 @@
+{
+	"schema": 1,
+	"cases": [
+		{
+			"id": "latin-en-dialog",
+			"image": "corpus/latin-en-dialog.png",
+			"width": 520,
+			"height": 200,
+			"script": "Latin",
+			"kind": "rendered",
+			"sources": ["en", "de", "fr", "es"],
+			"note": "light dialog: title, wrapped body, two buttons",
+			"blocks": [
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Save changes to this document?",
+							"box": {
+								"x": 24,
+								"y": 27,
+								"width": 313,
+								"height": 20
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "If you close it now, the edits you made since the last",
+							"box": {
+								"x": 24,
+								"y": 69,
+								"width": 365,
+								"height": 15
+							}
+						},
+						{
+							"text": "save will be lost and cannot be recovered.",
+							"box": {
+								"x": 24,
+								"y": 91,
+								"width": 292,
+								"height": 11
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Cancel",
+							"box": {
+								"x": 323,
+								"y": 155,
+								"width": 43,
+								"height": 11
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Save",
+							"box": {
+								"x": 434,
+								"y": 156,
+								"width": 31,
+								"height": 10
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-de-settings-dark",
+			"image": "corpus/latin-de-settings-dark.png",
+			"width": 460,
+			"height": 230,
+			"script": "Latin",
+			"kind": "rendered",
+			"sources": ["en", "de", "fr", "es"],
+			"note": "dark settings list: one label per row",
+			"blocks": [
+				{
+					"lang": "de",
+					"lines": [
+						{
+							"text": "Allgemein",
+							"box": {
+								"x": 24,
+								"y": 28,
+								"width": 74,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "de",
+					"lines": [
+						{
+							"text": "Benachrichtigungen anzeigen",
+							"box": {
+								"x": 25,
+								"y": 70,
+								"width": 223,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "de",
+					"lines": [
+						{
+							"text": "Beim Start automatisch öffnen",
+							"box": {
+								"x": 25,
+								"y": 112,
+								"width": 228,
+								"height": 12
+							}
+						}
+					]
+				},
+				{
+					"lang": "de",
+					"lines": [
+						{
+							"text": "Sprache und Region",
+							"box": {
+								"x": 24,
+								"y": 154,
+								"width": 150,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "de",
+					"lines": [
+						{
+							"text": "Tastenkürzel",
+							"box": {
+								"x": 24,
+								"y": 196,
+								"width": 94,
+								"height": 12
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-fr-article",
+			"image": "corpus/latin-fr-article.png",
+			"width": 600,
+			"height": 210,
+			"script": "Latin",
+			"kind": "rendered",
+			"sources": ["en", "de", "fr", "es"],
+			"note": "heading + three-line paragraph",
+			"blocks": [
+				{
+					"lang": "fr",
+					"lines": [
+						{
+							"text": "Mise à jour disponible",
+							"box": {
+								"x": 26,
+								"y": 26,
+								"width": 259,
+								"height": 24
+							}
+						}
+					]
+				},
+				{
+					"lang": "fr",
+					"lines": [
+						{
+							"text": "Une nouvelle version de l'application est prête à être",
+							"box": {
+								"x": 25,
+								"y": 83,
+								"width": 416,
+								"height": 17
+							}
+						},
+						{
+							"text": "installée. Elle corrige plusieurs problèmes de stabilité",
+							"box": {
+								"x": 25,
+								"y": 111,
+								"width": 423,
+								"height": 17
+							}
+						},
+						{
+							"text": "et améliore la vitesse de démarrage.",
+							"box": {
+								"x": 24,
+								"y": 139,
+								"width": 290,
+								"height": 17
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-es-small-1x",
+			"image": "corpus/latin-es-small-1x.png",
+			"width": 420,
+			"height": 70,
+			"script": "Latin",
+			"kind": "screenshot-like",
+			"sources": ["en", "de", "fr", "es"],
+			"note": "12 px menu bar and status line at 1x",
+			"blocks": [
+				{
+					"lang": "es",
+					"lines": [
+						{
+							"text": "Archivo",
+							"box": {
+								"x": 10,
+								"y": 8,
+								"width": 42,
+								"height": 10
+							}
+						}
+					]
+				},
+				{
+					"lang": "es",
+					"lines": [
+						{
+							"text": "Editar",
+							"box": {
+								"x": 81,
+								"y": 8,
+								"width": 32,
+								"height": 10
+							}
+						}
+					]
+				},
+				{
+					"lang": "es",
+					"lines": [
+						{
+							"text": "Ver",
+							"box": {
+								"x": 150,
+								"y": 9,
+								"width": 19,
+								"height": 9
+							}
+						}
+					]
+				},
+				{
+					"lang": "es",
+					"lines": [
+						{
+							"text": "Ayuda",
+							"box": {
+								"x": 220,
+								"y": 8,
+								"width": 35,
+								"height": 13
+							}
+						}
+					]
+				},
+				{
+					"lang": "es",
+					"lines": [
+						{
+							"text": "Guardado hace dos minutos en la carpeta Documentos",
+							"box": {
+								"x": 10,
+								"y": 46,
+								"width": 311,
+								"height": 13
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-vi-notice",
+			"image": "corpus/latin-vi-notice.png",
+			"width": 560,
+			"height": 130,
+			"script": "Latin",
+			"kind": "rendered",
+			"sources": ["vi", "en"],
+			"note": "Vietnamese diacritics",
+			"blocks": [
+				{
+					"lang": "vi",
+					"lines": [
+						{
+							"text": "Bạn có muốn cài đặt bản cập nhật mới nhất cho ứng",
+							"box": {
+								"x": 21,
+								"y": 30,
+								"width": 440,
+								"height": 20
+							}
+						},
+						{
+							"text": "dụng này ngay bây giờ không?",
+							"box": {
+								"x": 20,
+								"y": 61,
+								"width": 259,
+								"height": 19
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-en-subtitle-video",
+			"image": "corpus/latin-en-subtitle-video.png",
+			"width": 640,
+			"height": 200,
+			"script": "Latin",
+			"kind": "screenshot-like",
+			"sources": ["en", "de", "fr", "es"],
+			"note": "outlined subtitle over a busy video frame, JPEG q60",
+			"jpeg": 0.6,
+			"blocks": [
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "I told you we should have left",
+							"box": {
+								"x": 133,
+								"y": 109,
+								"width": 373,
+								"height": 25
+							}
+						},
+						{
+							"text": "before the storm reached the coast.",
+							"box": {
+								"x": 95,
+								"y": 145,
+								"width": 451,
+								"height": 19
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-en-lowcontrast",
+			"image": "corpus/latin-en-lowcontrast.png",
+			"width": 480,
+			"height": 120,
+			"script": "Latin",
+			"kind": "screenshot-like",
+			"sources": ["en", "de", "fr", "es"],
+			"note": "placeholder and disabled text, about 2.3:1 contrast",
+			"blocks": [
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Search messages and people",
+							"box": {
+								"x": 30,
+								"y": 31,
+								"width": 204,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Sending is turned off while you are offline",
+							"box": {
+								"x": 20,
+								"y": 81,
+								"width": 275,
+								"height": 15
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cjk-ja-game-dialogue",
+			"image": "corpus/cjk-ja-game-dialogue.png",
+			"width": 640,
+			"height": 240,
+			"script": "CJK",
+			"kind": "screenshot-like",
+			"sources": ["ja", "zh-Hans", "ko", "en"],
+			"note": "game dialogue box over a scene: speaker name + two lines",
+			"blocks": [
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "アリス",
+							"box": {
+								"x": 42,
+								"y": 128,
+								"width": 51,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "この先の森には、夜になると誰も近づかないの。",
+							"box": {
+								"x": 43,
+								"y": 161,
+								"width": 424,
+								"height": 20
+							}
+						},
+						{
+							"text": "それでも行くつもりなら、灯りを持っていって。",
+							"box": {
+								"x": 42,
+								"y": 191,
+								"width": 424,
+								"height": 20
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cjk-ja-ui-mixed",
+			"image": "corpus/cjk-ja-ui-mixed.png",
+			"width": 520,
+			"height": 170,
+			"script": "CJK",
+			"kind": "rendered",
+			"sources": ["ja", "zh-Hans", "ko", "en"],
+			"note": "Japanese UI with embedded Latin (Wi-Fi, Bluetooth)",
+			"blocks": [
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "設定を保存しました",
+							"box": {
+								"x": 24,
+								"y": 25,
+								"width": 197,
+								"height": 22
+							}
+						}
+					]
+				},
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "Wi-Fiネットワークに接続されています",
+							"box": {
+								"x": 24,
+								"y": 77,
+								"width": 294,
+								"height": 17
+							}
+						}
+					]
+				},
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "Bluetoothはオフです",
+							"box": {
+								"x": 25,
+								"y": 117,
+								"width": 162,
+								"height": 16
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cjk-zh-hans-article",
+			"image": "corpus/cjk-zh-hans-article.png",
+			"width": 560,
+			"height": 210,
+			"script": "CJK",
+			"kind": "rendered",
+			"sources": ["ja", "zh-Hans", "ko", "en"],
+			"note": "Simplified Chinese paragraph + buttons",
+			"blocks": [
+				{
+					"lang": "zh-Hans",
+					"lines": [
+						{
+							"text": "您的账户已在另一台设备上登录。如果这不是您本人",
+							"box": {
+								"x": 24,
+								"y": 31,
+								"width": 437,
+								"height": 20
+							}
+						},
+						{
+							"text": "的操作，请立即修改密码并检查安全设置。",
+							"box": {
+								"x": 25,
+								"y": 63,
+								"width": 348,
+								"height": 20
+							}
+						}
+					]
+				},
+				{
+					"lang": "zh-Hans",
+					"lines": [
+						{
+							"text": "取消",
+							"box": {
+								"x": 352,
+								"y": 151,
+								"width": 32,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "zh-Hans",
+					"lines": [
+						{
+							"text": "修改密码",
+							"box": {
+								"x": 453,
+								"y": 150,
+								"width": 64,
+								"height": 16
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cjk-ko-chat",
+			"image": "corpus/cjk-ko-chat.png",
+			"width": 480,
+			"height": 230,
+			"script": "CJK",
+			"kind": "screenshot-like",
+			"sources": ["ja", "zh-Hans", "ko", "en"],
+			"note": "chat bubbles left and right, 1x",
+			"blocks": [
+				{
+					"lang": "ko",
+					"lines": [
+						{
+							"text": "오늘 저녁에 시간 괜찮아요?",
+							"box": {
+								"x": 30,
+								"y": 28,
+								"width": 180,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "ko",
+					"lines": [
+						{
+							"text": "네, 일곱 시 이후에는 괜찮아요",
+							"box": {
+								"x": 185,
+								"y": 88,
+								"width": 195,
+								"height": 18
+							}
+						}
+					]
+				},
+				{
+					"lang": "ko",
+					"lines": [
+						{
+							"text": "그럼 역 앞 카페에서 만나요. 도착하면",
+							"box": {
+								"x": 30,
+								"y": 151,
+								"width": 242,
+								"height": 14
+							}
+						},
+						{
+							"text": "메시지 보내 주세요.",
+							"box": {
+								"x": 31,
+								"y": 177,
+								"width": 128,
+								"height": 14
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cjk-ja-vertical",
+			"image": "corpus/cjk-ja-vertical.png",
+			"width": 260,
+			"height": 380,
+			"script": "CJK",
+			"kind": "rendered",
+			"sources": ["ja", "zh-Hans", "ko", "en"],
+			"note": "vertical-rl: three columns, right to left",
+			"blocks": [
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "春はあけぼの",
+							"box": {
+								"x": 198,
+								"y": 20,
+								"width": 24,
+								"height": 180
+							},
+							"vertical": true
+						},
+						{
+							"text": "やうやう白く",
+							"box": {
+								"x": 148,
+								"y": 20,
+								"width": 24,
+								"height": 180
+							},
+							"vertical": true
+						},
+						{
+							"text": "なりゆく山ぎは",
+							"box": {
+								"x": 98,
+								"y": 20,
+								"width": 24,
+								"height": 210
+							},
+							"vertical": true
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "arabic-ar-article",
+			"image": "corpus/arabic-ar-article.png",
+			"width": 560,
+			"height": 190,
+			"script": "Arabic",
+			"kind": "rendered",
+			"sources": ["ar", "en"],
+			"note": "RTL heading + right-aligned two-line paragraph",
+			"blocks": [
+				{
+					"lang": "ar",
+					"lines": [
+						{
+							"text": "تحديث جديد متاح",
+							"box": {
+								"x": 350,
+								"y": 28,
+								"width": 186,
+								"height": 27
+							}
+						}
+					]
+				},
+				{
+					"lang": "ar",
+					"lines": [
+						{
+							"text": "يتضمن هذا الإصدار تحسينات في الأداء وإصلاحات",
+							"box": {
+								"x": 182,
+								"y": 86,
+								"width": 354,
+								"height": 24
+							}
+						},
+						{
+							"text": "لعدة مشكلات أبلغ عنها المستخدمون.",
+							"box": {
+								"x": 274,
+								"y": 121,
+								"width": 262,
+								"height": 25
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "arabic-ar-ui-dark",
+			"image": "corpus/arabic-ar-ui-dark.png",
+			"width": 480,
+			"height": 170,
+			"script": "Arabic",
+			"kind": "screenshot-like",
+			"sources": ["ar", "en"],
+			"note": "dark UI, label + two buttons, JPEG q75",
+			"jpeg": 0.75,
+			"blocks": [
+				{
+					"lang": "ar",
+					"lines": [
+						{
+							"text": "هل تريد حذف هذه الرسالة نهائياً؟",
+							"box": {
+								"x": 225,
+								"y": 32,
+								"width": 231,
+								"height": 25
+							}
+						}
+					]
+				},
+				{
+					"lang": "ar",
+					"lines": [
+						{
+							"text": "حذف",
+							"box": {
+								"x": 380,
+								"y": 116,
+								"width": 36,
+								"height": 13
+							}
+						}
+					]
+				},
+				{
+					"lang": "ar",
+					"lines": [
+						{
+							"text": "إلغاء",
+							"box": {
+								"x": 253,
+								"y": 117,
+								"width": 30,
+								"height": 18
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cyrillic-ru-dialog",
+			"image": "corpus/cyrillic-ru-dialog.png",
+			"width": 540,
+			"height": 200,
+			"script": "Cyrillic",
+			"kind": "rendered",
+			"sources": ["ru", "uk", "bg", "en"],
+			"note": "Russian dialog: title, body, buttons",
+			"blocks": [
+				{
+					"lang": "ru",
+					"lines": [
+						{
+							"text": "Сохранить изменения?",
+							"box": {
+								"x": 25,
+								"y": 28,
+								"width": 233,
+								"height": 19
+							}
+						}
+					]
+				},
+				{
+					"lang": "ru",
+					"lines": [
+						{
+							"text": "Если закрыть документ сейчас, все несохранённые",
+							"box": {
+								"x": 25,
+								"y": 69,
+								"width": 372,
+								"height": 15
+							}
+						},
+						{
+							"text": "изменения будут потеряны без возможности восстановления.",
+							"box": {
+								"x": 25,
+								"y": 90,
+								"width": 454,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "ru",
+					"lines": [
+						{
+							"text": "Отмена",
+							"box": {
+								"x": 324,
+								"y": 156,
+								"width": 51,
+								"height": 10
+							}
+						}
+					]
+				},
+				{
+					"lang": "ru",
+					"lines": [
+						{
+							"text": "Сохранить",
+							"box": {
+								"x": 433,
+								"y": 156,
+								"width": 71,
+								"height": 14
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cyrillic-uk-subtitle-video",
+			"image": "corpus/cyrillic-uk-subtitle-video.png",
+			"width": 640,
+			"height": 200,
+			"script": "Cyrillic",
+			"kind": "screenshot-like",
+			"sources": ["ru", "uk", "bg", "en"],
+			"note": "Ukrainian outlined subtitle over video, JPEG q60",
+			"jpeg": 0.6,
+			"blocks": [
+				{
+					"lang": "uk",
+					"lines": [
+						{
+							"text": "Ми повернемося додому",
+							"box": {
+								"x": 157,
+								"y": 110,
+								"width": 328,
+								"height": 24
+							}
+						},
+						{
+							"text": "ще до світанку, обіцяю.",
+							"box": {
+								"x": 168,
+								"y": 143,
+								"width": 305,
+								"height": 27
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "cyrillic-bg-menu",
+			"image": "corpus/cyrillic-bg-menu.png",
+			"width": 420,
+			"height": 180,
+			"script": "Cyrillic",
+			"kind": "rendered",
+			"sources": ["ru", "uk", "bg", "en"],
+			"note": "Bulgarian menu items (generic Cyrillic recogniser)",
+			"blocks": [
+				{
+					"lang": "bg",
+					"lines": [
+						{
+							"text": "Нов прозорец",
+							"box": {
+								"x": 25,
+								"y": 24,
+								"width": 108,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "bg",
+					"lines": [
+						{
+							"text": "Отваряне на файл",
+							"box": {
+								"x": 24,
+								"y": 63,
+								"width": 142,
+								"height": 17
+							}
+						}
+					]
+				},
+				{
+					"lang": "bg",
+					"lines": [
+						{
+							"text": "Последни документи",
+							"box": {
+								"x": 25,
+								"y": 104,
+								"width": 163,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "bg",
+					"lines": [
+						{
+							"text": "Изход",
+							"box": {
+								"x": 25,
+								"y": 144,
+								"width": 46,
+								"height": 15
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "devanagari-hi-article",
+			"image": "corpus/devanagari-hi-article.png",
+			"width": 580,
+			"height": 190,
+			"script": "Devanagari",
+			"kind": "rendered",
+			"sources": ["hi", "en"],
+			"note": "Hindi heading + two-line paragraph",
+			"blocks": [
+				{
+					"lang": "hi",
+					"lines": [
+						{
+							"text": "नया अपडेट उपलब्ध है",
+							"box": {
+								"x": 24,
+								"y": 26,
+								"width": 202,
+								"height": 26
+							}
+						}
+					]
+				},
+				{
+					"lang": "hi",
+					"lines": [
+						{
+							"text": "इस संस्करण में प्रदर्शन में सुधार और उपयोगकर्ताओं",
+							"box": {
+								"x": 24,
+								"y": 87,
+								"width": 325,
+								"height": 23
+							}
+						},
+						{
+							"text": "द्वारा बताई गई कई समस्याओं के समाधान शामिल हैं।",
+							"box": {
+								"x": 24,
+								"y": 123,
+								"width": 330,
+								"height": 20
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "devanagari-hi-ui-dark",
+			"image": "corpus/devanagari-hi-ui-dark.png",
+			"width": 480,
+			"height": 170,
+			"script": "Devanagari",
+			"kind": "screenshot-like",
+			"sources": ["hi", "en"],
+			"note": "dark UI label + buttons, JPEG q75",
+			"jpeg": 0.75,
+			"blocks": [
+				{
+					"lang": "hi",
+					"lines": [
+						{
+							"text": "क्या आप यह संदेश हटाना चाहते हैं?",
+							"box": {
+								"x": 24,
+								"y": 35,
+								"width": 228,
+								"height": 20
+							}
+						}
+					]
+				},
+				{
+					"lang": "hi",
+					"lines": [
+						{
+							"text": "रद्द करें",
+							"box": {
+								"x": 259,
+								"y": 114,
+								"width": 38,
+								"height": 18
+							}
+						}
+					]
+				},
+				{
+					"lang": "hi",
+					"lines": [
+						{
+							"text": "हटाएँ",
+							"box": {
+								"x": 391,
+								"y": 114,
+								"width": 31,
+								"height": 18
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "thai-th-notice",
+			"image": "corpus/thai-th-notice.png",
+			"width": 520,
+			"height": 130,
+			"script": "Thai",
+			"kind": "rendered",
+			"sources": ["th", "en"],
+			"note": "Thai, no spaces between words",
+			"blocks": [
+				{
+					"lang": "th",
+					"lines": [
+						{
+							"text": "บันทึกการตั้งค่าเรียบร้อยแล้ว",
+							"box": {
+								"x": 21,
+								"y": 28,
+								"width": 248,
+								"height": 22
+							}
+						}
+					]
+				},
+				{
+					"lang": "th",
+					"lines": [
+						{
+							"text": "กรุณาเริ่มโปรแกรมใหม่อีกครั้ง",
+							"box": {
+								"x": 21,
+								"y": 82,
+								"width": 210,
+								"height": 23
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "greek-el-dialog",
+			"image": "corpus/greek-el-dialog.png",
+			"width": 500,
+			"height": 140,
+			"script": "Greek",
+			"kind": "rendered",
+			"sources": ["el", "en"],
+			"note": "Greek title + body",
+			"blocks": [
+				{
+					"lang": "el",
+					"lines": [
+						{
+							"text": "Αποθήκευση αλλαγών;",
+							"box": {
+								"x": 24,
+								"y": 28,
+								"width": 220,
+								"height": 21
+							}
+						}
+					]
+				},
+				{
+					"lang": "el",
+					"lines": [
+						{
+							"text": "Οι αλλαγές σας θα χαθούν αν κλείσετε το παράθυρο.",
+							"box": {
+								"x": 24,
+								"y": 80,
+								"width": 366,
+								"height": 16
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "mixed-ja-en-window",
+			"image": "corpus/mixed-ja-en-window.png",
+			"width": 760,
+			"height": 300,
+			"script": "Mixed",
+			"kind": "screenshot-like",
+			"sources": ["ja", "en", "de"],
+			"note": "one window, Japanese and English blocks; detection must tell them apart",
+			"blocks": [
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "ダウンロードが完了しました",
+							"box": {
+								"x": 50,
+								"y": 36,
+								"width": 194,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "The file was saved to your Downloads folder. You can",
+							"box": {
+								"x": 50,
+								"y": 90,
+								"width": 394,
+								"height": 16
+							}
+						},
+						{
+							"text": "open it now or find it later in the list of recent files.",
+							"box": {
+								"x": 50,
+								"y": 114,
+								"width": 378,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "ファイルはダウンロードフォルダーに保存されました。",
+							"box": {
+								"x": 52,
+								"y": 168,
+								"width": 388,
+								"height": 16
+							}
+						},
+						{
+							"text": "今すぐ開くか、後で最近のファイルから探してください。",
+							"box": {
+								"x": 50,
+								"y": 194,
+								"width": 406,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Open file",
+							"box": {
+								"x": 625,
+								"y": 242,
+								"width": 60,
+								"height": 15
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}
