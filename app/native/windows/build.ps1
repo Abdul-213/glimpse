@@ -7,9 +7,9 @@ $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $out = Join-Path $here "build"
 New-Item -ItemType Directory -Force -Path $out | Out-Null
-$sources = @("glimpse.cpp", "capture.cpp", "picker.cpp", "frame.cpp", "announce.cpp") | ForEach-Object { Join-Path $here $_ }
+$sources = @("glimpse.cpp", "capture.cpp", "picker.cpp", "frame.cpp", "announce.cpp", "session.cpp") | ForEach-Object { Join-Path $here $_ }
 $dll = Join-Path $out "glimpse.dll"
-$libs = @("d3d11", "dxgi", "user32", "gdi32", "dwmapi", "version", "ole32")
+$libs = @("d3d11", "dxgi", "user32", "gdi32", "dwmapi", "version", "ole32", "wtsapi32")
 
 $tool = $env:GLIMPSE_NATIVE_TOOL
 if (-not $tool) {

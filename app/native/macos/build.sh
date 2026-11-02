@@ -18,7 +18,7 @@ clang -dynamiclib $arch_flags -mmacosx-version-min=14.0 -O2 \
 	-framework Foundation -framework AppKit -framework Carbon -framework ScreenCaptureKit \
 	-framework CoreGraphics -framework CoreMedia -framework CoreVideo -framework Accelerate -framework QuartzCore \
 	-o "$out/libglimpse.dylib" \
-	"$here/glimpse.m" "$here/window.m" "$here/capture.m" "$here/picker.m" "$here/hotkey.m" "$here/frame.m" "$here/announce.m"
+	"$here/glimpse.m" "$here/window.m" "$here/capture.m" "$here/picker.m" "$here/hotkey.m" "$here/frame.m" "$here/announce.m" "$here/session.m"
 
 # Ad-hoc sign so the dylib loads on Apple Silicon (the app bundle is re-signed as a whole).
 codesign --force --sign - "$out/libglimpse.dylib"

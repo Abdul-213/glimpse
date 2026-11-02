@@ -1,10 +1,17 @@
 // bun:ffi bindings for Windows: glimpse.dll (capture) and plain user32 calls that need
 // no helper (display affinity). See app/native/windows/glimpse.h for the C ABI.
 // Nothing outside app/src/bun/native/ sees a raw pointer from here.
-import { dlopen, FFIType, type Pointer, ptr } from "bun:ffi";
+import { dlopen, FFIType, JSCallback, type Pointer, ptr } from "bun:ffi";
 import type { CapturePiece, Rect, RgbaImage } from "@glimpse/core";
 import type { FrameHandle, FrameNativeBinding, FrameNativeStyle } from "./frame.ts";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
+import {
+	SESSION_KIND_CODE,
+	type SessionEventKind,
+	type SessionNativeBinding,
+	sessionKindFor,
+	sessionSourceName,
+} from "./session.ts";
 import { captureErrorFor } from "./status.ts";
 import { listNativeWindows, type NativeWindowInfo } from "./window-info.ts";
 
@@ -34,6 +41,12 @@ const glimpseSymbols = {
 	glim_frame_window_id: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
 	glim_frame_destroy: { args: [FFIType.u64], returns: FFIType.i32 },
 	glim_frame_info: { args: [FFIType.u64, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	// GLIM-119 lock / sleep notifications (session.cpp)
+	glim_session_start: { args: [FFIType.function], returns: FFIType.i32 },
+	glim_session_stop: { args: [], returns: FFIType.i32 },
+	glim_session_simulate: { args: [FFIType.i32], returns: FFIType.i32 },
+	glim_session_pump: { args: [FFIType.i32], returns: FFIType.i32 },
+	glim_session_info: { args: [FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
 } as const;
 
 export type WindowsBackend = "gdi" | "dxgi";
@@ -69,8 +82,9 @@ export interface WindowsPickerBinding {
 
 type GlimpseSymbols = NonNullable<ReturnType<typeof loadNativeLibrary<typeof glimpseSymbols>>["symbols"]>;
 
-class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding, FrameNativeBinding {
+class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding, FrameNativeBinding, SessionNativeBinding {
 	private readonly geom = new Int32Array(10);
+	private sessionCallback: JSCallback | null = null;
 	private readonly seq = new BigUint64Array(1);
 
 	constructor(
@@ -130,6 +144,47 @@ class GlimpseDll implements WindowsCaptureBinding, WindowsPickerBinding, FrameNa
 		const r = this.sym.glim_focus_restore(ptr(out));
 		if (r !== 0) throw captureErrorFor("windows", "SetForegroundWindow", r, this.lastError());
 		return out[0] === 1;
+	}
+
+	// ---- GLIM-119 lock / sleep notifications ----
+
+	sessionStart(onEvent: (kind: SessionEventKind, source: string) => void): number {
+		// Runs on the helper's watcher thread; threadsafe queues it onto this worker.
+		const cb = new JSCallback(
+			(kind: number, source: number) => {
+				const k = sessionKindFor(kind);
+				if (k) onEvent(k, sessionSourceName("windows", source));
+			},
+			{ args: [FFIType.i32, FFIType.i32], returns: FFIType.void, threadsafe: true },
+		);
+		const r = this.sym.glim_session_start(cb);
+		if (r !== 0) {
+			cb.close();
+			return r;
+		}
+		// The helper now calls the new callback; the old one can go.
+		this.sessionCallback?.close();
+		this.sessionCallback = cb;
+		return 0;
+	}
+
+	sessionStop(): void {
+		this.sym.glim_session_stop();
+		this.sessionCallback?.close();
+		this.sessionCallback = null;
+	}
+
+	sessionSimulate(kind: SessionEventKind): number {
+		return this.sym.glim_session_simulate(SESSION_KIND_CODE[kind]);
+	}
+
+	sessionPump(ms: number): void {
+		this.sym.glim_session_pump(Math.max(0, Math.round(ms)));
+	}
+
+	sessionInfo(): Record<string, number> | null {
+		const json = readNativeString((b, c) => this.sym.glim_session_info(ptr(b), c), 256);
+		return json.startsWith("{") ? (JSON.parse(json) as Record<string, number>) : null;
 	}
 
 	// ---- GLIM-90 pinned Live frame ----
@@ -201,7 +256,7 @@ let dll: GlimpseDll | { status: NativeStatus } | undefined;
 /** Load glimpse.dll once. `binding` is null when it is missing or broken (see `status`). */
 export function loadWindowsCapture(): {
 	status: NativeStatus;
-	binding: (WindowsCaptureBinding & WindowsPickerBinding & FrameNativeBinding) | null;
+	binding: (WindowsCaptureBinding & WindowsPickerBinding & FrameNativeBinding & SessionNativeBinding) | null;
 } {
 	if (!dll) {
 		if (process.platform !== "win32") {
