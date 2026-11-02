@@ -30,7 +30,7 @@ import { buildDiagnostics } from "./services/diagnostics.ts";
 import { HotkeyService } from "./services/hotkeys.ts";
 import { CarbonHotkeyBackend } from "./services/hotkeys-carbon.ts";
 import { ElectrobunHotkeyBackend } from "./services/hotkeys-electrobun.ts";
-import { ServiceHotkeyRegistrar } from "./services/hotkeys-port.ts";
+import { liveHotkeyHandlers, ServiceHotkeyRegistrar } from "./services/hotkeys-port.ts";
 import { LiveService } from "./services/live/live-service.ts";
 import { PinnedFrame } from "./services/live/pinned-frame.ts";
 import { createAppLogger } from "./services/log.ts";
@@ -209,6 +209,11 @@ appSettings.subscribe((next, previous) => {
 const hotkeyRegistrar = new ServiceHotkeyRegistrar(hotkeys, {
 	snip: () => void commands.dispatch("snip.start", "hotkey"),
 	live: () => void commands.dispatch("live.start", "hotkey"),
+	// GLIM-130: optional, unbound by default (Settings › Shortcuts). `live` is declared below.
+	...liveHotkeyHandlers(
+		(command) => void commands.dispatch(command, "hotkey"),
+		() => ({ active: live.active, paused: live.status === "paused" || live.status === "error" }),
+	),
 });
 
 // Screen Recording permission (GLIM-45): macOS only. Snip and Live open the screen-access

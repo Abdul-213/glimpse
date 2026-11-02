@@ -11,7 +11,14 @@ import type { HotkeyAction, HotkeyBindings } from "@glimpse/core";
 import type { HotkeyRegistration, HotkeyStatus } from "../../shared/settings-rpc.ts";
 import type { HotkeyService, HotkeyStatus as ServiceStatus } from "./hotkeys.ts";
 
-export const HOTKEY_ACTIONS: readonly HotkeyAction[] = ["snip", "live", "pauseLive", "resnip", "toggleLivePopup"];
+export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
+	"snip",
+	"live",
+	"pauseLive",
+	"resnip",
+	"toggleLivePopup",
+	"focusLivePopup",
+];
 
 export interface HotkeyRegistrar {
 	/** What the OS said about each action at the last `apply`. */
@@ -63,6 +70,7 @@ export function registrationStatus(
 		pauseLive: one("pauseLive"),
 		resnip: one("resnip"),
 		toggleLivePopup: one("toggleLivePopup"),
+		focusLivePopup: one("focusLivePopup"),
 	};
 }
 
@@ -75,7 +83,7 @@ export class ServiceHotkeyRegistrar implements HotkeyRegistrar {
 		private readonly handlers: HotkeyHandlers,
 	) {
 		this.#status = registrationStatus(
-			{ snip: null, live: null, pauseLive: null, resnip: null, toggleLivePopup: null },
+			{ snip: null, live: null, pauseLive: null, resnip: null, toggleLivePopup: null, focusLivePopup: null },
 			[],
 			handlers,
 		);
@@ -96,4 +104,23 @@ export class ServiceHotkeyRegistrar implements HotkeyRegistrar {
 		this.#listeners.add(listener);
 		return () => this.#listeners.delete(listener);
 	}
+}
+
+/**
+ * GLIM-130: handlers for the optional Live shortcuts (unbound by default; live-popup.md §6.3,
+ * GLIM-94 question 12). They go through the command bus like the tray: pause / resume toggles
+ * by the session's state, and every one does nothing while no area is pinned.
+ */
+export function liveHotkeyHandlers(
+	dispatch: (command: "live.pause" | "live.resume" | "live.popup.toggle" | "live.popup.focus") => void,
+	live: () => { readonly active: boolean; readonly paused: boolean },
+): Pick<HotkeyHandlers, "pauseLive" | "toggleLivePopup" | "focusLivePopup"> {
+	const whenActive = (run: () => void) => () => {
+		if (live().active) run();
+	};
+	return {
+		pauseLive: whenActive(() => dispatch(live().paused ? "live.resume" : "live.pause")),
+		toggleLivePopup: whenActive(() => dispatch("live.popup.toggle")),
+		focusLivePopup: whenActive(() => dispatch("live.popup.focus")),
+	};
 }

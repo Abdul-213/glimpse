@@ -37,7 +37,14 @@ describe("settings defaults", () => {
 	test("first-run settings", () => {
 		expect(defaultSettings(env)).toEqual({
 			language: { target: languageCode("de"), sources: [] },
-			hotkeys: { snip: "Alt+Shift+S", live: "Alt+Shift+L", pauseLive: null, resnip: null, toggleLivePopup: null },
+			hotkeys: {
+				snip: "Alt+Shift+S",
+				live: "Alt+Shift+L",
+				pauseLive: null,
+				resnip: null,
+				toggleLivePopup: null,
+				focusLivePopup: null,
+			},
 			providers: { ocr: "paddleocr", translation: ["bergamot", "small100"], options: {} },
 			appearance: { theme: "system", motion: "system" },
 			snip: { copyAfterSnip: true, showOriginalUnder: false, alwaysShowLanguages: false },
@@ -126,6 +133,7 @@ describe("hotkeys", () => {
 			pauseLive: null,
 			resnip: "Ctrl+Alt+R",
 			toggleLivePopup: null,
+			focusLivePopup: null,
 		});
 		expect(issues.map((i) => i.path)).toEqual(["hotkeys.snip", "hotkeys.pauseLive"]);
 	});
