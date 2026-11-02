@@ -11,7 +11,7 @@
 import type { LanguageCode } from "./code.ts";
 import { displayName, nativeName } from "./display.ts";
 import { allLanguages, type LanguageInfo, lookupLanguage } from "./lookup.ts";
-import { recognizersFor } from "./ocr.ts";
+import { localOcrIsPartial, recognizersFor } from "./ocr.ts";
 import type { ScriptCode } from "./script.ts";
 
 /** One language in the source-language picker. Plain data, safe to send over RPC. */
@@ -30,6 +30,8 @@ export interface SourceLanguageChoice {
 	readonly localTranslation: boolean;
 	/** Bundled/downloadable local OCR can read its script. */
 	readonly localOcr: boolean;
+	/** ...but loses part of its letters (Vietnamese tone marks, GLIM-126): cloud OCR reads it fully. */
+	readonly localOcrPartial: boolean;
 }
 
 export interface SourceLanguageGroup {
@@ -74,6 +76,7 @@ export function sourceLanguageChoices(displayLocale = "en"): SourceLanguageChoic
 			detectable: e.eld !== undefined || e.fasttext !== undefined,
 			localTranslation: e.bergamot !== undefined,
 			localOcr: recognizersFor(e.code).length > 0,
+			localOcrPartial: localOcrIsPartial(e.code),
 		}))
 		.sort((a, b) => collator.compare(a.name, b.name));
 }

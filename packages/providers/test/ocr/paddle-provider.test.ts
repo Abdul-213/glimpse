@@ -66,6 +66,9 @@ describe.skipIf(!hasBundled)("PaddleOCR: real models", () => {
 				for (const l of ["ja", "zh-Hans", "zh-Hant", "en", "de", "vi", "fr"]) {
 					expect(p.languageSupport(languageCode(l)).status).toBe("ready");
 				}
+				// GLIM-126: Vietnamese loses most tone marks with the latin recogniser.
+				expect(p.languageSupport(languageCode("vi"))).toEqual({ status: "ready", partial: true });
+				expect(p.languageSupport(languageCode("de"))).toEqual({ status: "ready" });
 				const ko = p.languageSupport(languageCode("ko"));
 				expect(ko).toMatchObject({ status: "missing", missing: [{ id: "ocr-rec-korean" }] });
 				expect(p.languageSupport(languageCode("ru"))).toMatchObject({

@@ -82,6 +82,21 @@ export function recognizersFor(code: LanguageCode): readonly OcrRecognizer[] {
 	return family ? [family] : [];
 }
 
+/**
+ * Languages the local recognisers read only partly (GLIM-126). PP-OCRv5's `latin` dictionary
+ * has 1 of the ~50 precomposed Vietnamese letters with a dot below, a hook, horn or breve
+ * (ạ ả ặ ơ ư ...), so it reads "Bạn có muốn cài đặt" as "Ban có muôn cài dt" (GLIM-64: CER
+ * 20 %, WER 61 %). No PP-OCRv5 or PP-OCRv6 recogniser has them (docs/benchmarks/ocr.md). The
+ * UI says so and points to cloud OCR.
+ */
+const PARTIAL_LOCAL_OCR: ReadonlySet<string> = new Set(["vi"]);
+
+/** True when local OCR reads `code`'s script but loses part of its letters (Vietnamese tones). */
+export function localOcrIsPartial(code: LanguageCode): boolean {
+	const primary = (lookupLanguage(code)?.code ?? code).split("-")[0] ?? code;
+	return PARTIAL_LOCAL_OCR.has(primary) && recognizersFor(code).length > 0;
+}
+
 /** The single best recogniser for `code`, or null. */
 export function recognizerFor(code: LanguageCode): OcrRecognizer | null {
 	return recognizersFor(code)[0] ?? null;

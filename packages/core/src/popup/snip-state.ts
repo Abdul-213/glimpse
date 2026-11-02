@@ -8,6 +8,7 @@
 
 import type { BlockId } from "../block.ts";
 import type { LanguageCode } from "../language/code.ts";
+import { localOcrIsPartial } from "../language/ocr.ts";
 import type { TextDirection } from "../language/script.ts";
 import type { InstallState } from "../models/install-state.ts";
 import type { BlockClass, PipelineErrorKind, PipelineEvent } from "../pipeline/events.ts";
@@ -485,6 +486,17 @@ export const skippedBlocks = (s: SnipPopupState): SnipBlock[] => s.blocks.filter
 export function skippedLanguages(s: SnipPopupState): LanguageCode[] {
 	const out: LanguageCode[] = [];
 	for (const b of skippedBlocks(s)) if (b.lang && !out.includes(b.lang)) out.push(b.lang);
+	return out;
+}
+
+/**
+ * Languages in this Snip that on-device OCR reads only partly (GLIM-126: Vietnamese tone
+ * marks), when the text was read on this device. The popup suggests cloud OCR for them.
+ */
+export function partialOcrLanguages(s: SnipPopupState): LanguageCode[] {
+	if (s.ocrProvider?.kind !== "local") return [];
+	const out: LanguageCode[] = [];
+	for (const b of listedBlocks(s)) if (b.lang && localOcrIsPartial(b.lang) && !out.includes(b.lang)) out.push(b.lang);
 	return out;
 }
 

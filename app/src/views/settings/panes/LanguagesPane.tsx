@@ -18,6 +18,7 @@ import { Pane } from "./common.tsx";
 function noteFor(l: SourceLanguageChoice): string | undefined {
 	if (!l.detectable) return "Can't be detected reliably";
 	if (!l.localOcr) return "Can't be read on this computer";
+	if (l.localOcrPartial) return "Tone marks often lost on this computer";
 	if (!l.localTranslation) return "No offline translation";
 	return undefined;
 }

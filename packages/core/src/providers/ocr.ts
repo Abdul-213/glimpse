@@ -94,7 +94,8 @@ export interface OcrCapabilities {
  * ready provider can still lack the model for a language in the user's subset.
  */
 export type OcrLanguageSupport =
-	| { readonly status: "ready" }
+	/** `partial`: read, but part of the alphabet is lost (Vietnamese tone marks, GLIM-126). */
+	| { readonly status: "ready"; readonly partial?: true }
 	| { readonly status: "missing"; readonly missing: readonly ModelResource[] }
 	| { readonly status: "unsupported" };
 

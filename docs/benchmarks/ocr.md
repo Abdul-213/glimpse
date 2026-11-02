@@ -102,7 +102,9 @@ one- and two-word button labels. What the corpus caught:
    is detected as Russian.
 2. **Vietnamese loses most tone marks** (CER 20 %, WER 61 %): the `latin` recogniser reads
    "Bạn có muốn cài đặt bản cập nhật" as "Ban có muôn cài dt bn cp nhât". A model limit, not a
-   pipeline one: **GLIM-126**.
+   pipeline one: no PP-OCRv5 or PP-OCRv6 dictionary has more than 8 of the 52 marked letters.
+   **GLIM-126** keeps Vietnamese on the device but marks it partial and points to cloud OCR in
+   Settings and the popup ([decision](../decisions/GLIM-126-vietnamese-ocr.md)).
 3. **Grouping (GLIM-56 thresholds)**: 78 % of blocks exact. Three patterns:
    - A heading merges into the paragraph under it when the heading is long (≥ `minWrapLength` 6
      line heights) and only ~1.3x the body size (`sizeRatio` 1.5 allows it): en, ru and el

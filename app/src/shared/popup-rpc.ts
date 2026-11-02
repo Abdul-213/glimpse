@@ -60,7 +60,9 @@ export type SnipAction =
 	| "openSystemSettings"
 	| "why"
 	| "translateSkipped"
-	| "editSources";
+	| "editSources"
+	/** GLIM-126: on-device OCR loses part of a language's letters; Settings › Providers offers cloud OCR. */
+	| "ocrSettings";
 
 export const SNIP_ACTIONS: readonly SnipAction[] = [
 	"snipAgain",
@@ -74,6 +76,7 @@ export const SNIP_ACTIONS: readonly SnipAction[] = [
 	"why",
 	"translateSkipped",
 	"editSources",
+	"ocrSettings",
 ];
 
 export type SnipDismissReason = "esc" | "close" | "outside" | "blur" | "hotkey";
