@@ -7,6 +7,7 @@ import {
 	defaultTargetLanguage,
 	hotkeyProblem,
 	type JsonObject,
+	type JsonValue,
 	languageCode,
 	loadSettings,
 	type Migration,
@@ -279,7 +280,7 @@ describe("migrations", () => {
 });
 
 describe("shipped migrations", () => {
-	const v1 = (translation: unknown): JsonObject => ({
+	const v1 = (translation: JsonValue): JsonObject => ({
 		version: 1,
 		providers: { ocr: "paddleocr", translation, options: {} },
 	});
