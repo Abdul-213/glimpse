@@ -17,9 +17,9 @@
 			"detection": 1
 		},
 		"Cyrillic": {
-			"cer": 0.7183,
+			"cer": 0,
 			"grouping": 0.5556,
-			"detection": 0.3333
+			"detection": 0.8889
 		},
 		"Devanagari": {
 			"cer": 0.0292,
@@ -32,14 +32,14 @@
 			"detection": 1
 		},
 		"Greek": {
-			"cer": 0.2373,
+			"cer": 0.0169,
 			"grouping": 0,
 			"detection": 1
 		},
 		"Mixed": {
 			"cer": 0,
-			"grouping": 1,
-			"detection": 1
+			"grouping": 0.7778,
+			"detection": 0.8889
 		}
 	},
 	"totalP50": 7016

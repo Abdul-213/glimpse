@@ -500,6 +500,24 @@ const F = (px, family = "Noto Sans", weight = "") => `${weight ? `${weight} ` : 
 	button(s, "en", "Open file", 600, 232, 110, 32, { fill: "#2f6fde", color: "#fff", font: F(14) });
 	await s.save();
 }
+{
+	// GLIM-125: with a CJK language in the subset `ch` reads first, and it reads Cyrillic as
+	// Latin look-alikes; the look-alike rule must hand those lines to eslav.
+	const s = scene("mixed-ja-ru-window", 640, 240, {
+		script: "Mixed",
+		kind: "rendered",
+		sources: ["ja", "ru", "en"],
+		note: "Japanese, Russian and English blocks in one window (ch reads first)",
+	});
+	rect(s.g, 0, 0, 640, 240, "#d9dde3");
+	rect(s.g, 20, 16, 600, 208, "#ffffff", 10);
+	s.block("ja").line("設定を保存しますか", 40, 52, { font: F(18, "Noto Sans JP", "600") });
+	s.block("ru").line("Настройки будут применены после перезапуска.", 40, 96, { font: F(16) });
+	s.block("en").line("Settings apply after a restart.", 40, 134, { font: F(16) });
+	button(s, "ru", "Отмена", 360, 172, 110, 34, { fill: "#e1e1e6", color: "#111", font: F(14) });
+	button(s, "ru", "ПРИМЕНИТЬ", 484, 172, 120, 34, { fill: "#2f6fde", color: "#fff", font: F(14, "Noto Sans", "600") });
+	await s.save();
+}
 
 writeFileSync(join(DIR, "corpus.json"), `${JSON.stringify({ schema: 1, cases }, null, "\t")}\n`);
 console.log(`wrote ${cases.length} cases`);

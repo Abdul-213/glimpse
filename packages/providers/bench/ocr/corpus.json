@@ -1241,6 +1241,88 @@
 					]
 				}
 			]
+		},
+		{
+			"id": "mixed-ja-ru-window",
+			"image": "corpus/mixed-ja-ru-window.png",
+			"width": 640,
+			"height": 240,
+			"script": "Mixed",
+			"kind": "rendered",
+			"sources": ["ja", "ru", "en"],
+			"note": "Japanese, Russian and English blocks in one window (ch reads first)",
+			"blocks": [
+				{
+					"lang": "ja",
+					"lines": [
+						{
+							"text": "設定を保存しますか",
+							"box": {
+								"x": 40,
+								"y": 36,
+								"width": 162,
+								"height": 19
+							}
+						}
+					]
+				},
+				{
+					"lang": "ru",
+					"lines": [
+						{
+							"text": "Настройки будут применены после перезапуска.",
+							"box": {
+								"x": 41,
+								"y": 82,
+								"width": 378,
+								"height": 18
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Settings apply after a restart.",
+							"box": {
+								"x": 40,
+								"y": 122,
+								"width": 217,
+								"height": 16
+							}
+						}
+					]
+				},
+				{
+					"lang": "ru",
+					"lines": [
+						{
+							"text": "Отмена",
+							"box": {
+								"x": 389,
+								"y": 184,
+								"width": 51,
+								"height": 10
+							}
+						}
+					]
+				},
+				{
+					"lang": "ru",
+					"lines": [
+						{
+							"text": "ПРИМЕНИТЬ",
+							"box": {
+								"x": 500,
+								"y": 184,
+								"width": 88,
+								"height": 10
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

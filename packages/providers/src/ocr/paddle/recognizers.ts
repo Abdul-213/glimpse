@@ -6,7 +6,16 @@
 // 1. Candidates come from the request's languages (the user's source subset): the fewest
 //    installed recognisers that read them all (`ch` also reads English, so {ja, en} needs only
 //    `ch`). `ch` goes first when present: it reads CJK and basic Latin, the best first pass.
+//    Without `ch`, non-Latin recognisers go before `latin` / `en` (GLIM-125): every PP-OCRv5
+//    recogniser's dictionary has basic Latin and reads English well, but the Latin ones (and
+//    `ch`) read Cyrillic and Greek as Latin look-alikes ("Сохранить" -> "CoxpaHnTb") with
+//    scores of 0.8-0.95, which rule 4 never questions. English only breaks the tie towards
+//    `ch` when a CJK language needs `ch` anyway.
 // 2. Every line is read by the first candidate.
+// 3a. Look-alikes (GLIM-125): Latin text with the marks of misread Cyrillic or Greek (mixed
+//    scripts or digits inside a word, a capital after a lowercase letter, an all-capitals word
+//    made of look-alike capitals) is re-read by a Cyrillic or Greek candidate, which wins
+//    when it reads its own script with a score that isn't clearly worse.
 // 3. If the text it produced is in a script another candidate specialises in (Latin text from
 //    `ch` when `latin` is a candidate), the line is re-read by the specialist, and the
 //    specialist wins unless its score is clearly worse.
@@ -45,9 +54,12 @@ export function planRecognizers(
 		return OCR_RECOGNIZERS.filter((r) => installed.has(r)).slice(0, 1);
 	}
 	let remaining = languages.map((l) => recognizersFor(l).filter((r) => installed.has(r))).filter((l) => l.length > 0);
+	// `ch` is needed when some language reads best (CJK: only) with it.
+	const needsCh = remaining.some((l) => l[0] === "ch");
 	const chosen: OcrRecognizer[] = [];
 	// Greedy set cover: the recogniser that reads the most remaining languages; ties go to
-	// `ch` (the widest reader), then to the one a language prefers most, then to request order.
+	// `ch` (the widest reader) when it is needed anyway, then to the one a language prefers
+	// most, then to request order.
 	while (remaining.length > 0) {
 		let best: OcrRecognizer | null = null;
 		let bestKey: readonly number[] = [];
@@ -58,7 +70,7 @@ export function planRecognizers(
 				seen.add(r);
 				const cover = remaining.filter((l) => l.includes(r)).length;
 				const rank = Math.min(...remaining.map((l) => (l.includes(r) ? l.indexOf(r) : 99)));
-				const key = [cover, r === "ch" ? 1 : 0, -rank, -order];
+				const key = [cover, needsCh && r === "ch" ? 1 : 0, -rank, -order];
 				if (!best || compareKeys(key, bestKey) > 0) {
 					best = r;
 					bestKey = key;
@@ -70,10 +82,15 @@ export function planRecognizers(
 		chosen.push(pick);
 		remaining = remaining.filter((l) => !l.includes(pick));
 	}
-	const ch = chosen.indexOf("ch");
-	if (ch > 0) chosen.unshift(...chosen.splice(ch, 1));
-	return chosen;
+	// First pass: `ch`, then non-Latin recognisers, then the Latin ones (stable otherwise).
+	const tier = (r: OcrRecognizer) => (r === "ch" ? 0 : LATIN_RECOGNIZERS.has(r) ? 2 : 1);
+	return chosen
+		.map((r, i) => ({ r, i }))
+		.sort((a, b) => tier(a.r) - tier(b.r) || a.i - b.i)
+		.map((x) => x.r);
 }
+
+const LATIN_RECOGNIZERS: ReadonlySet<OcrRecognizer> = new Set(["latin", "en"]);
 
 function compareKeys(a: readonly number[], b: readonly number[]): number {
 	for (let i = 0; i < a.length; i++) {
@@ -107,6 +124,75 @@ export function specialistFor(
 		if (candidates.includes(r)) return r;
 	}
 	return null;
+}
+
+// ---- look-alikes (rule 3a) ---------------------------------------------------------------
+
+/** Recognisers that read a script whose letters look like Latin ones, by script. */
+const LOOKALIKE_READERS: readonly (readonly [string, readonly OcrRecognizer[]])[] = [
+	["Cyrl", ["eslav", "cyrillic"]],
+	["Grek", ["el"]],
+];
+
+const NON_LATIN_LETTER = /[\p{Script=Cyrillic}\p{Script=Greek}]/u;
+const LATIN_LETTER = /\p{Script=Latin}/u;
+/** Latin capitals with a Cyrillic or Greek twin (А В Е К М Н О Р С Т Х У, Α Β Ε Η Ι Κ Μ Ν Ο Ρ Τ Χ Υ Ζ). */
+const LOOKALIKE_CAPITALS = /^[ABCEHIKMNOPTXYZ]{2,}$/;
+
+/**
+ * True when Latin text has the marks of Cyrillic or Greek read by a Latin-only reader: a word
+ * that mixes Latin with Cyrillic/Greek letters, mixes digits and letters ("3akpbiTb", "6e3"),
+ * has a capital after a lowercase letter ("CoxpaHnTb") or a lowercase letter after capitals
+ * ("PMMEHNTb"), or is all look-alike capitals ("OTMEHA"). English has some of these too
+ * ("iPhone", "B2B", "URLs", "TAKE"); that costs one extra read, not accuracy, because the
+ * re-read only wins if it comes back in its own script.
+ */
+export function looksLikeLookalikes(text: string): boolean {
+	for (const raw of text.split(/\s+/)) {
+		const word = raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+		if (word.length < 2) continue;
+		if (NON_LATIN_LETTER.test(word) && LATIN_LETTER.test(word)) return true;
+		if (/\p{Ll}\p{Lu}|\p{Lu}{2}\p{Ll}/u.test(word)) return true;
+		if (/\p{L}/u.test(word) && /\p{N}/u.test(word) && !/^\p{N}+(st|nd|rd|th|s)$/iu.test(word)) return true;
+		if (LOOKALIKE_CAPITALS.test(word)) return true;
+	}
+	return false;
+}
+
+/**
+ * Rule 3a: the Cyrillic or Greek candidate (other than `used`) to re-read Latin look-alike text
+ * with, or null. Greek letters in the text pick a Greek reader first.
+ */
+export function lookalikeReaderFor(
+	text: string,
+	used: OcrRecognizer,
+	candidates: readonly OcrRecognizer[],
+): OcrRecognizer | null {
+	const d = dominantScript(text);
+	// Latin text, or Greek/Cyrillic so mixed with Latin that rule 3 doesn't take it.
+	if (!d || (d.script !== "Latn" && d.share >= 0.6) || !looksLikeLookalikes(text)) return null;
+	const order = /\p{Script=Greek}/u.test(text) ? [...LOOKALIKE_READERS].reverse() : LOOKALIKE_READERS;
+	for (const [, readers] of order) {
+		const r = readers.find((x) => x !== used && candidates.includes(x));
+		if (r) return r;
+	}
+	return null;
+}
+
+/** The script a look-alike reader specialises in. */
+function lookalikeScript(r: OcrRecognizer): string | null {
+	return LOOKALIKE_READERS.find(([, readers]) => readers.includes(r))?.[0] ?? null;
+}
+
+/**
+ * Pick between a Latin first pass and a look-alike reader's re-read (rule 3a): the re-read wins
+ * when most of its letters are in its own script and its score isn't clearly worse.
+ */
+export function preferLookalike(first: LineReading, again: LineReading): LineReading {
+	const script = lookalikeScript(again.recognizer);
+	const d = dominantScript(again.text);
+	if (!script || !d || d.script !== script || d.share < 0.6) return first;
+	return again.score >= first.score - SPECIALIST_MARGIN ? again : first;
 }
 
 export interface LineReading {

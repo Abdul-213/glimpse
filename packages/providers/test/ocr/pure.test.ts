@@ -9,7 +9,13 @@ import { explainOrtLoadFailure, VC_REDIST_URL } from "../../src/ocr/paddle/load-
 import { quadBounds } from "../../src/ocr/paddle/paddle-provider.ts";
 import { buildCharset, ctcDecode, recWidth, visualToLogicalRtl } from "../../src/ocr/paddle/rec.ts";
 import { fnvCropHash, RecCache } from "../../src/ocr/paddle/rec-cache.ts";
-import { planRecognizers, specialistFor } from "../../src/ocr/paddle/recognizers.ts";
+import {
+	lookalikeReaderFor,
+	looksLikeLookalikes,
+	planRecognizers,
+	preferLookalike,
+	specialistFor,
+} from "../../src/ocr/paddle/recognizers.ts";
 
 const L = languageCode;
 
@@ -158,6 +164,19 @@ describe("recogniser planning", () => {
 		expect(planRecognizers([L("ru"), L("ko"), L("ar")], all)).toEqual(["eslav", "korean", "arabic"]);
 	});
 
+	test("GLIM-125: without CJK, English doesn't pull in ch and Cyrillic/Greek readers go first", () => {
+		const wide = new Set<OcrRecognizer>([...all, "en", "el"]);
+		expect(planRecognizers([L("ru"), L("uk"), L("bg"), L("en")], wide)).toEqual(["eslav", "en"]);
+		expect(planRecognizers([L("en"), L("ru")], wide)).toEqual(["eslav", "en"]);
+		expect(planRecognizers([L("ru"), L("en")], all)).toEqual(["eslav", "latin"]);
+		expect(planRecognizers([L("el"), L("en")], wide)).toEqual(["el", "en"]);
+		expect(planRecognizers([L("de"), L("ru")], wide)).toEqual(["eslav", "latin"]);
+		expect(planRecognizers([L("ar"), L("en")], wide)).toEqual(["arabic", "en"]);
+		// CJK in the subset: ch still covers English and reads first.
+		expect(planRecognizers([L("ja"), L("ru"), L("en")], wide)).toEqual(["ch", "eslav"]);
+		expect(planRecognizers([L("ja"), L("ko"), L("zh-Hans"), L("en")], wide)).toEqual(["ch", "korean"]);
+	});
+
 	test("no languages: the defaults that are installed", () => {
 		expect(planRecognizers(undefined, all)).toEqual(["ch", "latin"]);
 		expect(planRecognizers([], new Set<OcrRecognizer>(["korean"]))).toEqual(["korean"]);
@@ -170,6 +189,48 @@ describe("recogniser planning", () => {
 		expect(specialistFor("設定を保存", "ch", ["ch", "latin"])).toBeNull();
 		expect(specialistFor("設定を保存", "latin", ["latin", "ch"])).toBe("ch");
 		expect(specialistFor("12:30", "ch", ["ch", "latin"])).toBeNull();
+	});
+
+	test("look-alikes: misread Cyrillic and Greek are flagged, ordinary English is not", () => {
+		// What ch actually produced for the GLIM-64 Cyrillic/Greek frames.
+		for (const t of [
+			"CoxpaHnTb N3MeHeHng?",
+			"Ecnn 3akpbiTb AoKyMeHT ceiuaC, Bce HecoxpaHëHHble",
+			"OTMeHa",
+			"HoB npo3opeu",
+			"M3xOA",
+			"OTBapaHe Ha φaǔn",
+			"Aπo0ńkeuon aλλayiv;",
+			"OTMEHA",
+			"∩PMMEHNTb",
+		])
+			expect(looksLikeLookalikes(t)).toBe(true);
+		for (const t of [
+			"Save changes to this document?",
+			"If you close it now, the edits you made since the last",
+			"Sprache und Region",
+			"Cancel",
+			"Open file",
+			"It's 12:30 on the 2nd of May, 2026.",
+			"A",
+		])
+			expect(looksLikeLookalikes(t)).toBe(false);
+	});
+
+	test("look-alike reader: Cyrillic or Greek candidate, Greek letters pick el", () => {
+		expect(lookalikeReaderFor("CoxpaHnTb", "ch", ["ch", "eslav"])).toBe("eslav");
+		expect(lookalikeReaderFor("CoxpaHnTb", "ch", ["ch", "latin"])).toBeNull();
+		expect(lookalikeReaderFor("Cancel", "ch", ["ch", "eslav"])).toBeNull();
+		expect(lookalikeReaderFor("CoxpaHnTb", "eslav", ["eslav", "en"])).toBeNull();
+		expect(lookalikeReaderFor("Aπo0ńkeuon aλλayiv;", "ch", ["ch", "eslav", "el"])).toBe("el");
+		expect(lookalikeReaderFor("CoxpaHnTb", "ch", ["ch", "el", "cyrillic"])).toBe("cyrillic");
+	});
+
+	test("look-alike re-read wins only in its own script and at a similar score", () => {
+		const first = { text: "CoxpaHnTb", score: 0.92, recognizer: "ch" as const };
+		expect(preferLookalike(first, { text: "Сохранить", score: 0.99, recognizer: "eslav" }).text).toBe("Сохранить");
+		expect(preferLookalike(first, { text: "Сохранить", score: 0.7, recognizer: "eslav" }).text).toBe("CoxpaHnTb");
+		expect(preferLookalike(first, { text: "iPhone", score: 0.99, recognizer: "eslav" }).text).toBe("CoxpaHnTb");
 	});
 });
 
@@ -271,6 +332,24 @@ describe("engine", () => {
 		const lines = await e.recognize(img, await e.detect(img), ["ch", "latin"]);
 		// 0.6 < FALLBACK_SCORE, so latin also reads; its 0.9 wins.
 		expect(lines.map((l) => l.text)).toEqual(["Hi", "Hi"]);
+	});
+
+	test("GLIM-125: Latin look-alikes from ch are re-read by eslav; Cyrillic needs no further pass", async () => {
+		const cs = buildCharset(
+			["C", "o", "x", "p", "a", "H", "n", "T", "b", "С", "о", "х", "р", "а", "н", "и", "т", "ь"].join("\n"),
+		);
+		const ch = fakeRec(cs, "CoxpaHnTb", 0.92);
+		const eslav = fakeRec(cs, "Сохранить", 0.99);
+		const e = new OcrEngine(tensor, fakeDet);
+		e.addRecognizer("ch", ch, cs);
+		e.addRecognizer("eslav", eslav, cs);
+		const img = image(6);
+		const lines = await e.recognize(img, await e.detect(img), ["ch", "eslav"]);
+		expect(lines.map((l) => [l.text, l.recognizer])).toEqual([
+			["Сохранить", "eslav"],
+			["Сохранить", "eslav"],
+		]);
+		expect(eslav.items).toBe(2);
 	});
 
 	test("identical crops hit the cache; cancellation is checked between runs", async () => {
