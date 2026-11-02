@@ -9,7 +9,8 @@
 //   rule 5   uncertain (short, low confidence, low OCR confidence), in order:
 //            5a Live: same text decided before -> reuse     5b inherit the capture's confident
 //            majority if it writes this script               5c translate if a subset language
-//            writing this script is in the detector's top 3, else skip
+//            writing this script is in the detector's top 3 (or the detector recognised
+//            nothing, GLIM-145), else skip
 //   *        decided language == target -> keep it, don't translate
 //
 // The script prior (GLIM-140): the detector's top-1 over the capture's blocks of one ambiguous
@@ -111,6 +112,8 @@ type FirstPass =
 			readonly candidates: readonly DetectorCandidate[];
 			/** OCR hints consistent with the script, best first. */
 			readonly hinted: readonly DetectorCandidate[];
+			/** The detector recognised nothing (`DetectorResult.noEvidence`). */
+			readonly noEvidence: boolean;
 	  };
 
 /** Decide every block of one capture. Returns decisions by block id. */
@@ -226,7 +229,7 @@ function firstPass(block: DetectInput, o: DetectOptions, priors: ScriptPriors): 
 		}
 		return { done: decision(top.lang, top.score, "4", o) };
 	}
-	return { done: null, key: textKey(copy), script, candidates, hinted };
+	return { done: null, key: textKey(copy), script, candidates, hinted, noEvidence: raw?.noEvidence === true };
 }
 
 function uncertain(
@@ -265,5 +268,12 @@ function uncertain(
 	}
 	const undetectable = writers.find((w) => ![...known].some((k) => inSubset(k, [w])));
 	if (undetectable) return decision(undetectable, 0, "5c", o);
+	// The detector recognised nothing (GLIM-145: fastText's bias-only answer to words it has no
+	// n-grams for), so nothing is ruled out either: lean to translating, from the first writer
+	// that isn't the target.
+	if (f.noEvidence && f.candidates.length === 0) {
+		const writer = writers.find((w) => o.target === null || !sameLanguage(w, o.target)) ?? writers[0];
+		if (writer) return decision(writer, 0, "5c", o);
+	}
 	return skip(top3[0]?.lang ?? null, top3[0]?.score ?? 0, "5c");
 }

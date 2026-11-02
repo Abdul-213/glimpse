@@ -130,6 +130,12 @@ describe("Settings › Languages copy", () => {
 		expect(noteFor(pick("de"), row("missing"))).not.toBe("Needs the language identifier");
 	});
 
+	test("Swahili says short text is often not recognised once the identifier is in (GLIM-145)", () => {
+		expect(noteFor(pick("sw"), row("installed"))).toBe("Short text often not recognised");
+		expect(noteFor(pick("sw"), row("missing"))).toBe("Needs the language identifier");
+		expect(noteFor(pick("id"), row("installed"))).not.toBe("Short text often not recognised");
+	});
+
 	test("the prompt names the chosen languages that wait for it", () => {
 		const chosen = [pick("ja"), pick("id"), pick("sw")];
 		expect(waitingForIdentifier(chosen, row("installed"))).toEqual([]);

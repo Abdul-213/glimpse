@@ -161,7 +161,7 @@ export function retuned(
 				r = detector.detect(text);
 				memo.set(text, r);
 			}
-			return { candidates: r.candidates, reliable: (r.candidates[0]?.score ?? 0) >= tuning.tau };
+			return { ...r, reliable: (r.candidates[0]?.score ?? 0) >= tuning.tau };
 		},
 	};
 }

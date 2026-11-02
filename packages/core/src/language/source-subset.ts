@@ -37,6 +37,8 @@ export interface SourceLanguageChoice {
 	readonly localOcr: boolean;
 	/** ...but loses part of its letters (Vietnamese tone marks, GLIM-126): cloud OCR reads it fully. */
 	readonly localOcrPartial: boolean;
+	/** Detected, but short text (labels, chat) is often missed (Swahili in fastText, GLIM-145). */
+	readonly weakDetection: boolean;
 }
 
 export interface SourceLanguageGroup {
@@ -65,6 +67,14 @@ function scriptLabel(script: ScriptCode, displayLocale: string): string {
 	return script;
 }
 
+/**
+ * Languages the detector recognises poorly in short text (GLIM-145). Swahili: fastText lid.176
+ * gets 18.5% of bench:lid's Swahili UI and chat blocks alone and the GLIM-21 rules 37%
+ * ("Habari yako? Umefika wapi?" reads pl 0.77, "Nunua sasa" eo 0.89); long sentences are fine.
+ * No model within GLIM-21's licence and size limits does better, so the UI says so.
+ */
+const WEAK_DETECTION: ReadonlySet<string> = new Set(["sw"]);
+
 const offered = (e: LanguageInfo) => e.bergamot !== undefined || e.eld !== undefined || e.fasttext !== undefined;
 
 /** Every language the picker offers, sorted by UI name. */
@@ -83,6 +93,7 @@ export function sourceLanguageChoices(displayLocale = "en"): SourceLanguageChoic
 			localTranslation: e.bergamot !== undefined,
 			localOcr: recognizersFor(e.code).length > 0,
 			localOcrPartial: localOcrIsPartial(e.code),
+			weakDetection: WEAK_DETECTION.has(e.code.split("-")[0] ?? e.code),
 		}))
 		.sort((a, b) => collator.compare(a.name, b.name));
 }

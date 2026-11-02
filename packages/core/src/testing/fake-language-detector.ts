@@ -16,6 +16,7 @@ export class FakeLanguageDetector implements LanguageDetector {
 	readonly #table: Readonly<Record<string, FakeDetection>>;
 	readonly #fallback: FakeDetection;
 	readonly #reliable: (text: string) => boolean;
+	readonly #noEvidence: boolean;
 
 	constructor(
 		table: Readonly<Record<string, FakeDetection>> = {},
@@ -27,6 +28,8 @@ export class FakeLanguageDetector implements LanguageDetector {
 			readonly reliable?: (text: string) => boolean;
 			/** The detector's own thresholds (GLIM-104); none by default (rule 4w off). */
 			readonly tuning?: DetectorTuning;
+			/** Flag empty answers `noEvidence`, like fastText's bias-only answer (GLIM-145). */
+			readonly noEvidence?: boolean;
 		} = {},
 	) {
 		if (options.tuning) this.tuning = options.tuning;
@@ -37,6 +40,7 @@ export class FakeLanguageDetector implements LanguageDetector {
 		);
 		this.#fallback = options.fallback ?? [];
 		this.#reliable = options.reliable ?? ((t) => t.length >= 8);
+		this.#noEvidence = options.noEvidence ?? false;
 	}
 
 	detect(text: string): DetectorResult {
@@ -45,6 +49,7 @@ export class FakeLanguageDetector implements LanguageDetector {
 		return {
 			candidates: rows.map(([lang, score]) => ({ lang: languageCode(lang), score })),
 			reliable: rows.length > 0 && this.#reliable(text),
+			...(this.#noEvidence && rows.length === 0 ? { noEvidence: true } : {}),
 		};
 	}
 }

@@ -74,6 +74,14 @@ bench:ocr `latin-uz-chat` detection 0/4 → 4/4 (Latin (fastText) 70.6% → 94.1
 is unchanged. The grid still puts τ 0.5 and the 0.7 / 48 rule 4w at or within one block of the
 best; the numbers in [language-detection-results.md](language-detection-results.md) include it.
 
+**GLIM-145 (fastText's no-evidence answer).** Text lid.176 has no n-grams for gets one fixed,
+bias-only distribution (en 0.12 first). The adapter now returns that as no candidates, flagged
+`noEvidence`, and rule 5c leans to translating such blocks instead of keeping them as English.
+On top of GLIM-144, same tuning: rules 77.9% → **78.9% (150/190)**, sw 29.6% → 37.0% (10/27: "Jumla" and
+"Sasisha programu" in the settings list are now translated); no other language changes, and
+bench:ocr is unchanged (`latin-sw-shop` 4/5: its miss "Nunua sasa" is a confident eo 0.89). The
+remaining Swahili misses are lid.176 itself (finding 4) and are noted in Settings › Languages.
+
 ## Findings
 
 1. **τ stays 0.5.** It is the best value with or without rule 4w. Lower lets noisy short labels
@@ -101,8 +109,10 @@ best; the numbers in [language-detection-results.md](language-detection-results.
      "Habari yako? Umefika wapi?" reads pl 0.77, "Nunua sasa" eo 0.89. The reference Python
      fastText gives identical scores, so it is the model, not the WASM build. Words lid.176 has
      no n-grams for all get one fixed distribution (en 0.12, ca 0.09, de 0.08, oc 0.05, fr 0.05:
-     "Jumla", "Batal", "Xeral", "Ekran"), and rule 5c takes that `en` at face value, so with
-     English in the subset such blocks are kept as English.
+     "Jumla", "Batal", "Xeral", "Ekran"), and rule 5c took that `en` at face value, so with
+     English in the subset such blocks were kept as English (fixed in GLIM-145, above). The
+     rest is the model, so Settings › Languages says "Short text often not recognised" for
+     Swahili.
    - **Uzbek apostrophe** (GLIM-144, fixed): lid.176 recognises Uzbek largely by ʻ (U+02BB).
      PaddleOCR reads it as `'`, and the detection copy turned `'` into a space ("yo ldaman"),
      after which fastText read jv/lt/en. Uzbek subsets now get oʻ/gʻ back in the detection copy

@@ -171,6 +171,28 @@ describe("GLIM-21 rules", () => {
 		expect(d).toMatchObject({ rule: "5c", translate: true, language: { lang: "id" } });
 	});
 
+	test("5c: a detector that recognised nothing rules nothing out (GLIM-145)", () => {
+		const languages = ["en", "sw", "pl"];
+		const flagged = new FakeLanguageDetector({}, { languages, noEvidence: true });
+		// The first subset writer that isn't the target, not the target itself.
+		expect(decide("Jumla", { subset: subset("en", "sw"), detector: flagged })).toMatchObject({
+			rule: "5c",
+			translate: true,
+			language: { kind: "language", lang: "sw", confidence: 0 },
+		});
+		// Only the target writes the script: shown as-is.
+		expect(decide("Jumla", { subset: subset("en"), detector: flagged })).toMatchObject({
+			translate: false,
+			language: { kind: "language", lang: "en" },
+		});
+		// An empty answer without the flag still skips (ELD's behaviour is unchanged).
+		const plain = new FakeLanguageDetector({}, { languages });
+		expect(decide("Jumla", { subset: subset("en", "sw"), detector: plain })).toMatchObject({
+			rule: "5c",
+			language: { kind: "skipped", lang: null },
+		});
+	});
+
 	test("5b: short blocks inherit the capture's confident majority if it writes their script", () => {
 		const detector = new FakeLanguageDetector({
 			"Möchten Sie die Änderungen übernehmen": [["de", 0.85]],

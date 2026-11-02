@@ -17,6 +17,12 @@ export interface DetectorResult {
 	readonly candidates: readonly DetectorCandidate[];
 	/** The library's own reliability flag (ELD `isReliable()`; fastText: p >= its threshold). */
 	readonly reliable: boolean;
+	/**
+	 * The library recognised nothing in the text (fastText: its fixed bias-only answer, GLIM-145),
+	 * so no language is ruled out. Rule 5c then treats every subset language writing the script
+	 * as plausible. `candidates` is empty.
+	 */
+	readonly noEvidence?: boolean;
 }
 
 /**

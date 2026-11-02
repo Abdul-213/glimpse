@@ -21,6 +21,9 @@ describe("source-language subset (GLIM-68)", () => {
 		expect(choices.find((c) => c.code === "vi")).toMatchObject({ localOcr: true, localOcrPartial: true });
 		expect(ja?.localOcrPartial).toBe(false);
 		expect(he?.localOcrPartial).toBe(false);
+		// GLIM-145: lid.176 misses most short Swahili text.
+		expect(choices.find((c) => c.code === "sw")?.weakDetection).toBe(true);
+		expect(choices.find((c) => c.code === "id")?.weakDetection).toBe(false);
 	});
 
 	test("groups by script, Han scripts together, small scripts in Other", () => {
