@@ -81,6 +81,98 @@ describe("groupLines rules", () => {
 		expect(blocks).toHaveLength(2);
 	});
 
+	// GLIM-127: geometry from PP-OCRv5 boxes on the GLIM-64 benchmark corpus.
+	test("a heading 1.25x the body size stays out of the paragraph under it", () => {
+		const blocks = groupLines([
+			line("Save changes to this document?", 21, 21, 318, 30),
+			line("If you close it now, the edits you made since the last", 21, 63, 372, 24),
+			line("save will be lost and cannot be recovered.", 20, 84, 299, 25),
+		]);
+		expect(texts(blocks)).toEqual([
+			"Save changes to this document?",
+			"If you close it now, the edits you made since the last\nsave will be lost and cannot be recovered.",
+		]);
+	});
+
+	test("a same-size heading over a wider gap stays out too", () => {
+		const blocks = groupLines([
+			line("Сохранить изменения?", 22, 23, 239, 26),
+			line("Если закрыть документ сейчас, все несохранённые", 21, 63, 381, 25),
+			line("изменения будут потеряны без возможности восстановления.", 20, 84, 463, 25),
+		]);
+		expect(blocks).toHaveLength(2);
+		expect(blocks[1]?.lines).toHaveLength(2);
+	});
+
+	test("long list rows ~2.5 font sizes apart stay separate", () => {
+		const blocks = groupLines([
+			line("Benachrichtigungen anzeigen", 20, 64, 232, 25),
+			line("Beim Start automatisch öffnen", 21, 107, 236, 22),
+			line("Sprache und Region", 19, 148, 159, 26),
+			line("Tastenkürzel", 20, 189, 102, 26),
+		]);
+		expect(texts(blocks)).toEqual([
+			"Benachrichtigungen anzeigen",
+			"Beim Start automatisch öffnen",
+			"Sprache und Region",
+			"Tastenkürzel",
+		]);
+		// A short last item with a tall box (no descenders above, Cyrillic Д below).
+		expect(groupLines([line("Последни документи", 20, 98, 172, 25), line("Изход", 17, 136, 61, 29)])).toHaveLength(2);
+	});
+
+	test("loosely leaded paragraph lines, a last line without descenders, still stack", () => {
+		const blocks = groupLines([
+			line("Do you want to install the update now?", 14, 46, 406, 29),
+			line("Your session will expire in 5 minutes.", 13, 83, 383, 29),
+			line("Click Continue to keep working.", 14, 120, 329, 28),
+			line("Error 404: file not found", 14, 158, 250, 24),
+		]);
+		expect(blocks).toHaveLength(1);
+	});
+
+	test("a paragraph in one script doesn't wrap into a line in another", () => {
+		const blocks = groupLines([
+			line("Настройки будут применены после перезапуска.", 35, 77, 387, 28),
+			line("Settings apply after a restart.", 34, 114, 228, 27),
+		]);
+		expect(blocks).toHaveLength(2);
+	});
+
+	test("CJK paragraphs keep their wider leading", () => {
+		const blocks = groupLines([
+			line("您的账户已在另一台设备上登录。如果这不是您本人", 24, 28, 436, 22),
+			line("的操作，请立即修改密码并检查安全设置。", 23, 60, 352, 22),
+		]);
+		expect(blocks).toHaveLength(1);
+	});
+
+	test("short, widely spaced vertical columns are one block, right to left", () => {
+		const blocks = groupLines([
+			line("春はあけぼの", 191, 13, 39, 186, true),
+			line("なりゆく山ぎは", 93, 15, 33, 213, true),
+			line("やうやう白く", 143, 16, 34, 183, true),
+		]);
+		expect(texts(blocks)).toEqual(["春はあけぼの\nやうやう白く\nなりゆく山ぎは"]);
+	});
+
+	test("panes side by side with lined-up rows read pane by pane", () => {
+		const blocks = groupLines([
+			line("General", 20, 20, 80, 24),
+			line("Display", 20, 60, 80, 24),
+			line("Anna", 600, 22, 50, 22),
+			line("See you at eight.", 600, 58, 170, 26),
+			line("We have to leave before the storm arrives.", 100, 300, 500, 30),
+		]);
+		expect(texts(blocks)).toEqual([
+			"General",
+			"Display",
+			"Anna",
+			"See you at eight.",
+			"We have to leave before the storm arrives.",
+		]);
+	});
+
 	test("RTL: right-aligned lines stack, columns read right to left", () => {
 		const right = [line("مرحبا بكم في التطبيق الجديد", 520, 0, 260, 20), line("اضغط للمتابعة", 640, 26, 140, 20)];
 		const left = [line("هذا نص في العمود الأيسر هنا", 20, 0, 260, 20), line("نهاية العمود", 150, 26, 130, 20)];

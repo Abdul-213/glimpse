@@ -3,11 +3,15 @@
 //
 // 1. Same-row fragments that the detector split (a wide word gap) are joined into one line.
 // 2. Lines stack into a block when the upper one plausibly wraps into the lower one: similar
-//    text size, a small gap, aligned edges (left for LTR, right for RTL, or centred), and the
-//    upper line is long (a short line is a label, menu item or a paragraph's last line).
-//    This keeps menu items, buttons and a dialogue's speaker name as their own blocks.
+//    text size, a small gap, aligned edges (left for LTR, right for RTL, or centred), the same
+//    script, and the upper line is long (a short line is a label, menu item or a paragraph's
+//    last line). This keeps menu items, buttons and a dialogue's speaker name as their own
+//    blocks. A line clearly taller than the next (a heading) needs a tighter gap (GLIM-127),
+//    and Han/kana/Hangul get a wider one: their detector boxes hug the ink, so the same
+//    leading leaves a bigger gap between boxes than Latin lines with their ascender/descender
+//    padding do.
 // 3. Vertical CJK (tall boxes, `vertical-rl`) runs the same rules in a rotated frame: columns
-//    read top to bottom, and columns stack right to left.
+//    read top to bottom, and columns stack right to left. Columns may be short (a few glyphs).
 // 4. Blocks are ordered by recursive XY-cut: split at full-width horizontal gaps (top to
 //    bottom), else at full-height vertical gaps (columns: left to right, or right to left when
 //    most text is RTL or vertical), else top-to-bottom.
@@ -16,12 +20,18 @@
 
 import type { OcrBlock, OcrLine, WritingMode } from "../block.ts";
 import type { Rect } from "../geometry.ts";
-import { scriptDirection } from "../language/script.ts";
+import { isHanScript, scriptDirection } from "../language/script.ts";
 import { dominantScript } from "../language/script-count.ts";
 
 export interface GroupOptions {
 	/** Largest gap between stacked lines of one block, x line height. */
 	readonly lineGap: number;
+	/** The same between two lines in Han, kana or Hangul. */
+	readonly cjkLineGap: number;
+	/** An upper line this much taller than the next is a heading candidate... */
+	readonly headingRatio: number;
+	/** ...and only stacks onto it across a gap this small (x line height). */
+	readonly headingGap: number;
 	/** The same for vertical columns (x column width): column spacing is wider than leading. */
 	readonly columnGap: number;
 	/** Largest ratio between the heights of stacked lines. */
@@ -30,6 +40,8 @@ export interface GroupOptions {
 	readonly alignTolerance: number;
 	/** A line wraps into the next only if it is at least this many line heights long... */
 	readonly minWrapLength: number;
+	/** ...or this many column widths, for a vertical column. */
+	readonly minColumnLength: number;
 	/** ...and at least this fraction of the next line's length. */
 	readonly wrapRatio: number;
 	/** Same-row fragments closer than this (x line height) are one line. */
@@ -38,12 +50,21 @@ export interface GroupOptions {
 	readonly idPrefix: string;
 }
 
+// GLIM-127 tuned lineGap, cjkLineGap, the heading pair and minColumnLength on the GLIM-64
+// benchmark corpus and the GLIM-56 fixtures (docs/benchmarks/ocr.md). On PP-OCRv5 boxes:
+// Latin/Cyrillic/Greek/Arabic/Devanagari paragraph lines are up to ~0.38 line heights apart
+// (loose leading, a last line without descenders), list rows 0.46 and more, a heading over its
+// paragraph ~0.44 but with a box 1.25x taller. CJK paragraph lines reach 0.45.
 export const GROUP_DEFAULTS: GroupOptions = {
-	lineGap: 0.6,
+	lineGap: 0.42,
+	cjkLineGap: 0.6,
+	headingRatio: 1.2,
+	headingGap: 0.3,
 	columnGap: 1,
 	sizeRatio: 1.5,
 	alignTolerance: 1.5,
 	minWrapLength: 6,
+	minColumnLength: 3,
 	wrapRatio: 0.6,
 	wordGap: 0.6,
 	idPrefix: "b",
@@ -75,6 +96,15 @@ interface Item {
 	box: Rect;
 	text: string;
 	readonly rtl: boolean;
+}
+
+/** The line's writing system with Han/kana and Hangul folded, or null when it has few letters. */
+function scriptFamily(text: string): string | null {
+	const d = dominantScript(text);
+	if (!d || d.letters < 3 || d.share < 0.6) return null;
+	if (isHanScript(d.script) || d.script === "Hira" || d.script === "Kana") return "Han";
+	if (d.script === "Hang" || d.script === "Kore") return "Hang";
+	return d.script;
 }
 
 const right = (r: Rect) => r.x + r.width;
@@ -153,8 +183,15 @@ function stackRows(rows: Item[], o: GroupOptions): Item[][] {
 		const hb = b.box.height;
 		const h = (ha + hb) / 2;
 		if (Math.max(ha, hb) / Math.max(1, Math.min(ha, hb)) > o.sizeRatio) return false;
+		const sa = scriptFamily(a.text);
+		const sb = scriptFamily(b.text);
+		// A Russian paragraph doesn't wrap into an English one.
+		if (sa && sb && sa !== sb) return false;
+		const cjk = (sa === "Han" || sa === "Hang") && (sb === "Han" || sb === "Hang");
+		const heading = ha >= o.headingRatio * hb;
+		const maxGap = heading ? o.headingGap : cjk ? o.cjkLineGap : o.lineGap;
 		const gap = b.box.y - bottom(a.box);
-		if (gap > o.lineGap * h || gap < -0.4 * h) return false;
+		if (gap > maxGap * h || gap < -0.4 * h) return false;
 		const tol = o.alignTolerance * h;
 		const leftAligned = Math.abs(a.box.x - b.box.x) <= tol;
 		const rightAligned = Math.abs(right(a.box) - right(b.box)) <= tol;
@@ -194,7 +231,10 @@ interface Draft {
 
 function groupInFrame(lines: readonly OcrLine[], frame: Frame, writing: WritingMode, o: GroupOptions): Draft[] {
 	const items: Item[] = lines.map((l) => ({ lines: [l], box: frame.to(l.box), text: l.text, rtl: isRtlText(l.text) }));
-	const stackOptions = writing === "vertical-rl" ? { ...o, lineGap: o.columnGap } : o;
+	const stackOptions =
+		writing === "vertical-rl"
+			? { ...o, lineGap: o.columnGap, cjkLineGap: o.columnGap, minWrapLength: o.minColumnLength }
+			: o;
 	const groups = stackRows(mergeRows(items, o), stackOptions);
 	return groups.map((rows) => {
 		const all = rows.flatMap((r) => r.lines);
@@ -230,11 +270,38 @@ function cut(drafts: readonly Draft[], axis: "x" | "y"): Draft[][] {
 	return groups;
 }
 
+/** Gaps between consecutive groups of a cut (index i: between group i and i + 1). */
+function gaps(groups: readonly Draft[][], axis: "x" | "y"): number[] {
+	const out: number[] = [];
+	for (let i = 1; i < groups.length; i++) {
+		const reach = Math.max(...(groups[i - 1] ?? []).map((d) => (axis === "y" ? bottom(d.box) : right(d.box))));
+		const start = Math.min(...(groups[i] ?? []).map((d) => (axis === "y" ? d.box.y : d.box.x)));
+		out.push(start - reach);
+	}
+	return out;
+}
+
+/**
+ * Cut columns before rows when the column gutter is this many times wider than the widest row
+ * gap: windows or panes side by side whose rows happen to line up (GLIM-127).
+ */
+const COLUMNS_FIRST = 3;
+
+// Rows are cut one gap at a time, widest first, so a wide gap between two areas (a window and
+// a subtitle under it) is cut before the narrow ones inside an area, and each area then gets
+// its own chance at a column cut.
 function readingOrder(drafts: readonly Draft[], rtlColumns: boolean): Draft[] {
 	if (drafts.length <= 1) return [...drafts];
 	const rows = cut(drafts, "y");
-	if (rows.length > 1) return rows.flatMap((g) => readingOrder(g, rtlColumns));
 	const cols = cut(drafts, "x");
+	const rowGaps = gaps(rows, "y");
+	const widest = rowGaps.reduce((best, g, i) => (g > (rowGaps[best] ?? 0) ? i : best), 0);
+	const columnsFirst =
+		cols.length > 1 && Math.max(...gaps(cols, "x")) > COLUMNS_FIRST * Math.max(0, rowGaps[widest] ?? 0);
+	if (rows.length > 1 && !columnsFirst) {
+		const at = widest + 1;
+		return [rows.slice(0, at), rows.slice(at)].flatMap((part) => readingOrder(part.flat(), rtlColumns));
+	}
 	if (cols.length > 1) {
 		const ordered = rtlColumns ? [...cols].reverse() : cols;
 		return ordered.flatMap((g) => readingOrder(g, rtlColumns));

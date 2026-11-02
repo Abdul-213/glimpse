@@ -110,12 +110,24 @@ one- and two-word button labels. What the corpus caught:
    - Consecutive long labels in a list merge (de settings "Sprache und Region" + "Tastenkürzel",
      bg menu, ja "Wi-Fi…" + "Bluetooth…"): their rows are ~2.5x the font size apart, and on the
      detector's padded boxes the gap is just under `lineGap` 0.6. Short items stay separate.
-   - Vertical Japanese with wide column spacing (pitch ~2x the glyph size) splits into one
-     block per column (`columnGap` 1). Reading order is still right, so translation gets the
-     columns in order, just as separate blocks.
-   Translation quality cost is small for the first two (sentences are split before translation
-   either way), but the popup shows one block where the UI has two. Tuning proposal and the
-   trade-offs are in **GLIM-127**; this benchmark is how to check it.
+   - Vertical Japanese with wide column spacing splits into one block per column. The cause was
+     not `columnGap`: a six-glyph column is shorter than `minWrapLength` (6 x the column width).
+   **Fixed in GLIM-127** (100 % of blocks exact, 64/64; order 100 %; no CER change). Measured
+   on PP-OCRv5 boxes, as gap / mean line height: paragraph lines in Latin, Cyrillic, Greek,
+   Arabic and Devanagari are at most 0.38 apart (`region-en`: loose leading and a last line
+   with no descenders), list rows 0.46 and more, and headings ~0.44 over a box ≥ 1.2x taller.
+   CJK paragraph lines reach 0.45 (their boxes hug the ink). So:
+   - `lineGap` 0.6 → 0.42, with `cjkLineGap` 0.6 when both lines are Han/kana/Hangul;
+   - a line ≥ 1.2x taller than the next (`headingRatio`) stacks only across a gap ≤ 0.3
+     (`headingGap`);
+   - lines whose scripts differ (Cyrillic over Latin, kana over a mostly-Latin line) don't stack;
+   - vertical columns need only 3 column widths of length (`minColumnLength`).
+   The GLIM-56 desktop fixture also changed for the better: a chat speaker name ("Li Wei") no
+   longer merges into the message above it. Without that merged block, reading order was read
+   row by row across the side-by-side windows. Rows are now cut one gap at a time, widest first,
+   and a column gutter more than 3x the widest row gap is cut first, so each window is read whole.
+   Still open: language detection on the newly separate short bg menu items ("Нов прозорец" →
+   ru, "Последни документи" → sr; GLIM-21 rule 4): **GLIM-140**.
 4. **Small losses**: trailing "." / "?" / "।" sometimes dropped (ar, hi, ko, el lines), Korean
    word spaces sometimes dropped ("그럼역 앞카페에서", WER 39 % at 2 % CER), Arabic "هذه" → "هه"
    and "رद्द" → "रह" on the JPEG'd dark UIs, kana "う" read as "ラ" in vertical text. Worth
