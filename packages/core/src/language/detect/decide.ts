@@ -128,7 +128,7 @@ export function detectCaptureLanguages(
 	first.forEach((f, i) => {
 		if (!f.done?.confident || f.done.language.kind !== "language") return;
 		const lang = f.done.language.lang;
-		votes.set(lang, (votes.get(lang) ?? 0) + weightedLetters(detectionCopy(blocks[i]?.text ?? "")));
+		votes.set(lang, (votes.get(lang) ?? 0) + weightedLetters(detectionCopy(blocks[i]?.text ?? "", o.subset)));
 	});
 	const majority = [...votes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
@@ -175,7 +175,7 @@ function scriptPriors(blocks: readonly DetectInput[], o: DetectOptions): ScriptP
 	const byScript = new Map<string, string[]>();
 	for (const b of blocks) {
 		if (b.confidence < o.minOcrConfidence || isNeutralToken(b.text)) continue;
-		const copy = detectionCopy(b.text);
+		const copy = detectionCopy(b.text, o.subset);
 		if (weightedLetters(copy) < 2) continue;
 		const script = blockScript(copy, o);
 		if (!script || uniqueScriptLanguage(script)) continue;
@@ -193,7 +193,7 @@ function scriptPriors(blocks: readonly DetectInput[], o: DetectOptions): ScriptP
 const NEUTRAL: LanguageDecision = { language: { kind: "neutral" }, translate: false, rule: "1", confident: true };
 
 function firstPass(block: DetectInput, o: DetectOptions, priors: ScriptPriors): FirstPass {
-	const copy = detectionCopy(block.text);
+	const copy = detectionCopy(block.text, o.subset);
 	const letters = weightedLetters(copy);
 	// Rule 1.
 	if (letters < 2 || isNeutralToken(block.text)) return { done: NEUTRAL };

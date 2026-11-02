@@ -79,7 +79,7 @@ What the smoke test showed:
 
 ## Short and low-confidence block rule
 
-Detection runs on a **detection copy** of the text: NFKC normalised, with URLs, e-mail addresses, `@handles`, `#tags`, digits, units, punctuation and emoji stripped. `letters` is the count of remaining letters. Hiragana, katakana and Han characters count ×3 each, so a 2-character Japanese word isn't treated as "short".
+Detection runs on a **detection copy** of the text: NFKC normalised, with URLs, e-mail addresses, `@handles`, `#tags`, digits, units, punctuation and emoji stripped. When the subset has Uzbek, an apostrophe-like mark (`'`, `‘`, `’`, `ʼ`, `` ` ``, `´`) after o/g and before a letter becomes the letter ʻ (U+02BB) first: OCR reads Uzbek oʻ/gʻ as an apostrophe, and fastText recognises Uzbek largely by ʻ (GLIM-144). `letters` is the count of remaining letters. Hiragana, katakana and Han characters count ×3 each, so a 2-character Japanese word isn't treated as "short".
 
 | # | Condition | Outcome |
 |---|---|---|
@@ -111,7 +111,7 @@ fastText's (`FASTTEXT_TUNING`) were calibrated in GLIM-142 with `bun run bench:l
 - A separate threshold for the script prior, or a top 10 instead of a top 5, changes nothing.
 - ELD's results are unchanged (its tuning is untouched; bench:ocr detection is 100% in every ELD script).
 
-What thresholds can't fix: lid.176 barely identifies Swahili UI and chat text (30% of Swahili blocks right after the rules; GLIM-145), its fixed "no evidence" distribution (en 0.12, ca 0.09, de 0.08…) reads as English to rule 5c (GLIM-145), and OCR turns Uzbek ʻ into `'`, which the detection copy drops, after which fastText no longer sees Uzbek (GLIM-144). With a close relative in the subset (af/nl, gl/pt, ps/fa) the window itself often reads as the relative, so translations come from the relative rather than going missing.
+What thresholds can't fix: lid.176 barely identifies Swahili UI and chat text (30% of Swahili blocks right after the rules; GLIM-145), its fixed "no evidence" distribution (en 0.12, ca 0.09, de 0.08…) reads as English to rule 5c (GLIM-145), and OCR turns Uzbek ʻ into `'`, which the detection copy used to drop, after which fastText no longer saw Uzbek (fixed in GLIM-144: Uzbek subsets map o'/g' back to oʻ/gʻ in the detection copy; uz 82% → 96% of blocks, bench:ocr `latin-uz-chat` 0/4 → 4/4). With a close relative in the subset (af/nl, gl/pt, ps/fa) the window itself often reads as the relative, so translations come from the relative rather than going missing.
 
 **fastText in the app (GLIM-104).** `lid.176.ftz` is an on-demand download (`fasttext-lid176` in app/models/manifest.json, 0.9 MB, CC-BY-SA-3.0, attributed in NOTICE.txt), fetched only when the user chooses Download in Settings › Languages (shown when a chosen source language is fastText-only) or Settings › Models. Until then the language counts as undetectable and follows rule 5c. Once it lands, the pipeline reloads its detectors and `planDetector` picks fastText for subsets ELD can't cover. The runtime is fasttext.wasm.js 1.0.0 (MIT) as WASM; the package's own copy of the model is never shipped.
 
