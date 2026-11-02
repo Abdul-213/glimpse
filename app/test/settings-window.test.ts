@@ -11,6 +11,7 @@ import {
 	languageCode,
 	type ModelManifest,
 	ProviderRegistry,
+	SETTINGS_VERSION,
 	type SettingsEnv,
 } from "@glimpse/core";
 import { MemorySettingsStore } from "@glimpse/core/testing";
@@ -53,7 +54,7 @@ describe("AppSettings", () => {
 		expect(r.issues).toEqual([]);
 		expect(settings.current.live.fps).toBe(2);
 		expect(seen).toEqual([2, 3]);
-		expect(store.json()).toMatchObject({ version: 1, live: { fps: 2 } });
+		expect(store.json()).toMatchObject({ version: SETTINGS_VERSION, live: { fps: 2 } });
 	});
 
 	test("rejected values keep the current one and don't save", async () => {
