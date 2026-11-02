@@ -399,10 +399,16 @@ function reducePipeline(state: SnipPopupState, event: PipelineEvent): SnipPopupS
 					? state.blocks
 					: reducePipeline(state, { type: "recognised", runId: state.requestId, blocks: r.blocks }).blocks;
 			// A cloud timeout (E3) may have delivered the text without an answer: the pill stays (GLIM-80).
+			// The spend guard (GLIM-120) stopped the request before it left: the pill must not say "Sent to".
 			const badge =
 				r.error?.kind === "providerTimeout" && state.provider.kind === "cloud"
 					? state.provider
-					: badgeFromResult(state.provider, r.ocr, r.translators, Object.keys(r.translations).length);
+					: badgeFromResult(
+							r.error?.kind === "spendCap" ? { kind: "local" } : state.provider,
+							r.ocr,
+							r.translators,
+							Object.keys(r.translations).length,
+						);
 			return {
 				...state,
 				phase: r.error ? "error" : "done",

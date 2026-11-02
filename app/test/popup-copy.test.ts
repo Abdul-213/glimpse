@@ -29,6 +29,16 @@ describe("E3 actions (snip-popup.md §12)", () => {
 		expect(errorBody("providerKey", state, "macos", "en").title).toBe("Google Cloud Translation rejected the API key");
 	});
 
+	test("spend guard (GLIM-120): a calm paused state with Continue this month, on-device first when it can", () => {
+		expect(actions("spendCap", false)).toEqual(["continueCloud*"]);
+		expect(actions("spendCap", true)).toEqual(["local*", "continueCloud"]);
+		const b = errorBody("spendCap", state, "windows", "en");
+		expect(b.title).toBe("Cloud use is paused for this month");
+		expect(b.tone).toBe("neutral");
+		expect(b.body).toContain("Nothing was sent");
+		expect(b.body).toContain("Continuing may cost money");
+	});
+
 	test("other errors never offer it", () => {
 		expect(actions("noText", true)).not.toContain("local");
 	});

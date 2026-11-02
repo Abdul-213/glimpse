@@ -6,8 +6,10 @@ import {
 	LocalIndicator,
 	SecretField,
 	Select,
+	SettingsControlRow,
 	SettingsGroup,
 	SettingsRow,
+	Switch,
 	TextButton,
 } from "@glimpse/ui";
 import { createSignal, For, type JSX, onMount, Show } from "solid-js";
@@ -22,6 +24,7 @@ import type {
 } from "../../../shared/settings-rpc.ts";
 import type { SettingsState } from "../state.ts";
 import { type Os, osWords, Pane } from "./common.tsx";
+import { monthName, pauseState, usageApiName, usageDescription } from "./usage-copy.ts";
 
 const LOCAL = "local";
 
@@ -92,6 +95,7 @@ export function ProvidersPane(props: { state: SettingsState }): JSX.Element {
 						<For each={c().keys}>
 							{(key) => <KeyGroup cloud={c()} keyStatus={key} os={os()} apply={apply} state={props.state} />}
 						</For>
+						<UsageGroup cloud={c()} apply={apply} state={props.state} />
 						<GuideGroup state={props.state} />
 						<LiveGroup cloud={c()} apply={apply} state={props.state} />
 					</>
@@ -504,6 +508,73 @@ function GuideGroup(props: { state: SettingsState }): JSX.Element {
 						Translation pricing
 					</LinkButton>
 				</div>
+			</div>
+		</SettingsGroup>
+	);
+}
+
+/**
+ * The spend guard (GLIM-120, GLIM-22 "Spend guard"): this month's counts next to Google's free
+ * tier, the optional pause at the free tier, and "Continue this month". Counted on this
+ * computer and never sent anywhere.
+ */
+function UsageGroup(props: Omit<GroupProps, "os">): JSX.Element {
+	const [busy, setBusy] = createSignal(false);
+	const usage = () => props.cloud.usage;
+	const pause = () => pauseState(usage());
+	const paused = () => usage().apis.some((a) => a.paused);
+	const run = async (fn: () => Promise<CloudActionResult>) => {
+		setBusy(true);
+		try {
+			props.apply(await fn());
+		} finally {
+			setBusy(false);
+		}
+	};
+	return (
+		<SettingsGroup
+			title={`Cloud use in ${monthName(usage().month)}`}
+			footer={
+				<>
+					Counted on this computer from what Glimpse sent, and never sent anywhere. Estimates use Google's list prices
+					as of October 2026, before tax; your Google bill is the final word. The free tier resets on the 1st, Pacific
+					time.
+				</>
+			}
+		>
+			<For each={usage().apis}>
+				{(api) => <SettingsRow label={usageApiName(api.providerId)} description={usageDescription(api)} />}
+			</For>
+			<SettingsControlRow>
+				<Switch
+					label="Pause cloud use at the free tier"
+					description="Glimpse stops sending to an API once this month's free tier is used up, until you choose Continue this month."
+					checked={usage().cap === "freeTier"}
+					disabled={busy()}
+					onChange={(on) => void run(() => props.state.client.request.setSpendCap({ cap: on ? "freeTier" : "off" }))}
+				/>
+			</SettingsControlRow>
+			<Show when={pause()}>
+				{(p) => (
+					<SettingsRow label={p().label} description={p().description}>
+						<Show when={paused()}>
+							<Button disabled={busy()} onClick={() => void run(() => props.state.client.request.continueCloud())}>
+								Continue this month
+							</Button>
+						</Show>
+					</SettingsRow>
+				)}
+			</Show>
+			<div class="glim-row flex flex-wrap gap-x-4 gap-y-1">
+				<LinkButton state={props.state} link="visionPricing">
+					Vision pricing
+				</LinkButton>
+				<LinkButton state={props.state} link="pricing">
+					Translation pricing
+				</LinkButton>
+				<LinkButton state={props.state} link="quotas">
+					Set a daily limit in Google Cloud
+				</LinkButton>
 			</div>
 		</SettingsGroup>
 	);

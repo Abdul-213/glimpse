@@ -4,6 +4,7 @@
 // @glimpse/core at runtime for real language names and script groups; real views can't.
 import {
 	applySettingsPatch,
+	type CloudUsageState,
 	canonicalHotkey,
 	DEFAULT_HOTKEYS,
 	defaultSettings,
@@ -14,6 +15,8 @@ import {
 	type SettingsEnv,
 	type SettingsPatch,
 	sourceLanguageChoices,
+	usageMonth,
+	usageSummary,
 } from "@glimpse/core";
 import type {
 	CloudActionResult,
@@ -30,7 +33,8 @@ export interface PreviewOptions {
 	os: "macos" | "windows";
 	/**
 	 * `conflict`: Live's shortcut is taken by another app. `any`: no source subset. `idle`: pack list not loaded.
-	 * `cloud`: a Google key saved, cloud translation picked, last test found Vision not enabled.
+	 * `cloud`: a Google key saved, cloud translation picked, last test found Vision not enabled,
+	 * and this month's Translation free tier used up (the spend guard has paused it, GLIM-120).
 	 * `no-keychain`: the OS keychain can't be used.
 	 */
 	scenario: string;
@@ -196,6 +200,13 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 				],
 			}
 		: null;
+	// The spend guard (GLIM-120): this month's counters, held in memory like main's.
+	const month = usageMonth(Date.now());
+	let usage: CloudUsageState = {
+		month,
+		counts: cloudScenario ? { "cloud:google-vision": 214, "cloud:google-translate-v2": 503_870 } : {},
+		continued: null,
+	};
 	const cloud = (): CloudSnapshot => ({
 		keychain:
 			opts.scenario === "no-keychain"
@@ -237,6 +248,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			translation: [{ id: "bergamot", name: "Firefox Translations (Bergamot)", kind: "local" }],
 		},
 		liveConsent: settings.cloud.liveConsent,
+		usage: usageSummary(usage, settings.cloud.spendCap, month),
 	});
 	const cloudResult = (message?: string): CloudActionResult => {
 		const c = cloud();
@@ -367,6 +379,14 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 		},
 		resetLiveConsent: async () => {
 			update({ cloud: { liveConsent: [] } });
+			return cloudResult();
+		},
+		setSpendCap: async ({ cap }) => {
+			update({ cloud: { spendCap: cap } });
+			return cloudResult();
+		},
+		continueCloud: async () => {
+			usage = { ...usage, continued: month };
 			return cloudResult();
 		},
 		openCloudLink: async () => ok,

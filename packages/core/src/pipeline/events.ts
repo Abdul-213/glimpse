@@ -74,6 +74,7 @@ export type PipelineErrorKind =
 	| "packMissing"
 	| "providerKey"
 	| "providerQuota"
+	| "spendCap"
 	| "providerTimeout"
 	| "offline"
 	| "screenAccess"

@@ -182,6 +182,8 @@ export type SegmentFailureKind =
 	| "offline"
 	| "providerKey"
 	| "providerQuota"
+	/** The spend guard paused cloud use for the month (GLIM-120). */
+	| "spendCap"
 	| "providerTimeout"
 	| "unsupported"
 	| "failed";
@@ -193,6 +195,7 @@ const FAILURE_KINDS: Partial<Record<ProviderErrorCode, SegmentFailureKind>> = {
 	"invalid-key": "providerKey",
 	"quota-exceeded": "providerQuota",
 	"rate-limited": "providerQuota",
+	"spend-cap": "spendCap",
 	timeout: "providerTimeout",
 	network: "providerTimeout",
 	"unsupported-language": "unsupported",

@@ -72,6 +72,8 @@ export interface LivePopupIntents {
 	skipped(sessionId: string, expanded: boolean): void;
 	/** L12: the pack row's Download (GLIM-123). Optional: previews may omit it. */
 	downloadPack?(sessionId: string, lang: string): void;
+	/** The spend guard's "Continue this month" (GLIM-120). Optional: previews may omit it. */
+	continueCloud?(sessionId: string): void;
 	/** GLIM-131: the skipped line's "Translate these" / "Edit source languages…". */
 	skippedAction?(sessionId: string, action: LiveSkippedAction): void;
 }
@@ -200,6 +202,7 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 	const act = (a: LiveErrorAction) => {
 		if (a === "resume") props.intents.resume(id());
 		else if (a === "repin") props.intents.repin(id());
+		else if (a === "continueCloud") props.intents.continueCloud?.(id());
 		else props.intents.stop(id());
 	};
 	const togglePause = () => (paused() ? props.intents.resume(id()) : props.intents.pause(id()));

@@ -6,12 +6,14 @@
 // guesses.
 
 import type {
+	CloudUsageSummary,
 	HotkeyAction,
 	HotkeyBindings,
 	Issue,
 	LanguageCode,
 	Settings,
 	SourceLanguageGroup,
+	SpendCap,
 	UpdateStatus,
 } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
@@ -228,6 +230,8 @@ export interface CloudSnapshot {
 	readonly local: { readonly ocr: ProviderSummary | null; readonly translation: readonly ProviderSummary[] };
 	/** Cloud translators Live won't ask about again (`settings.cloud.liveConsent`). */
 	readonly liveConsent: readonly string[];
+	/** This month's counters and the spend guard (GLIM-120). Local only, never sent anywhere. */
+	readonly usage: CloudUsageSummary;
 }
 
 export interface SetProviderParams {
@@ -239,7 +243,7 @@ export interface SetProviderParams {
 }
 
 /** Fixed links main opens in the browser (the view can't pass a URL). */
-export type CloudLink = "console" | "credentials" | "terms" | "pricing";
+export type CloudLink = "console" | "credentials" | "terms" | "pricing" | "visionPricing" | "quotas";
 
 export type CloudActionResult =
 	| { readonly ok: true; readonly cloud: CloudSnapshot }
@@ -308,6 +312,10 @@ export type SettingsRPC = {
 			testApiKey: { params: { secretId: string }; response: CloudActionResult };
 			setProvider: { params: SetProviderParams; response: CloudActionResult };
 			resetLiveConsent: { params: undefined; response: CloudActionResult };
+			/** The spend guard (GLIM-120): pause at the free tier, or only count. */
+			setSpendCap: { params: { cap: SpendCap }; response: CloudActionResult };
+			/** "Continue this month": resume cloud use the guard paused, until the month ends. */
+			continueCloud: { params: undefined; response: CloudActionResult };
 			openCloudLink: { params: { link: CloudLink }; response: ActionResult };
 			/** Open first-run setup again (GLIM-76). */
 			openOnboarding: { params: undefined; response: ActionResult };

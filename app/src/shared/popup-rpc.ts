@@ -57,6 +57,8 @@ export type SnipAction =
 	/** E3 "Translate on this device" (GLIM-80): this Snip only, through the local translators. */
 	| "local"
 	| "checkKey"
+	/** Spend guard (GLIM-120) "Continue this month": resume cloud use, then retry. */
+	| "continueCloud"
 	| "openSystemSettings"
 	| "why"
 	| "translateSkipped"
@@ -72,6 +74,7 @@ export const SNIP_ACTIONS: readonly SnipAction[] = [
 	"retry",
 	"local",
 	"checkKey",
+	"continueCloud",
 	"openSystemSettings",
 	"why",
 	"translateSkipped",

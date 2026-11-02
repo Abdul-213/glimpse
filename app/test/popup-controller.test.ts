@@ -5,6 +5,7 @@ import {
 	languageCode,
 	type PipelineEvent,
 	type PipelineListener,
+	ProviderError,
 	type RecognisedBlock,
 	rect,
 	snipPopupFrame,
@@ -384,6 +385,68 @@ describe("loading and error states (GLIM-73)", () => {
 		expect(h.controller.state?.blocks[0]?.state).toBe("done");
 		expect(h.controller.state?.phase).toBe("done");
 		expect(h.controller.state?.error).toBeNull();
+		h.controller.dispose();
+	});
+
+	test("spend guard (GLIM-120): Continue this month lifts the pause and re-translates the paused blocks", async () => {
+		let paused = true;
+		const source = createFileCaptureSource(SAMPLE_FRAMES_DIR);
+		const ocr = scriptedOcr(["明日の会議は午後三時に始まります。"]);
+		await ocr.init();
+		const tr = new FakeTranslationProvider({
+			pivot: "en",
+			capabilities: { streaming: false },
+			fail: () => (paused ? "spend-cap" : null),
+		});
+		await tr.init();
+		const pipeline = new TranslationPipeline({ ocr: () => ocr, chain: () => [tr] });
+		const h = popupHarness({
+			displays,
+			runner: pipelineRunner(source, pipeline, { to: L("en") }),
+			continueCloud: () => {
+				paused = false;
+			},
+		});
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.controller.state?.error).toBe("spendCap");
+		h.controller.action("snip-1", "continueCloud");
+		await settle();
+		expect(h.targets).toEqual(["continueCloud"]);
+		expect(h.controller.state?.blocks[0]?.state).toBe("done");
+		expect(h.controller.state?.error).toBeNull();
+		h.controller.dispose();
+	});
+
+	test("spend guard (GLIM-120): with cloud OCR paused nothing was read, so Continue Snips the same area again", async () => {
+		let paused = true;
+		const source = createFileCaptureSource(SAMPLE_FRAMES_DIR);
+		const ocr = scriptedOcr(["明日の会議"]);
+		await ocr.init();
+		const recognise = ocr.recognise.bind(ocr);
+		ocr.recognise = async (req, opts) => {
+			if (paused) throw new ProviderError("spend-cap", "paused by the monthly spend guard", { retryable: false });
+			return recognise(req, opts);
+		};
+		const tr = new FakeTranslationProvider({ pivot: "en", capabilities: { streaming: false } });
+		await tr.init();
+		const pipeline = new TranslationPipeline({ ocr: () => ocr, chain: () => [tr] });
+		const h = popupHarness({
+			displays,
+			runner: pipelineRunner(source, pipeline, { to: L("en") }),
+			continueCloud: () => {
+				paused = false;
+			},
+		});
+		h.controller.open(rect(20, 15, 160, 40));
+		await settle();
+		expect(h.controller.state?.error).toBe("spendCap");
+		expect(h.controller.state?.blocks).toHaveLength(0);
+		h.controller.action("snip-1", "continueCloud");
+		await settle();
+		expect(h.controller.state?.requestId).toBe("snip-2");
+		expect(h.controller.state?.error).toBeNull();
+		expect(h.controller.state?.blocks[0]?.state).toBe("done");
 		h.controller.dispose();
 	});
 

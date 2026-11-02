@@ -98,7 +98,7 @@ const REGION = rect(120, 760, 1200, 100);
 const S = "s1";
 const flush = () => new Promise<void>((r) => queueMicrotask(() => r()));
 
-function setup() {
+function setup(opts: { continueCloud?: () => Promise<unknown> } = {}) {
 	const window = new FakeWindow();
 	const live = new FakeSession();
 	const scheduler = new ManualScheduler();
@@ -118,6 +118,7 @@ function setup() {
 		log: nullLogger,
 		scheduler,
 		now: scheduler.now,
+		...(opts.continueCloud ? { continueCloud: opts.continueCloud } : {}),
 	});
 	return { c, window, live, scheduler, focus, copied, privateCalls, repins };
 }
@@ -268,6 +269,26 @@ describe("LivePopupController (GLIM-79)", () => {
 		c.answerConsent(S, "cloud", true);
 		expect(live.calls).toEqual([`consent:${S}:cloud:true`]);
 		expect(focus.calls).toEqual(["save", "restore"]);
+	});
+
+	test("spend guard (GLIM-120): Continue this month lifts the pause, then resumes; a failure doesn't resume", async () => {
+		const order: string[] = [];
+		let fail = false;
+		const { c, live } = setup({
+			continueCloud: async () => {
+				order.push("continue");
+				if (fail) throw new Error("disk");
+			},
+		});
+		live.emit(opened);
+		await c.continueCloud("other");
+		expect(order).toEqual([]);
+		await c.continueCloud(S);
+		expect(order).toEqual(["continue"]);
+		expect(live.calls).toEqual(["resume"]);
+		fail = true;
+		await c.continueCloud(S);
+		expect(live.calls).toEqual(["resume"]);
 	});
 
 	test("intents act on the session; another session's id is ignored", () => {

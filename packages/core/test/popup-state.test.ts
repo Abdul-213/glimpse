@@ -141,6 +141,24 @@ describe("reduceSnip: the main path (snip-popup.md §4 S0-S4)", () => {
 		expect(partialOcrLanguages(fold([started, { type: "recognised", runId: RUN, blocks: skipped }]))).toEqual([]);
 	});
 
+	test("spend guard (GLIM-120): cloud OCR paused before sending, so the pill doesn't say Sent to", () => {
+		const cloudStarted = {
+			...started,
+			ocr: { id: "google-vision", kind: "cloud", name: "Google Cloud Vision" },
+		} as PipelineEvent;
+		expect(fold([cloudStarted]).provider.kind).toBe("cloud");
+		const s = fold([
+			cloudStarted,
+			{
+				type: "done",
+				runId: RUN,
+				result: result({ error: { kind: "spendCap", message: "paused by the monthly spend guard" } }),
+			},
+		]);
+		expect(s.error).toBe("spendCap");
+		expect(s.provider).toEqual({ kind: "local" });
+	});
+
 	test("S3 slot stability: a late translation for block 1 never moves block 3", () => {
 		const s0 = fold([started, { type: "recognised", runId: RUN, blocks: MIXED }]);
 		const s1 = fold([translation("c", "Thanks!", true, "de")], s0);

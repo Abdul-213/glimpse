@@ -11,6 +11,8 @@ import {
 	type LiveTrace,
 	languageCode,
 	type OcrImage,
+	ProviderError,
+	type ProviderErrorCode,
 	rect,
 	TranslationCaches,
 	TranslationPipeline,
@@ -63,11 +65,17 @@ function colourOcr() {
 	});
 }
 
-async function setup(frames: { colour: Colour; holdMs: number }[], opts: { fps?: number; end?: "hold" | "loop" } = {}) {
+async function setup(
+	frames: { colour: Colour; holdMs: number }[],
+	opts: { fps?: number; end?: "hold" | "loop"; fail?: () => ProviderErrorCode | null } = {},
+) {
 	const timers = new ManualTimers(1_000_000);
 	const ocr = colourOcr();
 	await ocr.init();
-	const translator = new FakeTranslationProvider({ capabilities: { streaming: false } });
+	const translator = new FakeTranslationProvider({
+		capabilities: { streaming: false },
+		...(opts.fail ? { fail: opts.fail } : {}),
+	});
 	await translator.init();
 	const pipeline = new TranslationPipeline({ ocr: () => ocr, chain: () => [translator], clock: timers });
 	const caches = new TranslationCaches({ now: timers.now });
@@ -303,6 +311,43 @@ describe("LiveRunner (GLIM-58)", () => {
 			stale: true,
 		});
 		runner.stop();
+	});
+
+	test("spend guard (GLIM-120): paused cloud OCR stops Live with spendCap; resume sends again", async () => {
+		const s = await setup([{ colour: "red", holdMs: 5000 }]);
+		let paused = true;
+		const original = s.ocr.recognise.bind(s.ocr);
+		s.ocr.recognise = async (req, opts) => {
+			if (paused) throw new ProviderError("spend-cap", "paused by the monthly spend guard", { retryable: false });
+			return original(req, opts);
+		};
+		s.runner.start();
+		await s.at(100);
+		expect(s.runner.status).toBe("error");
+		expect(s.events.findLast((e) => e.type === "status")).toMatchObject({ error: { kind: "spendCap" } });
+		paused = false;
+		s.runner.resume();
+		s.runner.invalidate();
+		await s.at(1000);
+		expect(s.runner.status).toBe("live");
+		s.runner.stop();
+	});
+
+	test("spend guard (GLIM-120): paused cloud translation stops Live with spendCap", async () => {
+		let paused = true;
+		const s = await setup([{ colour: "red", holdMs: 5000 }], { fail: () => (paused ? "spend-cap" : null) });
+		s.runner.start();
+		await s.at(500);
+		expect(s.runner.status).toBe("error");
+		expect(s.events.findLast((e) => e.type === "status")).toMatchObject({ error: { kind: "spendCap" } });
+		// No block is marked "Not translated": the popup shows the paused state instead.
+		expect(s.events.some((e) => e.type === "translation" && e.failed)).toBe(false);
+		paused = false;
+		s.runner.resume();
+		s.runner.invalidate();
+		await s.at(1500);
+		expect(s.runner.status).toBe("live");
+		s.runner.stop();
 	});
 
 	test("OCR failure pauses with ocrFailed; resume tries again", async () => {

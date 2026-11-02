@@ -23,6 +23,7 @@ export const COPY = {
 	consentRemember: "Don't ask again for Live",
 	resume: "Resume",
 	stop: "Stop Live",
+	continueCloud: "Continue this month",
 	locked: "Paused while the screen was locked",
 	changesLog: "Live changes",
 	a11yPaused: "Live paused",
@@ -65,7 +66,8 @@ export function consentCopy(s: LivePopupState): LiveConsentCopy | null {
 	};
 }
 
-export type LiveErrorAction = "resume" | "repin" | "stop";
+/** `continueCloud`: the spend guard's "Continue this month" (GLIM-120). */
+export type LiveErrorAction = "resume" | "repin" | "stop" | "continueCloud";
 
 export interface LiveErrorCopy {
 	title: string;
@@ -100,6 +102,13 @@ export function errorCopy(error: LiveError): LiveErrorCopy {
 				title: "Text recognition stopped",
 				body: "Live is paused. Resume to try again.",
 				actions: [{ action: "resume", label: COPY.resume, primary: true }, stop],
+			};
+		case "spendCap":
+			// GLIM-120: a limit the user set, not a failure. Continuing is one click, and may cost money.
+			return {
+				title: "Cloud use is paused for this month",
+				body: "You've used Google's free tier this month, so Live stopped sending to Google Cloud. Continuing may cost money.",
+				actions: [{ action: "continueCloud", label: COPY.continueCloud, primary: true }, stop],
 			};
 	}
 }

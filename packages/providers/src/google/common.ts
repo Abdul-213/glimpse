@@ -11,6 +11,7 @@
 //   (scrubbed defensively) and never request content.
 
 import {
+	type CloudUsageGate,
 	isAbortError,
 	isPlainObject,
 	ProviderError,
@@ -42,6 +43,11 @@ export interface GoogleCloudContext {
 		readonly secrets: SecretStore;
 		/** Default: the global `fetch`. */
 		readonly fetch?: FetchLike;
+		/**
+		 * The local spend guard (GLIM-120): `admit` before each billed request (throws
+		 * `spend-cap` when paused), `record` the billed units after Google answered.
+		 */
+		readonly usage?: CloudUsageGate;
 	};
 }
 
