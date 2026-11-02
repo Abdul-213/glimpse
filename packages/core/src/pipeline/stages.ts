@@ -45,7 +45,8 @@ export function lineGrouper(options: Partial<GroupOptions> = {}): BlockGrouper {
 	};
 }
 
-export type DetectorTuning = Partial<Omit<DetectOptions, "subset" | "target" | "detector">>;
+/** Overrides for every detector (tests, the harness); a detector's own `tuning` sits under these. */
+export type DetectThresholds = Partial<Omit<DetectOptions, "subset" | "target" | "detector">>;
 
 export interface Glim21DetectorOptions {
 	/**
@@ -54,7 +55,7 @@ export interface Glim21DetectorOptions {
 	 */
 	readonly detectors: readonly LanguageDetector[] | (() => Promise<readonly LanguageDetector[]>);
 	/** Thresholds (tau, minLetters, dominance, minOcrConfidence); GLIM-21 defaults otherwise. */
-	readonly tuning?: DetectorTuning;
+	readonly tuning?: DetectThresholds;
 	/** Live text-cache size per session. */
 	readonly maxEntries?: number;
 	/** The loader failed (reported once; detection goes on with the script rules). */
@@ -71,6 +72,12 @@ const SKIPPED: BlockLanguage = { kind: "skipped", lang: null, confidence: 0 };
 export interface Glim21Detector extends BlockLanguageDetector {
 	/** Load the detector libraries now (in the background after startup, so Snip doesn't wait). */
 	load(): Promise<void>;
+	/**
+	 * Drop the loaded list so the next detection (or `load()`) asks the loader again: a detector
+	 * model was downloaded or removed (fastText, GLIM-104). Detections already running finish
+	 * with the old list.
+	 */
+	invalidate(): void;
 }
 
 /** The GLIM-49 detector as the pipeline's `BlockLanguageDetector`. */
@@ -81,15 +88,17 @@ export function glim21Detector(options: Glim21DetectorOptions): Glim21Detector {
 	const load = (): readonly LanguageDetector[] | Promise<readonly LanguageDetector[]> => {
 		if (loaded) return loaded;
 		if (typeof detectors !== "function") return detectors;
-		loading ??= detectors()
+		const run = detectors()
 			.catch((error: unknown): readonly LanguageDetector[] => {
 				options.onLoadError?.(error);
 				return [];
 			})
 			.then((list) => {
-				loaded = list;
+				// An invalidate() while this ran started a newer load: that one wins.
+				if (loading === run) loaded = list;
 				return list;
 			});
+		loading ??= run;
 		return loading;
 	};
 	// One detection session per Live session (keyed by its memo map), dropped with it.
@@ -137,6 +146,11 @@ export function glim21Detector(options: Glim21DetectorOptions): Glim21Detector {
 		id: "glim-21",
 		load: async () => {
 			await load();
+		},
+		invalidate() {
+			if (typeof detectors !== "function") return;
+			loaded = null;
+			loading = null;
 		},
 		detect(blocks, ctx) {
 			const libraries = load();

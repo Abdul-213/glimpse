@@ -53,6 +53,8 @@ export default {
 			// (GLIM-103, scripts/onnxruntime.ts). The OCR Worker loads it from ../native/onnxruntime/.
 			"dist/onnxruntime": "native/onnxruntime",
 			"assets/tray": "views/assets",
+			// fastText's WASM runtime (GLIM-104), staged by the preBuild hook; found next to bun/index.js.
+			"dist/fasttext/fastText.node.wasm": "bun/fastText.node.wasm",
 			// Bundled models + NOTICE (GLIM-37), staged by the preBuild hook from app/models/manifest.json.
 			"dist/models": "models",
 			...nativeCopy(process.platform, (p) => existsSync(resolve(import.meta.dir, p))),

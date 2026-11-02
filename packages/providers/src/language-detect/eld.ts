@@ -12,6 +12,7 @@ import {
 	chineseVariant,
 	type DetectorCandidate,
 	type DetectorResult,
+	type DetectorTuning,
 	fromScheme,
 	type LanguageCode,
 	type LanguageDetector,
@@ -28,8 +29,16 @@ const toCode = (label: string, text: string): LanguageCode | null => {
 	return fromScheme("eld", label, hint);
 };
 
+/**
+ * Thresholds calibrated on ELD's scores (GLIM-140, the GLIM-64 benchmark): rule 4w lets the
+ * capture's script prior win a near-tie of 0.01 or less on blocks under 24 letters. ELD only:
+ * other detectors' scores are on another scale (GLIM-104).
+ */
+export const ELD_TUNING: DetectorTuning = { priorMargin: 0.01, priorMaxLetters: 24 };
+
 export class EldLanguageDetector implements LanguageDetector {
 	readonly id = "eld-medium";
+	readonly tuning = ELD_TUNING;
 	readonly languages: readonly LanguageCode[];
 	readonly #eld: EldLike;
 

@@ -26,6 +26,11 @@ export interface SourceLanguageChoice {
 	readonly group: string;
 	/** A detector label exists (ELD or fastText). */
 	readonly detectable: boolean;
+	/**
+	 * Which detector recognises it: ELD (built in) first, else fastText (an on-demand download,
+	 * GLIM-104), else none (script rules only).
+	 */
+	readonly detectedBy: "eld" | "fasttext" | null;
 	/** A local translation pack exists for it (Bergamot), installed or not. */
 	readonly localTranslation: boolean;
 	/** Bundled/downloadable local OCR can read its script. */
@@ -74,6 +79,7 @@ export function sourceLanguageChoices(displayLocale = "en"): SourceLanguageChoic
 			script: e.script,
 			group: groupScript(e.script),
 			detectable: e.eld !== undefined || e.fasttext !== undefined,
+			detectedBy: e.eld !== undefined ? ("eld" as const) : e.fasttext !== undefined ? ("fasttext" as const) : null,
 			localTranslation: e.bergamot !== undefined,
 			localOcr: recognizersFor(e.code).length > 0,
 			localOcrPartial: localOcrIsPartial(e.code),

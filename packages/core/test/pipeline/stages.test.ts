@@ -159,6 +159,32 @@ describe("glim21Detector in the pipeline (GLIM-21 per block)", () => {
 		expect(r.blocks[2]).toMatchObject({ cls: "neutral" });
 	});
 
+	test("invalidate (GLIM-104): a downloaded detector joins on the next load", async () => {
+		let loads = 0;
+		let installed = false;
+		const lazy = glim21Detector({
+			detectors: async () => {
+				loads++;
+				return installed ? [eld(), new FakeLanguageDetector({}, { id: "fasttext-like" })] : [eld()];
+			},
+		});
+		const a = pipelineWith(() => mixed, lazy);
+		await a.ocr.init();
+		await a.translator.init();
+		await snip(a.pipeline, "en", []);
+		installed = true;
+		await snip(a.pipeline, "en", []);
+		expect(loads).toBe(1);
+		lazy.invalidate();
+		await lazy.load();
+		await snip(a.pipeline, "en", []);
+		expect(loads).toBe(2);
+		// A fixed list has nothing to reload.
+		const fixed = glim21Detector({ detectors: [eld()] });
+		fixed.invalidate();
+		await fixed.load();
+	});
+
 	test("the detector is planned per subset: no library covering it means script rules only", async () => {
 		const detectors: LanguageDetector[] = [new FakeLanguageDetector({}, { id: "only-en", languages: ["en"] })];
 		const { ocr, translator, pipeline } = pipelineWith(() => mixed, glim21Detector({ detectors }));

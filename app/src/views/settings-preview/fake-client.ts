@@ -54,7 +54,12 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 		{
 			providers: { ocr: "paddleocr", translation: ["bergamot"], options: {} },
 			language: {
-				sources: opts.scenario === "any" ? [] : [code("ja"), code("ko"), code("zh-Hans")],
+				sources:
+					opts.scenario === "any"
+						? []
+						: opts.scenario === "identifier"
+							? [code("ja"), code("id"), code("sw")]
+							: [code("ja"), code("ko"), code("zh-Hans")],
 			},
 		},
 		env,
@@ -153,6 +158,14 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			name: "Chinese (Simplified) → English",
 			bytes: 41.0 * MB,
 			state: { status: "failed", error: "network", message: "Couldn't connect. Check your connection and try again." },
+		},
+		{
+			id: "fasttext-lid176",
+			kind: "detector",
+			name: "Language identifier",
+			detail: "Recognises languages the built-in detector doesn't, such as Indonesian, Swahili and Uzbek",
+			bytes: 0.9 * MB,
+			state: { status: "missing" },
 		},
 	];
 	const choices = sourceLanguageChoices("en");

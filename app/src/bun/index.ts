@@ -6,6 +6,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { loadSettings, opensAtLaunch, ProviderRegistry, parseModelManifest, systemTimers } from "@glimpse/core";
+import { FASTTEXT_MODEL_ID } from "@glimpse/providers/language-detect";
 import Electrobun, { Utils } from "electrobun/main";
 import modelManifestJson from "../../models/manifest.json" with { type: "json" };
 import pkg from "../../package.json" with { type: "json" };
@@ -135,7 +136,16 @@ const translationPacks = new TranslationPacks({
 	// GLIM-100: a long-tail pack row downloads the SMaLL-100 model.
 	models: [small100Entry()].filter((m) => m !== null),
 });
-const stages = pipelineStages(translationLog);
+// Language detection (GLIM-104): fastText joins ELD once its model is downloaded.
+const stages = pipelineStages(translationLog, {
+	fastTextDir: () => models.modelDir(FASTTEXT_MODEL_ID),
+	mainDir: import.meta.dir,
+});
+models.subscribe((id, state) => {
+	if (id !== FASTTEXT_MODEL_ID || (state.status !== "installed" && state.status !== "missing")) return;
+	stages.detector.invalidate();
+	void stages.detector.load();
+});
 const translation: TranslationService<AppProviderContext> = new TranslationService({
 	registry: providers,
 	ctx: providerCtx,

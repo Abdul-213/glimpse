@@ -57,6 +57,25 @@ ELD, Efficient Language Detector (JavaScript), version 2.1.0, medium database
   Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
   Bundled into the app's main script, unmodified.
 
+fastText language identification model lid.176.ftz (downloaded on demand, not shipped in
+the installer)
+  By Facebook AI Research (fastText team): https://fasttext.cc/docs/en/language-identification.html
+  Downloaded from https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz.
+  Licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported licence
+  (licenses/CC-BY-SA-3.0.txt, https://creativecommons.org/licenses/by-sa/3.0/). The file is
+  unmodified. Glimpse downloads it only when your source languages include one ELD can't
+  detect, and only after you choose Download.
+  References: A. Joulin, E. Grave, P. Bojanowski, T. Mikolov, "Bag of Tricks for Efficient Text
+  Classification" (2016); A. Joulin, E. Grave, P. Bojanowski, M. Douze, H. Jegou, T. Mikolov,
+  "FastText.zip: Compressing text classification models" (2016).
+
+fastText (WebAssembly build) and fasttext.wasm.js, version 1.0.0
+  fastText: Copyright (c) 2016-present, Facebook, Inc. https://github.com/facebookresearch/fastText
+  fasttext.wasm.js: Copyright (c) 2023 Yuns. https://github.com/yunsii/fasttext.wasm.js
+  Licensed under the MIT License (licenses/MIT-fasttext.txt).
+  The loader is bundled into the app's main script and fastText.node.wasm ships next to it,
+  unmodified. The package's own copy of the model is not shipped.
+
 ONNX Runtime (onnxruntime-node and onnxruntime-common), version 1.31.1
   Copyright (c) Microsoft Corporation.
   https://github.com/microsoft/onnxruntime
