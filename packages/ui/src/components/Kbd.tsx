@@ -22,7 +22,16 @@ export function Kbd(props: KbdProps): JSX.Element {
 			}
 		>
 			<span class="inline-flex items-center gap-0.5" dir="ltr">
-				<For each={props.keys}>{(k) => <kbd class="glim-kbd">{k}</kbd>}</For>
+				{/* The spaces keep the text "Alt Shift S", matching the accessible name (WCAG 2.5.3);
+				    flex layout ignores them. */}
+				<For each={props.keys}>
+					{(k, i) => (
+						<>
+							{i() > 0 ? " " : ""}
+							<kbd class="glim-kbd">{k}</kbd>
+						</>
+					)}
+				</For>
 			</span>
 		</Show>
 	);
