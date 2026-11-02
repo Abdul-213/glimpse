@@ -79,8 +79,18 @@ export interface LiveServiceDeps {
 	readonly onState?: (state: LiveState) => void;
 	readonly timers?: Timers;
 	readonly perfNow?: () => number;
+	/**
+	 * GLIM-66: cumulative process CPU in ms, which the Live CPU budget measures (it includes
+	 * the OCR and translation Workers). Default: `process.cpuUsage()`.
+	 */
+	readonly cpuNow?: () => number;
 	readonly newSessionId?: () => string;
 }
+
+const processCpuMs = (): number => {
+	const u = process.cpuUsage();
+	return (u.user + u.system) / 1000;
+};
 
 export type SystemEvent = "lock" | "unlock" | "sleep" | "wake";
 
@@ -251,6 +261,15 @@ export class LiveService {
 			diffThreshold: settings.live.diffThreshold,
 			stabilityMs: settings.live.stabilityMs,
 			...(this.#d.perfNow ? { perfNow: this.#d.perfNow } : {}),
+			cpuNow: this.#d.cpuNow ?? processCpuMs,
+			onBudget: (b) =>
+				log.info("live: cpu budget", {
+					session: id,
+					level: b.level,
+					fpsCap: b.limits.fpsCap,
+					ocrGapMs: b.limits.ocrGapMs,
+					sharePct: b.share === null ? -1 : Math.round(b.share * 1000) / 10,
+				}),
 			onEvent: (event) => this.#onRunnerEvent(event),
 			// GLIM-67: unchanged blocks reuse cached translations; the hit rate, at debug level.
 			onCache: (c) =>
@@ -510,5 +529,7 @@ function summary(s: LiveRunnerStats): Record<string, number | string> {
 		detectMsMax: Math.round(s.maxDetectMs * 100) / 100,
 		grabMsMean: Math.round(s.meanGrabMs * 100) / 100,
 		settleToFrameMs: Math.round(s.meanSettleToFrameMs),
+		focusedGrabs: s.focusedGrabs,
+		budgetLevel: s.budget?.level ?? -1,
 	};
 }
