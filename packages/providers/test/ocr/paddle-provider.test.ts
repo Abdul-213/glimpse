@@ -6,6 +6,7 @@ import { isProviderError, languageCode, type OcrProgress } from "@glimpse/core";
 import { type ContractCheck, ocrProviderContract } from "@glimpse/core/testing";
 import { folderModelSource } from "../../src/ocr/paddle/model-files.ts";
 import { PaddleOcrProvider } from "../../src/ocr/paddle/paddle-provider.ts";
+import { type FromWorker, OCR_PROTOCOL } from "../../src/ocr/paddle/protocol.ts";
 import { cacheSource, FIXTURES, hasBundled, hasRecognizer, manifest, warnIfMissing } from "../helpers/models.ts";
 import { loadPng, toPaddedBgra } from "../helpers/png.ts";
 
@@ -25,6 +26,47 @@ describe.skipIf(!hasBundled)("PaddleOCR: core OCR provider contract (real models
 		language: languageCode("en"),
 	});
 	for (const c of checks) test(c.name, c.run, T);
+});
+
+describe("OCR Worker protocol (GLIM-134 follow-up)", () => {
+	/** Send one init to the source Worker and return its reply. */
+	const initReply = async (protocol: string | undefined): Promise<FromWorker> => {
+		const w = new Worker(new URL("../../src/ocr/paddle/worker.ts", import.meta.url));
+		try {
+			const reply = new Promise<FromWorker>((resolve) => {
+				w.onmessage = (e: MessageEvent<FromWorker>) => resolve(e.data);
+			});
+			const profile = { threads: 1, spinning: false };
+			// A Worker or app from another build sends (or expects) another message shape.
+			w.postMessage({
+				type: "init",
+				id: 1,
+				protocol,
+				det: "/nonexistent.onnx",
+				snip: profile,
+				live: profile,
+				engine: {},
+			});
+			return await reply;
+		} finally {
+			w.terminate();
+		}
+	};
+
+	test("a Worker from another build rejects init with a plain 'rebuild' error, before touching ORT", async () => {
+		for (const protocol of [undefined, "glimpse-ocr-protocol/1"]) {
+			const r = await initReply(protocol);
+			expect(r.type).toBe("error");
+			expect(r.type === "error" ? r.message : "").toContain("OCR worker is from another build");
+			expect(r.type === "error" ? r.message : "").toContain(OCR_PROTOCOL);
+		}
+	});
+
+	test("the current protocol gets past the check (then fails on the missing model file)", async () => {
+		const r = await initReply(OCR_PROTOCOL);
+		expect(r.type).toBe("error");
+		expect(r.type === "error" ? r.message : "").not.toContain("another build");
+	});
 });
 
 describe("PaddleOCR: models missing", () => {
