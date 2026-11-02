@@ -32,7 +32,7 @@ export class LanguageDetectionSession {
 
 	/** Decide one frame's blocks. */
 	detect(blocks: readonly DetectInput[]): Map<BlockId, LanguageDecision> {
-		const keys = new Map(blocks.map((b) => [b.id, textKey(detectionCopy(b.text))]));
+		const keys = new Map(blocks.map((b) => [b.id, textKey(detectionCopy(b.text, this.#options.subset))]));
 		// Repeat text that was decided confidently is free.
 		const fresh = blocks.filter((b) => !this.#byText.get(keys.get(b.id) ?? "")?.confident);
 		const decided = detectCaptureLanguages(fresh, this.#options, { get: (k) => this.#byText.get(k) });

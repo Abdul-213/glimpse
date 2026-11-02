@@ -66,6 +66,14 @@ OCR benchmark, the three fastText cases: 12/17 blocks detected both before and a
 sw 4/5, uz 0/4; the uz and sw misses are the two model limits below). The ELD cases are
 unchanged (100% detection in every script).
 
+**GLIM-144 (Uzbek ʻ in the detection copy).** With Uzbek in the subset, the detection copy now
+maps an apostrophe-like mark after o/g and before a letter back to ʻ (U+02BB), the letter OCR
+reads as `'`. Same tuning: rules 75.8% → **77.9% (148/190)**, uz 82% → 96% (27/28; only
+"Sozlamalar" still reads as English), `uz-chat-ocr` 0/4 → 4/4, fastText alone 52.1% → 54.2%.
+bench:ocr `latin-uz-chat` detection 0/4 → 4/4 (Latin (fastText) 70.6% → 94.1%); every ELD case
+is unchanged. The grid still puts τ 0.5 and the 0.7 / 48 rule 4w at or within one block of the
+best; the numbers in [language-detection-results.md](language-detection-results.md) include it.
+
 ## Findings
 
 1. **τ stays 0.5.** It is the best value with or without rule 4w. Lower lets noisy short labels
@@ -95,10 +103,11 @@ unchanged (100% detection in every script).
      no n-grams for all get one fixed distribution (en 0.12, ca 0.09, de 0.08, oc 0.05, fr 0.05:
      "Jumla", "Batal", "Xeral", "Ekran"), and rule 5c takes that `en` at face value, so with
      English in the subset such blocks are kept as English.
-   - **Uzbek apostrophe** (GLIM-144): lid.176 recognises Uzbek largely by ʻ (U+02BB). PaddleOCR
-     reads it as `'`, and the detection copy turns `'` into a space ("yo ldaman"), after which
-     fastText reads jv/lt/en. The `latin-uz-chat` OCR case is 0/4 for this reason; the same
-     text with ʻ is 4/4.
+   - **Uzbek apostrophe** (GLIM-144, fixed): lid.176 recognises Uzbek largely by ʻ (U+02BB).
+     PaddleOCR reads it as `'`, and the detection copy turned `'` into a space ("yo ldaman"),
+     after which fastText read jv/lt/en. Uzbek subsets now get oʻ/gʻ back in the detection copy
+     (above). The other in-word mark, ʼ (U+02BC, "maʼlumot"), doesn't help lid.176 either way
+     ("doʼstim" scores like "do stim"), so it is left alone.
    - **Close relatives in the subset**: af with nl, gl with pt, ps with fa. The joined window
      itself often reads as the relative (af settings: nl 0.49 / af 0.41; ps settings: fa 0.63),
      so rules 4w and 5b inherit it. The translation is then from a close relative (counted as

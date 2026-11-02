@@ -224,8 +224,8 @@ export const DETECTION_CORPUS: readonly DetectionCapture[] = [
 			"Katta rahmat, doʻstim!",
 		]),
 	),
-	// The same chat as PaddleOCR reads it (bench:ocr latin-uz-chat): ʻ comes back as ASCII ',
-	// which the detection copy drops, and fastText's Uzbek hangs on ʻ.
+	// The same chat as PaddleOCR reads it (bench:ocr latin-uz-chat): ʻ comes back as ASCII '.
+	// fastText's Uzbek hangs on ʻ, so the detection copy maps o'/g' back to it (GLIM-144).
 	capture(
 		"uz-chat-ocr",
 		"chat",

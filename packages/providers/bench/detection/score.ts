@@ -58,7 +58,7 @@ export function scoreAlone(corpus: readonly DetectionCapture[], detector: Langua
 	const byLang: Record<string, Tally> = {};
 	for (const c of corpus) {
 		for (const block of c.blocks) {
-			const top = detector.detect(detectionCopy(block.text)).candidates[0]?.lang;
+			const top = detector.detect(detectionCopy(block.text, c.sources)).candidates[0]?.lang;
 			const ok = top !== undefined && sameLanguage(top, languageCode(block.lang));
 			add(all, ok);
 			add(byBucket[bucketOf(block.text)], ok);

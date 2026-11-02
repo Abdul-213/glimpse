@@ -1,5 +1,5 @@
 {
-	"machine": "GitHub ubuntu-latest: AMD EPYC 7763, 2 cores, ORT threads auto (1); totalP50 + GLIM-142 cases scaled from a local run",
+	"machine": "GitHub ubuntu-latest: AMD EPYC 7763, 2 cores, ORT threads auto (1); totalP50 + GLIM-142 cases scaled from a local run; Latin (fastText) detection from GLIM-144",
 	"scripts": {
 		"Latin": {
 			"cer": 0.0204,
@@ -9,7 +9,7 @@
 		"Latin (fastText)": {
 			"cer": 0.0192,
 			"grouping": 1,
-			"detection": 0.7059
+			"detection": 0.9412
 		},
 		"CJK": {
 			"cer": 0.0145,

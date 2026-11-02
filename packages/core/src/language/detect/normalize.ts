@@ -1,5 +1,6 @@
 // The "detection copy" of a block's text (GLIM-21, short and low-confidence block rule): NFKC,
-// with URLs, e-mail addresses, @handles, #tags, digits, units, punctuation and emoji removed.
+// with URLs, e-mail addresses, @handles, #tags, digits, units, punctuation and emoji removed
+// (Uzbek oʻ/gʻ kept, GLIM-144).
 // Plus the weighted letter count rule 1 uses and the known neutral tokens.
 
 /** URLs, e-mails, @handles and #tags. Removed before anything else. */
@@ -9,9 +10,22 @@ const NUMBER_UNIT = /\p{N}+(?:[.,:]\p{N}+)*\s?(?:%|[\p{L}µ°]{1,3}(?![\p{L}]))?
 /** Anything that isn't a letter, combining mark or space. */
 const NOT_LETTER = /[^\p{L}\p{M}\s]+/gu;
 
-export function detectionCopy(text: string): string {
-	return text
-		.normalize("NFKC")
+/**
+ * Uzbek Latin's oʻ and gʻ (GLIM-144): the letter is U+02BB, but OCR engines read it as an
+ * ASCII or curly apostrophe (PaddleOCR: `yo'ldaman`), which NOT_LETTER would turn into a space.
+ * fastText lid.176 recognises Uzbek largely by ʻ (`Hali yoʻldaman tirbandlik juda katta`: uz
+ * 0.98; with a space instead: en 0.09), so an apostrophe-like mark after o/g and before a letter
+ * goes back to ʻ. Only for subsets with Uzbek, so other subsets (and ELD's) see what they did.
+ */
+const UZ_OKINA = /([oOgG])['‘’ʼ`´](?=\p{L})/gu;
+const UZBEK = "uz";
+
+const hasUzbek = (subset: readonly string[]) => subset.some((l) => l.split("-")[0]?.toLowerCase() === UZBEK);
+
+/** `subset`: the user's source subset; Uzbek in it restores oʻ/gʻ (see UZ_OKINA). */
+export function detectionCopy(text: string, subset: readonly string[] = []): string {
+	const nfkc = text.normalize("NFKC");
+	return (hasUzbek(subset) ? nfkc.replace(UZ_OKINA, "$1ʻ") : nfkc)
 		.replace(NON_TEXT, " ")
 		.replace(NUMBER_UNIT, " ")
 		.replace(NOT_LETTER, " ")

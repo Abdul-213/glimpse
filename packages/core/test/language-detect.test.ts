@@ -43,6 +43,19 @@ describe("detection copy and rule 1 inputs", () => {
 		expect(detectionCopy("ｈｅｌｌｏ")).toBe("hello");
 	});
 
+	test("Uzbek subsets get oʻ/gʻ back from OCR's apostrophes (GLIM-144)", () => {
+		const uz = subset("uz", "ru", "en");
+		expect(detectionCopy("Hali yo'ldaman, tirbandlik juda katta", uz)).toBe("Hali yoʻldaman tirbandlik juda katta");
+		expect(detectionCopy("Soyabon olishni unutma, yomg’ir yog‘adi", uz)).toBe("Soyabon olishni unutma yomgʻir yogʻadi");
+		expect(detectionCopy("O'zgarishlar", uz)).toBe("Oʻzgarishlar");
+		// Already ʻ, or not between o/g and a letter: unchanged rules.
+		expect(detectionCopy("Katta rahmat, doʻstim!", uz)).toBe("Katta rahmat doʻstim");
+		expect(detectionCopy("Don't go' now", uz)).toBe("Don t go now");
+		// Other subsets see the apostrophe as before.
+		expect(detectionCopy("Hali yo'ldaman", subset("id", "en"))).toBe("Hali yo ldaman");
+		expect(detectionCopy("Hali yo'ldaman")).toBe("Hali yo ldaman");
+	});
+
 	test("Han and kana count three per character", () => {
 		expect(weightedLetters("設定")).toBe(6);
 		expect(weightedLetters("ok")).toBe(2);
