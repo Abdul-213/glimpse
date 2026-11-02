@@ -128,8 +128,9 @@ one- and two-word button labels. What the corpus caught:
    longer merges into the message above it. Without that merged block, reading order was read
    row by row across the side-by-side windows. Rows are now cut one gap at a time, widest first,
    and a column gutter more than 3x the widest row gap is cut first, so each window is read whole.
-   Still open: language detection on the newly separate short bg menu items ("Нов прозорец" →
-   ru, "Последни документи" → sr; GLIM-21 rule 4): **GLIM-140**.
+   Language detection on the newly separate short bg menu items ("Нов прозорец" → ru,
+   "Последни документи" → sr under GLIM-21 rule 4) was fixed by GLIM-140: short near-ties now
+   take the capture's script prior (rule 4w), so Cyrillic detection is 9/9.
 4. **Small losses**: trailing "." / "?" / "।" sometimes dropped (ar, hi, ko, el lines), Korean
    word spaces sometimes dropped ("그럼역 앞카페에서", WER 39 % at 2 % CER), Arabic "هذه" → "هه"
    and "رद्द" → "रह" on the JPEG'd dark UIs, kana "う" read as "ラ" in vertical text. Worth

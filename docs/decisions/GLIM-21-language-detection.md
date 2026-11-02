@@ -87,11 +87,14 @@ Detection runs on a **detection copy** of the text: NFKC normalised, with URLs, 
 | 2 | The dominant script (≥ 70% of letters) is used by **no** language in the subset | **Skip** (certain). |
 | 3 | The script maps to exactly one NLLB language (Hangul, kana, Thai, Lao, Khmer, Greek, Georgian, Armenian, Sinhala, Tamil, Telugu, Kannada, Malayalam, Gujarati, Gurmukhi, Odia, Ol Chiki) | That language. Translate if it is in the subset, otherwise skip. |
 | 4 | Ambiguous script (Latin, Cyrillic, Arabic, Devanagari, Bengali, Han-only, Hebrew, Ethiopic, Myanmar, Tibetan, Tifinagh) and `letters ≥ 8` and detector confident (ELD `isReliable()` and top score ≥ τ; fastText p ≥ τ; starting τ = 0.5, **to be calibrated**) | Top-1 language. Translate if it is in the subset, otherwise skip. |
+| 4w | As rule 4, but the block is short (`letters < 24`), the capture has a **script prior** for its script (below), and the block scores the prior's language within 0.01 of its own top-1 (GLIM-140) | The prior's language. Confident, like rule 4. |
 | 5 | Otherwise **uncertain** (short or low confidence). Apply in order: | |
 | 5a | Live mode, and the same normalised text was decided before | Reuse the cached decision (also stops flicker). |
-| 5b | Other blocks in the same capture were decided confidently, and their majority language is plausible for this block's script | Inherit that language. |
+| 5b | Other blocks in the same capture were decided confidently, and their majority language is plausible for this block's script; otherwise the capture has a script prior for this block's script | Inherit that language. |
 | 5c | Otherwise | **Translate** if any subset language uses this script *and* is in the detector's top 3. Otherwise **skip**. |
 | * | Decided language equals the target language | Don't translate. Show the original. |
+
+**Script prior (GLIM-140).** For each ambiguous script that two or more blocks of a capture are written in (OCR confidence above the rule 4 floor, rule 1 tokens excluded), the detector runs once more over those blocks' detection copies joined with spaces. If that result is reliable and its top-1 (consistent with the script) scores ≥ τ, it is the capture's prior for the script. Why: short menu and button labels in closely related languages are near-ties. The GLIM-64 benchmark's Bulgarian menu had "Нов прозорец" at ru 0.842 / bg 0.836 / sr 0.831 and "Последни документи" at sr 0.840 / bg 0.836 in ELD, so rule 4 picked ru and sr (sr is outside the subset, so the item was skipped). The joined menu reads as bg. The window is almost always in one language, so a narrow lead on a short item is weaker evidence than the window. A clear lead (a Russian sentence leads bg by 0.026) or a long block keeps its own top-1, and a prior the block doesn't list among its candidates never applies. The 0.01 margin is on ELD's score scale and must be recalibrated for another detector. In Live only the changed blocks feed the prior.
 
 Why rule 5c leans towards translating:
 
