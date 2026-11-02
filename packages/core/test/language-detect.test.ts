@@ -178,6 +178,131 @@ describe("GLIM-21 rules", () => {
 		expect(r.get("d")?.rule).not.toBe("5b");
 	});
 
+	describe("GLIM-140: the capture's script prior", () => {
+		// ELD's real scores for the GLIM-64 cyrillic-bg-menu case.
+		const menu = {
+			"Нов прозорец": [
+				["ru", 0.8423],
+				["bg", 0.836],
+				["sr", 0.8306],
+			],
+			"Отваряне на файл": [
+				["bg", 0.8202],
+				["ru", 0.8131],
+				["uk", 0.8105],
+			],
+			"Последни документи": [
+				["sr", 0.8402],
+				["ru", 0.8364],
+				["uk", 0.8359],
+				["bg", 0.8355],
+			],
+			Изход: [
+				["bg", 0.83],
+				["sr", 0.78],
+			],
+			"Нов прозорец Отваряне на файл Последни документи Изход": [
+				["bg", 0.8309],
+				["ru", 0.8253],
+			],
+		} as const;
+		const languages = ["en", "ru", "uk", "bg", "sr", "be", "de"];
+		const menuBlocks = [
+			block("a", "Нов прозорец"),
+			block("b", "Отваряне на файл"),
+			block("c", "Последни документи"),
+			block("d", "Изход"),
+		];
+		const cyrillic = subset("ru", "uk", "bg", "en");
+
+		test("short near-ties take the window's language (4w); the short item inherits it (5b)", () => {
+			const detector = new FakeLanguageDetector(menu, { languages });
+			const r = detectCaptureLanguages(menuBlocks, { subset: cyrillic, target: L("en"), detector });
+			expect(r.get("a")).toMatchObject({ rule: "4w", translate: true, confident: true, language: { lang: "bg" } });
+			expect(r.get("b")).toMatchObject({ rule: "4", language: { lang: "bg" } });
+			// sr is outside the subset: without the prior this block was skipped.
+			expect(r.get("c")).toMatchObject({ rule: "4w", translate: true, language: { kind: "language", lang: "bg" } });
+			expect(r.get("d")).toMatchObject({ rule: "5b", language: { lang: "bg" } });
+			// One extra detector call for the joined Cyrillic text.
+			expect(detector.calls.filter((t) => t.includes(" Изход"))).toHaveLength(1);
+		});
+
+		test("a clear lead, a long block or a prior the block doesn't rate keeps rule 4", () => {
+			const long = "Сохранить изменения в документе перед закрытием";
+			const detector = new FakeLanguageDetector(
+				{
+					...menu,
+					[long]: [
+						["ru", 0.84],
+						["bg", 0.835],
+					],
+					"Сохранить файл": [
+						["ru", 0.85],
+						["bg", 0.82],
+					],
+					"Открыть окно": [["ru", 0.85]],
+					[`Нов прозорец Отваряне на файл ${long} Сохранить файл Открыть окно`]: [["bg", 0.83]],
+				},
+				{ languages },
+			);
+			const r = detectCaptureLanguages(
+				[
+					block("a", "Нов прозорец"),
+					block("b", "Отваряне на файл"),
+					block("c", long),
+					block("d", "Сохранить файл"),
+					block("e", "Открыть окно"),
+				],
+				{ subset: cyrillic, target: L("en"), detector },
+			);
+			expect(r.get("a")).toMatchObject({ rule: "4w", language: { lang: "bg" } });
+			expect(r.get("c")).toMatchObject({ rule: "4", language: { lang: "ru" } }); // >= priorMaxLetters
+			expect(r.get("d")).toMatchObject({ rule: "4", language: { lang: "ru" } }); // leads by 0.03
+			expect(r.get("e")).toMatchObject({ rule: "4", language: { lang: "ru" } }); // bg not a candidate
+		});
+
+		test("no prior from one block, an unreliable joined text, or low-confidence OCR", () => {
+			const one = new FakeLanguageDetector(menu, { languages });
+			const single = detectCaptureLanguages([block("a", "Нов прозорец")], {
+				subset: cyrillic,
+				target: L("en"),
+				detector: one,
+			});
+			expect(single.get("a")).toMatchObject({ rule: "4", language: { lang: "ru" } });
+			expect(one.calls).toEqual(["Нов прозорец"]);
+
+			const unreliable = new FakeLanguageDetector(menu, { languages, reliable: (t) => t.length >= 8 && t.length < 40 });
+			const r = detectCaptureLanguages(menuBlocks, { subset: cyrillic, target: L("en"), detector: unreliable });
+			expect(r.get("a")).toMatchObject({ rule: "4", language: { lang: "ru" } });
+
+			const blurry = new FakeLanguageDetector(menu, { languages });
+			const low = detectCaptureLanguages(
+				menuBlocks.map((b) => ({ ...b, confidence: 0.4 })),
+				{ subset: cyrillic, target: L("en"), detector: blurry },
+			);
+			expect(blurry.calls.filter((t) => t.includes(" Изход"))).toEqual([]);
+			expect(low.get("a")?.rule).not.toBe("4w");
+		});
+
+		test("other scripts don't feed or take the Cyrillic prior", () => {
+			const detector = new FakeLanguageDetector(
+				{
+					...menu,
+					"Нов прозорец Последни документи": [["bg", 0.83]],
+					"Open a new window": [["en", 0.9]],
+				},
+				{ languages },
+			);
+			const r = detectCaptureLanguages(
+				[block("a", "Нов прозорец"), block("b", "Open a new window"), block("c", "Последни документи")],
+				{ subset: cyrillic, target: L("de"), detector },
+			);
+			expect(r.get("a")).toMatchObject({ rule: "4w", language: { lang: "bg" } });
+			expect(r.get("b")).toMatchObject({ rule: "4", language: { lang: "en" } });
+			expect(r.get("c")).toMatchObject({ rule: "4w", language: { lang: "bg" } });
+		});
+	});
+
 	test("no subset: uncertain blocks use the majority, then the detector's top-1", () => {
 		const detector = new FakeLanguageDetector({ Hola: [["es", 0.6]] });
 		expect(decide("Hola", { subset: [], detector })).toMatchObject({

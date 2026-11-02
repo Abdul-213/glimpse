@@ -19,7 +19,7 @@
 		"Cyrillic": {
 			"cer": 0,
 			"grouping": 1,
-			"detection": 0.7778
+			"detection": 1
 		},
 		"Devanagari": {
 			"cer": 0.0292,
