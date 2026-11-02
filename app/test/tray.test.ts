@@ -207,14 +207,38 @@ describe("Windows taskbar theme", () => {
 	});
 
 	test("watcher reports the first value and changes only", async () => {
-		const values = ["0x0", "0x0", "0x1"];
+		// Deterministic: the test owns the timer and awaits each poll (GLIM-129).
+		const values = ["0x0", "0x0", "0x1", "0x1", "0x0"];
 		const seen: string[] = [];
+		const timer: { ms: number; fn: (() => Promise<void>) | null; cancelled: boolean } = {
+			ms: 0,
+			fn: null,
+			cancelled: false,
+		};
 		const w = watchTaskbarTheme((t) => seen.push(t), {
 			intervalMs: 5,
-			run: async () => ({ exitCode: 0, stdout: out(values.shift() ?? "0x1") }),
+			run: async () => ({ exitCode: 0, stdout: out(values.shift() ?? "0x0") }),
+			every: (ms, fn) => {
+				timer.ms = ms;
+				timer.fn = fn;
+				return () => {
+					timer.cancelled = true;
+				};
+			},
 		});
-		await new Promise((r) => setTimeout(r, 40));
+		const tick = () => timer.fn?.() ?? Promise.resolve();
+		expect(timer.ms).toBe(5);
+		await w.ready;
+		expect(seen).toEqual(["dark"]);
+		await tick();
+		expect(seen).toEqual(["dark"]);
+		await tick();
+		await tick();
+		expect(seen).toEqual(["dark", "light"]);
 		w.stop();
+		expect(timer.cancelled).toBe(true);
+		await tick();
+		expect(values).toEqual(["0x0"]);
 		expect(seen).toEqual(["dark", "light"]);
 	});
 });

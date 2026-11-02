@@ -38,22 +38,33 @@ export async function readTaskbarTheme(run: RunCommand = runWithBun): Promise<Ta
 }
 
 export interface TaskbarThemeWatcher {
+	/** Settles once the first read has been reported. */
+	readonly ready: Promise<void>;
 	stop(): void;
 }
+
+/** Repeating timer. `fn` returns the poll's promise so a fake clock can await each tick. */
+export type Every = (ms: number, fn: () => Promise<void>) => () => void;
+
+const realEvery: Every = (ms, fn) => {
+	const timer = setInterval(() => void fn(), ms);
+	return () => clearInterval(timer);
+};
 
 /** Calls `onChange` with the current theme now and whenever it changes. Windows only. */
 export function watchTaskbarTheme(
 	onChange: (theme: TaskbarTheme) => void,
-	options: { readonly intervalMs?: number; readonly run?: RunCommand } = {},
+	options: { readonly intervalMs?: number; readonly run?: RunCommand; readonly every?: Every } = {},
 ): TaskbarThemeWatcher {
 	let last: TaskbarTheme | null = null;
 	let busy = false;
+	let stopped = false;
 	const check = async () => {
-		if (busy) return;
+		if (busy || stopped) return;
 		busy = true;
 		try {
 			const theme = await readTaskbarTheme(options.run);
-			if (theme !== last) {
+			if (theme !== last && !stopped) {
 				last = theme;
 				onChange(theme);
 			}
@@ -61,7 +72,13 @@ export function watchTaskbarTheme(
 			busy = false;
 		}
 	};
-	void check();
-	const timer = setInterval(() => void check(), options.intervalMs ?? 10_000);
-	return { stop: () => clearInterval(timer) };
+	const ready = check();
+	const cancel = (options.every ?? realEvery)(options.intervalMs ?? 10_000, check);
+	return {
+		ready,
+		stop: () => {
+			stopped = true;
+			cancel();
+		},
+	};
 }
