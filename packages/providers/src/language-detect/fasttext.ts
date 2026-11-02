@@ -12,6 +12,11 @@
 // - Scores are softmax probabilities, so its thresholds are its own (`FASTTEXT_TUNING`,
 //   calibrated in GLIM-142 on bench/detection; GLIM-140's ELD margin means nothing here).
 // - `predict` is synchronous once the model is loaded (~0.09 ms per block, GLIM-21).
+// - No evidence (GLIM-145): text with no word or n-gram lid.176 knows ("Jumla", "Batal",
+//   "qwzxv") gets the model's bias alone, one fixed distribution (en 0.12, ca 0.09, de 0.08,
+//   oc 0.05, fr 0.05), the same as for empty text. That `en` isn't evidence of English, so
+//   such a prediction is returned as no candidates, flagged `noEvidence` (rule 5c leans to
+//   translating then).
 
 /// <reference path="./fasttext-wasm.d.ts" />
 import { readFile } from "node:fs/promises";
@@ -81,10 +86,33 @@ export class FastTextLanguageDetector implements LanguageDetector {
 	readonly tuning: DetectorTuning = FASTTEXT_TUNING;
 	readonly languages: readonly LanguageCode[];
 	readonly #ft: FastTextNative;
+	/** What the model says about nothing (empty text): its no-evidence answer. */
+	readonly #noEvidence: readonly (readonly [number, string])[];
 
 	constructor(ft: FastTextNative) {
 		this.#ft = ft;
 		this.languages = FastTextLanguageDetector.#languages(ft);
+		this.#noEvidence = this.#predict("");
+	}
+
+	#predict(line: string): (readonly [number, string])[] {
+		const v = this.#ft.predict(line, TOP_K, 0);
+		try {
+			const out: (readonly [number, string])[] = [];
+			for (let i = 0; i < v.size(); i++) out.push(v.get(i));
+			return out;
+		} finally {
+			v.delete?.();
+		}
+	}
+
+	#isNoEvidence(raw: readonly (readonly [number, string])[]): boolean {
+		const none = this.#noEvidence;
+		return (
+			none.length > 0 &&
+			raw.length === none.length &&
+			raw.every(([p, label], i) => label === none[i]?.[1] && Math.abs(p - (none[i]?.[0] ?? 0)) < 1e-6)
+		);
 	}
 
 	static #languages(ft: FastTextNative): LanguageCode[] {
@@ -105,16 +133,12 @@ export class FastTextLanguageDetector implements LanguageDetector {
 	detect(text: string): DetectorResult {
 		const line = oneLine(text);
 		if (line === "") return { candidates: [], reliable: false };
-		const v = this.#ft.predict(line, TOP_K, 0);
+		const raw = this.#predict(line);
+		if (this.#isNoEvidence(raw)) return { candidates: [], reliable: false, noEvidence: true };
 		const candidates: DetectorCandidate[] = [];
-		try {
-			for (let i = 0; i < v.size(); i++) {
-				const [p, label] = v.get(i);
-				const lang = toCode(strip(label), line);
-				if (lang && !candidates.some((c) => c.lang === lang)) candidates.push({ lang, score: clamp(p) });
-			}
-		} finally {
-			v.delete?.();
+		for (const [p, label] of raw) {
+			const lang = toCode(strip(label), line);
+			if (lang && !candidates.some((c) => c.lang === lang)) candidates.push({ lang, score: clamp(p) });
 		}
 		candidates.sort((a, b) => b.score - a.score);
 		return { candidates, reliable: (candidates[0]?.score ?? 0) >= FASTTEXT_RELIABLE };

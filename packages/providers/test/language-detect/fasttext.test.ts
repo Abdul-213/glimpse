@@ -75,6 +75,13 @@ describe("fastText adapter (real lid.176)", () => {
 		expect(ft.detect("   \n ")).toEqual({ candidates: [], reliable: false });
 	});
 
+	test("words lid.176 has no n-grams for are no evidence, not English (GLIM-145)", () => {
+		for (const t of ["Jumla", "Batal", "Sasisha programu", "qwzxv"]) {
+			expect(ft.detect(t)).toEqual({ candidates: [], reliable: false, noEvidence: true });
+		}
+		expect(ft.detect("Mipangilio").noEvidence).toBeUndefined();
+	});
+
 	test("its own tuning (GLIM-142, on probabilities); ELD keeps GLIM-140's", () => {
 		expect((ft as LanguageDetector).tuning).toEqual({ tau: 0.5, priorMargin: 0.7, priorMaxLetters: 48 });
 		expect(FASTTEXT_RELIABLE).toBe(FASTTEXT_TUNING.tau);
@@ -170,11 +177,13 @@ describe("fastText adapter (fake native)", () => {
 			predict: (text) => {
 				seen.push(text);
 				return vector<readonly [number, string]>(
-					[
-						[0.2, "__label__en"],
-						[0.7, "__label__id"],
-						[0.05, "__label__!?"],
-					],
+					text === ""
+						? [[0.3, "__label__en"]]
+						: [
+								[0.2, "__label__en"],
+								[0.7, "__label__id"],
+								[0.05, "__label__!?"],
+							],
 					freed,
 				);
 			},
@@ -182,12 +191,38 @@ describe("fastText adapter (fake native)", () => {
 		const d = new FastTextLanguageDetector(native);
 		expect(d.languages).toEqual([L("en"), L("id"), L("zh-Hans"), L("zh-Hant")]);
 		const r = d.detect("Halo\n  dunia");
-		expect(seen).toEqual(["Halo dunia"]);
+		// The constructor asks once for the model's no-evidence answer (empty text).
+		expect(seen).toEqual(["", "Halo dunia"]);
 		expect(r.candidates).toEqual([
 			{ lang: L("id"), score: 0.7 },
 			{ lang: L("en"), score: 0.2 },
 		]);
 		expect(r.reliable).toBe(true);
-		expect(freed.n).toBe(1);
+		expect(freed.n).toBe(2);
+	});
+
+	test("the model's bias-only answer is no evidence, not English (GLIM-145)", () => {
+		const freed = { n: 0 };
+		const bias: [number, string][] = [
+			[0.1245, "__label__en"],
+			[0.0859, "__label__ca"],
+		];
+		const native: FastTextNative = {
+			getLabels: () => [vector(["__label__en", "__label__ca", "__label__sw"], freed)],
+			predict: (text) =>
+				vector<readonly [number, string]>(
+					text === "Habari"
+						? [
+								[0.6, "__label__sw"],
+								[0.1, "__label__en"],
+							]
+						: bias,
+					freed,
+				),
+		};
+		const d = new FastTextLanguageDetector(native);
+		expect(d.detect("Jumla")).toEqual({ candidates: [], reliable: false, noEvidence: true });
+		expect(d.detect("Habari").candidates[0]).toEqual({ lang: L("sw"), score: 0.6 });
+		expect(d.detect("Habari").noEvidence).toBeUndefined();
 	});
 });

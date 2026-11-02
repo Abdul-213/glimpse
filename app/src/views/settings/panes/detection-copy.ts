@@ -18,6 +18,7 @@ export function noteFor(l: SourceLanguageChoice, identifier: ModelRow | undefine
 	}
 	if (!l.localOcr) return "Can't be read on this computer";
 	if (l.localOcrPartial) return "Tone marks often lost on this computer";
+	if (l.weakDetection) return "Short text often not recognised";
 	if (!l.localTranslation) return "No offline translation";
 	return undefined;
 }
