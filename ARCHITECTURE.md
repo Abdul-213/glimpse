@@ -51,6 +51,8 @@ test and `electrobun build` there, but nothing user-facing is tuned for it.
 ├── .github/workflows/ci.yml     Linux CI: typecheck, lint, test, harness, Linux build
 ├── .github/workflows/native.yml compile + load the native helpers on Windows/macOS runners
 ├── .github/workflows/desktop.yml Windows/macOS: typecheck, test, native helper, stable build, unsigned artifacts
+├── .github/workflows/model-mirror.yml manual: OCR models + NOTICE as release `models-ocr-v<ver>` assets (GLIM-95;
+│                                app/scripts/model-mirror.ts; each OCR file's second manifest URL)
 ├── package.json                 Bun workspace root (workspaces: app, packages/*) and the root scripts
 ├── tsconfig.base.json           shared strict compiler options; each package has its own tsconfig.json
 ├── biome.json                   lint + format, including the @glimpse/core import boundary
