@@ -63,11 +63,12 @@ export interface DetectOptions {
 	/** Rule 4w: blocks with fewer weighted letters than this may take the capture's script prior. */
 	readonly priorMaxLetters: number;
 	/**
-	 * Rule 4w: the prior wins when the block scores it within this of its own top-1. On ELD's
-	 * scale (GLIM-140: Cyrillic near-ties are 0.004-0.007 apart; a clear Russian sentence leads
-	 * by 0.026). Recalibrate for another detector's scores.
+	 * Rule 4w: the prior wins when the block scores it within this of its own top-1; null = rule
+	 * 4w off. Score-scale specific, so it comes from the detector's `tuning` (GLIM-104): ELD's
+	 * 0.01 (GLIM-140: Cyrillic near-ties are 0.004-0.007 apart; a clear Russian sentence leads
+	 * by 0.026) means nothing on fastText's probabilities.
 	 */
-	readonly priorMargin: number;
+	readonly priorMargin: number | null;
 }
 
 export const DETECT_DEFAULTS: Omit<DetectOptions, "subset" | "target" | "detector"> = {
@@ -76,8 +77,16 @@ export const DETECT_DEFAULTS: Omit<DetectOptions, "subset" | "target" | "detecto
 	dominance: 0.7,
 	minOcrConfidence: 0.6,
 	priorMaxLetters: 24,
-	priorMargin: 0.01,
+	priorMargin: null,
 };
+
+/** Defaults, then the detector's own tuning, then explicit options (undefined ones ignored). */
+function resolveOptions(
+	options: Partial<DetectOptions> & Pick<DetectOptions, "subset" | "target" | "detector">,
+): DetectOptions {
+	const explicit = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined));
+	return { ...DETECT_DEFAULTS, ...options.detector?.tuning, ...explicit } as DetectOptions;
+}
 
 export interface DetectInput {
 	readonly id: BlockId;
@@ -110,7 +119,7 @@ export function detectCaptureLanguages(
 	options: Partial<DetectOptions> & Pick<DetectOptions, "subset" | "target" | "detector">,
 	memory?: DecisionMemory,
 ): Map<BlockId, LanguageDecision> {
-	const o: DetectOptions = { ...DETECT_DEFAULTS, ...options };
+	const o = resolveOptions(options);
 	const priors = scriptPriors(blocks, o);
 	const first = blocks.map((b) => firstPass(b, o, priors));
 
@@ -212,7 +221,7 @@ function firstPass(block: DetectInput, o: DetectOptions, priors: ScriptPriors): 
 		// 4w: a short block's near-tie goes to the capture's script prior.
 		const prior = script ? priors.get(script) : undefined;
 		const own = prior && prior.lang !== top.lang ? candidates.find((c) => c.lang === prior.lang) : undefined;
-		if (own && letters < o.priorMaxLetters && top.score - own.score <= o.priorMargin) {
+		if (own && o.priorMargin !== null && letters < o.priorMaxLetters && top.score - own.score <= o.priorMargin) {
 			return { done: decision(own.lang, own.score, "4w", o) };
 		}
 		return { done: decision(top.lang, top.score, "4", o) };

@@ -30,6 +30,8 @@ export const SETTINGS_VARIANTS: GalleryVariant[] = [
 	v("general-windows-light", "os=windows&pane=general", "light", 1100),
 	v("languages-macos-light", "os=macos&pane=languages", "light"),
 	v("languages-windows-dark", "os=windows&pane=languages", "dark"),
+	// GLIM-104: Indonesian and Swahili chosen, the language identifier not downloaded yet.
+	v("languages-macos-light-identifier", "os=macos&pane=languages&scenario=identifier", "light", 900),
 	v("shortcuts-macos-light-conflict", "os=macos&pane=shortcuts&scenario=conflict", "light"),
 	v("shortcuts-windows-light", "os=windows&pane=shortcuts", "light"),
 	v("providers-macos-light", "os=macos&pane=providers", "light", 1180),

@@ -1,7 +1,7 @@
 // Electrobun preBuild hook (electrobun.config.ts `scripts.preBuild`). Hutch imports
 // this file from a runner, so `import.meta.main` is false here: do the work at top level.
 // Hutch sets ELECTROBUN_BUILD_ENV (dev | canary | stable) and ELECTROBUN_OS.
-import { existsSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { NATIVE_LIBS } from "../electrobun.config.ts";
 import { buildViews, viewsOut } from "./build-views.ts";
@@ -73,6 +73,20 @@ try {
 	rmSync(modelsOut, { recursive: true, force: true });
 	writeStagingExtras(modelsOut, { schema: manifest.schema, models: [] });
 }
+
+// fastText's WASM runtime (GLIM-104): the main bundle inlines fasttext.wasm.js's loader, which
+// would look for the .wasm next to the bundle. Only the runtime: the package's own copy of the
+// CC-BY-SA model is never shipped (it downloads on demand, app/models/manifest.json).
+const fastTextOut = join(import.meta.dir, "..", "dist", "fasttext");
+mkdirSync(fastTextOut, { recursive: true });
+copyFileSync(
+	Bun.resolveSync(
+		"fasttext.wasm.js/dist/core/fastText.node.wasm",
+		join(import.meta.dir, "..", "..", "packages", "providers"),
+	),
+	join(fastTextOut, "fastText.node.wasm"),
+);
+console.log(`[prebuild] fastText runtime -> ${fastTextOut}`);
 
 // Native helper: electrobun.config.ts copies it only if it was built first.
 const nativeLib = { darwin: NATIVE_LIBS.darwin.from, win32: NATIVE_LIBS.win32.from }[

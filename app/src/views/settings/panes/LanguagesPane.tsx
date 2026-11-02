@@ -1,4 +1,4 @@
-import type { LanguageCode, Settings, SourceLanguageChoice } from "@glimpse/core";
+import type { LanguageCode, Settings } from "@glimpse/core";
 import {
 	Button,
 	LanguageMultiSelect,
@@ -7,21 +7,11 @@ import {
 	SettingsGroup,
 	SettingsRow,
 } from "@glimpse/ui";
-import { createMemo, createSignal, createUniqueId, type JSX, Show } from "solid-js";
+import { createMemo, createSignal, createUniqueId, type JSX, onMount, Show } from "solid-js";
 import type { SettingsState } from "../state.ts";
 import { Pane } from "./common.tsx";
-
-/**
- * The one note an option shows: what stops it working, most fundamental first. Missing packs
- * aren't noted (almost every language starts without one); Models and the popup offer them.
- */
-function noteFor(l: SourceLanguageChoice): string | undefined {
-	if (!l.detectable) return "Can't be detected reliably";
-	if (!l.localOcr) return "Can't be read on this computer";
-	if (l.localOcrPartial) return "Tone marks often lost on this computer";
-	if (!l.localTranslation) return "No offline translation";
-	return undefined;
-}
+import { identifierPrompt, LANGUAGE_IDENTIFIER_ID, noteFor, waitingForIdentifier } from "./detection-copy.ts";
+import { LANGUAGE_IDENTIFIER_FOOTER, ModelRowView } from "./ModelsPane.tsx";
 
 /**
  * Settings › Languages (GLIM-68): translate every language, or only a chosen subset. An empty
@@ -34,6 +24,22 @@ export function LanguagesPane(props: { state: SettingsState; onManagePacks: () =
 	const sources = () => s().language.sources;
 	const [onlyChosen, setOnlyChosen] = createSignal(sources().length > 0);
 	const mode = () => (onlyChosen() || sources().length > 0 ? "only" : "any");
+	// The language identifier (GLIM-104): its Models row, kept fresh by `modelsChanged`.
+	onMount(() => {
+		if (!props.state.models()) void props.state.loadModels().catch(() => {});
+	});
+	const identifier = () => props.state.models()?.rows.find((r) => r.id === LANGUAGE_IDENTIFIER_ID);
+	const [identifierError, setIdentifierError] = createSignal<string | undefined>(undefined);
+	const chosen = () => {
+		const codes = new Set<string>(sources());
+		return (props.state.languages()?.groups ?? []).flatMap((g) => g.languages.filter((l) => codes.has(l.code)));
+	};
+	const waiting = () => waitingForIdentifier(chosen(), identifier());
+	const request = props.state.client.request;
+	const identifierAct = async (fn: () => Promise<{ ok: boolean; message?: string }>) => {
+		const r = await fn();
+		setIdentifierError(r.ok ? undefined : r.message);
+	};
 
 	const groups = createMemo<LanguageOptionGroup[]>(() => {
 		const snap = props.state.languages();
@@ -45,7 +51,7 @@ export function LanguagesPane(props: { state: SettingsState; onManagePacks: () =
 				code: l.code,
 				name: l.name,
 				nativeName: l.nativeName,
-				note: noteFor(l),
+				note: noteFor(l, identifier()),
 			})),
 		}));
 	});
@@ -100,6 +106,27 @@ export function LanguagesPane(props: { state: SettingsState; onManagePacks: () =
 					</div>
 				</Show>
 			</SettingsGroup>
+
+			<Show when={mode() === "only" && (waiting().length > 0 || identifier()?.state.status === "downloading")}>
+				<SettingsGroup title="Language detection" footer={LANGUAGE_IDENTIFIER_FOOTER}>
+					<Show when={waiting().length > 0}>
+						<div class="glim-row">
+							<p class="glim-description m-0">{identifierPrompt(waiting())}</p>
+						</div>
+					</Show>
+					<Show when={identifier()}>
+						{(row) => (
+							<ModelRowView
+								row={row()}
+								error={identifierError()}
+								onDownload={() => void identifierAct(() => request.downloadModel({ id: row().id }))}
+								onCancel={() => void identifierAct(() => request.cancelModelDownload({ id: row().id }))}
+								onRemove={() => void identifierAct(() => request.removeModel({ id: row().id }))}
+							/>
+						)}
+					</Show>
+				</SettingsGroup>
+			</Show>
 
 			<SettingsGroup title="Language packs">
 				<SettingsRow

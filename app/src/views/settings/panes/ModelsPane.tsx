@@ -37,7 +37,8 @@ export function ModelsPane(props: { state: SettingsState }): JSX.Element {
 	const request = props.state.client.request;
 
 	const ocrRows = () => m()?.rows.filter((r) => r.kind === "ocr") ?? [];
-	const translationRows = () => m()?.rows.filter((r) => r.kind !== "ocr") ?? [];
+	const translationRows = () => m()?.rows.filter((r) => r.kind !== "ocr" && r.kind !== "detector") ?? [];
+	const detectorRows = () => m()?.rows.filter((r) => r.kind === "detector") ?? [];
 
 	return (
 		<Pane title="Models">
@@ -155,6 +156,22 @@ export function ModelsPane(props: { state: SettingsState }): JSX.Element {
 							</Show>
 						</SettingsGroup>
 
+						<Show when={detectorRows().length > 0}>
+							<SettingsGroup title="Language detection" footer={LANGUAGE_IDENTIFIER_FOOTER}>
+								<For each={detectorRows()}>
+									{(row) => (
+										<ModelRowView
+											row={row}
+											error={rowErrors()[row.id]}
+											onDownload={() => void act(row.id, () => request.downloadModel({ id: row.id }))}
+											onCancel={() => void act(row.id, () => request.cancelModelDownload({ id: row.id }))}
+											onRemove={() => void act(row.id, () => request.removeModel({ id: row.id }))}
+										/>
+									)}
+								</For>
+							</SettingsGroup>
+						</Show>
+
 						<Show when={snap().freeBytes !== null && (snap().freeBytes ?? 0) < 512 * 1024 * 1024}>
 							<div class="mt-5">
 								<Banner tone="warning" title="The models folder's disk is nearly full">
@@ -190,6 +207,10 @@ function catalogueLine(c: ModelsSnapshot["catalogue"]): string {
 	}
 }
 
+/** fastText's model is CC-BY-SA-3.0 (GLIM-104): attribution next to its download. */
+export const LANGUAGE_IDENTIFIER_FOOTER =
+	"fastText's language identification model, by Facebook AI Research, under CC BY-SA 3.0. Glimpse uses it only when your source languages include one the built-in detector doesn't know.";
+
 interface ModelRowViewProps {
 	row: ModelRow;
 	error?: string | undefined;
@@ -198,7 +219,7 @@ interface ModelRowViewProps {
 	onRemove: () => void;
 }
 
-function ModelRowView(props: ModelRowViewProps): JSX.Element {
+export function ModelRowView(props: ModelRowViewProps): JSX.Element {
 	const st = () => props.row.state;
 	const description = () => {
 		const s = st();

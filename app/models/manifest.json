@@ -405,6 +405,22 @@
 					"size": 7988527
 				}
 			]
+		},
+		{
+			"id": "fasttext-lid176",
+			"kind": "language-detector",
+			"bundled": false,
+			"licence": "CC-BY-SA-3.0",
+			"attribution": "fastText language identification model lid.176.ftz (Facebook AI Research, fasttext.cc), unmodified",
+			"revision": "lid.176.ftz (2017, unversioned upstream)",
+			"files": [
+				{
+					"name": "lid.176.ftz",
+					"urls": ["https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"],
+					"sha256": "8f3472cfe8738a7b6099e8e999c3cbfae0dcd15696aac7d7738a8039db603e83",
+					"size": 938013
+				}
+			]
 		}
 	]
 }

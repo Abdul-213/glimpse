@@ -207,6 +207,8 @@ describe("GLIM-21 rules", () => {
 			],
 		} as const;
 		const languages = ["en", "ru", "uk", "bg", "sr", "be", "de"];
+		// ELD's thresholds (providers ELD_TUNING): the fixture scores are ELD's (GLIM-104 keeps 4w ELD-only).
+		const tuning = { priorMargin: 0.01, priorMaxLetters: 24 };
 		const menuBlocks = [
 			block("a", "Нов прозорец"),
 			block("b", "Отваряне на файл"),
@@ -216,7 +218,7 @@ describe("GLIM-21 rules", () => {
 		const cyrillic = subset("ru", "uk", "bg", "en");
 
 		test("short near-ties take the window's language (4w); the short item inherits it (5b)", () => {
-			const detector = new FakeLanguageDetector(menu, { languages });
+			const detector = new FakeLanguageDetector(menu, { languages, tuning });
 			const r = detectCaptureLanguages(menuBlocks, { subset: cyrillic, target: L("en"), detector });
 			expect(r.get("a")).toMatchObject({ rule: "4w", translate: true, confident: true, language: { lang: "bg" } });
 			expect(r.get("b")).toMatchObject({ rule: "4", language: { lang: "bg" } });
@@ -225,6 +227,23 @@ describe("GLIM-21 rules", () => {
 			expect(r.get("d")).toMatchObject({ rule: "5b", language: { lang: "bg" } });
 			// One extra detector call for the joined Cyrillic text.
 			expect(detector.calls.filter((t) => t.includes(" Изход"))).toHaveLength(1);
+		});
+
+		test("GLIM-104: 4w is the detector's own calibration; without it (fastText) rule 4 decides", () => {
+			const plain = new FakeLanguageDetector(menu, { languages, id: "fasttext-like" });
+			const r = detectCaptureLanguages(menuBlocks, { subset: cyrillic, target: L("en"), detector: plain });
+			expect(r.get("a")).toMatchObject({ rule: "4", language: { lang: "ru" } });
+			// The prior still backs 5b for blocks nothing else decided.
+			expect(r.get("d")).toMatchObject({ rule: "5b" });
+			// Explicit options still win over a detector's tuning.
+			const tuned = new FakeLanguageDetector(menu, { languages, tuning });
+			const off = detectCaptureLanguages(menuBlocks, {
+				subset: cyrillic,
+				target: L("en"),
+				detector: tuned,
+				priorMargin: null,
+			});
+			expect(off.get("a")?.rule).toBe("4");
 		});
 
 		test("a clear lead, a long block or a prior the block doesn't rate keeps rule 4", () => {
@@ -243,7 +262,7 @@ describe("GLIM-21 rules", () => {
 					"Открыть окно": [["ru", 0.85]],
 					[`Нов прозорец Отваряне на файл ${long} Сохранить файл Открыть окно`]: [["bg", 0.83]],
 				},
-				{ languages },
+				{ languages, tuning },
 			);
 			const r = detectCaptureLanguages(
 				[
@@ -262,7 +281,7 @@ describe("GLIM-21 rules", () => {
 		});
 
 		test("no prior from one block, an unreliable joined text, or low-confidence OCR", () => {
-			const one = new FakeLanguageDetector(menu, { languages });
+			const one = new FakeLanguageDetector(menu, { languages, tuning });
 			const single = detectCaptureLanguages([block("a", "Нов прозорец")], {
 				subset: cyrillic,
 				target: L("en"),
@@ -271,11 +290,15 @@ describe("GLIM-21 rules", () => {
 			expect(single.get("a")).toMatchObject({ rule: "4", language: { lang: "ru" } });
 			expect(one.calls).toEqual(["Нов прозорец"]);
 
-			const unreliable = new FakeLanguageDetector(menu, { languages, reliable: (t) => t.length >= 8 && t.length < 40 });
+			const unreliable = new FakeLanguageDetector(menu, {
+				languages,
+				tuning,
+				reliable: (t) => t.length >= 8 && t.length < 40,
+			});
 			const r = detectCaptureLanguages(menuBlocks, { subset: cyrillic, target: L("en"), detector: unreliable });
 			expect(r.get("a")).toMatchObject({ rule: "4", language: { lang: "ru" } });
 
-			const blurry = new FakeLanguageDetector(menu, { languages });
+			const blurry = new FakeLanguageDetector(menu, { languages, tuning });
 			const low = detectCaptureLanguages(
 				menuBlocks.map((b) => ({ ...b, confidence: 0.4 })),
 				{ subset: cyrillic, target: L("en"), detector: blurry },
@@ -291,7 +314,7 @@ describe("GLIM-21 rules", () => {
 					"Нов прозорец Последни документи": [["bg", 0.83]],
 					"Open a new window": [["en", 0.9]],
 				},
-				{ languages },
+				{ languages, tuning },
 			);
 			const r = detectCaptureLanguages(
 				[block("a", "Нов прозорец"), block("b", "Open a new window"), block("c", "Последни документи")],

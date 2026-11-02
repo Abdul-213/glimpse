@@ -29,6 +29,12 @@ import {
 import type { ActionResult, ModelRow, ModelRowState, ModelsSnapshot } from "../../../shared/settings-rpc.ts";
 import type { ModelManagerPackSource } from "../translation/bergamot-packs.ts";
 import { SMALL100_DETAIL, SMALL100_RESOURCE_NAME } from "../translation/small100-model.ts";
+
+/** The fastText lid.176 row (GLIM-104). */
+export const LANGUAGE_IDENTIFIER_NAME = "Language identifier";
+export const LANGUAGE_IDENTIFIER_DETAIL =
+	"Recognises languages the built-in detector doesn't, such as Indonesian, Swahili and Uzbek";
+
 import { type BergamotCatalogue, manifestInstallable, packInstallable } from "./catalogue.ts";
 import { type ModelManager, volumeFreeBytes } from "./model-manager.ts";
 
@@ -272,7 +278,14 @@ export class ModelsSettings {
 	async #manifestRow(m: ModelEntry): Promise<ModelRow> {
 		const state = this.#o.manager.state(m.id);
 		const dir = this.#o.manager.modelDir(m.id);
-		const kind = m.kind === "translation-runtime" ? "runtime" : m.kind === "translation-model" ? "model" : "ocr";
+		const kind =
+			m.kind === "translation-runtime"
+				? "runtime"
+				: m.kind === "translation-model"
+					? "model"
+					: m.kind === "language-detector"
+						? "detector"
+						: "ocr";
 		const name =
 			m.kind === "ocr-detector"
 				? "Text finder"
@@ -280,7 +293,9 @@ export class ModelsSettings {
 					? "Translation engine"
 					: m.kind === "translation-model"
 						? SMALL100_RESOURCE_NAME
-						: RECOGNISER_NAMES[m.recognizer ?? "latin"];
+						: m.kind === "language-detector"
+							? LANGUAGE_IDENTIFIER_NAME
+							: RECOGNISER_NAMES[m.recognizer ?? "latin"];
 		const detail =
 			m.kind === "ocr-detector"
 				? "Finds lines of text in a region"
@@ -288,7 +303,9 @@ export class ModelsSettings {
 					? "Runs language packs on this computer"
 					: m.kind === "translation-model"
 						? SMALL100_DETAIL
-						: undefined;
+						: m.kind === "language-detector"
+							? LANGUAGE_IDENTIFIER_DETAIL
+							: undefined;
 		const bytes = dir && state.status === "installed" ? await this.#size(dir) : downloadSize(m);
 		return { id: m.id, kind, name, ...(detail ? { detail } : {}), bytes, state: rowState(state) };
 	}

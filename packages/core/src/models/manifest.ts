@@ -1,5 +1,6 @@
 // The model manifest: every downloadable artifact Glimpse knows by URL and hash (OCR models,
-// the Bergamot runtime, the SMaLL-100 long-tail model), which of them ship in the installer and which download on demand.
+// the Bergamot runtime, the SMaLL-100 long-tail model, the fastText language identifier),
+// which of them ship in the installer and which download on demand.
 // The checked-in copy is app/models/manifest.json (GLIM-37). Bergamot language packs are not
 // listed here: their catalogue comes from Mozilla Remote Settings at run time (GLIM-38).
 //
@@ -10,14 +11,23 @@ import { OCR_RECOGNIZERS } from "../language/ocr.ts";
 
 export const MODEL_MANIFEST_SCHEMA = 1;
 
-/** `translation-model`: a whole on-demand translation model (SMaLL-100, GLIM-100). */
-export type ModelKind = "ocr-detector" | "ocr-recognizer" | "translation-runtime" | "translation-model";
+/**
+ * `translation-model`: a whole on-demand translation model (SMaLL-100, GLIM-100).
+ * `language-detector`: a language identification model (fastText lid.176, GLIM-104).
+ */
+export type ModelKind =
+	| "ocr-detector"
+	| "ocr-recognizer"
+	| "translation-runtime"
+	| "translation-model"
+	| "language-detector";
 
 const MODEL_KINDS: readonly ModelKind[] = [
 	"ocr-detector",
 	"ocr-recognizer",
 	"translation-runtime",
 	"translation-model",
+	"language-detector",
 ];
 
 /** One file of a model. */

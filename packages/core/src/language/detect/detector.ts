@@ -19,9 +19,28 @@ export interface DetectorResult {
 	readonly reliable: boolean;
 }
 
+/**
+ * Thresholds tuned to one library's score scale (GLIM-104). Scores aren't comparable across
+ * libraries (ELD's are similarity scores packed near 0.8 for related languages; fastText's are
+ * softmax probabilities), so a margin calibrated on one means nothing on the other.
+ */
+export interface DetectorTuning {
+	/** Rule 4 score threshold; default GLIM-21's starting tau. */
+	readonly tau?: number;
+	/**
+	 * Rule 4w (GLIM-140): the capture's script prior wins a short block's near-tie when the
+	 * block scores it within this of its own top-1. Unset: rule 4w is off for this detector.
+	 */
+	readonly priorMargin?: number;
+	/** Rule 4w: only blocks with fewer weighted letters than this. */
+	readonly priorMaxLetters?: number;
+}
+
 export interface LanguageDetector {
 	/** `eld-medium`, `fasttext-lid176`. Part of cache keys. */
 	readonly id: string;
+	/** Thresholds calibrated to this detector's scores; GLIM-21 defaults (and no rule 4w) otherwise. */
+	readonly tuning?: DetectorTuning;
 	/** Languages it can return. */
 	readonly languages: readonly LanguageCode[];
 	/** Detect over the full language set (never restricted to the subset, GLIM-21). */

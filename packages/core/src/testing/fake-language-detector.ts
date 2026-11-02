@@ -4,13 +4,14 @@
 //   const d = new FakeLanguageDetector({ "Hola amigos": [["es", 0.8]] }, { languages: ["es", "pt"] });
 
 import { type LanguageCode, languageCode } from "../language/code.ts";
-import type { DetectorResult, LanguageDetector } from "../language/detect/detector.ts";
+import type { DetectorResult, DetectorTuning, LanguageDetector } from "../language/detect/detector.ts";
 
 export type FakeDetection = readonly (readonly [string, number])[];
 
 export class FakeLanguageDetector implements LanguageDetector {
 	readonly id: string;
 	readonly languages: readonly LanguageCode[];
+	readonly tuning?: DetectorTuning;
 	readonly calls: string[] = [];
 	readonly #table: Readonly<Record<string, FakeDetection>>;
 	readonly #fallback: FakeDetection;
@@ -24,8 +25,11 @@ export class FakeLanguageDetector implements LanguageDetector {
 			readonly fallback?: FakeDetection;
 			/** Default: reliable when the text has at least 8 characters. */
 			readonly reliable?: (text: string) => boolean;
+			/** The detector's own thresholds (GLIM-104); none by default (rule 4w off). */
+			readonly tuning?: DetectorTuning;
 		} = {},
 	) {
+		if (options.tuning) this.tuning = options.tuning;
 		this.#table = table;
 		this.id = options.id ?? "fake-lid";
 		this.languages = (options.languages ?? ["en", "de", "fr", "es", "pt", "it", "ru", "uk", "zh", "ja"]).map(
