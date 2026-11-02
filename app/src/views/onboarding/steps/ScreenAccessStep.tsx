@@ -47,7 +47,7 @@ export function ScreenAccessStep(props: ScreenAccessStepProps): JSX.Element {
 			</Show>
 
 			<Show when={copy().unsignedNote}>
-				<p class="m-0 text-label text-text-secondary">
+				<p class="m-0 max-w-measure text-label text-text-secondary">
 					Glimpse isn't signed by Apple yet, so macOS may ask again after an update.{" "}
 					<TextButton onClick={() => props.onGuide()}>About unsigned builds</TextButton>
 				</p>

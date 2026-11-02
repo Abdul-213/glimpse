@@ -40,7 +40,7 @@ export function PackRows(props: PackRowsProps): JSX.Element {
 			<For each={props.rows}>
 				{(row) => (
 					<div class="glim-pack">
-						<p class="m-0 text-body text-text-secondary">
+						<p class="m-0 max-w-measure text-body text-text-secondary">
 							{props.text(row)}
 							<Show when={row.state === "offline"}> {props.offlineText}</Show>
 							<Show when={row.state === "failed"}> {props.failedText}</Show>

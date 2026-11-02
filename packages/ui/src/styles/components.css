@@ -414,6 +414,7 @@
 	}
 
 	.glim-description {
+		max-width: var(--container-measure);
 		margin: 0;
 		font-size: var(--text-label);
 		font-weight: var(--text-label--font-weight);

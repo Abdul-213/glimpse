@@ -463,6 +463,9 @@ A neutral, untinted grey system that disappears into OS chrome, with the OS acce
 - **Label** (500, 12px, 1.35): small control labels, the "N blocks skipped" line, per-block language tags, provider indicators, the popup footer status, the Live status label, tooltip text, `kbd` chips and HUD chips. Sentence case, never uppercase, no extra tracking.
 - **Numeric** (500, 12px, 1.35, tabular figures): picker size readout, download progress, byte counts, timers.
 
+### Measure
+Prose in Settings and onboarding (step leads, row and switch descriptions, group footers, banner copy, pack and status notes) wraps at **60ch**, about 70–75 characters a line in the system faces, however wide the window is resized. The cap is the `--container-measure` theme value (`max-w-measure` in markup; `.glim-description` and the Banner body carry it), set in `packages/ui/src/styles/theme.css` because the frontmatter has no size scale. Widths are logical, so RTL wraps the same. Titles, headings, labels and single-line status text are not capped.
+
 ### Script stacks and sizing
 Every rendered block carries the `lang` attribute from language detection (BCP-47, e.g. `ja`, `zh-Hant`, `ar`) and `dir="auto"`; CSS picks the stack and leading with `:lang()`. Stacks put the OS face first and the Noto family last, so text matches the OS where it can and never shows as tofu. The full stacks are in `.impeccable/design.json` → `extensions.scriptTypography`; the rules that matter:
 

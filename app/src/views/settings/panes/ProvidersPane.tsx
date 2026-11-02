@@ -417,7 +417,7 @@ function KeyGroup(props: GroupProps & { keyStatus: ApiKeyStatus }): JSX.Element 
 					<Show
 						when={busy() !== "test" && k().lastTest}
 						fallback={
-							<p class="m-0 text-label text-text-secondary">
+							<p class="m-0 max-w-measure text-label text-text-secondary">
 								Checking with {k().vendor}. Nothing from your screen is sent.
 							</p>
 						}
@@ -438,7 +438,7 @@ function KeyGroup(props: GroupProps & { keyStatus: ApiKeyStatus }): JSX.Element 
 										</p>
 									)}
 								</For>
-								<p class="m-0 text-label text-text-secondary">
+								<p class="m-0 max-w-measure text-label text-text-secondary">
 									{t().ok ? "Key works" : "Some checks failed"}, {checkedAt(t().at)}.
 								</p>
 							</div>

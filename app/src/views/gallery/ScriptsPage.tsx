@@ -7,7 +7,7 @@ function Heading(props: { title: string; note: string }): JSX.Element {
 	return (
 		<div class="mb-3 flex flex-col gap-0.5">
 			<h2 class="m-0 text-heading">{props.title}</h2>
-			<p class="m-0 max-w-[70ch] text-body text-text-secondary">{props.note}</p>
+			<p class="m-0 max-w-measure text-body text-text-secondary">{props.note}</p>
 		</div>
 	);
 }

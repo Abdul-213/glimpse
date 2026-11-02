@@ -124,7 +124,7 @@ export function DownloadsStep(props: DownloadsStepProps): JSX.Element {
 
 			<Switch>
 				<Match when={d().active}>
-					<p class="m-0 text-label text-text-secondary">
+					<p class="m-0 max-w-measure text-label text-text-secondary">
 						The download keeps going in the background while you finish setup.{" "}
 						<TextButton onClick={() => props.onStop()}>Stop downloading</TextButton>
 					</p>

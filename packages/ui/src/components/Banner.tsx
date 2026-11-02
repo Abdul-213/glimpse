@@ -25,7 +25,7 @@ export function Banner(props: BannerProps): JSX.Element {
 			<div class="flex min-w-0 flex-1 flex-col gap-1">
 				<p class="m-0 text-body font-semibold">{props.title}</p>
 				<Show when={props.children}>
-					<p class="m-0 text-body text-text-secondary">{props.children}</p>
+					<p class="m-0 max-w-measure text-body text-text-secondary">{props.children}</p>
 				</Show>
 				<Show when={props.actions}>
 					<div class="mt-2 flex flex-wrap gap-2">{props.actions}</div>
