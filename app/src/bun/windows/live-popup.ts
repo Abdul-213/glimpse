@@ -9,7 +9,10 @@
 //            HWND_TOPMOST, shown with `showInactive` (SW_SHOWNOACTIVATE).
 //   Both     the first show goes through CaptureExclusion, so Live never reads its own popup.
 //
-// Native materials aren't wired yet (as Snip): the view paints the solid veil.
+// Materials and theme (GLIM-132) come from WindowChrome (window-chrome.ts), as for the Snip
+// popup: NSVisualEffectView .popover on macOS, Acrylic on Windows 11 22H2+, the solid veil on
+// Windows 10 / 21H2 and with reduced transparency (re-read before every show); it also sets the
+// view's `data-material` / `data-theme`, so Settings › General › Theme applies at once.
 import { type Display, displayAt } from "@glimpse/core";
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { LiveRPC, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
@@ -17,8 +20,10 @@ import { loadAnnounceNative } from "../native/announce.ts";
 import { loadMacNative } from "../native/macos.ts";
 import { configureLivePopupWindow, raiseTopmost } from "../native/windows.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
+import { electrobunChromeTarget } from "./chrome-target.ts";
 import type { LivePopupController, LivePopupWindowPort } from "./live-popup-controller.ts";
 import { macFlipOffset } from "./popup-init.ts";
+import type { ChromeHandle, WindowChrome } from "./window-chrome.ts";
 
 export interface ElectrobunLivePopupDeps {
 	readonly exclusion: CaptureExclusion;
@@ -27,6 +32,8 @@ export interface ElectrobunLivePopupDeps {
 	readonly controller: () => LivePopupController | null;
 	readonly displays: () => readonly Display[];
 	readonly log: (message: string) => void;
+	/** Native material and theme (GLIM-132). Without it: solid veil, OS theme. */
+	readonly chrome?: WindowChrome;
 }
 
 const str = (v: unknown): v is string => typeof v === "string";
@@ -38,6 +45,7 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 	private visible = false;
 	private last: LiveStateMessage | null = null;
 	private displayId: number | null = null;
+	private readonly chrome: ChromeHandle | null;
 
 	constructor(private readonly deps: ElectrobunLivePopupDeps) {
 		const c = () => deps.controller();
@@ -95,7 +103,7 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 			title: "Glimpse Live",
 			url: "views://live/index.html",
 			frame: { x: at.x + 8, y: at.y + 8, width: 360, height: 96 },
-			transparent: !win32,
+			transparent: deps.chrome ? deps.chrome.transparentFor("popup") : !win32,
 			titleBarStyle: win32 ? "hiddenInset" : "hidden",
 			styleMask: { Borderless: true, Titled: false, Closable: false, Miniaturizable: false, Resizable: false },
 			hidden: true,
@@ -104,6 +112,9 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 		});
 		this.displayId = primary?.id ?? null;
 		this.configure();
+		// After the NSPanel re-class (same NSWindow*), so the effect view lands in the panel.
+		this.chrome = deps.chrome?.attach(electrobunChromeTarget(this.win), "popup") ?? null;
+		this.chrome?.disableResize();
 		this.win.on("focus", () => c()?.windowFocused());
 		this.win.on("blur", () => c()?.windowBlurred());
 	}
@@ -143,6 +154,8 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 	}
 
 	private reveal(show: () => void): void {
+		// Reduced transparency may have changed while hidden: material and veil follow it.
+		this.chrome?.refresh();
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
 			// GLIM-98/128: a `popup` follows "Hide Glimpse from screenshots"; with it off, its
@@ -219,6 +232,7 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 	}
 
 	close(): void {
+		this.chrome?.dispose();
 		try {
 			this.win.close();
 		} catch {

@@ -36,7 +36,9 @@ document.addEventListener("contextmenu", (e) => e.preventDefault());
 rpc.request
 	.getLiveInit()
 	.then((i) => {
-		applyPlatform(i.os, { material: "none" });
+		// data-material (native / none) and data-theme come from the window's chrome
+		// (window-chrome.ts, GLIM-132): the solid veil until it says a material is behind the webview.
+		applyPlatform(i.os);
 		document.documentElement.lang = i.uiLang;
 		document.documentElement.dir = i.uiDir;
 		setInit(i);
