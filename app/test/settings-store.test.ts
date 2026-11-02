@@ -8,6 +8,7 @@ import {
 	languageCode,
 	loadSettings,
 	ProviderRegistry,
+	SETTINGS_VERSION,
 	saveSettings,
 } from "@glimpse/core";
 import { settingsEnvFor } from "../src/bun/services/settings-env.ts";
@@ -104,7 +105,7 @@ describe("settings on disk (core policy + file store)", () => {
 		expect(loaded.backups).toHaveLength(1);
 		const backup = loaded.backups[0];
 		expect(backup && (await readFile(backup, "utf8"))).toBe("{ not json");
-		expect(JSON.parse(await readFile(join(dir, "settings.json"), "utf8")).version).toBe(1);
+		expect(JSON.parse(await readFile(join(dir, "settings.json"), "utf8")).version).toBe(SETTINGS_VERSION);
 	});
 });
 

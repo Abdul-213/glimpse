@@ -31,7 +31,8 @@ import {
 import { type HotkeyBindings, hotkeyBindingsSchema } from "./hotkeys.ts";
 import { ONBOARDING_STEPS, type OnboardingStep } from "./onboarding.ts";
 
-export const SETTINGS_VERSION = 1;
+/** 2: GLIM-139 added small100 to stored translation chains. */
+export const SETTINGS_VERSION = 2;
 
 export interface Settings {
 	readonly language: {

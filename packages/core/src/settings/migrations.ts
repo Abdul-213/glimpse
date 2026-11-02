@@ -15,8 +15,41 @@ export interface Migration {
 	migrate(input: JsonObject): JsonObject;
 }
 
-/** Shipped migrations. Version 1 is the first released shape, so none yet. */
-export const SETTINGS_MIGRATIONS: readonly Migration[] = [];
+// Literal ids rather than PROVIDER_IDS: a migration must keep meaning what it meant when it
+// shipped, even if the registry changes later. Cloud ids are `cloud:<name>` (provenance.ts).
+const BERGAMOT = "bergamot";
+const SMALL100 = "small100";
+const CLOUD_PREFIX = "cloud:";
+
+/**
+ * GLIM-139 (1 -> 2): add SMaLL-100 to translation chains saved before it existed.
+ *
+ * The providers section is stored whole, so a file written before GLIM-100 keeps
+ * `translation: ["bergamot"]` and never gets the long-tail model. When the chain has
+ * bergamot and no small100, small100 goes right after the last local translator: never
+ * ahead of a cloud provider the user put first, and never after a cloud one (the registry
+ * would drop a local-after-cloud entry anyway). Runs once: a user who removes small100
+ * afterwards has a version-2 file and is left alone.
+ */
+export const addSmall100ToTranslationChain: Migration = {
+	from: 1,
+	description: "add small100 after the last local translator in chains that have bergamot",
+	migrate(input) {
+		const providers = input["providers"];
+		if (!isPlainObject(providers)) return input;
+		const chain = (providers as JsonObject)["translation"];
+		if (!Array.isArray(chain) || !chain.includes(BERGAMOT) || chain.includes(SMALL100)) return input;
+		let lastLocal = -1;
+		chain.forEach((id, i) => {
+			if (typeof id === "string" && !id.startsWith(CLOUD_PREFIX)) lastLocal = i;
+		});
+		const translation = [...chain.slice(0, lastLocal + 1), SMALL100, ...chain.slice(lastLocal + 1)];
+		return { ...input, providers: { ...(providers as JsonObject), translation } };
+	},
+};
+
+/** Shipped migrations, in order. Version 1 is the first released shape. */
+export const SETTINGS_MIGRATIONS: readonly Migration[] = [addSmall100ToTranslationChain];
 
 export type VersionInfo =
 	| { readonly kind: "current" }

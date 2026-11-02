@@ -1,0 +1,17 @@
+{
+	"version": 1,
+	"language": {
+		"target": "en",
+		"sources": ["ja"]
+	},
+	"providers": {
+		"ocr": "paddleocr",
+		"translation": ["bergamot"],
+		"options": {
+			"bergamot": {}
+		}
+	},
+	"live": {
+		"fps": 2
+	}
+}

@@ -14,6 +14,7 @@ import {
 	ProviderRegistry,
 	parseSettings,
 	runMigrations,
+	SETTINGS_MIGRATIONS,
 	SETTINGS_VERSION,
 	type SettingsEnv,
 	saveSettings,
@@ -277,6 +278,78 @@ describe("migrations", () => {
 	});
 });
 
+describe("shipped migrations", () => {
+	const v1 = (translation: unknown): JsonObject => ({
+		version: 1,
+		providers: { ocr: "paddleocr", translation, options: {} },
+	});
+	const chainAfter = (input: JsonObject) => {
+		const out = runMigrations(input, SETTINGS_MIGRATIONS, SETTINGS_VERSION).data;
+		return (out["providers"] as JsonObject)["translation"];
+	};
+
+	test("every version below the current one has exactly one step", () => {
+		for (let v = 1; v < SETTINGS_VERSION; v++) {
+			expect(SETTINGS_MIGRATIONS.filter((m) => m.from === v)).toHaveLength(1);
+		}
+	});
+
+	test("GLIM-139: an old file with [bergamot] loads as [bergamot, small100]", async () => {
+		const text = await Bun.file(new URL("./fixtures/settings/v1-bergamot-only.json", import.meta.url)).text();
+		const store = new MemorySettingsStore(text);
+		const loaded = await loadSettings(store, env);
+		expect(loaded.source).toBe("migrated");
+		expect(loaded.fileVersion).toBe(1);
+		expect(loaded.warnings).toEqual([]);
+		expect(loaded.settings.providers.translation).toEqual(["bergamot", "small100"]);
+		// The rest of the file is untouched.
+		expect(Object.keys(loaded.settings.providers.options)).toEqual(["bergamot"]);
+		expect(loaded.settings.language.sources).toEqual([languageCode("ja")]);
+		expect(loaded.settings.live.fps).toBe(2);
+		expect(store.backups.map((b) => b.reason)).toEqual(["pre-migration"]);
+		expect(store.json()).toMatchObject({
+			version: SETTINGS_VERSION,
+			providers: { translation: ["bergamot", "small100"] },
+		});
+	});
+
+	test("GLIM-139: a cloud provider first stays first; small100 follows the last local one", () => {
+		expect(chainAfter(v1(["cloud:google-translate-v2", "bergamot"]))).toEqual([
+			"cloud:google-translate-v2",
+			"bergamot",
+			"small100",
+		]);
+		expect(chainAfter(v1(["bergamot", "nllb"]))).toEqual(["bergamot", "nllb", "small100"]);
+		// A hand-edited local-then-cloud chain: small100 never lands after the cloud entry.
+		expect(chainAfter(v1(["bergamot", "cloud:google-translate-v2"]))).toEqual([
+			"bergamot",
+			"small100",
+			"cloud:google-translate-v2",
+		]);
+	});
+
+	test("GLIM-139: chains without bergamot, with small100, or malformed are left alone", () => {
+		expect(chainAfter(v1(["bergamot", "small100"]))).toEqual(["bergamot", "small100"]);
+		expect(chainAfter(v1(["small100", "bergamot"]))).toEqual(["small100", "bergamot"]);
+		expect(chainAfter(v1(["cloud:google-translate-v2"]))).toEqual(["cloud:google-translate-v2"]);
+		expect(chainAfter(v1([]))).toEqual([]);
+		expect(chainAfter(v1("bergamot"))).toBe("bergamot");
+		const noProviders = runMigrations({ version: 1, live: { fps: 2 } }, SETTINGS_MIGRATIONS, SETTINGS_VERSION);
+		expect(noProviders.data).toEqual({ version: SETTINGS_VERSION, live: { fps: 2 } });
+	});
+
+	test("GLIM-139: a user who removes small100 after the migration is not changed again", async () => {
+		const store = new MemorySettingsStore(JSON.stringify(v1(["bergamot"])));
+		const first = await loadSettings(store, env);
+		expect(first.settings.providers.translation).toEqual(["bergamot", "small100"]);
+		const removed = { ...first.settings, providers: { ...first.settings.providers, translation: ["bergamot"] } };
+		await saveSettings(store, removed);
+		const again = await loadSettings(store, env);
+		expect(again.source).toBe("file");
+		expect(again.settings.providers.translation).toEqual(["bergamot"]);
+	});
+});
+
 describe("loadSettings", () => {
 	test("no file: defaults, nothing written", async () => {
 		const store = new MemorySettingsStore();
@@ -313,7 +386,7 @@ describe("loadSettings", () => {
 	});
 
 	test("bad fields warn but the file is not rewritten", async () => {
-		const text = JSON.stringify({ version: 1, live: { fps: "fast" } });
+		const text = JSON.stringify({ version: SETTINGS_VERSION, live: { fps: "fast" } });
 		const store = new MemorySettingsStore(text);
 		const loaded = await loadSettings(store, env);
 		expect(loaded.source).toBe("file");
@@ -350,7 +423,9 @@ describe("loadSettings", () => {
 
 	test("a UTF-8 BOM (Notepad) is accepted; unversioned files load as version 1", async () => {
 		const loaded = await loadSettings(new MemorySettingsStore('﻿{"live": {"fps": 2}}'), env);
-		expect(loaded.source).toBe("file");
+		// No version = 1, so it runs the migrations (a no-op here: the file has no providers).
+		expect(loaded.source).toBe("migrated");
+		expect(loaded.fileVersion).toBe(1);
 		expect(loaded.settings.live.fps).toBe(2);
 	});
 
