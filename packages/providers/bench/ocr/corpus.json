@@ -412,6 +412,281 @@
 			]
 		},
 		{
+			"id": "latin-id-settings",
+			"image": "corpus/latin-id-settings.png",
+			"width": 480,
+			"height": 300,
+			"script": "Latin (fastText)",
+			"kind": "rendered",
+			"sources": ["id", "en"],
+			"note": "Indonesian settings list + buttons (fastText)",
+			"blocks": [
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Pengaturan",
+							"box": {
+								"x": 25,
+								"y": 26,
+								"width": 113,
+								"height": 19
+							}
+						}
+					]
+				},
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Umum",
+							"box": {
+								"x": 25,
+								"y": 74,
+								"width": 46,
+								"height": 10
+							}
+						}
+					]
+				},
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Notifikasi",
+							"box": {
+								"x": 25,
+								"y": 109,
+								"width": 64,
+								"height": 11
+							}
+						}
+					]
+				},
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Privasi dan keamanan",
+							"box": {
+								"x": 25,
+								"y": 145,
+								"width": 154,
+								"height": 11
+							}
+						}
+					]
+				},
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Bahasa dan wilayah",
+							"box": {
+								"x": 25,
+								"y": 181,
+								"width": 138,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Periksa pembaruan",
+							"box": {
+								"x": 25,
+								"y": 217,
+								"width": 136,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Batal",
+							"box": {
+								"x": 288,
+								"y": 259,
+								"width": 32,
+								"height": 11
+							}
+						}
+					]
+				},
+				{
+					"lang": "id",
+					"lines": [
+						{
+							"text": "Simpan",
+							"box": {
+								"x": 387,
+								"y": 259,
+								"width": 49,
+								"height": 15
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-sw-shop",
+			"image": "corpus/latin-sw-shop.png",
+			"width": 560,
+			"height": 220,
+			"script": "Latin (fastText)",
+			"kind": "screenshot-like",
+			"sources": ["sw", "en"],
+			"note": "Swahili shop page with an English sign-in button, JPEG q75 (fastText)",
+			"jpeg": 0.75,
+			"blocks": [
+				{
+					"lang": "sw",
+					"lines": [
+						{
+							"text": "Kikapu cha ununuzi",
+							"box": {
+								"x": 21,
+								"y": 23,
+								"width": 184,
+								"height": 20
+							}
+						}
+					]
+				},
+				{
+					"lang": "sw",
+					"lines": [
+						{
+							"text": "Usafirishaji bure kwa oda zote zaidi ya shilingi elfu hamsini",
+							"box": {
+								"x": 21,
+								"y": 63,
+								"width": 384,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "en",
+					"lines": [
+						{
+							"text": "Sign in with Google",
+							"box": {
+								"x": 56,
+								"y": 115,
+								"width": 127,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "sw",
+					"lines": [
+						{
+							"text": "Ongeza kwenye kikapu",
+							"box": {
+								"x": 44,
+								"y": 177,
+								"width": 161,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "sw",
+					"lines": [
+						{
+							"text": "Nunua sasa",
+							"box": {
+								"x": 276,
+								"y": 178,
+								"width": 81,
+								"height": 10
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "latin-uz-chat",
+			"image": "corpus/latin-uz-chat.png",
+			"width": 500,
+			"height": 260,
+			"script": "Latin (fastText)",
+			"kind": "screenshot-like",
+			"sources": ["uz", "ru", "en"],
+			"note": "Uzbek (Latin) chat bubbles, 1x (fastText)",
+			"blocks": [
+				{
+					"lang": "uz",
+					"lines": [
+						{
+							"text": "Hali yoʻldaman, tirbandlik juda katta",
+							"box": {
+								"x": 31,
+								"y": 31,
+								"width": 252,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "uz",
+					"lines": [
+						{
+							"text": "Xoʻp, bekat oldida kutib turaman",
+							"box": {
+								"x": 194,
+								"y": 91,
+								"width": 229,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "uz",
+					"lines": [
+						{
+							"text": "Soyabon olishni unutma, yomgʻir yogʻadi",
+							"box": {
+								"x": 30,
+								"y": 151,
+								"width": 284,
+								"height": 15
+							}
+						}
+					]
+				},
+				{
+					"lang": "uz",
+					"lines": [
+						{
+							"text": "Katta rahmat, doʻstim!",
+							"box": {
+								"x": 305,
+								"y": 211,
+								"width": 154,
+								"height": 13
+							}
+						}
+					]
+				}
+			]
+		},
+		{
 			"id": "cjk-ja-game-dialogue",
 			"image": "corpus/cjk-ja-game-dialogue.png",
 			"width": 640,

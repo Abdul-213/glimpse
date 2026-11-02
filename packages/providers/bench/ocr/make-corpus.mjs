@@ -265,6 +265,68 @@ const F = (px, family = "Noto Sans", weight = "") => `${weight ? `${weight} ` : 
 	await s.save();
 }
 
+// ---- Latin, fastText subsets (GLIM-142) ------------------------------------------------
+// Subsets with a language ELD lacks (id, sw, uz), so `planDetector` picks fastText lid.176.
+// Their own script group so the ELD Latin numbers stay comparable.
+
+{
+	const s = scene("latin-id-settings", 480, 300, {
+		script: "Latin (fastText)",
+		kind: "rendered",
+		sources: ["id", "en"],
+		note: "Indonesian settings list + buttons (fastText)",
+	});
+	rect(s.g, 0, 0, 480, 300, "#f6f6f8");
+	s.block("id").line("Pengaturan", 24, 40, { font: F(20, "Noto Sans", "600") });
+	for (const [i, t] of [
+		"Umum",
+		"Notifikasi",
+		"Privasi dan keamanan",
+		"Bahasa dan wilayah",
+		"Periksa pembaruan",
+	].entries())
+		s.block("id").line(t, 24, 84 + i * 36, { font: F(15) });
+	button(s, "id", "Batal", 256, 248, 96, 34, { fill: "#e1e1e6", color: "#111", font: F(14) });
+	button(s, "id", "Simpan", 364, 248, 96, 34, { fill: "#2f6fde", color: "#fff", font: F(14) });
+	await s.save();
+}
+{
+	const s = scene("latin-sw-shop", 560, 220, {
+		script: "Latin (fastText)",
+		kind: "screenshot-like",
+		sources: ["sw", "en"],
+		note: "Swahili shop page with an English sign-in button, JPEG q75 (fastText)",
+	});
+	rect(s.g, 0, 0, 560, 220, "#ffffff");
+	s.block("sw").line("Kikapu cha ununuzi", 20, 38, { font: F(19, "Noto Sans", "700") });
+	s.block("sw").line("Usafirishaji bure kwa oda zote zaidi ya shilingi elfu hamsini", 20, 74, {
+		font: F(14),
+		color: "#555",
+	});
+	button(s, "en", "Sign in with Google", 20, 104, 200, 34, { fill: "#eef0f4", color: "#222", font: F(14) });
+	button(s, "sw", "Ongeza kwenye kikapu", 20, 164, 210, 38, { fill: "#f59e0b", color: "#111", font: F(15) });
+	button(s, "sw", "Nunua sasa", 246, 164, 140, 38, { fill: "#16a34a", color: "#fff", font: F(15) });
+	await s.save({ jpeg: 0.75 });
+}
+{
+	const s = scene("latin-uz-chat", 500, 260, {
+		script: "Latin (fastText)",
+		kind: "screenshot-like",
+		sources: ["uz", "ru", "en"],
+		note: "Uzbek (Latin) chat bubbles, 1x (fastText)",
+	});
+	rect(s.g, 0, 0, 500, 260, "#dfe7ee");
+	rect(s.g, 16, 16, 330, 40, "#ffffff", 14);
+	s.block("uz").line("Hali yoʻldaman, tirbandlik juda katta", 30, 42, { font: F(15) });
+	rect(s.g, 180, 76, 304, 40, "#c7f0c2", 14);
+	s.block("uz").line("Xoʻp, bekat oldida kutib turaman", 194, 102, { font: F(15) });
+	rect(s.g, 16, 136, 350, 40, "#ffffff", 14);
+	s.block("uz").line("Soyabon olishni unutma, yomgʻir yogʻadi", 30, 162, { font: F(15) });
+	rect(s.g, 290, 196, 194, 40, "#c7f0c2", 14);
+	s.block("uz").line("Katta rahmat, doʻstim!", 304, 222, { font: F(15) });
+	await s.save();
+}
+
 // ---- CJK -------------------------------------------------------------------------------
 
 {

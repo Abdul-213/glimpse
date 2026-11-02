@@ -11,11 +11,12 @@ and as the `ocr-bench` artifact).
 
 `packages/providers/bench/ocr/`: `corpus.json` (ground truth) and `corpus/*.png`, rendered by
 `make-corpus.mjs` with @napi-rs/canvas and the Noto fonts (re-render instructions in its header;
-the output is deterministic). 23 cases:
+the output is deterministic). 26 cases:
 
 | Script | Cases | What they cover |
 |---|---|---|
 | Latin | 7 | en dialog (title, wrapped body, buttons), de dark settings list, fr article, es 12 px menu bar at 1x, vi diacritics, en outlined subtitle over a busy video frame (JPEG q60), en low-contrast placeholder text |
+| Latin (fastText) | 3 | id settings list + buttons, sw shop page with an English button (JPEG q75), uz chat bubbles at 1x: subsets ELD can't cover, so detection runs on fastText lid.176 (GLIM-142; its own group so ELD's Latin numbers stay comparable) |
 | CJK | 5 | ja game dialogue box over a scene, ja UI with embedded Latin, zh-Hans paragraph + buttons, ko chat bubbles, ja vertical-rl columns |
 | Arabic | 2 | RTL article (heading + right-aligned paragraph), dark UI label + buttons (JPEG q75) |
 | Cyrillic | 3 | ru dialog, uk outlined subtitle over video (JPEG q60), bg menu (generic Cyrillic recogniser) |
@@ -32,7 +33,7 @@ The subset is what Snip passes to OCR (it picks the recognisers) and to detectio
 ## Method
 
 The engine runs as Snip calls it: default options, its own grouping, the case's subset as
-`languages`, then the app's GLIM-21 detector over ELD (`glim21Detector`, Snip mode). The rec
+`languages`, then the app's GLIM-21 detector over ELD and fastText (`glim21Detector`, Snip mode; `planDetector` picks fastText for the id, sw and uz subsets, and the model comes from `bun run models -- --all`). The rec
 cache (GLIM-88) is off so repeated runs measure real work. Per case: one first call (loads the
 recogniser if needed; reported, not gated), then `--iter` warm runs (default 5); latency is wall
 time per `recognise` including the worker round trip, p50 and p90.

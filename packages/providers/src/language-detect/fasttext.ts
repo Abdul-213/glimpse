@@ -9,8 +9,8 @@
 //   package's own copy of the model is never loaded.
 // - Labels (`__label__xx`, Wikipedia codes) map to BCP-47 through core's catalogue (`fasttext`
 //   scheme). `zh` has no script, so Simplified vs Traditional is chosen by character, like ELD.
-// - Scores are softmax probabilities. No rule 4w tuning (GLIM-140's margin is on ELD's scale);
-//   rule 4 uses GLIM-21's tau on the probability.
+// - Scores are softmax probabilities, so its thresholds are its own (`FASTTEXT_TUNING`,
+//   calibrated in GLIM-142 on bench/detection; GLIM-140's ELD margin means nothing here).
 // - `predict` is synchronous once the model is loaded (~0.09 ms per block, GLIM-21).
 
 /// <reference path="./fasttext-wasm.d.ts" />
@@ -19,6 +19,7 @@ import {
 	chineseVariant,
 	type DetectorCandidate,
 	type DetectorResult,
+	type DetectorTuning,
 	fromScheme,
 	type LanguageCode,
 	type LanguageDetector,
@@ -31,8 +32,24 @@ export const FASTTEXT_MODEL_FILE = "lid.176.ftz";
 
 /** How many labels a detection asks for (rule 5c looks at the top 3). */
 const TOP_K = 5;
-/** `reliable` when the top label's probability reaches this (GLIM-21: "fastText: p >= its threshold"). */
-export const FASTTEXT_RELIABLE = 0.5;
+/**
+ * Thresholds calibrated on fastText's probabilities (GLIM-142, `bun run bench:lid`: 190 blocks
+ * in 37 captures of id, sw, uz, af, gl, mk, kk, mn, ne, ps windows; numbers and method in
+ * docs/benchmarks/language-detection.md).
+ *
+ * - tau 0.5: the best of 0.1-0.8. Lower lets noisy short labels through rule 4 (0.4: -5
+ *   blocks without rule 4w, -1 with it), higher sends good ones to rule 5 (0.6: -7).
+ * - Rule 4w, margin 0.7 under 48 letters: a block under 48 letters takes the capture's script
+ *   prior when its own top-1 leads the prior's language by 0.7 or less. On softmax scores a
+ *   short block rarely says more than "somewhere near here" (gl "Abrir automaticamente ao
+ *   acender o ordenador": pt 0.79 / gl 0.15; ne "तिमी अहिले कहाँ छौ?": hi 0.67 / ne 0.22), while
+ *   the joined window reads clearly (that gl settings list: gl 0.98). 71.6% -> 75.8% of blocks
+ *   right. Margins of 0.9 and up start overriding confident
+ *   blocks of another language in mixed windows (kk "Телефон нөміріңізді енгізіңіз" at 0.94).
+ */
+export const FASTTEXT_TUNING = { tau: 0.5, priorMargin: 0.7, priorMaxLetters: 48 } as const satisfies DetectorTuning;
+/** `reliable` when the top label's probability reaches rule 4's tau (GLIM-21: "fastText: p >= its threshold"). */
+export const FASTTEXT_RELIABLE: number = FASTTEXT_TUNING.tau;
 
 /** The slice of fasttext.wasm.js's native model we use (an emscripten-bound fastText). */
 export interface FastTextNative {
@@ -61,6 +78,7 @@ const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 
 export class FastTextLanguageDetector implements LanguageDetector {
 	readonly id = "fasttext-lid176";
+	readonly tuning: DetectorTuning = FASTTEXT_TUNING;
 	readonly languages: readonly LanguageCode[];
 	readonly #ft: FastTextNative;
 

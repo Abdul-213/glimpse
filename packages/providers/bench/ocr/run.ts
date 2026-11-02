@@ -6,18 +6,21 @@
 //
 // PaddleOCR (the default local engine) runs exactly as Snip calls it: default options, the
 // case's source subset as `languages`, its own GLIM-56 grouping, then the app's GLIM-21
-// detector over ELD. The rec cache is off so repeated runs measure real work, not cache hits.
-// Models come from the dev cache (`bun run models -- --all`; on-demand recognisers included).
+// detector over ELD and fastText lid.176 (`planDetector` picks fastText for subsets ELD can't
+// cover, GLIM-104/GLIM-142). The rec cache is off so repeated runs measure real work, not cache
+// hits. Models come from the dev cache (`bun run models -- --all`; on-demand recognisers and
+// the fastText model included).
 //
 // --check compares with baseline.json and exits 1 on a large regression (metrics.ts
 // THRESHOLDS); a case whose recognisers aren't installed also fails it. --write-baseline
 // stores this run as the new baseline.
 import { cpus, platform, release } from "node:os";
 import { join } from "node:path";
-import { glim21Detector, languageCode, type OcrBlock } from "@glimpse/core";
+import { glim21Detector, languageCode, type OcrBlock, planDetector } from "@glimpse/core";
 import { loadEldDetector } from "../../src/language-detect/eld.ts";
+import { FASTTEXT_MODEL_ID, loadFastTextDetector } from "../../src/language-detect/fasttext.ts";
 import { PaddleOcrProvider } from "../../src/ocr/paddle/paddle-provider.ts";
-import { cacheSource } from "../../test/helpers/models.ts";
+import { cacheSource, manifest } from "../../test/helpers/models.ts";
 import { loadPng } from "../../test/helpers/png.ts";
 import {
 	type Baseline,
@@ -55,7 +58,14 @@ const initMs = performance.now() - tInit;
 const tWarm = performance.now();
 await ocr.warmup();
 const warmupMs = performance.now() - tWarm;
-const detector = glim21Detector({ detectors: [await loadEldDetector()] });
+// fastText from the dev cache, as the app loads it once downloaded. Without it, cases whose
+// subset needs it are skipped (and fail --check), like a missing recogniser.
+const ftEntry = manifest.models.find((m) => m.id === FASTTEXT_MODEL_ID);
+const ftFile = ftEntry?.files[0];
+const ftPath = ftEntry && ftFile ? cacheSource.resolve(ftEntry, ftFile) : null;
+const eld = await loadEldDetector();
+const fastText = ftPath ? await loadFastTextDetector({ modelPath: ftPath }) : null;
+const detector = glim21Detector({ detectors: fastText ? [eld, fastText] : [eld] });
 
 const results: CaseResult[] = [];
 const skipped: string[] = [];
@@ -66,6 +76,10 @@ for (const c of cases) {
 	// here it means the benchmark can't run the case as written.
 	if (missing.some((l) => c.blocks.some((b) => b.lang === l))) {
 		skipped.push(`${c.id} (recogniser missing for ${missing.join(", ")})`);
+		continue;
+	}
+	if (!fastText && planDetector(languages, [eld]).undetectable.length > 0) {
+		skipped.push(`${c.id} (fastText model ${FASTTEXT_MODEL_ID} missing)`);
 		continue;
 	}
 	const image = await loadPng(join(DIR, c.image));
