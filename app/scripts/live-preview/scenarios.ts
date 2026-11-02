@@ -106,6 +106,8 @@ export interface LiveScenario {
 	readonly maxHeight?: number;
 	readonly events: () => readonly (LiveSessionEvent | LivePopupAction)[];
 	readonly focused?: boolean;
+	/** Screenshots click this (a CSS selector) first, for states behind a press (GLIM-138 confirm). */
+	readonly click?: string;
 }
 
 export const LIVE_SCENARIOS: readonly LiveScenario[] = [
@@ -259,6 +261,13 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 		events: () => packEvents({ status: "downloading", receivedBytes: 12_400_000, totalBytes: 38_600_000 }),
 	},
 	{
+		name: "l12-long-tail-confirm",
+		note: "A Swahili block needs the More languages model: Download asks before 618 MB (GLIM-138)",
+		width: 400,
+		events: () => packEvents(null, "long-tail"),
+		click: "[data-pack-download]",
+	},
+	{
 		name: "l11-skipped",
 		note: "Skipped blocks (outside the source subset): one quiet line, never translated",
 		width: 400,
@@ -282,11 +291,20 @@ function skippedEvents(expanded: boolean): (LiveSessionEvent | LivePopupAction)[
 	return [opened(), status("starting"), frame(lines), status("live"), { type: "skipped", expanded }];
 }
 
-function packEvents(download: InstallState | null): (LiveSessionEvent | LivePopupAction)[] {
+function packEvents(
+	download: InstallState | null,
+	kind: "pack" | "long-tail" = "pack",
+): (LiveSessionEvent | LivePopupAction)[] {
 	seq = 0;
-	const de = languageCode("de");
+	const longTail = kind === "long-tail";
+	const de = languageCode(longTail ? "sw" : "de");
 	const waiting: LiveBlockUpdate = {
-		...up(["P1", "Sprich zuerst mit der Wache.", null, "translate", "de"], 1),
+		...up(
+			longTail
+				? ["P1", "Zungumza na mlinzi kwanza.", null, "translate", "sw"]
+				: ["P1", "Sprich zuerst mit der Wache.", null, "translate", "de"],
+			1,
+		),
 		waitingForPack: true,
 	};
 	const f = frame([DOOR]);
@@ -302,14 +320,24 @@ function packEvents(download: InstallState | null): (LiveSessionEvent | LivePopu
 			sessionId: S,
 			frameSeq: seq,
 			rows: [
-				{
-					lang: de,
-					state: "missing",
-					resourceIds: ["bergamot-deen"],
-					bytes: 38_600_000,
-					progress: null,
-					segmentIds: ["P1"],
-				},
+				longTail
+					? {
+							lang: de,
+							state: "missing",
+							resourceIds: ["small100"],
+							bytes: 618_000_000,
+							progress: null,
+							segmentIds: ["P1"],
+							kind: "long-tail-model",
+						}
+					: {
+							lang: de,
+							state: "missing",
+							resourceIds: ["bergamot-deen"],
+							bytes: 38_600_000,
+							progress: null,
+							segmentIds: ["P1"],
+						},
 			],
 		},
 	];

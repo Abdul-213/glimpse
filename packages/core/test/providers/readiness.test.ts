@@ -2,6 +2,8 @@
 import { describe, expect, test } from "bun:test";
 import {
 	type Availability,
+	downloadNeedsConfirm,
+	LARGE_DOWNLOAD_BYTES,
 	type LanguageCode,
 	languageCode,
 	type ModelResource,
@@ -66,6 +68,53 @@ describe("translationReadiness", () => {
 		});
 		await notReady.init();
 		expect(translationReadiness([notReady], L("ja"), L("en"), needs)).toEqual({ state: "unsupported" });
+	});
+});
+
+describe("GLIM-138: what a pack row downloads", () => {
+	test("a missing long-tail model is a long-tail-model row; Bergamot rows carry no kind", async () => {
+		const c = await chain(
+			new FakeTranslationProvider({ id: "bergamot", pairs: [["th", "en"]], missing: [["th", "en"]] }),
+			new FakeTranslationProvider({
+				id: "small100",
+				pairs: [["sw", "en"]],
+				missing: [["sw", "en"]],
+				capabilities: { longTail: true },
+			}),
+		);
+		const sw = translationReadiness(c, L("sw"), L("en"), () => ({
+			kind: "needs-download",
+			ids: ["small100"],
+			bytes: 618_000_000,
+		}));
+		expect(sw).toMatchObject({ state: "needs-download", providerId: "small100", kind: "long-tail-model" });
+		const th = translationReadiness(c, L("th"), L("en"), needs);
+		expect(th).toMatchObject({ state: "needs-download", kind: "language-pack" });
+
+		const rows = packRows(
+			[
+				{ id: "a", from: L("th") },
+				{ id: "b", from: L("sw") },
+			],
+			(from) =>
+				translationReadiness(c, from, L("en"), (m) => ({
+					kind: "needs-download",
+					ids: m.map((x) => x.id),
+					bytes: from === "sw" ? 618_000_000 : 31_000_000,
+				})),
+		);
+		expect(rows.map((r) => `${r.lang} ${r.kind ?? "-"} ${r.bytes}`)).toEqual([
+			"th - 31000000",
+			"sw long-tail-model 618000000",
+		]);
+		expect(rows.map(downloadNeedsConfirm)).toEqual([false, true]);
+	});
+
+	test("the confirm threshold is 200 MB, exclusive", () => {
+		expect(LARGE_DOWNLOAD_BYTES).toBe(200_000_000);
+		expect(downloadNeedsConfirm({ bytes: 200_000_000 })).toBe(false);
+		expect(downloadNeedsConfirm({ bytes: 200_000_001 })).toBe(true);
+		expect(downloadNeedsConfirm({ bytes: 0 })).toBe(false);
 	});
 });
 

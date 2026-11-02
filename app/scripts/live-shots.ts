@@ -99,6 +99,7 @@ async function shoot(baseUrl: string, outDir: string): Promise<{ files: string[]
 				await page.goto(`${baseUrl}/?${v.query}&scenario=${s.name}`, { waitUntil: "networkidle" });
 				await page.evaluate(() => document.fonts.ready);
 				await page.waitForFunction(() => document.body.dataset["painted"] === "1");
+				if (s.click) await page.locator(s.click).first().click();
 				await page.waitForTimeout(80);
 				const box = await page.locator(".preview-frame").boundingBox();
 				if (!box || box.height < 40) problems.push(`${name}: popup did not render`);

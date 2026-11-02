@@ -46,6 +46,7 @@ export const VARIANTS: readonly ShotVariant[] = [
 			"e3-offline",
 			"e4w-capture-blank",
 			"s16-partial-pack-row",
+			"s17-long-tail-confirm",
 			"s6-original-view",
 		],
 	},
@@ -109,6 +110,10 @@ async function shoot(baseUrl: string, outDir: string): Promise<{ files: string[]
 				await page.evaluate(() => document.fonts.ready);
 				// Painted (two frames) and resized to its content, like the real window before it shows.
 				await page.waitForFunction(() => document.body.dataset["painted"] === "1");
+				if (s.click) {
+					await page.locator(s.click).first().click();
+					await page.waitForTimeout(50);
+				}
 				await page.waitForTimeout(50);
 				const frame = page.locator(".preview-frame");
 				const box = await frame.boundingBox();

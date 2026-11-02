@@ -219,6 +219,13 @@
 		align-self: stretch;
 	}
 
+	/* The confirm step of a large download (GLIM-138): buttons 8px apart, like a state row. */
+	.glim-pack-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: calc(var(--spacing) * 2);
+	}
+
 	/* ── Provider indicators ─────────────────────────────────────────────────────────── */
 	.glim-local,
 	.glim-egress {

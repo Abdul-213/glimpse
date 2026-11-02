@@ -35,7 +35,7 @@ The user has just dragged a box over text they can't read. Within a tenth of a s
 | Neutral block | GLIM-21 rule 1 (numbers, `OK`, `F5`, versions): its text as-is in `source` style. No tag, never counted as skipped, never translated. |
 | Target-language block | Already in the target language: its text as-is in `translation` style with the tag "Already in {target}". Not counted as skipped. |
 | Failed block | Source text in `source` style, then a row in `label` type: a 16px alert icon and "Not translated" in `danger`, plus a text button "Retry" (`label`, `link` colour). |
-| Pack-missing block | Source text in `source` style. One **pack row** per missing language at the **top** of the list (not per block): `body` type, `text-secondary`, "{language} isn't downloaded yet." plus a `button-secondary` "Download ({size})". While downloading: `progress-track` / `progress-fill` (linear) and a `numeric` line "{done} of {total}". When it finishes, those blocks translate in place, and the row disappears. |
+| Pack-missing block | Source text in `source` style. One **pack row** per missing language at the **top** of the list (not per block): `body` type, `text-secondary`, "{language} isn't downloaded yet." plus a `button-secondary` "Download ({size})". While downloading: `progress-track` / `progress-fill` (linear) and a `numeric` line "{done} of {total}". When it finishes, those blocks translate in place, and the row disappears. A language served by the long-tail model (SMaLL-100, GLIM-100) says so instead: "{language} needs the More languages model." **Large downloads** (over 200 MB, `LARGE_DOWNLOAD_BYTES`; GLIM-138) ask once: pressing Download replaces the row's text with the question (`body`, `text-primary`: what it is, its size, what it's for) and two buttons 8px apart, `button-primary` "Download ({size})" (focused, `aria-describedby` the question) and `button-secondary` "Not now" (back to the row, focus on its Download). Bergamot packs (20–60 MB) never ask. |
 | Skipped line | Component `skipped-line` as the **last item of the list** (not in the footer: §14 decision 2). 24px, `label`, `text-secondary`, `rounded.control`, a 12px chevron at inline-start (points inline-end; rotates 90° when expanded, `duration-fast`). Text "{n} blocks skipped · {languages}". It is a `<button aria-expanded>`. Hover `overlay-hover`. Never a warning colour. |
 | Skipped expansion | Under the line: each skipped block in `source` style with its language tag (always shown here), then a row with two text buttons in `label` type and `link` colour: "Translate these" (one-off, does not change settings) and "Edit source languages…" (opens Settings › Languages). |
 
@@ -265,6 +265,11 @@ Never global. Windows / macOS.
 | `snip.block.retry` | Retry |
 | `snip.pack.row` | {language} isn't downloaded yet. |
 | `snip.pack.download` | Download ({size}) |
+| `snip.pack.model` | {language} needs the More languages model. |
+| `snip.pack.confirm.model` | Download the More languages model ({size})? It translates {language} and about 100 other languages on this device. It's slower than language packs and uses about 1 GB of memory while it translates. |
+| `snip.pack.confirm.large` | Download {size} to translate {language}? This is a large download. |
+| `snip.pack.confirm.cancel` | Not now |
+| `snip.pack.progress.model` | Downloading the More languages model (progress bar name) |
 | `snip.pack.progress` | {done} of {total} |
 | `snip.btn.original` | Show original ({key}) |
 | `snip.btn.originalOff` | Show translation ({key}) |
@@ -278,6 +283,8 @@ Never global. Windows / macOS.
 | `snip.e2.titleMany` | {n} languages aren't downloaded yet |
 | `snip.e2.body` | The text was read, but Glimpse needs the {language} language pack to translate it. The original text is below. |
 | `snip.e2.primary` | Download {language} ({size}) |
+| `snip.e2.model.body` | The text was read, but Glimpse needs the More languages model to translate {language}. The original text is below. |
+| `snip.e2.model.primary` | Download ({size}): over 200 MB it first shows `snip.pack.confirm.*` in place of the buttons |
 | `snip.e2.secondary` | Copy original |
 | `snip.e3.key.title` | {provider} rejected the API key |
 | `snip.e3.key.body` | Nothing was translated. Check the key in Settings. |

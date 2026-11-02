@@ -184,6 +184,37 @@ function packRow(
 	return { lang: L(lang), state, resourceIds: [`bergamot-${lang}en`], bytes: 31_000_000, progress, segmentIds: ids };
 }
 
+/** The SMaLL-100 long-tail model's row (GLIM-100/138): one 618 MB download for ~100 languages. */
+function longTailRow(lang: string, ids: string[]): PackRow {
+	return {
+		lang: L(lang),
+		state: "missing",
+		resourceIds: ["small100"],
+		bytes: 618_000_000,
+		progress: null,
+		segmentIds: ids,
+		kind: "long-tail-model",
+	};
+}
+
+const SWAHILI_PARTIAL: readonly B[] = [
+	["Envío gratis en pedidos de más de 50 euros", "es", "translate"],
+	["Usafirishaji bure kwa oda zote", "sw", "translate"],
+	["Oferta válida hasta agotar existencias", "es", "translate"],
+];
+
+function longTailPartial(): SnipPopupState {
+	const rs = blocks(SWAHILI_PARTIAL);
+	return fold([
+		started(),
+		{ type: "recognised", runId: RUN, blocks: rs.map((b) => (b.lang === "sw" ? { ...b, waitingForPack: true } : b)) },
+		{ type: "packs", runId: RUN, rows: [longTailRow("sw", ["b2"])] },
+		translationEvent("b1", "Free shipping on orders over 50 euros", "es", "en"),
+		translationEvent("b3", "Offer valid while stocks last", "es", "en"),
+		done(rs),
+	]);
+}
+
 const MAIN: readonly B[] = [
 	["¿Nos vemos a las ocho?", "es", "translate", "See you at eight?"],
 	["12:45", null, "neutral"],
@@ -202,6 +233,8 @@ export interface Scenario {
 	readonly state: () => SnipPopupState;
 	/** E3 offers "Translate on this device" (GLIM-80). */
 	readonly localAvailable?: boolean;
+	/** Screenshots click this (a CSS selector) first, for states behind a press (GLIM-138 confirm). */
+	readonly click?: string;
 }
 
 export const SCENARIOS: readonly Scenario[] = [
@@ -389,6 +422,26 @@ export const ERROR_SCENARIOS: readonly Scenario[] = [
 			]),
 	},
 	{ name: "e7-ocr-failed", caption: "E7 text recognition failed", state: () => errorRun("ocrFailed", []) },
+	{
+		name: "e2-long-tail-confirm",
+		caption: "E2 the More languages model is missing: Download asks first (GLIM-138)",
+		state: () =>
+			errorRun("packMissing", [["Usafirishaji bure kwa oda zote", "sw", "translate"]], {
+				before: () => [{ type: "packs", runId: RUN, rows: [longTailRow("sw", ["b1"])] }],
+			}),
+		click: ".snip-error-actions button",
+	},
+	{
+		name: "s17-long-tail-pack-row",
+		caption: "S17 pack row for the More languages model (GLIM-138)",
+		state: longTailPartial,
+	},
+	{
+		name: "s17-long-tail-confirm",
+		caption: "S17 its Download asks before 618 MB (GLIM-138)",
+		state: longTailPartial,
+		click: "[data-pack-download]",
+	},
 	{
 		name: "s16-partial-pack-row",
 		caption: "S16 partial failure + pack row",

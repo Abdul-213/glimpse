@@ -99,7 +99,12 @@ export function packChangedMessage(
 ): PackChangedMessage {
 	const base = { requestId, lang: row.lang, langName: languageName(row.lang, uiLanguage), blockIds: row.segmentIds };
 	if (row.state === "done") return { ...base, state: "done", bytes: 0 };
-	const message: PackChangedMessage = { ...base, state: row.state, bytes: row.bytes };
+	const message: PackChangedMessage = {
+		...base,
+		state: row.state,
+		bytes: row.bytes,
+		...(row.kind ? { kind: row.kind } : {}),
+	};
 	if (row.state === "downloading") {
 		let done = 0;
 		let total = 0;

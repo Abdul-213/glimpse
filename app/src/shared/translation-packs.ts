@@ -26,6 +26,8 @@ export interface PackChangedMessage {
 	readonly blockIds: readonly string[];
 	/** Set for "failed": the install error kind (network, checksum, disk-full, ...). */
 	readonly error?: string;
+	/** What the row downloads (core `PackKind`, GLIM-138); absent = a language pack. */
+	readonly kind?: "language-pack" | "long-tail-model";
 }
 
 export interface DownloadPackIntent {

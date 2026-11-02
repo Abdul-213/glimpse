@@ -6,6 +6,7 @@ import { BlockList } from "../src/components/BlockList.tsx";
 import { HotkeyRecorder } from "../src/components/HotkeyRecorder.tsx";
 import { IconButton } from "../src/components/IconButton.tsx";
 import { LanguageMultiSelect } from "../src/components/LanguageMultiSelect.tsx";
+import { type PackRowItem, PackRows } from "../src/components/PackRow.tsx";
 import { PopupShell } from "../src/components/PopupShell.tsx";
 import { ProgressBar } from "../src/components/ProgressBar.tsx";
 import { SkippedLine } from "../src/components/SkippedLine.tsx";
@@ -370,5 +371,73 @@ describe("LanguageMultiSelect (GLIM-68)", () => {
 		const remove = root.querySelector('button[aria-label="Remove French"]') as HTMLButtonElement;
 		remove.click();
 		expect(value()).toEqual(["ja"]);
+	});
+});
+
+describe("PackRows (GLIM-138 confirm step)", () => {
+	const pack: PackRowItem = { lang: "el", state: "missing", bytes: 31_000_000, received: null, total: null };
+	const model: PackRowItem = {
+		lang: "sw",
+		state: "missing",
+		bytes: 618_000_000,
+		received: null,
+		total: null,
+		kind: "long-tail-model",
+	};
+	function rows(downloads: string[]) {
+		return mount(() => (
+			<PackRows
+				rows={[pack, model]}
+				text={(r) => `${r.lang} text`}
+				downloadLabel={(r) => `Download ${r.bytes}`}
+				offlineText="offline"
+				failedText="failed"
+				progressLabel={(r) => `Downloading ${r.lang}`}
+				progressText={(d, t) => `${d}/${t}`}
+				needsConfirm={(r) => r.bytes > 200_000_000}
+				confirmText={(r) => `Really download ${r.lang}?`}
+				cancelLabel="Not now"
+				onDownload={(r) => downloads.push(r.lang)}
+			/>
+		));
+	}
+	const rowOf = (root: HTMLElement, kind: string) => root.querySelector(`[data-pack-kind="${kind}"]`) as HTMLElement;
+
+	test("a small download starts at once", () => {
+		const downloads: string[] = [];
+		const root = rows(downloads);
+		(rowOf(root, "language-pack").querySelector("button") as HTMLButtonElement).click();
+		expect(downloads).toEqual(["el"]);
+	});
+
+	test("a large one asks first; Download confirms, focus lands on it", async () => {
+		const downloads: string[] = [];
+		const root = rows(downloads);
+		(rowOf(root, "long-tail-model").querySelector("[data-pack-download]") as HTMLButtonElement).click();
+		expect(downloads).toEqual([]);
+		const row = rowOf(root, "long-tail-model");
+		expect(row.textContent).toContain("Really download sw?");
+		await tick();
+		const confirm = row.querySelector("[data-pack-confirm]") as HTMLButtonElement;
+		expect(document.activeElement).toBe(confirm);
+		expect(document.getElementById(confirm.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+			"Really download sw?",
+		);
+		confirm.click();
+		expect(downloads).toEqual(["sw"]);
+		expect(rowOf(root, "long-tail-model").textContent).toContain("sw text");
+	});
+
+	test("Not now goes back to the row and its Download button", async () => {
+		const downloads: string[] = [];
+		const root = rows(downloads);
+		(rowOf(root, "long-tail-model").querySelector("[data-pack-download]") as HTMLButtonElement).click();
+		const buttons = rowOf(root, "long-tail-model").querySelectorAll("button");
+		(buttons[1] as HTMLButtonElement).click();
+		await tick();
+		expect(downloads).toEqual([]);
+		const row = rowOf(root, "long-tail-model");
+		expect(row.textContent).toContain("sw text");
+		expect(document.activeElement).toBe(row.querySelector("[data-pack-download]"));
 	});
 });
