@@ -11,6 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { OCR_PROTOCOL } from "@glimpse/providers/ocr/paddle";
 import config from "../electrobun.config.ts";
 import { buildWorkers, ORT_BINDING_REQUIRE } from "../scripts/build-workers.ts";
 import { defaultCacheDir, loadManifest, stageBundled } from "../scripts/model-cache.ts";
@@ -236,6 +237,8 @@ test("the bundled OCR Worker loads the binding from ../native/onnxruntime (or GL
 	expect(source).not.toContain(ORT_BINDING_REQUIRE);
 	expect(source).toContain("GLIMPSE_ORT_BINDING");
 	expect(source).toMatch(/"native",\s*"onnxruntime",\s*"onnxruntime_binding\.node"/);
+	// The bundle speaks the same message protocol as the provider that drives it.
+	expect(source).toContain(OCR_PROTOCOL);
 }, 60_000);
 
 const cache = defaultCacheDir();
@@ -258,8 +261,22 @@ function runSmoke(appDir: string, env: Record<string, string> = {}): { text: str
 	return out;
 }
 
-/** The app resources folder of a built Linux app, if `bun run build` has produced one. */
+/**
+ * The app resources folder of a built Linux app, if `bun run build` has produced one and it is
+ * current. ocr-smoke drives the built Worker with this checkout's provider, so a Worker bundle
+ * from an older build (another OCR_PROTOCOL) can't be checked here: skipped with a note.
+ */
 function builtApp(): string | null {
+	const dir = anyBuiltApp();
+	if (!dir) return null;
+	if (!readFileSync(join(dir, "bun", OCR_WORKER_FILE), "utf8").includes(OCR_PROTOCOL)) {
+		console.warn(`[skip] ${dir}: its OCR Worker is from an older build (not ${OCR_PROTOCOL}); run \`bun run build\``);
+		return null;
+	}
+	return dir;
+}
+
+function anyBuiltApp(): string | null {
 	const buildDir = resolve(import.meta.dir, "..", "build");
 	if (!existsSync(buildDir)) return null;
 	for (const env of readdirSync(buildDir).filter((d) => d.endsWith(`-linux-${process.arch}`))) {

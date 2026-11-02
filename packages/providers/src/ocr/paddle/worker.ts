@@ -15,7 +15,7 @@ import {
 	type OrtSession,
 } from "./engine.ts";
 import { type Raster, rasterOf } from "./image.ts";
-import type { FromWorker, OrtProfile, ToWorker } from "./protocol.ts";
+import { type FromWorker, OCR_PROTOCOL, type OrtProfile, type ToWorker } from "./protocol.ts";
 import { buildCharset } from "./rec.ts";
 
 declare const self: Worker;
@@ -73,6 +73,11 @@ async function ensureRecognizer(e: OcrEngine, purpose: OcrPurpose, r: OcrRecogni
 	e.addRecognizer(r, await createSession(files.model, profiles[purpose]), files.charset);
 }
 
+function protocolMismatch(got: unknown): string {
+	const app = typeof got === "string" ? got : "an older protocol";
+	return `OCR worker is from another build (worker: ${OCR_PROTOCOL}, app: ${app}); rebuild the app so both match`;
+}
+
 function requireEngine(): OcrEngine {
 	const e = engines.get("snip");
 	if (!e) throw new Error("worker not initialised");
@@ -82,6 +87,7 @@ function requireEngine(): OcrEngine {
 async function handle(msg: ToWorker): Promise<void> {
 	switch (msg.type) {
 		case "init": {
+			if (msg.protocol !== OCR_PROTOCOL) throw new Error(protocolMismatch(msg.protocol));
 			profiles = { snip: msg.snip, live: msg.live };
 			detPath = msg.det;
 			engineOptions = msg.engine;

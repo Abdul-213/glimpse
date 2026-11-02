@@ -49,6 +49,7 @@ import {
 	type ModelFileSource,
 	type RecognizerFiles,
 } from "./model-files.ts";
+import { OCR_PROTOCOL } from "./protocol.ts";
 import { DEFAULT_RECOGNIZERS, planRecognizers } from "./recognizers.ts";
 import { OcrWorkerClient, type SpawnWorker, spawnOcrWorker, WorkerFailure } from "./worker-client.ts";
 
@@ -265,6 +266,7 @@ export class PaddleOcrProvider implements OcrProvider {
 		const liveThreads = this.options.liveThreads > 0 ? this.options.liveThreads : Math.min(2, threads);
 		await client.request({
 			type: "init",
+			protocol: OCR_PROTOCOL,
 			det: det.model,
 			snip: { threads, spinning: this.options.spinning },
 			live: { threads: liveThreads, spinning: this.options.liveSpinning },

@@ -19,10 +19,21 @@ export interface OrtProfile {
 	readonly spinning: boolean;
 }
 
+/**
+ * Version of these messages. The app and its bundled OCR Worker must come from the same build:
+ * a Worker bundle from an older build reads fields that no longer exist (GLIM-134 replaced
+ * `threads` with the `snip`/`live` profiles, and a stale `ocr-worker.js` then failed with
+ * "sessionOptions.intraOpNumThreads must be a number"). The Worker checks this on `init` and
+ * says so plainly; the string also lands verbatim in the bundle, so tools can spot a stale one.
+ * Bump it whenever a message changes shape.
+ */
+export const OCR_PROTOCOL = "glimpse-ocr-protocol/2";
+
 export type ToWorker =
 	| {
 			readonly type: "init";
 			readonly id: number;
+			readonly protocol: string;
 			readonly det: string;
 			/** ORT settings for Snip-like requests (`purpose: "snip"`, the default). */
 			readonly snip: OrtProfile;
