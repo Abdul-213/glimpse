@@ -47,7 +47,7 @@ below.
 | Live popup | Tab order is strip buttons → state-row buttons → blocks (live-popup.md §6.2), wrapping. Blocks use roving ↑ ↓. Pause, Private, Hide and Stop are buttons. | DESIGN.md ring. | Region labelled. GLIM-92: a polite `role="log"` announces changed blocks and a `role="status"` region announces state. | Pass. axe can't decide 9 elements (veil). | The change tint and mark appear at once, with no decay (DESIGN.md Reduced motion). | Checked (`l4-changed-rtl-ui`). |
 | Settings | Every pane and control is reachable with Tab. Selects, switches and segmented controls work with keys. The hotkey recorder records from the keyboard. | Ring on controls. Fields show it on the wrapper (`:focus-within`). | Labels on every field. The hotkey recorder's name now matches its visible key caps (fixed, see below). Status lines use `role="status"`. | Pass. 7 undecided elements over the window material. | Motion follows the OS or the app's Motion setting. Materials fall back to solid. | `languages-macos-light-rtl`. |
 | Onboarding / screen access | Every step can be done from the keyboard. Back and Next are buttons. Status uses `role="status"`, and screen access uses `aria-live`. | Ring. | Labelled. | Pass. 2 undecided elements. | Same as Settings. | `setup-language-macos-light-rtl`, `access-lost-macos-light-rtl`. |
-| Tray / menu bar | A native menu: keyboard and screen-reader access come from the OS (macOS menu-bar navigation, Windows Win+B and arrows). Labels follow each OS's case. Shortcuts show as OS glyphs or text. | OS. | **The icon itself has no accessible name** (GLIM-136). | OS. | — | OS. |
+| Tray / menu bar | A native menu: keyboard and screen-reader access come from the OS (macOS menu-bar navigation, Windows Win+B and arrows). Labels follow each OS's case. Shortcuts show as OS glyphs or text. | OS. | The icon is named "Glimpse", plus the Live state ("Glimpse — Live running" / "— Live paused"): macOS `accessibilityLabel` on the status-bar button (`glim_tray_set_accessibility_label`), Windows the notification-icon tooltip (GLIM-136; unverified with VoiceOver / Narrator). | OS. | — | OS. |
 
 ## Fixed in this pass
 
@@ -79,7 +79,9 @@ Each item below needs a person on Windows 11 (and 10), and on macOS 14+.
    - Live popup: changed blocks are announced politely and are not repeated (GLIM-92).
    - Picker: its status announcements.
    - Settings and onboarding: field labels.
-   - Tray: the icon name (GLIM-136).
+   - Tray: VoiceOver reads the menu-bar item as "Glimpse" and "Glimpse — Live running" while
+     Live runs; Narrator reads the notification-area icon the same, and its tooltip shows it
+     (GLIM-136).
 2. **Keyboard focus in the real windows.**
    - Each popup takes focus when it opens: the Snip popup from the hotkey, the Live popup when
      it is focused from the tray or its hotkey.
@@ -99,6 +101,7 @@ Each item below needs a person on Windows 11 (and 10), and on macOS 14+.
 
 ## Tickets
 
-- **GLIM-136:** the tray / menu-bar icon has no accessible name (native helper).
+- **GLIM-136:** the tray / menu-bar icon has no accessible name (native helper). Fixed; needs the
+  screen-reader check above on real machines.
 - **GLIM-135:** paragraph measure in Settings and onboarding (design detector line-length;
   readability).
