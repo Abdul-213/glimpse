@@ -2,24 +2,39 @@
 // this file from a runner, so `import.meta.main` is false here: do the work at top level.
 // Hutch sets ELECTROBUN_BUILD_ENV (dev | canary | stable) and ELECTROBUN_OS.
 import { existsSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { NATIVE_LIBS } from "../electrobun.config.ts";
 import { buildViews, viewsOut } from "./build-views.ts";
 import { buildWorkers, workersOut } from "./build-workers.ts";
 import { defaultCacheDir, loadManifest, modelsOut, stageBundled, writeStagingExtras } from "./model-cache.ts";
 import { findVcRuntimeDir, ortOut, ortTarget, stageOnnxRuntime, stageVcRuntime } from "./onnxruntime.ts";
+import { ensureLegacyOrt, ORT_LEGACY_VERSION, ortPackageFor } from "./onnxruntime-legacy.ts";
 
 const dev = process.env["ELECTROBUN_BUILD_ENV"] === "dev";
 const built = await buildViews({ dev });
 console.log(`[prebuild] views (${dev ? "dev" : "prod"}): ${built.join(", ")} -> ${viewsOut}`);
 
+// Which onnxruntime-node this target gets (GLIM-89): the npm dependency, or for darwin-x64 the
+// pinned 1.23.2, fetched and verified into a cache. Release builds must have it.
+const target = ortTarget();
+let ortPackageDir: string | undefined;
+let ortBin: string | undefined;
+if (ortPackageFor(target).kind === "legacy") {
+	try {
+		ortPackageDir = await ensureLegacyOrt({ log: (line) => console.log(`[prebuild] ${line}`) });
+		ortBin = join(ortPackageDir, "bin", "napi-v6");
+	} catch (err) {
+		if (!dev) throw err;
+		console.warn(`[prebuild] WARNING: onnxruntime-node ${ORT_LEGACY_VERSION} unavailable (GLIM-89).\n${String(err)}`);
+	}
+}
+
 // Inference Workers (GLIM-101): bundled as their own entries, copied next to the main bundle.
-const workers = await buildWorkers({ dev });
+const workers = await buildWorkers({ dev, ...(ortPackageDir ? { ortPackageDir } : {}) });
 console.log(`[prebuild] workers: ${workers.join(", ")} -> ${workersOut}`);
 
 // onnxruntime-node for the OCR Worker (GLIM-103): this target's binding + runtime only.
-const target = ortTarget();
-const ort = stageOnnxRuntime(target);
+const ort = ortPackageFor(target).kind === "legacy" && !ortBin ? null : stageOnnxRuntime(target, ortOut, ortBin);
 if (ort) {
 	console.log(`[prebuild] onnxruntime ${target.os}-${target.arch}: ${ort.join(", ")} -> ${ortOut}`);
 	// Windows: ship the Visual C++ runtime it links, app-local (GLIM-111). Release builds must.

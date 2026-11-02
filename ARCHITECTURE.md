@@ -134,8 +134,10 @@ Don't create packages for grouping alone; use folders.
   machine's Visual Studio redist folder (GLIM-111, `docs/decisions/GLIM-111-msvc-runtime.md`). The
   bundled OCR Worker loads the binding from `../native/onnxruntime/` (`GLIMPSE_ORT_BINDING`
   overrides): `build-workers.ts` rewrites onnxruntime-node's package-relative `require`.
-  darwin-x64 has no onnxruntime-node build (GLIM-89): the build succeeds without it (with a
-  warning) and PaddleOCR's `init()` ends in `error` there. `scripts/ocr-smoke.ts <app dir>` runs one OCR call through a
+  darwin-x64 (Intel Mac, GLIM-89) has no build since 1.24: its builds bundle the pinned
+  onnxruntime-node 1.23.2 as a whole (JS, onnxruntime-common, binding + `libonnxruntime.1.23.2.dylib`),
+  fetched from npm by sha512 into `~/.cache/glimpse/` at build time (`scripts/onnxruntime-legacy.ts`,
+  `ortPackageFor` is the switch; `docs/decisions/GLIM-89-intel-mac-onnxruntime.md`). `scripts/ocr-smoke.ts <app dir>` runs one OCR call through a
   built app's Worker and prints which onnxruntime files were loaded; `scripts/bundle-smoke.ts`
   (desktop.yml) runs it over the staged `dist/` files.
 - **onnxruntime telemetry is off (GLIM-112).** The official ORT builds upload usage events with a

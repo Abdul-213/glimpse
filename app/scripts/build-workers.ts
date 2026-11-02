@@ -21,7 +21,7 @@ import { ORT_BINDING } from "./onnxruntime.ts";
 
 export const workersOut = resolve(import.meta.dir, "..", "dist", "workers");
 
-/** The require in onnxruntime-node 1.31.1 dist/binding.js. */
+/** The require in onnxruntime-node dist/binding.js (the same text in 1.31.1 and the pinned 1.23.2). */
 export const ORT_BINDING_REQUIRE =
 	// biome-ignore lint/suspicious/noTemplateCurlyInString: the literal source text to replace
 	"require(`../bin/napi-v6/${process.platform}/${process.arch}/onnxruntime_binding.node`)";
@@ -51,24 +51,44 @@ interface WorkerEntry {
 	readonly plugins: readonly BunPlugin[];
 }
 
-/** Worker entries: output file name -> source entry and bundler plugins. */
-export function workerEntries(): Record<string, WorkerEntry> {
+/**
+ * GLIM-89: bundle `onnxruntime-node` from another package folder (the pinned 1.23.2 for
+ * darwin-x64, onnxruntime-legacy.ts). Its own `onnxruntime-common` resolves next to it.
+ */
+export function ortPackagePlugin(packageDir: string): BunPlugin {
+	return {
+		name: "glimpse-ort-package",
+		setup(build) {
+			build.onResolve({ filter: /^onnxruntime-node$/ }, () => ({ path: join(packageDir, "dist", "index.js") }));
+		},
+	};
+}
+
+/**
+ * Worker entries: output file name -> source entry and bundler plugins. `ortPackageDir`: the
+ * onnxruntime-node to bundle into the OCR Worker (default: the npm dependency).
+ */
+export function workerEntries(ortPackageDir?: string): Record<string, WorkerEntry> {
 	const dirOf = (specifier: string) => dirname(fileURLToPath(import.meta.resolve(specifier)));
 	return {
 		[BERGAMOT_WORKER_FILE]: { entry: join(dirOf("@glimpse/providers/translation/bergamot"), "worker.ts"), plugins: [] },
 		[OCR_WORKER_FILE]: {
 			entry: join(dirOf("@glimpse/providers/ocr/paddle"), "worker.ts"),
-			plugins: [ortBindingPlugin],
+			plugins: ortPackageDir ? [ortPackagePlugin(ortPackageDir), ortBindingPlugin] : [ortBindingPlugin],
 		},
 	};
 }
 
-export async function buildWorkers(options: { readonly dev: boolean; readonly outDir?: string }): Promise<string[]> {
+export async function buildWorkers(options: {
+	readonly dev: boolean;
+	readonly outDir?: string;
+	readonly ortPackageDir?: string;
+}): Promise<string[]> {
 	const outDir = options.outDir ?? workersOut;
 	rmSync(outDir, { recursive: true, force: true });
 	mkdirSync(outDir, { recursive: true });
 	const built: string[] = [];
-	for (const [name, { entry, plugins }] of Object.entries(workerEntries())) {
+	for (const [name, { entry, plugins }] of Object.entries(workerEntries(options.ortPackageDir))) {
 		const result = await Bun.build({
 			entrypoints: [entry],
 			target: "bun",
