@@ -72,6 +72,11 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 					downloadPack: (m) => {
 						if (str(m?.sessionId) && str(m.lang)) c()?.downloadPack(m.sessionId, m.lang);
 					},
+					skippedAction: (m) => {
+						if (!str(m?.sessionId)) return;
+						if (m.action === "translateSkipped" || m.action === "editSources")
+							c()?.skippedAction(m.sessionId, m.action);
+					},
 					blockHovered: (m) => {
 						if (str(m?.sessionId)) c()?.hoverBlock(m.sessionId, str(m.id) ? m.id : null);
 					},

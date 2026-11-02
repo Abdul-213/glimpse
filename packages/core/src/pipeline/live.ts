@@ -14,6 +14,7 @@ import type { BlockLanguage } from "../block.ts";
 import type { SessionCache, TranslationCaches } from "../cache/caches.ts";
 import type { Rect } from "../geometry.ts";
 import type { LanguageCode } from "../language/code.ts";
+import { sameLanguage } from "../language/lookup.ts";
 import { isProviderError, ProviderError } from "../providers/errors.ts";
 import type { OcrImage } from "../providers/ocr.ts";
 import { BlockIdTracker } from "./block-ids.ts";
@@ -42,6 +43,7 @@ export class LivePipelineSession {
 	readonly #opts: LiveSessionOptions;
 	#cache: SessionCache;
 	#sources: readonly LanguageCode[];
+	#extra: readonly LanguageCode[] = [];
 	#target: LanguageCode;
 	#memo = new Map<string, BlockLanguage>();
 	readonly #ids = new BlockIdTracker();
@@ -106,7 +108,7 @@ export class LivePipelineSession {
 			const result = await this.#opts.pipeline.run(image, {
 				mode: "live",
 				target: this.#target,
-				sources: this.#sources,
+				sources: this.sources,
 				cache: this.#cache.cache,
 				private: this.#cache.private,
 				signal: controller.signal,
@@ -144,6 +146,27 @@ export class LivePipelineSession {
 	setSources(sources: readonly LanguageCode[]): void {
 		this.#sources = sources;
 		this.#memo = new Map();
+	}
+
+	/**
+	 * GLIM-131 "Translate these" on the Live skipped line: these languages count as sources for
+	 * the rest of this session (settings unchanged), also after a Settings change. Drops the
+	 * detection memo; an empty subset (every language) already includes them.
+	 */
+	includeSources(langs: readonly LanguageCode[]): void {
+		const added: LanguageCode[] = [];
+		for (const l of langs) {
+			if (![...this.#extra, ...added].some((e) => sameLanguage(e, l))) added.push(l);
+		}
+		if (added.length === 0) return;
+		this.#extra = [...this.#extra, ...added];
+		this.#memo = new Map();
+	}
+
+	/** Settings' subset plus the session's "Translate these" languages (empty = every language). */
+	get sources(): readonly LanguageCode[] {
+		if (this.#sources.length === 0 || this.#extra.length === 0) return this.#sources;
+		return [...this.#sources, ...this.#extra.filter((e) => !this.#sources.some((s) => sameLanguage(s, e)))];
 	}
 
 	setTarget(target: LanguageCode): void {

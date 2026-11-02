@@ -71,6 +71,7 @@ render(
 								copy: (sessionId, what) => rpc.send.copyRequested({ sessionId, what }),
 								skipped: (sessionId, expanded) => rpc.send.skippedToggled({ sessionId, expanded }),
 								downloadPack: (sessionId, lang) => rpc.send.downloadPack({ sessionId, lang }),
+								skippedAction: (sessionId, action) => rpc.send.skippedAction({ sessionId, action }),
 							}}
 						/>
 					)}

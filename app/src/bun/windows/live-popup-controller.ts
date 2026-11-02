@@ -19,6 +19,7 @@ import {
 	type FocusKeeper,
 	heldBlocks,
 	initialLivePopupState,
+	type LanguageCode,
 	LIVE_HOLD_MS,
 	LIVE_STALE_REFRESH_MS,
 	type LivePauseReason,
@@ -33,8 +34,15 @@ import {
 	placeLivePopup,
 	type Rect,
 	reduceLivePopup,
+	skippedLiveBlocks,
 } from "@glimpse/core";
-import type { LiveConsentAnswer, LiveLayout, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
+import type {
+	LiveConsentAnswer,
+	LiveLayout,
+	LiveSkippedAction,
+	LiveStateMessage,
+	LiveViewInit,
+} from "../../shared/live-rpc.ts";
 import { realScheduler, type Scheduler } from "./picker-controller.ts";
 import type { PackPort } from "./popup-controller.ts";
 
@@ -67,6 +75,8 @@ export interface LivePopupSession {
 	setPopupVisible(visible: boolean): void;
 	/** Re-read the region on the next grab (a pack landed, GLIM-123). Optional for older fakes. */
 	refresh?(reason: "pack-installed"): void;
+	/** "Translate these" (GLIM-131): session-only source languages. Optional for older fakes. */
+	includeLanguages?(langs: readonly LanguageCode[]): void;
 }
 
 export interface LivePopupSettings {
@@ -95,6 +105,8 @@ export interface LivePopupControllerDeps {
 	 * pack row shows but Download does nothing.
 	 */
 	readonly packs?: PackPort;
+	/** "Edit source languages…" on the skipped line (GLIM-131): Settings › Languages. */
+	readonly openSettings?: (section: "languages") => void;
 }
 
 export class LivePopupController {
@@ -262,6 +274,25 @@ export class LivePopupController {
 
 	toggleSkipped(sessionId: string, expanded: boolean): void {
 		if (this.#mine(sessionId)) this.#dispatch({ type: "skipped", expanded });
+	}
+
+	/**
+	 * The skipped line's actions (GLIM-131, parity with Snip). "Translate these": the skipped
+	 * blocks' languages are translated for the rest of this session (Settings unchanged); the
+	 * blocks move into the list once the region is re-read. "Edit source languages…": Settings ›
+	 * Languages; the session keeps running and picks the new subset up from there.
+	 */
+	skippedAction(sessionId: string, action: LiveSkippedAction): void {
+		if (!this.#mine(sessionId)) return;
+		if (action === "editSources") {
+			this.#restoreFocus();
+			this.#d.openSettings?.("languages");
+			return;
+		}
+		const langs = [...new Set(skippedLiveBlocks(this.#state).flatMap((b) => (b.lang ? [b.lang] : [])))];
+		if (langs.length === 0) return;
+		this.#d.log.info("live popup: translate skipped", { langs: langs.length });
+		this.#d.live.includeLanguages?.(langs);
 	}
 
 	/**

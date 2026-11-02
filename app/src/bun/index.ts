@@ -468,6 +468,8 @@ livePopup = new LivePopupController({
 	eol: platform === "windows" ? "\r\n" : "\n",
 	// GLIM-123 (L12): the pack row's Download, the same consent path as Snip (GLIM-57).
 	packs: translationPacks,
+	// GLIM-131: "Edit source languages…" on the skipped line.
+	openSettings: (section) => settings.open(section),
 	log: liveLog.child("popup"),
 });
 // GLIM-92: Live changes read aloud (live-popup.md §10): the view's live regions plus the

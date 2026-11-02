@@ -46,6 +46,8 @@ export interface LivePipeline {
 	process(image: OcrImage, options: { readonly onEvent: PipelineListener }): Promise<PipelineResult | null>;
 	setSources(sources: Settings["language"]["sources"]): void;
 	setTarget(target: Settings["language"]["target"]): void;
+	/** GLIM-131 "Translate these": session-only source languages. Optional for older fakes. */
+	includeSources?(langs: Settings["language"]["sources"]): void;
 	close(): void;
 }
 
@@ -380,6 +382,22 @@ export class LiveService {
 		if (!cur) return;
 		cur.runner.invalidate();
 		this.#d.log.info("live: re-reading the region", { session: cur.id, reason });
+	}
+
+	/**
+	 * GLIM-131 "Translate these" on the skipped line: translate these languages for the rest of
+	 * this session (Settings unchanged) and re-read the region now, so the skipped blocks move
+	 * into the list without a mark (live-popup.md §5 rule 7).
+	 */
+	includeLanguages(langs: Settings["language"]["sources"]): void {
+		const cur = this.#current;
+		if (!cur || langs.length === 0 || !cur.pipeline.includeSources) return;
+		cur.pipeline.includeSources(langs);
+		cur.runner.invalidate();
+		this.#d.log.info("live: translating skipped languages for this session", {
+			session: cur.id,
+			langs: langs.join(","),
+		});
 	}
 
 	stats(): (LiveRunnerStats & { readonly session: string }) | null {

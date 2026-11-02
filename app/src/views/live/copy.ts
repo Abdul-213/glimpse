@@ -28,6 +28,9 @@ export const COPY = {
 	a11yPaused: "Live paused",
 	a11yResumed: "Live resumed",
 	alreadyIn: "Already in",
+	// Skipped line actions (GLIM-131), Snip's `snip.skipped.*` copy.
+	translateThese: "Translate these",
+	editSources: "Edit source languages…",
 } as const;
 
 export const statusLabel = (label: "live" | "updating" | "paused", privateOn: boolean, compact: boolean): string => {
