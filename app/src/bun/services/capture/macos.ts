@@ -3,6 +3,9 @@
 //   - Snip (one-shot): SCScreenshotManager per display piece.
 //   - Live (session): one SCStream per display piece; reading is a copy of the newest
 //     complete frame, and idle frames keep the sequence still.
+// GLIM-97: ScreenCaptureKit never blocks the Bun worker. Shots and stream starts run on the
+// helper's queue and resolve through a threadsafe callback (pieces in parallel); a read
+// copies the newest frame without waiting; closing stops the stream in the background.
 // Exclusion is a filter: every SCContentFilter leaves out Glimpse's own app (or, if SCK
 // doesn't list it, each of its windows). `setExcludedWindows` keeps the window list
 // current and updates running streams. NSWindow.sharingType is set to none too
@@ -19,6 +22,7 @@ import {
 	type CaptureSessionOptions,
 	type CaptureSource,
 	composeFrame,
+	composeFrameAsync,
 	type Display,
 	planCapture,
 	type Rect,
@@ -44,6 +48,8 @@ export class MacCaptureSource implements CaptureSource {
 
 	constructor(private readonly deps: MacCaptureDeps) {
 		this.now = deps.now ?? Date.now;
+		// The stream refilter after an exclusion change runs on the helper queue.
+		deps.binding.onBackgroundError((e) => deps.onExclusionError?.(e));
 	}
 
 	displays(): readonly Display[] {
@@ -62,7 +68,7 @@ export class MacCaptureSource implements CaptureSource {
 	async capture(rect: Rect, options: CaptureOptions = {}): Promise<CaptureFrame> {
 		const plan = this.plan(rect, options);
 		const capturedAt = this.now();
-		return composeFrame(
+		return composeFrameAsync(
 			plan,
 			(piece, out) => this.deps.binding.shot(piece.displayId, piece.sourceLocal, piece.dest, out),
 			{ sequence: this.nextOneShot(), capturedAt },
@@ -75,22 +81,23 @@ export class MacCaptureSource implements CaptureSource {
 		if (plan.pieces.length === 0) {
 			throw new CaptureError("no-display", "the rect is not on any display");
 		}
-		const handles: StreamHandle[] = [];
-		try {
-			for (const piece of plan.pieces) {
-				handles.push(
-					this.deps.binding.streamOpen(
-						piece.displayId,
-						piece.sourceLocal,
-						piece.dest.width,
-						piece.dest.height,
-						options.fps,
-					),
-				);
-			}
-		} catch (e) {
+		// One stream per piece, started in parallel; if any fails, close the ones that started.
+		const opened = await Promise.allSettled(
+			plan.pieces.map((piece) =>
+				this.deps.binding.streamOpen(
+					piece.displayId,
+					piece.sourceLocal,
+					piece.dest.width,
+					piece.dest.height,
+					options.fps,
+				),
+			),
+		);
+		const handles = opened.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+		const failed = opened.find((r): r is PromiseRejectedResult => r.status === "rejected");
+		if (failed) {
 			for (const h of handles) this.deps.binding.streamClose(h);
-			throw e;
+			throw failed.reason;
 		}
 		const session = new MacSession(this.deps.binding, rect, plan, handles, this.now, () =>
 			this.sessions.delete(session),

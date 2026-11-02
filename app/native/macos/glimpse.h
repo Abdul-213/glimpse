@@ -8,16 +8,17 @@
 // truncated to cap. Pixel buffers are caller-owned (Bun allocates, native writes).
 //
 // Threading: app JS runs on a Bun Worker, not the AppKit main thread. Functions that
-// touch NSWindow hop to the main queue with dispatch_sync_f. ScreenCaptureKit calls
-// block the *calling* thread on a semaphore (with a timeout) while SCK completes on
-// its own queues; they never touch the main queue, so they can't deadlock AppKit.
+// touch NSWindow hop to the main queue with dispatch_sync_f. ScreenCaptureKit waits
+// (GLIM-97) run on a helper-owned queue: the *_async exports return at once and report
+// through the threadsafe completion callback set with glim_capture_async_init, so the Bun
+// worker never blocks on SCK. They never touch the main queue, so they can't deadlock AppKit.
 #pragma once
 #include <stdint.h>
 
 #define GLIM_EXPORT __attribute__((visibility("default")))
 
 // Bump together with GLIM_ABI_VERSION in app/src/bun/native/load.ts.
-#define GLIM_ABI 6
+#define GLIM_ABI 7
 
 enum {
   GLIM_OK = 0,
@@ -34,3 +35,4 @@ enum {
 
 void glim_set_error(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int32_t glim_copy_out(const char *s, char *buf, int32_t cap);
+GLIM_EXPORT int32_t glim_last_error(char *buf, int32_t cap);

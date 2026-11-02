@@ -129,8 +129,9 @@ function fakeMac(opts: { failOpen?: boolean; firstFrameAfter?: number } = {}) {
 	const calls: string[] = [];
 	let samples = 0;
 	const binding: FakeMac = {
-		streamOpen(id, source, width, height, fps) {
+		async streamOpen(id, source, width, height, fps) {
 			calls.push(`open ${id} ${source.width}x${source.height} -> ${width}x${height} @${fps}`);
+			await Promise.resolve();
 			if (opts.failOpen) throw new Error("SCStream start failed");
 			return BigInt(id);
 		},

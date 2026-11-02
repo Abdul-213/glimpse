@@ -87,6 +87,7 @@ jobs:
           for s in glim_abi_version glim_last_error glim_window_exclude_from_capture glim_window_number \
             glim_capture_set_excluded_windows glim_capture_shot glim_capture_stream_open glim_capture_stream_read \
             glim_capture_stream_close glim_capture_reset glim_capture_preflight glim_capture_displays_json \
+            glim_capture_async_init glim_capture_take_error glim_capture_shot_async glim_capture_stream_open_async \
             glim_capture_stream_sample glim_list_windows glim_focus_save glim_focus_restore glim_window_configure \
             glim_window_set_level glim_hotkey_init glim_hotkey_register glim_hotkey_unregister \
             glim_hotkey_unregister_all glim_hotkey_shutdown glim_frame_create glim_frame_set_rect glim_frame_set_style \
