@@ -18,7 +18,8 @@ const base =
 	"disabled:text-text-disabled disabled:shadow-none";
 
 const variants: Record<ButtonVariant, string> = {
-	primary: "bg-accent text-on-accent",
+	// Disabled: the neutral control fill, so the disabled text never sits on the accent (gray-on-color).
+	primary: "bg-accent text-on-accent disabled:bg-surface-control disabled:border disabled:border-border-control",
 	secondary: "bg-surface-control text-text-primary border border-border-control",
 };
 
