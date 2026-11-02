@@ -612,7 +612,9 @@ body size, focus ring) live in `packages/ui/src/styles/theme.css`. Use logical u
    `bun run bench:ocr` scores PaddleOCR + grouping + detection over `packages/providers/bench/ocr/`
    (rendered and screenshot-like frames per script with ground truth; CER/WER, grouping, detection,
    p50/p90) and `--check` fails CI only on large regressions against `baseline.json`. Method,
-   thresholds and findings: `docs/benchmarks/ocr.md`.
+   thresholds and findings: `docs/benchmarks/ocr.md`. `bun run bench:lid` calibrates fastText's
+   detection thresholds over written captures in fastText-only languages
+   (`packages/providers/bench/detection/`, GLIM-142; `docs/benchmarks/language-detection.md`).
 5. **Linux headless harness (GLIM-86):** runs the real main-process services and pipeline with the
    file-based capture backend and a fake display list, so Snip and Live flows can be exercised end
    to end in CI without a desktop.

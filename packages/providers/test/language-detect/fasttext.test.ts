@@ -19,6 +19,7 @@ import { loadEldDetector } from "../../src/language-detect/eld.ts";
 import {
 	type EmVector,
 	FASTTEXT_RELIABLE,
+	FASTTEXT_TUNING,
 	FastTextLanguageDetector,
 	type FastTextNative,
 	loadFastTextDetector,
@@ -74,8 +75,9 @@ describe("fastText adapter (real lid.176)", () => {
 		expect(ft.detect("   \n ")).toEqual({ candidates: [], reliable: false });
 	});
 
-	test("no rule 4w tuning: GLIM-140's margin is on ELD's scale", () => {
-		expect((ft as LanguageDetector).tuning).toBeUndefined();
+	test("its own tuning (GLIM-142, on probabilities); ELD keeps GLIM-140's", () => {
+		expect((ft as LanguageDetector).tuning).toEqual({ tau: 0.5, priorMargin: 0.7, priorMaxLetters: 48 });
+		expect(FASTTEXT_RELIABLE).toBe(FASTTEXT_TUNING.tau);
 		expect(eld.tuning).toEqual({ priorMargin: 0.01, priorMaxLetters: 24 });
 	});
 });
@@ -107,6 +109,33 @@ describe("GLIM-21 with fastText (GLIM-104)", () => {
 		// English is outside the subset: decided and skipped, not translated.
 		expect(r.get("b2")).toMatchObject({ rule: "4", translate: false, language: { kind: "skipped", lang: "en" } });
 		expect(r.get("b3")).toMatchObject({ rule: "5b", translate: true, language: { kind: "language", lang: "id" } });
+	});
+
+	test("rule 4w (GLIM-142): a short block's weak lead goes to the window's language", () => {
+		// The Galician settings list reads gl as a whole (0.98); this row alone reads pt 0.79 / gl 0.15.
+		const subset = [L("gl"), L("es"), L("pt")];
+		const texts = [
+			"Notificacións",
+			"Idioma e rexión",
+			"Buscar actualizacións",
+			"Abrir automaticamente ao acender o ordenador",
+		];
+		const { detector } = planDetector(subset, [eld, ft]);
+		expect(detector).toBe(ft);
+		const r = detectCaptureLanguages(blocks(texts), { subset, target: L("en"), detector });
+		expect(r.get("b3")).toMatchObject({ rule: "4w", translate: true, language: { lang: "gl" } });
+		// GLIM-104's starting point (no 4w) translated it as Portuguese.
+		const before = detectCaptureLanguages(blocks(texts), { subset, target: L("en"), detector, priorMargin: null });
+		expect(before.get("b3")).toMatchObject({ rule: "4", language: { lang: "pt" } });
+	});
+
+	test("rule 4w leaves a confident block of another language alone (mixed window)", () => {
+		const subset = [L("kk"), L("ru")];
+		const texts = ["Кіру", "Телефон нөміріңізді енгізіңіз", "Забыли пароль?", "Продолжить на русском языке"];
+		const r = detectCaptureLanguages(blocks(texts), { subset, target: L("en"), detector: ft });
+		expect(r.get("b1")).toMatchObject({ rule: "4", language: { lang: "kk" } });
+		expect(r.get("b2")).toMatchObject({ rule: "4", language: { lang: "ru" } });
+		expect(r.get("b3")).toMatchObject({ rule: "4", language: { lang: "ru" } });
 	});
 
 	test("Settings: only languages neither detector covers get the can't-be-detected note", () => {

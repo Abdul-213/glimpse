@@ -1,10 +1,15 @@
 {
-	"machine": "GitHub ubuntu-latest: AMD EPYC 7763, 2 cores, ORT threads auto (1)",
+	"machine": "GitHub ubuntu-latest: AMD EPYC 7763, 2 cores, ORT threads auto (1); totalP50 + GLIM-142 cases scaled from a local run",
 	"scripts": {
 		"Latin": {
 			"cer": 0.0204,
 			"grouping": 1,
 			"detection": 1
+		},
+		"Latin (fastText)": {
+			"cer": 0.0192,
+			"grouping": 1,
+			"detection": 0.7059
 		},
 		"CJK": {
 			"cer": 0.0145,
@@ -42,5 +47,5 @@
 			"detection": 1
 		}
 	},
-	"totalP50": 6964
+	"totalP50": 8306
 }

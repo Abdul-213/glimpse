@@ -22,7 +22,8 @@
 		"dev": "bun run --filter @glimpse/app dev",
 		"build": "bun run --filter @glimpse/app build",
 		"harness": "bun app/scripts/harness.ts",
-		"bench:ocr": "bun packages/providers/bench/ocr/run.ts"
+		"bench:ocr": "bun packages/providers/bench/ocr/run.ts",
+		"bench:lid": "bun packages/providers/bench/detection/run.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.4",
