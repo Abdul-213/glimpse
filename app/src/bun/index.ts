@@ -452,6 +452,7 @@ const livePopupWindow = new ElectrobunLivePopupWindow({
 	controller: () => livePopup,
 	displays: readDisplays,
 	log: (message) => liveLog.info(message),
+	chrome,
 });
 livePopup = new LivePopupController({
 	window: livePopupWindow,

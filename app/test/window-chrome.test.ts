@@ -215,3 +215,25 @@ describe("WindowChrome", () => {
 		expect(logs.some((l) => l.includes("material failed"))).toBe(true);
 	});
 });
+
+describe("popup windows take the material from their chrome (GLIM-132)", () => {
+	// The view must not set data-material itself: its init reply can arrive after the chrome's
+	// dom-ready script and would put the solid veil back over a native material.
+	for (const view of ["popup", "live"] as const) {
+		test(`views/${view} leaves data-material to WindowChrome`, async () => {
+			const src = await Bun.file(new URL(`../src/views/${view}/index.tsx`, import.meta.url)).text();
+			expect(src).toContain("applyPlatform(i.os)");
+			expect(src).not.toMatch(/material:\s*"/);
+		});
+	}
+
+	for (const file of ["popup.ts", "live-popup.ts"] as const) {
+		test(`windows/${file} creates, attaches and refreshes through the chrome`, async () => {
+			const src = await Bun.file(new URL(`../src/bun/windows/${file}`, import.meta.url)).text();
+			expect(src).toContain('chrome.transparentFor("popup")');
+			expect(src).toContain('attach(electrobunChromeTarget(this.win), "popup")');
+			expect(src).toContain("this.chrome?.refresh()");
+			expect(src).toContain("this.chrome?.dispose()");
+		});
+	}
+});
