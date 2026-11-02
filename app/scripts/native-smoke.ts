@@ -12,6 +12,7 @@ import { loadAnnounceNative } from "../src/bun/native/announce.ts";
 import { FRAME_PALETTE_ORDER, type FrameNativeBinding, rgbaOf } from "../src/bun/native/frame.ts";
 import { loadMacNative } from "../src/bun/native/macos.ts";
 import type { SessionEventKind, SessionNativeBinding } from "../src/bun/native/session.ts";
+import { loadTrayLabelNative } from "../src/bun/native/tray-label.ts";
 import { loadWindowsCapture, loadWindowsChrome } from "../src/bun/native/windows.ts";
 import { MacCaptureSource } from "../src/bun/services/capture/macos.ts";
 import { displaysFromMac, displaysFromWindows } from "../src/bun/services/capture/native-displays.ts";
@@ -192,6 +193,15 @@ async function attempt(label: string, run: () => Promise<{ width: number; height
 	console.log("screen reader active:", native.screenReaderActive());
 	if (process.platform === "darwin")
 		console.log("announce posted:", native.announce(null, "Glimpse native smoke", "low"));
+}
+
+// Tray accessible name (GLIM-136, macOS): load the symbol and call it. This process has no
+// NSApp or status item, so "not found" (false) is the expected answer; it must not crash.
+if (process.platform === "darwin") {
+	const { status, native } = loadTrayLabelNative();
+	console.log("tray label:", JSON.stringify(status));
+	if (!native) process.exit(1);
+	console.log("tray label set (expect false, no tray here):", native.setAccessibilityLabel(1, "Glimpse"));
 }
 
 if (process.platform === "win32") {

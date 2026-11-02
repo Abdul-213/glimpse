@@ -4,6 +4,7 @@
 import { Tray } from "electrobun/main";
 import type { Platform } from "../shared/rpc.ts";
 import { type CommandBus, isCommand } from "./commands.ts";
+import { trayAccessibleNameSetter } from "./native/tray-label.ts";
 import { TrayController, type TrayMenuItem, type TrayState, trayIconFor } from "./tray-menu.ts";
 
 type ElectrobunMenu = Parameters<Tray["setMenu"]>[0];
@@ -31,6 +32,7 @@ export function createTray(initial: TrayState, commands: CommandBus): TrayContro
 		{
 			setMenu: (menu) => tray.setMenu(toElectrobun(menu)),
 			setImage: (image) => tray.setImage(image),
+			setAccessibleName: trayAccessibleNameSetter(platform, tray),
 		},
 		initial,
 	);

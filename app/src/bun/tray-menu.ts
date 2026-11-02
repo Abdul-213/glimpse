@@ -201,10 +201,28 @@ export function trayIconFor(
 	}
 }
 
+/**
+ * What VoiceOver and Narrator call the tray item (GLIM-136): the app name, plus the Live state
+ * while a session is on, since the icon alone doesn't say it to a screen-reader user.
+ * Windows shows it as the icon's tooltip too, so it stays short and plain.
+ */
+export function trayAccessibleName(state: TrayState): string {
+	switch (state.live) {
+		case "running":
+			return "Glimpse — Live running";
+		case "paused":
+			return "Glimpse — Live paused";
+		default:
+			return "Glimpse";
+	}
+}
+
 /** The native side tray.ts wraps (Electrobun `Tray`). */
 export interface TrayHost {
 	setMenu(menu: TrayMenuItem[]): void;
 	setImage(image: string): void;
+	/** The item's accessible name (GLIM-136); optional so hosts without one still work. */
+	setAccessibleName?(name: string): void;
 }
 
 /** Holds tray state and pushes only what changed to the host. */
@@ -212,6 +230,7 @@ export class TrayController {
 	#state: TrayState;
 	#menuKey = "";
 	#image = "";
+	#name = "";
 	readonly #host: TrayHost;
 	/** Count of native menu rebuilds (tests). */
 	rebuilds = 0;
@@ -244,6 +263,11 @@ export class TrayController {
 			// The first image is set by the Tray constructor; later changes go through setImage.
 			if (this.#image !== "") this.#host.setImage(image);
 			this.#image = image;
+		}
+		const name = trayAccessibleName(this.#state);
+		if (name !== this.#name) {
+			this.#name = name;
+			this.#host.setAccessibleName?.(name);
 		}
 	}
 }
