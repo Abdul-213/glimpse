@@ -81,6 +81,7 @@ export function SettingsApp(props: SettingsAppProps): JSX.Element {
 	return (
 		<div class="settings-shell flex h-dvh text-text-primary">
 			<nav aria-label="Settings sections" class="settings-nav w-50 shrink-0 overflow-y-auto">
+				<TitleBar />
 				<ul class="m-0 flex list-none flex-col gap-0.5 p-0">
 					<For each={SECTIONS}>
 						{(s, i) => (
@@ -104,44 +105,56 @@ export function SettingsApp(props: SettingsAppProps): JSX.Element {
 				</ul>
 			</nav>
 
-			<main id="settings-pane" class="settings-pane min-w-0 flex-1 overflow-y-auto" aria-labelledby="pane-title">
-				<div class="mx-auto max-w-160 p-6">
-					<Show when={state.error()}>
-						{(message) => (
-							<div class="mb-5">
-								<Banner tone="danger" title="Settings can't load" live>
-									{message()}
-								</Banner>
-							</div>
-						)}
-					</Show>
-					<Show when={state.snapshot() && state.settings()}>
-						<Switch>
-							<Match when={section() === "general"}>
-								<GeneralPane state={state} />
-							</Match>
-							<Match when={section() === "languages"}>
-								<LanguagesPane state={state} onManagePacks={() => select("models")} />
-							</Match>
-							<Match when={section() === "shortcuts"}>
-								<ShortcutsPane state={state} />
-							</Match>
-							<Match when={section() === "providers"}>
-								<ProvidersPane state={state} />
-							</Match>
-							<Match when={section() === "models"}>
-								<ModelsPane state={state} />
-							</Match>
-							<Match when={section() === "privacy"}>
-								<PrivacyPane state={state} />
-							</Match>
-							<Match when={section() === "about"}>
-								<AboutPane state={state} />
-							</Match>
-						</Switch>
-					</Show>
-				</div>
-			</main>
+			<div class="settings-main flex min-w-0 flex-1 flex-col">
+				<TitleBar />
+				<main id="settings-pane" class="settings-pane min-h-0 flex-1 overflow-y-auto" aria-labelledby="pane-title">
+					<div class="mx-auto max-w-160 p-6">
+						<Show when={state.error()}>
+							{(message) => (
+								<div class="mb-5">
+									<Banner tone="danger" title="Settings can't load" live>
+										{message()}
+									</Banner>
+								</div>
+							)}
+						</Show>
+						<Show when={state.snapshot() && state.settings()}>
+							<Switch>
+								<Match when={section() === "general"}>
+									<GeneralPane state={state} />
+								</Match>
+								<Match when={section() === "languages"}>
+									<LanguagesPane state={state} onManagePacks={() => select("models")} />
+								</Match>
+								<Match when={section() === "shortcuts"}>
+									<ShortcutsPane state={state} />
+								</Match>
+								<Match when={section() === "providers"}>
+									<ProvidersPane state={state} />
+								</Match>
+								<Match when={section() === "models"}>
+									<ModelsPane state={state} />
+								</Match>
+								<Match when={section() === "privacy"}>
+									<PrivacyPane state={state} />
+								</Match>
+								<Match when={section() === "about"}>
+									<AboutPane state={state} />
+								</Match>
+							</Switch>
+						</Show>
+					</div>
+				</main>
+			</div>
 		</div>
 	);
+}
+
+/**
+ * macOS draws the window with `hiddenInset` (GLIM-133): the webview reaches the top edge, the
+ * traffic lights float over the sidebar, and this 28 px strip (one per column) is where the
+ * window drags from. Hidden on Windows, which keeps its native caption (index.css).
+ */
+function TitleBar(): JSX.Element {
+	return <div class="settings-titlebar electrobun-webkit-app-region-drag" aria-hidden="true" />;
 }

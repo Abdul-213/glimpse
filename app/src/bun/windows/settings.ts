@@ -4,15 +4,24 @@ import type { CaptureExclusion } from "./capture-exclusion.ts";
 import { electrobunChromeTarget } from "./chrome-target.ts";
 import type { SettingsDeps } from "./settings-handlers.ts";
 import { createSettingsHandlers } from "./settings-handlers.ts";
-import type { WindowChrome } from "./window-chrome.ts";
+import { type ChromeHandle, settingsWindowStyle, type WindowChrome } from "./window-chrome.ts";
 
 /**
  * The Settings window (GLIM-69): one instance, created on demand, re-activated if already
  * open. DESIGN.md Layout > Settings: 720 x 520 minimum, resizable. The handlers live in
  * settings-handlers.ts (tested on Linux); this file only wires them to Electrobun and pushes
- * state changes to the open view. The window gets the theme from WindowChrome (GLIM-110); no
- * native material yet (Mica / windowBackground vibrancy would need a transparent, re-chromed
- * window), so the view paints the solid window surface.
+ * state changes to the open view. WindowChrome gives it the theme (GLIM-110) and the material
+ * (GLIM-133, role `settings`):
+ *
+ *   macOS    titleBarStyle `hiddenInset` (full-size content, traffic lights over the sidebar,
+ *            no title text, the native NSWindow resizing), created clear, with a `.sidebar`
+ *            NSVisualEffectView under the webview. The view adds a 28 px drag strip on top.
+ *   Windows  the standard caption (native buttons, Snap, resize). On Windows 11 22H2+ created
+ *            transparent with Mica (DWMSBT_MAINWINDOW) on the glass sheet; Windows 10 / 21H2
+ *            keep the opaque window and the solid surface.
+ *
+ * The view paints the window veil on the sidebar and the solid surface on the pane, or solid
+ * everywhere under `data-material="none"` (reduced transparency, no helper).
  */
 export class SettingsWindow {
 	private window: BrowserWindow | null = null;
@@ -21,6 +30,7 @@ export class SettingsWindow {
 	private showSection: ((section: SettingsSection) => void) | null = null;
 	/** The pane a new window opens at; the view reads it with its first snapshot. */
 	private initialSection: SettingsSection | null = null;
+	private chromeHandle: ChromeHandle | null = null;
 
 	constructor(
 		readonly deps: SettingsDeps,
@@ -33,6 +43,8 @@ export class SettingsWindow {
 	open(section?: SettingsSection): void {
 		if (this.window) {
 			if (section) this.showSection?.(section);
+			// Reduced transparency may have changed while it was open.
+			this.chromeHandle?.refresh();
 			this.window.activate();
 			return;
 		}
@@ -81,6 +93,7 @@ export class SettingsWindow {
 			title: "Glimpse Settings",
 			url: "views://settings/index.html",
 			frame: { width: 760, height: 560 },
+			...settingsWindowStyle(process.platform === "darwin", this.chrome),
 			rpc,
 			// Created hidden so it is excluded from capture before it is ever on screen.
 			hidden: true,
@@ -97,9 +110,11 @@ export class SettingsWindow {
 			this.initialSection = s;
 			rpc.send.showSection(s);
 		};
-		const chrome = this.chrome?.attach(electrobunChromeTarget(win), "window");
+		const chrome = this.chrome?.attach(electrobunChromeTarget(win), "settings") ?? null;
+		this.chromeHandle = chrome;
 		win.on("close", () => {
 			chrome?.dispose();
+			this.chromeHandle = null;
 			for (const u of this.unsubscribe) u();
 			this.unsubscribe = [];
 			this.window = null;

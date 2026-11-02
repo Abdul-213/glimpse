@@ -2,7 +2,11 @@
 // window can be opened in a browser and screenshotted headlessly (scripts/settings-shots.ts).
 //   ?os=macos|windows  &pane=general|languages|shortcuts|providers|models|privacy|about
 //   &scenario=conflict|any|idle  &dir=rtl   (appearance follows the browser's colour scheme)
+//   &material=native   the GLIM-133 material veils over a stand-in desktop (a webview can't
+//                      show the real vibrancy / Mica). macOS also gets stand-in traffic lights,
+//                      as the hiddenInset window draws them over the sidebar.
 import { applyPlatform } from "@glimpse/ui";
+import { Show } from "solid-js";
 import { render } from "solid-js/web";
 import { SECTIONS, type SectionId, SettingsApp } from "../settings/SettingsApp.tsx";
 import { fakeSettingsClient } from "./fake-client.ts";
@@ -11,12 +15,25 @@ const q = new URLSearchParams(location.search);
 const os = q.get("os") === "windows" ? "windows" : "macos";
 const paneParam = q.get("pane");
 const pane = SECTIONS.find((s) => s.id === paneParam)?.id ?? ("general" as SectionId);
-applyPlatform(os);
+const material = q.get("material") === "native";
+applyPlatform(os, material ? { material: "native" } : {});
+if (material) document.documentElement.dataset["previewBackdrop"] = "";
 document.documentElement.dir = q.get("dir") === "rtl" ? "rtl" : "ltr";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("settings-preview: #root missing from index.html");
 render(
-	() => <SettingsApp client={fakeSettingsClient({ os, scenario: q.get("scenario") ?? "" })} initialSection={pane} />,
+	() => (
+		<>
+			<SettingsApp client={fakeSettingsClient({ os, scenario: q.get("scenario") ?? "" })} initialSection={pane} />
+			<Show when={os === "macos"}>
+				<div class="preview-traffic" aria-hidden="true">
+					<span />
+					<span />
+					<span />
+				</div>
+			</Show>
+		</>
+	),
 	root,
 );
