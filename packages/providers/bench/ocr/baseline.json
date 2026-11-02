@@ -3,12 +3,12 @@
 	"scripts": {
 		"Latin": {
 			"cer": 0.0204,
-			"grouping": 0.8,
+			"grouping": 1,
 			"detection": 1
 		},
 		"CJK": {
 			"cer": 0.0145,
-			"grouping": 0.75,
+			"grouping": 1,
 			"detection": 1
 		},
 		"Arabic": {
@@ -18,8 +18,8 @@
 		},
 		"Cyrillic": {
 			"cer": 0,
-			"grouping": 0.5556,
-			"detection": 0.8889
+			"grouping": 1,
+			"detection": 0.7778
 		},
 		"Devanagari": {
 			"cer": 0.0292,
@@ -33,14 +33,14 @@
 		},
 		"Greek": {
 			"cer": 0.0169,
-			"grouping": 0,
+			"grouping": 1,
 			"detection": 1
 		},
 		"Mixed": {
 			"cer": 0,
-			"grouping": 0.7778,
-			"detection": 0.8889
+			"grouping": 1,
+			"detection": 1
 		}
 	},
-	"totalP50": 6689
+	"totalP50": 6964
 }
