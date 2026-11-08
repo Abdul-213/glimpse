@@ -174,5 +174,11 @@ try {
 } finally {
 	await service?.dispose();
 	packSource?.dispose();
-	rmSync(appDir, { recursive: true, force: true });
+	// On Windows onnxruntime's DLLs stay loaded in this process after the Worker ends, so the
+	// temp folder can't always be removed (EPERM, GLIM-149). The runner discards it anyway.
+	try {
+		rmSync(appDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+	} catch (e) {
+		console.warn(`note: could not remove ${appDir}: ${(e as Error).message}`);
+	}
 }
