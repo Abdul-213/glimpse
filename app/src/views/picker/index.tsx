@@ -35,7 +35,13 @@ const rpc = connect<PickerRPC>({
 			setState(s);
 		},
 		pickerLoupe: (m) => setLoupe(m),
-		pickerResults: (m) => setResults(m?.results ?? null),
+		pickerResults: (m) => {
+			const r = m?.results ?? null;
+			// The overlay cards' peek fade follows Glimpse's motion setting (GLIM-152).
+			if (r?.reducedMotion !== undefined)
+				document.documentElement.dataset["motion"] = r.reducedMotion ? "reduced" : "full";
+			setResults(r);
+		},
 		pickerHide: (h) => {
 			setHidden(h);
 			setOpen(null);

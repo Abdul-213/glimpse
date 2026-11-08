@@ -154,7 +154,145 @@ body,
 	white-space: nowrap;
 }
 
+/*
+ * GLIM-152: the results layer's numbered badges and overlay cards (snip-popup.md §2.3, §2.5).
+ * Badges are HUD chips ringed in picker-stroke, so they read on any content, the same way every
+ * picker line does (dark core, white edge). Lit (linked or picked): the accent, like the popup
+ * block's number. Cards follow the OS appearance with the popup's solid surface: they replace
+ * the text they cover, so they must be opaque.
+ */
+.results-marks {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	/*
+	 * The overlay's root is `color-scheme: dark` (the HUD is always dark), and the theme's
+	 * light-dark() tokens resolve where they are declared, so the cards can't inherit them.
+	 * They follow the OS appearance with the same DESIGN.md values: surface-popup-solid,
+	 * text-primary, border-hairline and the Tooltip shadow, light then dark.
+	 */
+	--card-surface: #f5f5f7;
+	--card-text: #1d1d1f;
+	--card-edge: #0000001f;
+	--card-shadow: 0 2px 8px #00000026;
+}
+
+@media (prefers-color-scheme: dark) {
+	.results-marks {
+		--card-surface: #262628;
+		--card-text: #f4f4f6;
+		--card-edge: #ffffff1f;
+		--card-shadow: 0 2px 8px #00000066;
+	}
+}
+
+.results-badge {
+	position: absolute;
+	z-index: 2;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.25rem;
+	height: 1.25rem;
+	padding-inline: calc(var(--spacing) * 1.5);
+	transform: translate(-50%, -50%);
+	border-radius: var(--radius-pill);
+	background: var(--color-picker-hud);
+	color: var(--color-picker-hud-text);
+	box-shadow:
+		var(--shadow-hud),
+		0 0 0 1px var(--color-picker-stroke);
+	font-size: var(--text-numeric);
+	font-weight: var(--text-numeric--font-weight);
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	pointer-events: auto;
+	cursor: pointer;
+	transition:
+		background-color var(--duration-fast) var(--ease-standard),
+		color var(--duration-fast) var(--ease-standard);
+}
+
+.results-badge[data-dashed] {
+	opacity: 0.6;
+}
+
+.results-badge[data-lit] {
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+	opacity: 1;
+}
+
+.results-card {
+	position: absolute;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	box-sizing: border-box;
+	padding: var(--spacing) calc(var(--spacing) * 1.5);
+	overflow: hidden;
+	border-radius: var(--radius-control);
+	background: var(--card-surface);
+	color: var(--card-text);
+	box-shadow:
+		var(--card-shadow),
+		0 0 0 1px var(--card-edge);
+	font-weight: var(--text-translation--font-weight);
+	text-align: center;
+	unicode-bidi: plaintext;
+	user-select: none;
+	pointer-events: auto;
+	cursor: pointer;
+	transition:
+		opacity var(--duration-fast) var(--ease-standard),
+		box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.results-card-line {
+	display: block;
+	white-space: pre;
+}
+
+.results-card[data-linked] {
+	box-shadow:
+		var(--card-shadow),
+		0 0 0 2px var(--color-accent);
+}
+
+/* Peek (Shift held, original view, or the pointer over the card): the source shows through. */
+.results-card[data-peek] {
+	opacity: 0;
+}
+
+:root[data-motion="reduced"] .results-card,
+:root[data-motion="reduced"] .results-badge {
+	transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.results-card,
+	.results-badge {
+		transition: none;
+	}
+}
+
 @media (forced-colors: active) {
+	.results-badge,
+	.results-card {
+		forced-color-adjust: none;
+		background: Canvas;
+		color: CanvasText;
+		box-shadow: none;
+		border: 1px solid CanvasText;
+	}
+	.results-badge[data-lit],
+	.results-card[data-linked] {
+		background: Highlight;
+		color: HighlightText;
+		border-color: Highlight;
+	}
+
 	.picker-hud {
 		background: Canvas;
 		color: CanvasText;

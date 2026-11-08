@@ -14,6 +14,8 @@ export function snipViewInit(os: SnipViewInit["os"], uiLang = "en"): SnipViewIni
 			copyOriginal: mac ? "⌘⇧C" : "Ctrl+Shift+C",
 			original: mac ? "⌘⇧O" : "Ctrl+Shift+O",
 			close: "Esc",
+			overlay: mac ? "⌘⇧T" : "Ctrl+Shift+T",
+			peek: mac ? "⇧" : "Shift",
 		},
 	};
 }

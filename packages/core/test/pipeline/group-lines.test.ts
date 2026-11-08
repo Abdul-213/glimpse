@@ -58,6 +58,37 @@ describe("groupLines on real OCR output", () => {
 		expect(t.at(-1)).toBe("We have to leave before the storm arrives.");
 		expect(new Set(blocks.map((b) => b.id)).size).toBe(blocks.length);
 	});
+
+	// GLIM-152: comic pages (packages/providers/test/fixtures/ocr/comic-*.png).
+	test("manga: one block per vertical bubble, panels and bubbles right to left", async () => {
+		const blocks = groupLines(await fixture("comic-ja"));
+		expect(texts(blocks)).toEqual([
+			"ちょっと待って\n今の音\n聞こえた?",
+			"何も\n聞こえない\nけど",
+			"じゃあ\nあれは何？",
+			"その夜、森で",
+			"風の音だよ\nきっと",
+		]);
+		expect(blocks.map((b) => b.writing)).toEqual([
+			"vertical-rl",
+			"vertical-rl",
+			"vertical-rl",
+			"horizontal-tb",
+			"vertical-rl",
+		]);
+	});
+
+	test("Western comic: short centred bubble lines are one block each, panels left to right", async () => {
+		const blocks = groupLines(await fixture("comic-en-fr"));
+		expect(texts(blocks)).toEqual([
+			"HEY! DID YOU\nHEAR THAT\nNOISE?",
+			"WHAT NOISE?",
+			"I DIDN'T\nHEAR\nANYTHING.",
+			"PLUS TARD...",
+			"ATTENDS...\nTU ENTENDS ÇA?",
+			"C'EST LE VENT,\nRIEN DE PLUS.\nRENTRONS.",
+		]);
+	});
 });
 
 describe("groupLines rules", () => {
@@ -180,6 +211,31 @@ describe("groupLines rules", () => {
 		expect(blocks).toHaveLength(2);
 		expect(blocks[0]?.text).toBe("مرحبا بكم في التطبيق الجديد\nاضغط للمتابعة");
 		expect(blocks[1]?.text).toBe("هذا نص في العمود الأيسر هنا\nنهاية العمود");
+	});
+
+	test("lettering: a tight stack of short centred lines is one bubble", () => {
+		const blocks = groupLines([
+			line("OH NO!", 130, 0, 70, 24),
+			line("NOT AGAIN", 112, 23, 106, 24),
+			line("TODAY?!", 125, 46, 80, 24),
+		]);
+		expect(texts(blocks)).toEqual(["OH NO!\nNOT AGAIN\nTODAY?!"]);
+	});
+
+	test("lettering: tight left-aligned rows stay separate (a menu), and so do loose centred ones", () => {
+		const menu = groupLines([line("Settings", 24, 253, 87, 35), line("Help", 22, 291, 58, 38)]);
+		expect(texts(menu)).toEqual(["Settings", "Help"]);
+		const loose = groupLines([line("New Game", 100, 0, 100, 24), line("Options", 106, 40, 88, 24)]);
+		expect(texts(loose)).toEqual(["New Game", "Options"]);
+	});
+
+	test("lettering: touching vertical columns of different lengths are one bubble", () => {
+		const blocks = groupLines([
+			line("ちょっと待って", 522, 53, 36, 204, true),
+			line("今の音", 485, 56, 37, 97, true),
+			line("聞こえた?", 448, 56, 38, 151, true),
+		]);
+		expect(texts(blocks)).toEqual(["ちょっと待って\n今の音\n聞こえた?"]);
 	});
 
 	test("explicit vertical flag wins over the box shape; empty lines are dropped", () => {

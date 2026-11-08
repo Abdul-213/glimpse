@@ -125,6 +125,21 @@ export interface SnipPopupState {
 	/** "Copied" shows in the footer for 2 s after a write (§2.4). */
 	readonly copied: "translation" | "original" | null;
 	readonly skippedExpanded: boolean;
+	/**
+	 * Overlay mode (GLIM-152, §2.5): each translation is painted over its box on screen. Starts
+	 * from Settings › "Show translations on screen"; the footer toggle (Ctrl/⌘⇧T) flips it.
+	 */
+	readonly overlay: boolean;
+	/**
+	 * The block picked on screen by clicking its box or badge (GLIM-152): the popup scrolls to
+	 * it and holds it highlighted. `seq` changes on every pick, so picking the same block again
+	 * scrolls again.
+	 */
+	readonly selected: { readonly id: string; readonly seq: number } | null;
+	/** The block whose box the pointer is over on screen (GLIM-152): its popup block lights. */
+	readonly screenLinked: string | null;
+	/** Shift held in the popup: overlay cards step aside to show the source (GLIM-152). */
+	readonly peek: boolean;
 }
 
 /** Things that change the popup, besides pipeline events. */
@@ -136,8 +151,17 @@ export type SnipAction =
 			readonly alwaysShowLanguages?: boolean;
 			readonly showOriginalUnder?: boolean;
 			readonly autoCopy?: boolean;
+			readonly overlay?: boolean;
 	  }
 	| { readonly type: "pipeline"; readonly event: PipelineEvent }
+	/** Overlay mode on or off (`on` sets it; absent flips). GLIM-152. */
+	| { readonly type: "toggleOverlay"; readonly on?: boolean }
+	/** A box or badge was clicked on screen (GLIM-152). Unknown or neutral ids are ignored. */
+	| { readonly type: "select"; readonly id: string }
+	/** The pointer is over a box on screen (null: none). GLIM-152. */
+	| { readonly type: "screenHover"; readonly id: string | null }
+	/** Peek at the source under the overlay cards (Shift held). GLIM-152. */
+	| { readonly type: "peek"; readonly on: boolean }
 	| { readonly type: "toggleSkipped"; readonly expanded?: boolean }
 	/** The clipboard was written (auto-copy, Ctrl/⌘C, Copy original). */
 	| { readonly type: "copied"; readonly what: "translation" | "original"; readonly auto?: boolean }
@@ -164,7 +188,13 @@ export const OPENED_SKELETONS: readonly number[] = [70, 45];
 
 export function initialSnipState(
 	requestId: string,
-	opts: { private?: boolean; alwaysShowLanguages?: boolean; showOriginalUnder?: boolean; autoCopy?: boolean } = {},
+	opts: {
+		private?: boolean;
+		alwaysShowLanguages?: boolean;
+		showOriginalUnder?: boolean;
+		autoCopy?: boolean;
+		overlay?: boolean;
+	} = {},
 ) {
 	const state: SnipPopupState = {
 		requestId,
@@ -187,6 +217,10 @@ export function initialSnipState(
 		autoCopied: false,
 		copied: null,
 		skippedExpanded: false,
+		overlay: opts.overlay ?? false,
+		selected: null,
+		screenLinked: null,
+		peek: false,
 	};
 	return state;
 }
@@ -207,7 +241,30 @@ export function reduceSnip(state: SnipPopupState, action: SnipAction): SnipPopup
 				...(action.alwaysShowLanguages !== undefined ? { alwaysShowLanguages: action.alwaysShowLanguages } : {}),
 				...(action.showOriginalUnder !== undefined ? { showOriginalUnder: action.showOriginalUnder } : {}),
 				...(action.autoCopy !== undefined ? { autoCopy: action.autoCopy } : {}),
+				...(action.overlay !== undefined ? { overlay: action.overlay } : {}),
 			});
+		case "toggleOverlay": {
+			const on = action.on ?? !state.overlay;
+			return on === state.overlay ? state : { ...state, overlay: on, peek: on ? state.peek : false };
+		}
+		case "select": {
+			const b = state.blocks.find((x) => x.id === action.id);
+			if (!b || b.cls === "neutral") return state;
+			return {
+				...state,
+				selected: { id: b.id, seq: (state.selected?.seq ?? 0) + 1 },
+				// A picked skipped block is shown where it lives: the expanded skipped list.
+				skippedExpanded: b.cls === "skip" ? true : state.skippedExpanded,
+			};
+		}
+		case "screenHover": {
+			const id = action.id !== null && state.blocks.some((x) => x.id === action.id) ? action.id : null;
+			return id === state.screenLinked ? state : { ...state, screenLinked: id };
+		}
+		case "peek": {
+			const on = action.on && state.overlay;
+			return on === state.peek ? state : { ...state, peek: on };
+		}
 		case "copied":
 			return { ...state, copied: action.what, autoCopied: state.autoCopied || action.auto === true };
 		case "copiedExpired":
@@ -527,7 +584,9 @@ export type SnipStatus =
 	/** Original view is on (§4 S6). */
 	| { readonly kind: "original" }
 	/** The clipboard was just written: "Copied" with a check, for 2 s. */
-	| { readonly kind: "copied" };
+	| { readonly kind: "copied" }
+	/** Overlay mode is on and the run is done (GLIM-152): "Shown on screen". */
+	| { readonly kind: "overlay" };
 
 export function snipStatus(s: SnipPopupState): SnipStatus {
 	if (s.copied && s.phase !== "error") return { kind: "copied" };
@@ -542,9 +601,8 @@ export function snipStatus(s: SnipPopupState): SnipStatus {
 		case "done": {
 			const translate = s.blocks.filter((b) => b.cls === "translate");
 			const failed = translate.filter((b) => b.state === "failed" || b.state === "waiting").length;
-			return failed > 0
-				? { kind: "partial", done: translate.length - failed, total: translate.length }
-				: { kind: "none" };
+			if (failed > 0) return { kind: "partial", done: translate.length - failed, total: translate.length };
+			return s.overlay ? { kind: "overlay" } : { kind: "none" };
 		}
 		case "error":
 			return { kind: "clipboardUnchanged" };

@@ -5,9 +5,12 @@
 //
 //   ?state=hover|drag|adjust|keyboard|tooSmall|live|results   scripted input for screenshots
 //   (results: a confirmed Snip with the popup's detection boxes, GLIM-115; ?linked=0 for none)
+//   ?state=comic|comic-overlay   GLIM-152: a manga page with numbered badges, then overlay mode
+//   (&peek=1: the cards step aside)
 //   ?os=macos|windows
 import {
 	type LoupePatch,
+	languageCode,
 	NO_MODIFIERS,
 	PickerSession,
 	type PickerViewState,
@@ -190,6 +193,10 @@ setTimeout(() => {
 		case "live":
 			p("move", 1000, 300);
 			break;
+		case "comic":
+		case "comic-overlay":
+			comic(q.get("state") === "comic-overlay");
+			break;
 		case "results":
 			// Confirmed Snip over the Messages window; boxes as the popup controller sends them.
 			p("down", 76, 136);
@@ -206,3 +213,47 @@ setTimeout(() => {
 			break;
 	}
 }, 50);
+
+// GLIM-152: the manga fixture (packages/providers/test/fixtures/ocr/comic-ja.png) at 1:1 on the
+// desktop, snipped whole. Boxes are core groupLines' blocks for it (one per bubble, in manga
+// reading order), numbered the way the popup controller numbers them; the translations are the
+// popup preview's s18/s19 scenarios.
+const COMIC_AT = { x: 40, y: 40 };
+const COMIC_BLOCKS = [
+	{ id: "b1", x: 448, y: 53, width: 110, height: 204, text: "Wait a second. Did you hear that sound just now?" },
+	{ id: "b2", x: 169, y: 110, width: 111, height: 150, text: "I can't hear anything, though." },
+	{ id: "b3", x: 442, y: 436, width: 78, height: 158, text: "Then what was that?" },
+	{ id: "b4", x: 48, y: 378, width: 125, height: 31, text: "That night, in the forest" },
+	{ id: "b5", x: 147, y: 471, width: 73, height: 150, text: "It's the wind, I'm sure." },
+];
+function comic(overlay: boolean): void {
+	const img = document.getElementById("comic-page") as HTMLImageElement | null;
+	const paint = () => {
+		if (img?.naturalWidth) g.drawImage(img, COMIC_AT.x, COMIC_AT.y);
+		p("down", COMIC_AT.x, COMIC_AT.y);
+		p("move", COMIC_AT.x + 300, COMIC_AT.y + 300);
+		p("up", COMIC_AT.x + 640, COMIC_AT.y + 720);
+		setResults({
+			requestId: "preview",
+			boxes: COMIC_BLOCKS.map((b, i) => ({
+				id: b.id,
+				rect: { x: COMIC_AT.x + b.x, y: COMIC_AT.y + b.y, width: b.width, height: b.height },
+				style: "solid" as const,
+				badge: i + 1,
+			})),
+			linkedId: null,
+			selectedId: "b3",
+			overlay: overlay
+				? {
+						cards: COMIC_BLOCKS.map((b) => ({ id: b.id, text: b.text, lang: languageCode("en"), dir: "ltr" as const })),
+						peek: q.get("peek") === "1",
+					}
+				: null,
+			uiDir: "ltr",
+			reducedMotion: true,
+		});
+		document.body.dataset["ready"] = "1";
+	};
+	if (!img || img.complete) paint();
+	else img.addEventListener("load", paint, { once: true });
+}

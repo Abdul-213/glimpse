@@ -2,6 +2,8 @@
 // main pushes (`SnipStateMessage`) and sends intents back. No state of its own beyond
 // what the DOM needs (focus, measuring).
 import {
+	badgeLabel,
+	blockNumbers,
 	downloadNeedsConfirm,
 	egressCopy,
 	type FooterLayout,
@@ -34,7 +36,7 @@ import {
 	Toolbar,
 	Tooltip,
 } from "@glimpse/ui";
-import { createEffect, createSignal, For, type JSX, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, type JSX, on, onCleanup, Show } from "solid-js";
 import type { SnipAction, SnipStateMessage, SnipViewInit } from "../../shared/popup-rpc.ts";
 import {
 	alreadyIn,
@@ -66,6 +68,9 @@ export interface SnipPopupIntents {
 	copy(requestId: string, what: "translation" | "original"): void;
 	/** Hover or focus on a block (null: left it): main lights its box on screen (GLIM-115). */
 	hoverBlock?(requestId: string, blockId: string | null): void;
+	/** GLIM-152: overlay mode on/off; the peek key held or released. Optional for previews. */
+	overlay?(requestId: string, on: boolean): void;
+	peek?(requestId: string, on: boolean): void;
 }
 
 export interface SnipPopupProps {
@@ -158,14 +163,72 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 		onCleanup(() => ro.disconnect());
 	}
 
+	// GLIM-152: numbered markers, the same numbers as the badges on screen.
+	const numbers = createMemo(() => blockNumbers(state().blocks));
+	const numberOf = (blockId: string) => {
+		const n = numbers().get(blockId);
+		return n === undefined ? undefined : badgeLabel(n, uiLang());
+	};
+	// A box or badge clicked on screen: scroll its block into view and focus it (which also
+	// lights its box). Every pick has a new seq, so picking the same block again scrolls again.
+	createEffect(
+		on(
+			() => state().selected?.seq,
+			() => {
+				const picked = state().selected;
+				if (!picked) return;
+				raf(() => {
+					const el = list?.querySelector<HTMLElement>(`[data-block-id="${CSS.escape(picked.id)}"]`);
+					if (!el) return;
+					el.scrollIntoView({ block: "nearest" });
+					el.focus({ preventScroll: true });
+				});
+			},
+			{ defer: true },
+		),
+	);
+
+	// Overlay mode (§2.5): the footer toggle, Ctrl/⌘⇧T, Esc returns to the list first.
+	const overlayOn = () => state().overlay;
+	const canOverlay = () => state().blocks.some((b) => b.cls === "translate") && !state().error;
+	const setOverlay = (on: boolean) => props.intents.overlay?.(id(), on);
+	// Peek: Shift held alone, while the overlay is on, lifts the cards off the source.
+	let peeking = false;
+	const setPeek = (on: boolean) => {
+		if (on === peeking) return;
+		peeking = on;
+		props.intents.peek?.(id(), on);
+	};
+	const onKeyUp = (e: KeyboardEvent) => {
+		if (e.key === "Shift") setPeek(false);
+	};
+	if (typeof window !== "undefined") {
+		const lost = () => setPeek(false);
+		window.addEventListener("blur", lost);
+		onCleanup(() => window.removeEventListener("blur", lost));
+	}
+
 	const onKeyDown = (e: KeyboardEvent) => {
+		if (e.key === "Shift") {
+			if (overlayOn() && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) setPeek(true);
+			return;
+		}
+		// Any other key ends a peek (Shift+Tab is moving focus, not peeking).
+		setPeek(false);
 		if (e.key === "Escape") {
 			e.preventDefault();
-			props.intents.dismiss(id(), "esc");
+			if (overlayOn()) setOverlay(false);
+			else props.intents.dismiss(id(), "esc");
 			return;
 		}
 		// Ctrl+Shift+O / ⌘⇧O: original view (§11). Popup-local, never global.
 		const mod = props.init.os === "macos" ? e.metaKey : e.ctrlKey;
+		// Ctrl+Shift+T / ⌘⇧T: overlay mode (GLIM-152).
+		if (mod && e.shiftKey && !e.altKey && e.key.toLowerCase() === "t") {
+			e.preventDefault();
+			if (overlayOn() || canOverlay()) setOverlay(!overlayOn());
+			return;
+		}
 		if (mod && e.shiftKey && !e.altKey && e.key.toLowerCase() === "o") {
 			e.preventDefault();
 			toggleOriginal();
@@ -226,6 +289,8 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 		setAsking(null);
 		raf(() => errorEl?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true }));
 	};
+	// Error states list the original plainly: no numbers (there are no boxes to match).
+	const plainList = () => !!state().error;
 	const translatedCount = () => state().blocks.filter((b) => b.cls === "translate" && b.state === "done").length;
 	const tags = () => showLanguageTags(state());
 
@@ -241,6 +306,7 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 			class="snip-popup"
 			data-reduced-motion={props.message.reducedMotion ? "" : undefined}
 			onKeyDown={onKeyDown}
+			onKeyUp={onKeyUp}
 		>
 			<Show when={error()}>
 				{(e) => (
@@ -331,6 +397,9 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 								showSource={state().showOriginalUnder}
 								onRetry={() => props.intents.retryBlock(id(), b.id)}
 								onLink={(on) => props.intents.hoverBlock?.(id(), on ? b.id : null)}
+								number={plainList() ? undefined : numberOf(b.id)}
+								linked={state().screenLinked === b.id}
+								selected={state().selected?.id === b.id}
 							/>
 						)}
 					</For>
@@ -361,6 +430,11 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 									sourceLang={b.lang ?? undefined}
 									tag={b.lang ? languageName(b.lang, uiLang()) : undefined}
 									tagLang={uiLang()}
+									blockId={b.id}
+									number={numberOf(b.id)}
+									linked={state().screenLinked === b.id}
+									selected={state().selected?.id === b.id}
+									onLinkChange={(on) => props.intents.hoverBlock?.(id(), on ? b.id : null)}
 								/>
 							)}
 						</For>
@@ -414,12 +488,20 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 					<Show when={status().kind === "copied"}>
 						<Icon name="check" />
 					</Show>
-					{statusText(status())}
+					{statusText(status(), props.init.keys.peek)}
 				</span>
 				<span class="sr-only" role="status">
 					{error()?.title ?? announcement(status(), translatedCount(), state().phase === "done", state().autoCopied)}
 				</span>
 				<Toolbar label={COPY.actions} class="snip-actions electrobun-webkit-app-region-no-drag">
+					<IconButton
+						icon="on-screen"
+						label={overlayOn() ? COPY.hideFromScreen : COPY.showOnScreen}
+						shortcut={props.init.keys.overlay}
+						pressed={overlayOn()}
+						disabled={!overlayOn() && !canOverlay()}
+						onClick={() => setOverlay(!overlayOn())}
+					/>
 					<IconButton
 						icon="original"
 						label={original() ? COPY.showTranslation : COPY.showOriginal}
@@ -482,6 +564,9 @@ function Block(props: {
 	showSource: boolean;
 	onRetry: () => void;
 	onLink?: (linked: boolean) => void;
+	number?: string | undefined;
+	linked?: boolean;
+	selected?: boolean;
 }): JSX.Element {
 	const b = () => props.block;
 	const target = () => props.state.target ?? undefined;
@@ -514,6 +599,10 @@ function Block(props: {
 			retryLabel={COPY.retry}
 			onRetry={props.onRetry}
 			onLinkChange={props.onLink}
+			blockId={b().id}
+			number={props.number}
+			linked={props.linked}
+			selected={props.selected}
 		/>
 	);
 }

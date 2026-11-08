@@ -14,6 +14,8 @@
 //                snipOriginal   original view on/off (Ctrl/⌘⇧O or the footer toggle)
 //                snipCopy       copy again (Ctrl/⌘C, Copy button) or the original (Ctrl/⌘⇧C)
 //                snipHoverBlock a block is hovered or focused (null: none); its box lights on screen (GLIM-115)
+//                snipOverlay    overlay mode on/off (GLIM-152)
+//                snipPeek       peek key held / released while the overlay is on (GLIM-152)
 import type { PopupSide, SnipPopupState } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { Platform } from "./rpc.ts";
@@ -25,7 +27,15 @@ export interface SnipViewInit {
 	uiLang: string;
 	uiDir: "ltr" | "rtl";
 	/** Shortcut labels for tooltips, formatted for the OS ("⌘C", "Ctrl+C"). */
-	keys: { copy: string; copyOriginal: string; original: string; close: string };
+	keys: {
+		copy: string;
+		copyOriginal: string;
+		original: string;
+		close: string;
+		/** GLIM-152: overlay toggle ("⌘⇧T", "Ctrl+Shift+T") and the held peek key ("⇧", "Shift"). */
+		overlay: string;
+		peek: string;
+	};
 }
 
 export interface SnipLayout {
@@ -99,6 +109,10 @@ export type SnipPopupRPC = {
 			snipOriginal: { requestId: string; on: boolean };
 			snipCopy: { requestId: string; what: "translation" | "original" };
 			snipHoverBlock: { requestId: string; blockId: string | null };
+			/** GLIM-152: overlay mode on/off (footer toggle, Ctrl/⌘⇧T, Esc while on). */
+			snipOverlay: { requestId: string; on: boolean };
+			/** GLIM-152: the peek key is held (overlay cards step aside) or released. */
+			snipPeek: { requestId: string; on: boolean };
 		};
 	}>;
 	webview: RPCSchema<{

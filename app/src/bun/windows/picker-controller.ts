@@ -153,7 +153,8 @@ export class PickerController {
 	private keeping = false;
 	private readonly listeners = new Set<RegionListener>();
 	private readonly outcomeListeners = new Set<(o: PickerOutcome) => void>();
-	private readonly resultsClickListeners = new Set<() => void>();
+	private readonly resultsClickListeners = new Set<(blockId: string | null) => void>();
+	private readonly resultsHoverListeners = new Set<(blockId: string | null) => void>();
 	private readonly now: () => number;
 	private readonly scheduler: Scheduler;
 
@@ -189,11 +190,18 @@ export class PickerController {
 	/**
 	 * A press on the results layer (the overlays kept up under the Snip popup): a click
 	 * outside the popup. The overlays catch it, so it never reaches the app below
-	 * (snip-popup.md §5, owner question 6). The popup dismisses itself.
+	 * (snip-popup.md §5, owner question 6). The popup dismisses itself. GLIM-152: a press on a
+	 * box or its badge names the block (the view hit-tests its own boxes); null is outside.
 	 */
-	onResultsPointerDown(listener: () => void): () => void {
+	onResultsPointerDown(listener: (blockId: string | null) => void): () => void {
 		this.resultsClickListeners.add(listener);
 		return () => this.resultsClickListeners.delete(listener);
+	}
+
+	/** The pointer moved onto a box on the results layer, or off every box (null). GLIM-152. */
+	onResultsHover(listener: (blockId: string | null) => void): () => void {
+		this.resultsHoverListeners.add(listener);
+		return () => this.resultsHoverListeners.delete(listener);
 	}
 
 	/** Every outcome, cancels included (logs, tests, the harness). */
@@ -327,7 +335,10 @@ export class PickerController {
 	viewPointer(m: PickerPointerMessage): void {
 		if (!this.overlays.has(m.displayId)) return;
 		if (!this.isOpen && this.keeping) {
-			if (m.phase === "down") for (const l of this.resultsClickListeners) l();
+			const id = typeof m.blockId === "string" ? m.blockId : null;
+			if (m.phase === "down") for (const l of this.resultsClickListeners) l(id);
+			else if (m.phase === "move" || m.phase === "leave")
+				for (const l of this.resultsHoverListeners) l(m.phase === "leave" ? null : id);
 			return;
 		}
 		this.session?.pointer(m);

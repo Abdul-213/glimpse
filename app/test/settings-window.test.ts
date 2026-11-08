@@ -225,12 +225,18 @@ describe("settings handlers", () => {
 			copyAfterSnip: true,
 			showOriginalUnder: false,
 			alwaysShowLanguages: false,
+			showOnScreen: false,
 		});
 		const r = await h.updateSettings({
-			snip: { copyAfterSnip: false, showOriginalUnder: true, alwaysShowLanguages: true },
+			snip: { copyAfterSnip: false, showOriginalUnder: true, alwaysShowLanguages: true, showOnScreen: true },
 		});
 		expect(r.issues).toEqual([]);
-		expect(settings.current.snip).toEqual({ copyAfterSnip: false, showOriginalUnder: true, alwaysShowLanguages: true });
+		expect(settings.current.snip).toEqual({
+			copyAfterSnip: false,
+			showOriginalUnder: true,
+			alwaysShowLanguages: true,
+			showOnScreen: true,
+		});
 		const bad = await h.updateSettings({ snip: { copyAfterSnip: "yes" } } as never);
 		expect(bad.issues.map((i) => i.path)).toEqual(["snip.copyAfterSnip"]);
 		expect(settings.current.snip.copyAfterSnip).toBe(false);

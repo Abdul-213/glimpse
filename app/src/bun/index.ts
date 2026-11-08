@@ -428,6 +428,7 @@ snipPopup = new SnipPopupController({
 		showOriginalUnder: appSettings.current.snip.showOriginalUnder,
 		// Snip only: Live never touches the clipboard (GLIM-71).
 		autoCopy: appSettings.current.snip.copyAfterSnip,
+		showOnScreen: appSettings.current.snip.showOnScreen,
 		uiDir: "ltr",
 	}),
 	pointer: () => screenProbe.cursor(),
@@ -436,7 +437,10 @@ snipPopup = new SnipPopupController({
 	log: popupLog,
 });
 // A press on the results layer is a click outside the popup (snip-popup.md §5).
-picker.onResultsPointerDown(() => snipPopup?.outsideClick());
+// GLIM-152: a press on a box or its badge picks that block in the popup instead; hovering a
+// box lights its popup block.
+picker.onResultsPointerDown((blockId) => snipPopup?.screenPress(blockId));
+picker.onResultsHover((blockId) => snipPopup?.screenHover(blockId));
 // Live (GLIM-48/58/59/90): a Live region is pinned. The service runs the capture loop, change
 // detection and the pipeline session, draws the native frame around the region and emits typed
 // session events (logged for now; the docked popup, GLIM-79, renders them).

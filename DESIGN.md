@@ -547,7 +547,7 @@ Borders are 1px everywhere: `border-hairline` for window edges, `border-control`
 ### Translation block
 - Text in `translation`, source line (when shown) in `source` beneath it, both set per-script.
 - **Language tag** (`language-tag`): a trailing inline span, 6px after the text, in the UI language, `unicode-bidi: isolate`. Shown only when the region holds two or more source languages (or Settings says always), and always on blocks in the skipped expansion.
-- **Hover / focus:** `overlay-hover` background, and the block's detected box on screen takes `box-linked-fill`. This is the linked gloss.
+- **Hover / focus:** `overlay-hover` background, and the block's detected box on screen takes `box-linked-fill`. This is the linked gloss. Hovering the box on screen lights the block the same way, and clicking it picks the block (`overlay-selected`) (GLIM-152).
 - **Neutral blocks** (numbers, `OK`, keys): shown as-is in `source` style, never highlighted as changed, never counted as skipped.
 
 ### Live changed block
@@ -579,6 +579,8 @@ Borders are 1px everywhere: `border-hairline` for window edges, `border-control`
 - Esc or right-click cancels from any phase.
 - `picker-readout` shows "W × H" in tabular figures; a second chip hints the mode ("Snip · Tab for Live") with keys rendered as `kbd` in HUD colours.
 - **Detected boxes** (after the drag, while the popup is open): a 1px `picker-stroke` + `picker-halo` outline with `rounded.box`, no fill at rest. Linked box: `box-linked-fill`. Skipped blocks: the same stroke dashed (3px dash, 3px gap) at 60% opacity. Neutral blocks: no box.
+- **Numbered badges** (GLIM-152): every box with a popup block carries that block's number in a 20px HUD pill (`picker-hud`, `picker-hud-text`, `numeric`, 1px `picker-stroke` ring) centred on its top inline-start corner; linked or picked turns it `accent` / `on-accent`. The popup shows the same number in a 16px `overlay-pressed` chip in a 24px inline-start gutter. Numbers, not leader lines: the gloss stays in the margin.
+- **Overlay mode** (GLIM-152, opt-in, off by default): opaque cards (`surface-popup-solid`, `text-primary`, `border-hairline`, Tooltip shadow, `rounded.control`) paint each translation over its box, text fitted between 15px and 11px, then growing downward. This is the one sanctioned exception to "never covers the original": the user asks for it per Snip or in Settings, and the source is one held Shift (or a hover) away. Exact rules: `docs/design/specs/snip-popup.md` §2.5.
 
 ### Buttons, fields and keys
 - **Primary** (`button-primary`): one per view at most; onboarding's next step, settings' confirm actions. Hover layers `overlay-hover` over the fill; pressed layers `overlay-pressed`.

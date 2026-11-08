@@ -56,6 +56,11 @@ export interface PickerPointerMessage {
 	button: number;
 	detail: number;
 	mods: PickerModifiers;
+	/**
+	 * Results layer only (GLIM-152): the block whose box or badge is under the pointer, as the
+	 * view hit-tests it; null when none. Absent while picking.
+	 */
+	blockId?: string | null;
 }
 
 export interface PickerKeyMessage {

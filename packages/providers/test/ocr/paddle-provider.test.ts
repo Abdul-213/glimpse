@@ -226,6 +226,32 @@ describe.skipIf(!hasBundled)("PaddleOCR: real models", () => {
 	);
 
 	test(
+		"GLIM-152: comic pages give one block per speech bubble in reading order (manga right to left)",
+		async () => {
+			const p = make();
+			try {
+				await p.init();
+				const manga = await p.recognise({ image: await fixture("comic-ja.png"), languages: [languageCode("ja")] });
+				expect(manga.blocks.map((b) => b.text.split("\n")[0])).toEqual([
+					"ちょっと待って",
+					"何も",
+					"じゃあ",
+					"その夜、森で",
+					"風の音だよ",
+				]);
+				const western = await p.recognise({
+					image: await fixture("comic-en-fr.png"),
+					languages: [languageCode("en"), languageCode("fr")],
+				});
+				expect(western.blocks.map((b) => b.text.split("\n").length)).toEqual([3, 1, 3, 1, 2, 3]);
+			} finally {
+				await p.dispose();
+			}
+		},
+		T,
+	);
+
+	test(
 		"cancelling mid-request rejects cancelled promptly and the provider keeps working",
 		async () => {
 			const p = make();

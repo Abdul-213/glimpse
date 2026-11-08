@@ -44,6 +44,15 @@ export interface TextBlockProps {
 	/** This block's detected box is lit on screen (hover/focus from either side). */
 	linked?: boolean;
 	onLinkChange?: (linked: boolean) => void;
+	/**
+	 * GLIM-152: the block's number, the same as the badge on its box on screen (already
+	 * formatted for the UI locale). Shown in a chip at inline-start.
+	 */
+	number?: string;
+	/** Picked on screen (its box or badge was clicked): held highlighted. */
+	selected?: boolean;
+	/** The block's id, so the popup can find it to scroll to it. */
+	blockId?: string;
 	failedLabel?: string;
 	retryLabel?: string;
 	onRetry?: () => void;
@@ -79,6 +88,9 @@ export function TextBlock(props: TextBlockProps): JSX.Element {
 			data-variant={props.variant ?? "snip"}
 			data-stale={props.stale ? "" : undefined}
 			data-linked={props.linked ? "" : undefined}
+			data-selected={props.selected ? "" : undefined}
+			data-numbered={props.number ? "" : undefined}
+			data-block-id={props.blockId}
 			tabindex={-1}
 			lang={props.targetLang}
 			aria-busy={busy() ? "true" : undefined}
@@ -88,6 +100,7 @@ export function TextBlock(props: TextBlockProps): JSX.Element {
 			onFocus={() => link(true)}
 			onBlur={() => link(false)}
 		>
+			<Show when={props.number}>{(n) => <span class="glim-block-number">{n()}</span>}</Show>
 			<Show when={props.changeId ?? undefined} keyed>
 				{(_id) => (
 					<>

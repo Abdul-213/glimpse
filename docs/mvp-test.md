@@ -75,6 +75,23 @@ Shortcuts: Windows **Alt+Shift+S** (Snip) and **Alt+Shift+L** (Live); macOS **�
 
 All of them pass? The MVP works on your machine. Quit from tray › **Quit Glimpse**.
 
+### Comics: which translation belongs to which bubble (GLIM-152)
+
+Open **[samples/comic-ja.png](samples/comic-ja.png)** (a manga page, vertical Japanese) and
+**[samples/comic-en-fr.png](samples/comic-en-fr.png)** (English and French bubbles) at full size.
+
+| # | Do this | You should see |
+|---|---|---|
+| 8 | Snip the whole manga page. | One outline per bubble (plus the narration box), each with a number badge on its top-left corner: **1** top-right bubble, **2** top-left, **3** bottom-right panel, **4** the narration box, **5** the bottom-left bubble. The popup lists the translations with the same numbers. |
+| 9 | Hover a translation in the popup, then hover a bubble on screen. | Hovering in the popup fills that bubble's outline and turns its badge blue; hovering a bubble turns its popup number blue. |
+| 10 | Click bubble **3** (or its badge) on screen. | The popup stays open, scrolls to translation 3 and highlights it. Keys still work in the popup (press **↓**). Clicking empty space outside every bubble closes the popup as before. |
+| 11 | Press the speech-bubble button in the popup footer (or **Ctrl+Shift+T** / **⌘⇧T**). | Each translation is painted over its bubble on an opaque card, text sized to fit; badges stay on. The footer says *Hold Shift to peek*. |
+| 12 | Hold **Shift**, then hover one card. | While Shift is held all cards disappear and the Japanese shows; hovering a card shows the Japanese under that one only. |
+| 13 | Press **Esc** once, then again. | The first Esc removes the cards (back to the list); the second closes the popup. |
+| 14 | Settings › General › **Show translations on screen** on, then Snip the English/French page. | The Snip opens with cards already on. Each bubble is one card (lines of a bubble are not split). Turn the setting off again. |
+| 15 | If you use them: dark mode, Reduce motion, and High contrast (Windows) or Increase contrast (macOS). | Cards follow light/dark; peeking has no fade with reduced motion; in high contrast cards and badges use system colours with a visible border. |
+| 16 | With the cards on screen, press the Snip shortcut and snip the manga page again. | The new popup translates the Japanese again; it never reads the English cards (Glimpse leaves its own overlays out of its captures). |
+
 ## 5. If something fails
 
 Please send (an issue on GitHub, or a message):

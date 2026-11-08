@@ -96,6 +96,14 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 						onChange={(v) => void props.state.update({ snip: { alwaysShowLanguages: v } })}
 					/>
 				</SettingsControlRow>
+				<SettingsControlRow>
+					<Switch
+						label="Show translations on screen"
+						description="Each translation covers the text it translates, for comics and busy layouts."
+						checked={s().snip.showOnScreen}
+						onChange={(v) => void props.state.update({ snip: { showOnScreen: v } })}
+					/>
+				</SettingsControlRow>
 			</SettingsGroup>
 
 			<SettingsGroup title="Selecting an area">

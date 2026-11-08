@@ -513,7 +513,35 @@ export const ORIGINAL_SCENARIOS: readonly Scenario[] = [
 	},
 ];
 
-export const ALL_SCENARIOS: readonly Scenario[] = [...SCENARIOS, ...ORIGINAL_SCENARIOS, ...ERROR_SCENARIOS];
+/** The manga page (packages/providers/test/fixtures/ocr/comic-ja.png): five blocks, one per bubble. */
+export const COMIC: readonly B[] = [
+	["ちょっと待って\n今の音\n聞こえた?", "ja", "translate", "Wait a second. Did you hear that sound just now?"],
+	["何も\n聞こえない\nけど", "ja", "translate", "I can't hear anything, though."],
+	["じゃあ\nあれは何？", "ja", "translate", "Then what was that?"],
+	["その夜、森で", "ja", "translate", "That night, in the forest"],
+	["風の音だよ\nきっと", "ja", "translate", "It's the wind, I'm sure."],
+];
+
+/** Numbered markers and overlay mode (GLIM-152). */
+export const MARKER_SCENARIOS: readonly Scenario[] = [
+	{
+		name: "s18-comic-markers",
+		caption: "S18 numbered markers: a manga page, bubble 3 picked on screen",
+		state: () => run(COMIC, { extra: [{ type: "select", id: "b3" }] }),
+	},
+	{
+		name: "s19-overlay-on",
+		caption: "S19 overlay mode on: the translations are painted over the bubbles",
+		state: () => run(COMIC, { extra: [{ type: "toggleOverlay", on: true }] }),
+	},
+];
+
+export const ALL_SCENARIOS: readonly Scenario[] = [
+	...SCENARIOS,
+	...ORIGINAL_SCENARIOS,
+	...ERROR_SCENARIOS,
+	...MARKER_SCENARIOS,
+];
 
 export function scenarioMessage(s: Scenario, reducedMotion = true): SnipStateMessage {
 	return {
