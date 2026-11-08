@@ -22,6 +22,9 @@
 //                liveBlurred       Esc: hand focus back to the previous app
 //                livePointerEntered the pointer came over the popup: focus is saved, so a
 //                                  click that activates Glimpse anyway hands it straight back
+//                liveDragStart / liveDragMove / liveDragEnd  dragging the strip (GLIM-151)
+//                moveRequested     Alt/Option+arrows; dockRequested; pinToggled
+//   main → view  liveMoved         a keyboard move / Dock happened: announce it (GLIM-151)
 import type { LivePopupState, PopupSide } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { Platform } from "./rpc.ts";
@@ -40,7 +43,21 @@ export interface LiveLayout {
 	/** Fixed for the session (re-pin recomputes it). */
 	width: number;
 	maxHeight: number;
+	/** GLIM-151: the user moved it away from the region (Dock shows). Absent = docked. */
+	moved?: boolean;
+	/** GLIM-151: above other windows (the Pin toggle). Absent = pinned. */
+	pinned?: boolean;
 }
+
+/** GLIM-151: a keyboard move or Dock finished; the view announces it politely. */
+export interface LiveMovedMessage {
+	sessionId: string;
+	kind: "moved" | "docked";
+	/** Work-area edges it stopped at. */
+	edges: ("left" | "right" | "top" | "bottom")[];
+}
+
+export type LiveMoveDirection = "up" | "down" | "left" | "right";
 
 export interface LiveStateMessage {
 	sessionId: string;
@@ -85,6 +102,19 @@ export type LiveRPC = {
 			liveBlurred: { sessionId: string };
 			/** The pointer entered the popup: the game still has focus, remember it (§7.2). */
 			livePointerEntered: { sessionId: string };
+			/**
+			 * GLIM-151 drag on the strip: down, moves (at most one per animation frame, screen
+			 * deltas since down; main prefers the OS cursor), up / cancel.
+			 */
+			liveDragStart: { sessionId: string };
+			liveDragMove: { sessionId: string; dx: number; dy: number };
+			liveDragEnd: { sessionId: string };
+			/** Alt/Option+arrows (Shift = large step). */
+			moveRequested: { sessionId: string; direction: LiveMoveDirection; large: boolean };
+			/** Dock button or double-click on the strip. */
+			dockRequested: { sessionId: string };
+			/** The Pin toggle: above other windows or not. */
+			pinToggled: { sessionId: string; on: boolean };
 		};
 	}>;
 	webview: RPCSchema<{
@@ -94,6 +124,8 @@ export type LiveRPC = {
 			liveFocus: { sessionId: string };
 			/** GLIM-92: `change` goes to the polite role="log", `status` to role="status". */
 			liveAnnounce: { sessionId: string; text: string; kind: "change" | "status" };
+			/** GLIM-151: announce a keyboard move / Dock in the polite status region. */
+			liveMoved: LiveMovedMessage;
 		};
 	}>;
 };

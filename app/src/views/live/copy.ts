@@ -32,7 +32,26 @@ export const COPY = {
 	// Skipped line actions (GLIM-131), Snip's `snip.skipped.*` copy.
 	translateThese: "Translate these",
 	editSources: "Edit source languages…",
+	// GLIM-151: moving, docking, Pin (live-popup.md §3.3).
+	pin: "Keep on top of other windows",
+	dock: "Dock next to the area",
+	docked: "Popup docked next to the area",
+	moved: "Popup moved",
 } as const;
+
+/** GLIM-151: read with the popup (aria-describedby): how to move it from the keyboard. */
+export const moveHint = (mac: boolean) =>
+	`Drag the top bar to move. ${mac ? "Option" : "Alt"}+arrow keys move it too, with Shift for bigger steps.`;
+
+const EDGE_NAMES = { left: "left", right: "right", top: "top", bottom: "bottom" } as const;
+
+/** GLIM-151: the polite announcement after a keyboard move or Dock. */
+export function moveAnnouncement(kind: "moved" | "docked", edges: readonly (keyof typeof EDGE_NAMES)[]): string {
+	if (kind === "docked") return COPY.docked;
+	if (edges.length === 0) return COPY.moved;
+	const names = edges.map((e) => EDGE_NAMES[e]);
+	return `Popup at the ${names.join(" and ")} edge of the screen`;
+}
 
 export const statusLabel = (label: "live" | "updating" | "paused", privateOn: boolean, compact: boolean): string => {
 	const base = label === "live" ? COPY.live : label === "updating" ? COPY.updating : COPY.paused;

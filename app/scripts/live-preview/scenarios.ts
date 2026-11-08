@@ -108,6 +108,9 @@ export interface LiveScenario {
 	readonly focused?: boolean;
 	/** Screenshots click this (a CSS selector) first, for states behind a press (GLIM-138 confirm). */
 	readonly click?: string;
+	/** GLIM-151: moved away from the region (Dock shows) / not kept on top. */
+	readonly moved?: boolean;
+	readonly pinned?: boolean;
 }
 
 export const LIVE_SCENARIOS: readonly LiveScenario[] = [
@@ -288,6 +291,27 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 		width: 400,
 		events: () => skippedEvents(true),
 	},
+	{
+		name: "l22-moved",
+		note: "Dragged away from the region (GLIM-151): Dock appears; it stays put for the session",
+		width: 400,
+		moved: true,
+		events: () => [...running(), frame([DOOR, KEY], ["L2"]), tr("L2", KEY[2] ?? "")],
+	},
+	{
+		name: "l23-unpinned",
+		note: "Pin off (GLIM-151): a normal window other apps can cover; the pin shows struck through",
+		width: 400,
+		pinned: false,
+		events: () => [...running(), frame([DOOR, KEY], ["L2"]), tr("L2", KEY[2] ?? "")],
+	},
+	{
+		name: "l24-moved-compact",
+		note: "Moved, compact strip (240): Dock and Pin still fit",
+		width: 240,
+		moved: true,
+		events: () => [...running(), frame([["L1", "¿Continuar?", "Continue?"]])],
+	},
 ];
 
 function skippedEvents(expanded: boolean): (LiveSessionEvent | LivePopupAction)[] {
@@ -366,7 +390,13 @@ export function liveScenarioState(s: LiveScenario): LivePopupState {
 export function liveScenarioMessage(s: LiveScenario): LiveStateMessage {
 	return {
 		sessionId: S,
-		layout: { side: s.side ?? "above", width: s.width, maxHeight: s.maxHeight ?? 360 },
+		layout: {
+			side: s.side ?? "above",
+			width: s.width,
+			maxHeight: s.maxHeight ?? 360,
+			moved: s.moved ?? false,
+			pinned: s.pinned ?? true,
+		},
 		state: liveScenarioState(s),
 		reducedMotion: true,
 		now: NOW,

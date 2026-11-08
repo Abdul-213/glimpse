@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { loadSettings, opensAtLaunch, ProviderRegistry, parseModelManifest, systemTimers } from "@glimpse/core";
 import { FASTTEXT_MODEL_ID } from "@glimpse/providers/language-detect";
-import Electrobun, { Utils } from "electrobun/main";
+import Electrobun, { Screen, Utils } from "electrobun/main";
 import modelManifestJson from "../../models/manifest.json" with { type: "json" };
 import pkg from "../../package.json" with { type: "json" };
 import { INSTALL_GUIDE_URL } from "../shared/onboarding-rpc.ts";
@@ -509,6 +509,12 @@ livePopup = new LivePopupController({
 	openSettings: (section) => settings.open(section),
 	// GLIM-120: the spend guard's "Continue this month".
 	continueCloud: () => cloudSettings.continueCloud(),
+	// GLIM-151: drags follow the OS cursor; the moved offset is remembered per display.
+	cursor: () => Screen.getCursorScreenPoint(),
+	offsets: {
+		get: () => appSettings.current.live.popupOffsets,
+		set: (popupOffsets) => void appSettings.update({ live: { popupOffsets: [...popupOffsets] } }),
+	},
 	log: liveLog.child("popup"),
 });
 // GLIM-92: Live changes read aloud (live-popup.md §10): the view's live regions plus the

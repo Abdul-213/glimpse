@@ -25,7 +25,44 @@ body,
 		align-items: center;
 		gap: calc(var(--spacing) * 2);
 		min-height: 1.75rem;
-		padding-inline-start: calc(var(--spacing) * 2);
+		padding-inline-start: var(--spacing);
+		/* GLIM-151: the strip is the drag handle; its buttons keep the normal cursor. */
+		cursor: grab;
+		/* GLIM-151: with Pin (and Dock once moved) a compact strip can't hold everything on
+		   one line; the controls then wrap to a second line at inline-end, never squeezing the
+		   status label. Regular and wide strips never wrap. */
+		flex-wrap: wrap;
+		row-gap: var(--spacing);
+		user-select: none;
+		-webkit-user-select: none;
+		touch-action: none;
+	}
+
+	.live-popup[data-dragging] .live-strip {
+		cursor: grabbing;
+	}
+
+	.live-strip button {
+		cursor: default;
+	}
+
+	/* The grip: a quiet handle that says "drag here"; full strength while the strip is hovered. */
+	.live-grip {
+		display: inline-flex;
+		flex: none;
+		margin-inline-end: calc(var(--spacing) * -1);
+		color: var(--color-text-secondary);
+		opacity: 0.55;
+		transition: opacity var(--duration-fast) var(--ease-standard);
+	}
+
+	[data-motion="reduced"] .live-grip {
+		transition: none;
+	}
+
+	.live-strip:hover .live-grip,
+	.live-popup[data-dragging] .live-grip {
+		opacity: 1;
 	}
 
 	.live-spacer {
@@ -35,6 +72,7 @@ body,
 
 	.live-controls {
 		gap: var(--spacing);
+		margin-inline-start: auto;
 	}
 
 	/* Cloud row (§2.3): the egress pill for the whole session. */

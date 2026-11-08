@@ -28,7 +28,7 @@ const VARIANTS: readonly ShotVariant[] = [
 		suffix: "macos-light",
 		query: "os=macos",
 		colorScheme: "light",
-		only: ["l1-running", "l4-changed", "l5-paused", "l9-cloud", "l10-consent"],
+		only: ["l1-running", "l4-changed", "l5-paused", "l9-cloud", "l10-consent", "l22-moved", "l23-unpinned"],
 	},
 	{
 		suffix: "windows-dark",
@@ -44,6 +44,9 @@ const VARIANTS: readonly ShotVariant[] = [
 			"l20-chat-side",
 			"l11-skipped-expanded",
 			"l12-pack-missing",
+			"l22-moved",
+			"l23-unpinned",
+			"l24-moved-compact",
 		],
 	},
 	{ suffix: "macos-dark-rtl-ui", query: "os=macos&dir=rtl", colorScheme: "dark", only: ["l4-changed"] },

@@ -6,6 +6,11 @@
 //
 // - Docking: `placeLivePopup` once at pin time; the side is kept for the session and the
 //   anchored edge never moves as the content grows or shrinks (`livePopupFrame`).
+// - Moving (GLIM-151, §3.3): a drag on the strip or Alt/Option+arrows moves the window
+//   (`moveLivePopup`: on screen, top-left fixed as it grows); it stays put for the session
+//   and the offset from the region is remembered per display for the next one. Dock puts it
+//   back with `placeLivePopup` and forgets the offset. Pin keeps it above other windows (on
+//   by default; the choice lasts until Glimpse quits).
 // - Focus (§7): shown inactive (never activates on show, update or resize). Keyboard focus is
 //   taken on purpose only: the consent question (L10) and "Focus Live popup"; the previous
 //   app's focus is saved first and restored on Esc / after answering.
@@ -17,23 +22,33 @@
 import {
 	type Display,
 	type FocusKeeper,
+	forgetOffset,
 	heldBlocks,
 	initialLivePopupState,
 	type LanguageCode,
 	LIVE_HOLD_MS,
 	LIVE_STALE_REFRESH_MS,
+	type LiveEdge,
+	type LiveMoveKey,
 	type LivePauseReason,
 	type LivePopupAction,
+	type LivePopupOffset,
 	type LivePopupPlacement,
 	type LivePopupState,
 	type LiveSessionEvent,
 	type LiveSessionListener,
 	type Logger,
 	listedLiveBlocks,
+	liveMoveStep,
 	livePopupFrame,
+	movedOrigin,
+	moveLivePopup,
+	offsetFor,
+	type Point,
 	placeLivePopup,
 	type Rect,
 	reduceLivePopup,
+	rememberOffset,
 	skippedLiveBlocks,
 } from "@glimpse/core";
 import type {
@@ -61,6 +76,26 @@ export interface LivePopupWindowPort {
 	send(message: LiveStateMessage): void;
 	/** Move DOM focus to Pause / Resume (after `activate`). */
 	focusControls(sessionId: string): void;
+	/**
+	 * Pin (GLIM-151): above other windows (true: level 101 / HWND_TOPMOST) or a normal window
+	 * level other apps can cover. Never activates. Optional for older fakes.
+	 */
+	setPinned?(on: boolean): void;
+	/** A keyboard move or Dock finished: the view announces it politely (GLIM-151). */
+	moved?(sessionId: string, result: LiveMoveResult): void;
+}
+
+/** What a keyboard move or Dock did, for the view's polite announcement. */
+export interface LiveMoveResult {
+	readonly kind: "moved" | "docked";
+	/** Work-area edges the popup stopped at. */
+	readonly edges: readonly LiveEdge[];
+}
+
+/** The remembered moved offsets (settings `live.popupOffsets`). */
+export interface LivePopupOffsetStore {
+	get(): readonly LivePopupOffset[];
+	set(offsets: readonly LivePopupOffset[]): void;
 }
 
 /** What the controller needs from the Live feature (`LiveService`). */
@@ -109,6 +144,13 @@ export interface LivePopupControllerDeps {
 	readonly openSettings?: (section: "languages") => void;
 	/** The spend guard's "Continue this month" (GLIM-120). Without it the button only resumes. */
 	readonly continueCloud?: () => Promise<unknown>;
+	/**
+	 * The pointer in global logical px (GLIM-151): drags follow the OS cursor, so the window
+	 * moving under the webview never skews the deltas. Without it the view's screen deltas are used.
+	 */
+	readonly cursor?: () => Point;
+	/** Where the popup was last moved, per display (GLIM-151). Without it nothing is remembered. */
+	readonly offsets?: LivePopupOffsetStore;
 }
 
 export class LivePopupController {
@@ -117,6 +159,16 @@ export class LivePopupController {
 	readonly #now: () => number;
 	#state: LivePopupState = initialLivePopupState;
 	#placement: LivePopupPlacement | null = null;
+	/** The pinned region of the open session (Dock places next to it again). */
+	#region: Rect | null = null;
+	/** The user moved the popup this session: no re-docking until Dock. */
+	#moved = false;
+	/** Above other windows (GLIM-151). Kept across sessions until Glimpse quits. */
+	#pinned = true;
+	/** The last height the view measured, so a move or Dock keeps the size. */
+	#contentHeight = LIVE_INITIAL_HEIGHT;
+	/** A drag in progress: the frame and cursor at pointer-down. */
+	#drag: { frame: Rect; cursor: Point | null; moved: boolean } | null = null;
 	/** The window's last frame (global logical). */
 	#frame: Rect | null = null;
 	#visible = false;
@@ -167,6 +219,15 @@ export class LivePopupController {
 		return this.#placement;
 	}
 
+	/** Moved away from the region by the user (GLIM-151). */
+	get moved(): boolean {
+		return this.#moved;
+	}
+
+	get pinned(): boolean {
+		return this.#pinned;
+	}
+
 	/** Every state change (announcements, GLIM-92; tests). */
 	onChange(listener: (prev: LivePopupState, next: LivePopupState) => void): () => void {
 		this.#listeners.add(listener);
@@ -186,14 +247,27 @@ export class LivePopupController {
 	#open(region: Rect): void {
 		this.#clearTimers();
 		const s = this.#d.settings();
-		this.#placement = placeLivePopup(region, this.#d.displays(), { uiDir: s.uiDir });
+		const displays = this.#d.displays();
+		this.#region = region;
+		this.#drag = null;
+		this.#contentHeight = LIVE_INITIAL_HEIGHT;
+		this.#placement = placeLivePopup(region, displays, { uiDir: s.uiDir });
+		this.#moved = false;
 		this.#painted = false;
 		if (!this.#placement) {
 			this.#d.log.warn("live popup: no display for the region");
 			return;
 		}
+		// GLIM-151: where the user put it last time on this display, relative to the region.
+		const remembered = this.#d.offsets ? offsetFor(region, displays, this.#d.offsets.get()) : null;
+		const moved = remembered ? moveLivePopup(this.#placement, remembered, displays, LIVE_INITIAL_HEIGHT) : null;
+		if (moved) {
+			this.#placement = moved.placement;
+			this.#moved = true;
+		}
+		this.#d.window.setPinned?.(this.#pinned);
 		this.#setFrame(livePopupFrame(this.#placement, LIVE_INITIAL_HEIGHT));
-		this.#d.log.info("live popup: docked", {
+		this.#d.log.info(this.#moved ? "live popup: placed at the remembered offset" : "live popup: docked", {
 			side: this.#placement.side,
 			width: this.#placement.width,
 			maxHeight: Math.round(this.#placement.maxHeight),
@@ -204,6 +278,9 @@ export class LivePopupController {
 	#close(): void {
 		this.#clearTimers();
 		this.#placement = null;
+		this.#region = null;
+		this.#drag = null;
+		this.#moved = false;
 		if (this.#visible) {
 			this.#visible = false;
 			this.#d.window.hide();
@@ -234,7 +311,114 @@ export class LivePopupController {
 
 	resized(sessionId: string, contentHeight: number): void {
 		if (sessionId !== this.#state.sessionId || !this.#placement || !Number.isFinite(contentHeight)) return;
+		this.#contentHeight = contentHeight;
 		this.#setFrame(livePopupFrame(this.#placement, contentHeight));
+	}
+
+	// ---- moving (GLIM-151, §3.3) -------------------------------------------------------
+
+	/** Pointer-down on the strip: remember where the drag starts. Nothing moves yet. */
+	dragStart(sessionId: string): void {
+		if (!this.#mine(sessionId) || !this.#frame || !this.#placement) return;
+		this.#drag = { frame: this.#frame, cursor: this.#cursor(), moved: false };
+	}
+
+	/**
+	 * The pointer moved during a drag (the view sends at most one per animation frame).
+	 * `dx` / `dy` are the view's screen deltas since pointer-down, used without `cursor`.
+	 */
+	dragMove(sessionId: string, dx: number, dy: number): void {
+		const drag = this.#drag;
+		if (!this.#mine(sessionId) || !drag || !this.#placement) return;
+		const now = drag.cursor ? this.#cursor() : null;
+		const delta =
+			drag.cursor && now
+				? { x: now.x - drag.cursor.x, y: now.y - drag.cursor.y }
+				: { x: Number.isFinite(dx) ? dx : 0, y: Number.isFinite(dy) ? dy : 0 };
+		if (!drag.moved && delta.x === 0 && delta.y === 0) return;
+		drag.moved = true;
+		this.#moveTo(movedOrigin(drag.frame, delta), drag.frame.height);
+	}
+
+	/** Pointer-up: a drag that moved is remembered for the next session. */
+	dragEnd(sessionId: string): void {
+		const drag = this.#drag;
+		if (!this.#mine(sessionId) || !drag) return;
+		this.#drag = null;
+		if (!drag.moved) return;
+		this.#remember();
+		this.#d.log.info("live popup: moved", { by: "drag" });
+		this.#push();
+	}
+
+	/** Alt/Option+arrows (Shift: larger steps) in the focused popup. Announced politely. */
+	moveBy(sessionId: string, key: LiveMoveKey, large: boolean): void {
+		if (!this.#mine(sessionId) || !this.#frame || !this.#placement) return;
+		const frame = this.#frame;
+		const edges = this.#moveTo(movedOrigin(frame, liveMoveStep(key, large)), frame.height);
+		if (!edges) return;
+		this.#remember();
+		this.#push();
+		this.#d.window.moved?.(sessionId, { kind: "moved", edges });
+	}
+
+	/** Dock (button, double-click on the strip): next to the region again; forget the offset. */
+	dock(sessionId: string): void {
+		const region = this.#region;
+		if (!this.#mine(sessionId) || !region || !this.#moved) return;
+		const displays = this.#d.displays();
+		const docked = placeLivePopup(region, displays, { uiDir: this.#d.settings().uiDir });
+		if (!docked) return;
+		this.#drag = null;
+		this.#moved = false;
+		this.#placement = docked;
+		this.#setFrame(livePopupFrame(docked, this.#contentHeight));
+		const offsets = this.#d.offsets;
+		if (offsets) {
+			const before = offsets.get();
+			const after = forgetOffset(before, region, displays);
+			if (after !== before) offsets.set(after);
+		}
+		this.#d.log.info("live popup: docked again", { side: docked.side });
+		this.#push();
+		this.#d.window.moved?.(sessionId, { kind: "docked", edges: [] });
+	}
+
+	/** Pin toggle: above other windows, or a normal window other apps can cover. */
+	setPinned(sessionId: string, on: boolean): void {
+		if (!this.#mine(sessionId) || on === this.#pinned) return;
+		this.#pinned = on;
+		this.#d.window.setPinned?.(on);
+		this.#d.log.info("live popup: pin", { on });
+		this.#push();
+	}
+
+	#cursor(): Point | null {
+		try {
+			return this.#d.cursor?.() ?? null;
+		} catch {
+			return null;
+		}
+	}
+
+	/** Put the popup's top-left at `origin` (clamped on screen). The edges it stopped at, or null. */
+	#moveTo(origin: Point, height: number): readonly LiveEdge[] | null {
+		const p = this.#placement;
+		if (!p) return null;
+		const m = moveLivePopup(p, origin, this.#d.displays(), height);
+		if (!m) return null;
+		this.#placement = m.placement;
+		this.#moved = true;
+		this.#setFrame(livePopupFrame(m.placement, this.#contentHeight));
+		return m.edges;
+	}
+
+	#remember(): void {
+		const offsets = this.#d.offsets;
+		const region = this.#region;
+		const p = this.#placement;
+		if (!offsets || !region || !p) return;
+		offsets.set(rememberOffset(offsets.get(), region, this.#d.displays(), { x: p.x, y: p.y }));
 	}
 
 	pause(sessionId: string): void {
@@ -492,7 +676,13 @@ export class LivePopupController {
 			const p = this.#placement;
 			const id = this.#state.sessionId;
 			if (!p || id === null) return;
-			const layout: LiveLayout = { side: p.side, width: p.width, maxHeight: p.maxHeight };
+			const layout: LiveLayout = {
+				side: p.side,
+				width: p.width,
+				maxHeight: p.maxHeight,
+				moved: this.#moved,
+				pinned: this.#pinned,
+			};
 			this.#d.window.send({
 				sessionId: id,
 				layout,

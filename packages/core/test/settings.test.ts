@@ -51,7 +51,7 @@ describe("settings defaults", () => {
 			appearance: { theme: "system", motion: "system" },
 			snip: { copyAfterSnip: true, showOriginalUnder: false, alwaysShowLanguages: false },
 			picker: { showLoupe: true, confirmOnRelease: true },
-			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300, announceChanges: "auto" },
+			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300, announceChanges: "auto", popupOffsets: [] },
 			privacy: {
 				privateByDefault: false,
 				clearCacheAfterIdleMinutes: 15,
@@ -155,7 +155,13 @@ describe("parseSettings repairs field by field", () => {
 			env,
 		);
 		expect(settings.language).toEqual({ target: languageCode("ja"), sources: [languageCode("ko")] });
-		expect(settings.live).toEqual({ fps: 3, diffThreshold: 0.1, stabilityMs: 300, announceChanges: "auto" });
+		expect(settings.live).toEqual({
+			fps: 3,
+			diffThreshold: 0.1,
+			stabilityMs: 300,
+			announceChanges: "auto",
+			popupOffsets: [],
+		});
 		expect(settings.appearance).toEqual({ theme: "system", motion: "reduced" });
 		expect(settings.privacy.clearCacheAfterIdleMinutes).toBe(15);
 		expect(settings.onboarding.completed).toBe(true);
@@ -167,6 +173,27 @@ describe("parseSettings repairs field by field", () => {
 			"live.stabilityMs",
 			"privacy",
 		]);
+	});
+});
+
+describe("live.popupOffsets (GLIM-151)", () => {
+	test("valid entries kept, bad and duplicate ones dropped", () => {
+		const { settings, issues } = parseSettings(
+			{
+				live: {
+					popupOffsets: [
+						{ display: "0,0,1440x900@2", dx: 40, dy: -120 },
+						{ display: "0,0,1440x900@2", dx: 1, dy: 1 },
+						{ display: "x", dx: 1.5, dy: 0 },
+						"nope",
+					],
+				},
+			},
+			env,
+		);
+		expect(settings.live.popupOffsets).toEqual([{ display: "0,0,1440x900@2", dx: 40, dy: -120 }]);
+		expect(issues.length).toBeGreaterThanOrEqual(3);
+		expect(issues.every((i) => i.path.startsWith("live.popupOffsets"))).toBe(true);
 	});
 });
 
