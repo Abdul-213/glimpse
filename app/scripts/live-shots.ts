@@ -28,7 +28,17 @@ const VARIANTS: readonly ShotVariant[] = [
 		suffix: "macos-light",
 		query: "os=macos",
 		colorScheme: "light",
-		only: ["l1-running", "l4-changed", "l5-paused", "l9-cloud", "l10-consent", "l22-moved", "l23-unpinned"],
+		only: [
+			"l1-running",
+			"l4-changed",
+			"l5-paused",
+			"l9-cloud",
+			"l10-consent",
+			"l22-moved",
+			"l23-unpinned",
+			"l25-comic-markers",
+			"l26-comic-overlay",
+		],
 	},
 	{
 		suffix: "windows-dark",
@@ -47,6 +57,7 @@ const VARIANTS: readonly ShotVariant[] = [
 			"l22-moved",
 			"l23-unpinned",
 			"l24-moved-compact",
+			"l26-comic-overlay",
 		],
 	},
 	{ suffix: "macos-dark-rtl-ui", query: "os=macos&dir=rtl", colorScheme: "dark", only: ["l4-changed"] },
@@ -89,7 +100,8 @@ async function shoot(baseUrl: string, outDir: string): Promise<{ files: string[]
 				if (v.only && !v.only.includes(s.name)) continue;
 				const name = `${s.name}-${v.suffix}`;
 				const page = await browser.newPage({
-					viewport: { width: 720, height: 700 },
+					// GLIM-154: comic scenarios show the pinned page beside the popup.
+					viewport: s.scene ? { width: 1120, height: 860 } : { width: 720, height: 700 },
 					deviceScaleFactor: 2,
 					colorScheme: v.colorScheme,
 					reducedMotion: "reduce",
@@ -104,13 +116,18 @@ async function shoot(baseUrl: string, outDir: string): Promise<{ files: string[]
 				await page.waitForFunction(() => document.body.dataset["painted"] === "1");
 				if (s.click) await page.locator(s.click).first().click();
 				await page.waitForTimeout(80);
-				const box = await page.locator(".preview-frame").boundingBox();
-				if (!box || box.height < 40) problems.push(`${name}: popup did not render`);
+				const frameBox = await page.locator(".preview-frame").boundingBox();
+				if (!frameBox || frameBox.height < 40) problems.push(`${name}: popup did not render`);
+				if (s.scene && (await page.locator(".preview-sprite").count()) === 0) {
+					problems.push(`${name}: no marks on the pinned page`);
+				}
+				const box = s.scene ? await page.locator(".preview-scene").boundingBox() : frameBox;
 				if (box) {
 					const file = join(outDir, `${name}.png`);
+					const pad = s.scene ? 0 : 16;
 					await page.screenshot({
 						path: file,
-						clip: { x: box.x - 16, y: box.y - 16, width: box.width + 32, height: box.height + 32 },
+						clip: { x: box.x - pad, y: box.y - pad, width: box.width + 2 * pad, height: box.height + 2 * pad },
 					});
 					files.push(file);
 				}

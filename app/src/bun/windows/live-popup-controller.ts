@@ -54,10 +54,12 @@ import {
 import type {
 	LiveConsentAnswer,
 	LiveLayout,
+	LiveMarkSprite,
 	LiveSkippedAction,
 	LiveStateMessage,
 	LiveViewInit,
 } from "../../shared/live-rpc.ts";
+import type { LiveFrameMark, LiveMarksPointer } from "../services/live/pinned-frame.ts";
 import { realScheduler, type Scheduler } from "./picker-controller.ts";
 import type { PackPort } from "./popup-controller.ts";
 
@@ -112,11 +114,43 @@ export interface LivePopupSession {
 	refresh?(reason: "pack-installed"): void;
 	/** "Translate these" (GLIM-131): session-only source languages. Optional for older fakes. */
 	includeLanguages?(langs: readonly LanguageCode[]): void;
+	/**
+	 * GLIM-154: the scale to rasterise badges and cards at, or null when the session's frame
+	 * can't draw them out of capture. Optional for older fakes (no marks).
+	 */
+	marksScale?(): number | null;
+	/** GLIM-154: the badges and cards over the pinned region. */
+	setMarks?(marks: readonly LiveFrameMark[]): void;
+	/** GLIM-154: the block under the pointer on screen, and the one clicked since the last poll. */
+	marksPointer?(): LiveMarksPointer;
 }
 
 export interface LivePopupSettings {
 	readonly reducedMotion: boolean;
 	readonly uiDir: "ltr" | "rtl";
+	/** Settings › "Show translations on screen" (GLIM-152/154): sessions open in overlay mode. */
+	readonly showOnScreen?: boolean;
+	/** The target language (the cards' script and direction, GLIM-154). */
+	readonly target?: LanguageCode | null;
+}
+
+/** GLIM-154: how often the pointer over the badges and cards is read while there are any. */
+export const LIVE_MARKS_POINTER_MS = 50;
+
+/** GLIM-154: a `liveMarks` sprite from the view, checked (RPC input is untrusted JSON). */
+export function isLiveMarkSprite(v: unknown): v is LiveMarkSprite {
+	if (!v || typeof v !== "object") return false;
+	const s = v as Record<string, unknown>;
+	const fin = (n: unknown) => typeof n === "number" && Number.isFinite(n);
+	if (typeof s["key"] !== "string" || typeof s["id"] !== "string") return false;
+	if (s["kind"] !== "badge" && s["kind"] !== "card") return false;
+	if (![s["x"], s["y"], s["width"], s["height"], s["opacity"]].every(fin)) return false;
+	const img = s["image"];
+	if (img === undefined) return true;
+	if (!img || typeof img !== "object") return false;
+	const i = img as Record<string, unknown>;
+	const dim = (n: unknown) => fin(n) && (n as number) > 0 && (n as number) <= 4096;
+	return dim(i["width"]) && dim(i["height"]) && typeof i["data"] === "string";
 }
 
 export interface LivePopupControllerDeps {
@@ -181,6 +215,12 @@ export class LivePopupController {
 	#cancelPaint: (() => void) | null = null;
 	#cancelStale: (() => void) | null = null;
 	readonly #holds = new Map<string, () => void>();
+	/** GLIM-154: mark bitmaps by key (the view sends each one once). */
+	readonly #markImages = new Map<string, { width: number; height: number; rgba: Uint8Array }>();
+	#marksCount = 0;
+	#cancelPointer: (() => void) | null = null;
+	/** The block hovered or focused in the popup (the frame's linked box). */
+	#popupHover: string | null = null;
 	readonly #unsubscribe: () => void;
 	readonly #unsubscribePacks: (() => void) | null;
 	readonly #listeners = new Set<(prev: LivePopupState, next: LivePopupState) => void>();
@@ -237,9 +277,12 @@ export class LivePopupController {
 	// ---- session ---------------------------------------------------------------------
 
 	#onSession(event: LiveSessionEvent): void {
-		if (event.type === "opened" && event.sessionId !== this.#state.sessionId) this.#open(event.region);
+		const fresh = event.type === "opened" && event.sessionId !== this.#state.sessionId;
+		if (fresh) this.#open(event.region);
 		const wasOpen = this.#state.sessionId !== null;
 		this.#dispatch({ type: "session", event });
+		// GLIM-154: Settings › "Show translations on screen" opens every session in overlay mode.
+		if (fresh && this.#d.settings().showOnScreen) this.#dispatch({ type: "toggleOverlay", on: true });
 		if (event.type === "consent") this.#takeFocus();
 		if (wasOpen && this.#state.sessionId === null) this.#close();
 	}
@@ -522,8 +565,88 @@ export class LivePopupController {
 
 	hoverBlock(sessionId: string, id: string | null): void {
 		if (!this.#mine(sessionId)) return;
+		this.#popupHover = id;
+		this.#syncHighlight();
+	}
+
+	/** The frame's linked box: the popup's hovered block, else the one under the pointer on screen. */
+	#syncHighlight(): void {
+		const id = this.#popupHover ?? this.#state.screenLinked;
 		const b = id === null ? null : this.#state.blocks.find((x) => x.id === id);
 		this.#d.live.highlightBlock(b?.box ?? null, b ? this.#state.image : null);
+	}
+
+	// ---- numbered marks and the overlay (GLIM-154) -------------------------------------
+
+	/** Overlay mode on / off: the strip toggle or Ctrl/⌘⇧T, for this session. */
+	toggleOverlay(sessionId: string, on: boolean): void {
+		if (!this.#mine(sessionId)) return;
+		this.#d.log.info("live popup: overlay", { on });
+		this.#dispatch({ type: "toggleOverlay", on });
+	}
+
+	/**
+	 * The view's badges and cards for the frame. Bitmaps arrive once per key and are kept
+	 * while the marks use them; a sprite whose bitmap main doesn't have is skipped.
+	 */
+	marks(sessionId: string, sprites: readonly LiveMarkSprite[]): void {
+		if (!this.#mine(sessionId) || !this.#d.live.setMarks) return;
+		const used = new Set<string>();
+		const marks: LiveFrameMark[] = [];
+		for (const s of sprites) {
+			used.add(s.key);
+			if (s.image) {
+				const rgba = new Uint8Array(Buffer.from(s.image.data, "base64"));
+				if (rgba.length === s.image.width * s.image.height * 4) {
+					this.#markImages.set(s.key, { width: s.image.width, height: s.image.height, rgba });
+				}
+			}
+			const img = this.#markImages.get(s.key);
+			if (!img) continue;
+			marks.push({
+				id: s.id,
+				kind: s.kind,
+				rect: { x: s.x, y: s.y, width: s.width, height: s.height },
+				width: img.width,
+				height: img.height,
+				rgba: img.rgba,
+				opacity: s.opacity,
+			});
+		}
+		for (const k of [...this.#markImages.keys()]) if (!used.has(k)) this.#markImages.delete(k);
+		this.#d.live.setMarks(marks);
+		this.#marksCount = marks.length;
+		this.#syncPointerPoll();
+	}
+
+	/** Read the pointer over the marks only while there are any. */
+	#syncPointerPoll(): void {
+		const want = this.#marksCount > 0 && !!this.#d.live.marksPointer && this.#state.sessionId !== null;
+		if (want && !this.#cancelPointer) {
+			this.#cancelPointer = this.#scheduler.every(LIVE_MARKS_POINTER_MS, () => this.#pollPointer());
+		} else if (!want && this.#cancelPointer) {
+			this.#cancelPointer();
+			this.#cancelPointer = null;
+			if (this.#state.screenLinked !== null) this.#dispatch({ type: "screenHover", id: null });
+		}
+	}
+
+	#pollPointer(): void {
+		let p: LiveMarksPointer;
+		try {
+			p = this.#d.live.marksPointer?.() ?? { hover: null, click: null };
+		} catch {
+			return;
+		}
+		if (p.hover !== this.#state.screenLinked) {
+			this.#dispatch({ type: "screenHover", id: p.hover });
+			this.#syncHighlight();
+		}
+		// A badge or card clicked on screen picks its block: the popup scrolls to it and holds it.
+		if (p.click !== null) {
+			this.#d.log.info("live popup: block picked on screen");
+			this.#dispatch({ type: "select", id: p.click });
+		}
 	}
 
 	/** Ctrl/⌘C / Ctrl/⌘⇧C in the focused popup (§6.2). The only clipboard write Live makes. */
@@ -683,18 +806,27 @@ export class LivePopupController {
 				moved: this.#moved,
 				pinned: this.#pinned,
 			};
+			const settings = this.#d.settings();
+			// GLIM-154: marks only when the frame can draw them out of capture.
+			const scale = this.#d.live.marksScale?.() ?? null;
 			this.#d.window.send({
 				sessionId: id,
 				layout,
 				state: this.#state,
-				reducedMotion: this.#d.settings().reducedMotion,
+				reducedMotion: settings.reducedMotion,
 				now: this.#now(),
 				focused: this.#focused,
+				...(scale !== null ? { marks: { scale, target: settings.target ?? null } } : {}),
 			});
 		});
 	}
 
 	#clearTimers(): void {
+		this.#cancelPointer?.();
+		this.#cancelPointer = null;
+		this.#marksCount = 0;
+		this.#markImages.clear();
+		this.#popupHover = null;
 		this.#cancelPaint?.();
 		this.#cancelPaint = null;
 		this.#cancelStale?.();
@@ -730,6 +862,7 @@ export function liveViewInit(os: LiveViewInit["os"], uiLang = "en"): LiveViewIni
 			copy: mac ? "⌘C" : "Ctrl+C",
 			copyOriginal: mac ? "⌘⇧C" : "Ctrl+Shift+C",
 			original: mac ? "⌘⇧O" : "Ctrl+Shift+O",
+			overlay: mac ? "⌘⇧T" : "Ctrl+Shift+T",
 			focus: null,
 		},
 	};

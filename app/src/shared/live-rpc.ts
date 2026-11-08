@@ -25,6 +25,9 @@
 //                liveDragStart / liveDragMove / liveDragEnd  dragging the strip (GLIM-151)
 //                moveRequested     Alt/Option+arrows; dockRequested; pinToggled
 //   main → view  liveMoved         a keyboard move / Dock happened: announce it (GLIM-151)
+//   view → main  overlayToggled    GLIM-154: overlay mode on / off (strip toggle, Ctrl/⌘⇧T)
+//                liveMarks         GLIM-154: the badges and cards for the pinned frame, as
+//                                  bitmaps (pixels only for marks main doesn't have yet)
 import type { LivePopupState, PopupSide } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { Platform } from "./rpc.ts";
@@ -35,7 +38,16 @@ export interface LiveViewInit {
 	uiLang: string;
 	uiDir: "ltr" | "rtl";
 	/** Shortcut labels for tooltips, formatted for the OS. */
-	keys: { pause: string; stop: string; copy: string; copyOriginal: string; original: string; focus: string | null };
+	keys: {
+		pause: string;
+		stop: string;
+		copy: string;
+		copyOriginal: string;
+		original: string;
+		focus: string | null;
+		/** GLIM-154: overlay mode. Absent in older previews. */
+		overlay?: string;
+	};
 }
 
 export interface LiveLayout {
@@ -68,6 +80,37 @@ export interface LiveStateMessage {
 	now: number;
 	/** The popup has keyboard focus on purpose (Focus Live popup, consent). */
 	focused: boolean;
+	/**
+	 * GLIM-154: the frame can draw numbered badges and overlay cards out of capture. Absent:
+	 * no marks (no native frame, or its window isn't confirmed out of capture), and no
+	 * numbers or overlay toggle in the popup.
+	 */
+	marks?: LiveMarksConfig;
+}
+
+/** GLIM-154: how the view rasterises marks for the pinned frame. */
+export interface LiveMarksConfig {
+	/** Sprite pixels per logical px (the region's display). */
+	scale: number;
+	/** The translations' language, for the cards' script stack and direction. */
+	target: string | null;
+}
+
+/**
+ * GLIM-154: one badge or card for the pinned frame. Global logical px; `image` (straight
+ * RGBA, base64) only the first time main sees `key`.
+ */
+export interface LiveMarkSprite {
+	key: string;
+	/** The block's id. */
+	id: string;
+	kind: "badge" | "card";
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	opacity: number;
+	image?: { width: number; height: number; data: string };
 }
 
 export type LiveConsentAnswer = "cloud" | "local" | "cancel";
@@ -115,6 +158,10 @@ export type LiveRPC = {
 			dockRequested: { sessionId: string };
 			/** The Pin toggle: above other windows or not. */
 			pinToggled: { sessionId: string; on: boolean };
+			/** GLIM-154: overlay mode on / off. */
+			overlayToggled: { sessionId: string; on: boolean };
+			/** GLIM-154: every mark on the frame, in paint order (an empty list clears them). */
+			liveMarks: { sessionId: string; sprites: LiveMarkSprite[] };
 		};
 	}>;
 	webview: RPCSchema<{

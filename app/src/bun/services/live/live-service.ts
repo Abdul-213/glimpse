@@ -40,6 +40,7 @@ import {
 } from "@glimpse/core";
 import type { LiveState } from "../../tray-menu.ts";
 import type { FrameTag } from "./frame-layout.ts";
+import type { LiveFrameMark, LiveMarksPointer } from "./pinned-frame.ts";
 
 /** What the service needs from a Live pipeline session (`TranslationService.openLive()`). */
 export interface LivePipeline {
@@ -59,6 +60,10 @@ export interface LiveFrame {
 	setTag(tag: FrameTag): void;
 	setHighlight(box: Rect | null): void;
 	dispose(): void;
+	/** GLIM-154: the display scale to rasterise marks at, or null when marks can't be drawn. */
+	readonly marksScale?: number | null;
+	setMarks?(marks: readonly LiveFrameMark[]): void;
+	pointer?(): LiveMarksPointer;
 }
 
 export interface LiveServiceDeps {
@@ -364,6 +369,24 @@ export class LiveService {
 		else if (event === "unlock") this.resume("locked");
 		else if (event === "sleep") this.pause("sleep");
 		else this.resume("sleep");
+	}
+
+	/**
+	 * GLIM-154: the scale to rasterise numbered badges and overlay cards at, or null when the
+	 * session has no frame that can draw them out of capture.
+	 */
+	marksScale(): number | null {
+		return this.#current?.frame?.marksScale ?? null;
+	}
+
+	/** GLIM-154: the badges and cards over the pinned region (an empty list clears them). */
+	setMarks(marks: readonly LiveFrameMark[]): void {
+		this.#current?.frame?.setMarks?.(marks);
+	}
+
+	/** GLIM-154: the block under the pointer on screen, and the one clicked since the last poll. */
+	marksPointer(): LiveMarksPointer {
+		return this.#current?.frame?.pointer?.() ?? { hover: null, click: null };
 	}
 
 	/** The docked popup was shown or hidden (GLIM-79): the region tag shows only while it is hidden. */

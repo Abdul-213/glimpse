@@ -73,7 +73,7 @@ For comics and busy layouts, where matching numbers is still work: the results l
 
 Screenshots (regenerate with `bun app/scripts/results-shots.ts` and `bun app/scripts/popup-shots.ts --shots docs/design/screens/snip-popup`): the manga fixture with badges, `docs/design/screens/results-layer/comic-badges-macos-light.png`; overlay mode, `comic-overlay-macos-light.png`, `comic-overlay-windows-dark.png` and `comic-overlay-peek-macos-light.png`; the popup for the same page, `docs/design/screens/snip-popup/s18-comic-markers-*.png` (bubble 3 picked on screen) and `s19-overlay-on-*.png`.
 
-Live (the same overlay over a pinned region, updating in place) is a follow-up, GLIM-154: it waits for GLIM-151's movable Live popup.
+Live (the same overlay over a pinned region, updating in place) is GLIM-154: `live-popup.md` §2.6.
 
 ### 2.4 Footer
 

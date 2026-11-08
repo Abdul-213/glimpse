@@ -11,6 +11,8 @@ export * from "./fit-text.ts";
 export * from "./live-announcer.ts";
 export * from "./live-diff.ts";
 export * from "./live-layout.ts";
+// Numbered badges and overlay cards over the pinned region (GLIM-154).
+export * from "./live-marks.ts";
 // Moving, docking and the remembered offset (GLIM-151).
 export * from "./live-move.ts";
 export * from "./live-state.ts";

@@ -30,7 +30,12 @@ import { loadMacNative } from "../native/macos.ts";
 import { configureLivePopupWindow, dropTopmost, raiseTopmost } from "../native/windows.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
 import { electrobunChromeTarget } from "./chrome-target.ts";
-import type { LiveMoveResult, LivePopupController, LivePopupWindowPort } from "./live-popup-controller.ts";
+import {
+	isLiveMarkSprite as isSprite,
+	type LiveMoveResult,
+	type LivePopupController,
+	type LivePopupWindowPort,
+} from "./live-popup-controller.ts";
 import { macFlipOffset } from "./popup-init.ts";
 import type { ChromeHandle, WindowChrome } from "./window-chrome.ts";
 
@@ -120,6 +125,10 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 					},
 					dockRequested: (m) => str(m?.sessionId) && c()?.dock(m.sessionId),
 					pinToggled: (m) => str(m?.sessionId) && c()?.setPinned(m.sessionId, !!m.on),
+					// GLIM-154: overlay mode and the badges / cards for the pinned frame.
+					overlayToggled: (m) => str(m?.sessionId) && c()?.toggleOverlay(m.sessionId, !!m.on),
+					liveMarks: (m) =>
+						str(m?.sessionId) && Array.isArray(m.sprites) && c()?.marks(m.sessionId, m.sprites.filter(isSprite)),
 				},
 			},
 		});

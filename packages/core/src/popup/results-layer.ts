@@ -121,6 +121,12 @@ export function overlayCards(
 	);
 }
 
+/** Largest and smallest overlay card text (px) before script scaling: the popup's translation size, and the floor. */
+export const CARD_MAX_PX = 15;
+export const CARD_MIN_PX = 11;
+/** Widest a card may grow (px) to fit one long word in a narrow (vertical) box. */
+export const CARD_MAX_WIDTH = 240;
+
 /** Badge hit radius (px): a 20px badge plus a little slop. */
 export const BADGE_HIT_RADIUS = 12;
 

@@ -10,11 +10,14 @@
 // move per animation frame; main moves the window without activating it), double-click on it
 // docks, Alt/Option+arrows move the focused popup. Pin and Dock sit with the window controls.
 import {
+	badgeLabel,
 	downloadNeedsConfirm,
 	facingEdge,
+	type LanguageCode,
 	type LivePopupBlock,
 	type LivePopupState,
 	listedLiveBlocks,
+	liveMarks,
 	liveShowsEmpty,
 	liveStrip,
 	skippedLiveBlocks,
@@ -37,10 +40,11 @@ import {
 	TextButton,
 	Toolbar,
 } from "@glimpse/ui";
-import { createEffect, createSignal, For, type JSX, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, type JSX, on, onCleanup, onMount, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type {
 	LiveConsentAnswer,
+	LiveMarkSprite,
 	LiveMoveDirection,
 	LiveSkippedAction,
 	LiveStateMessage,
@@ -67,6 +71,7 @@ import {
 	statusLabel,
 } from "./copy.ts";
 import { liveKey, liveMoveKey } from "./keys.ts";
+import { cardTypeFor, type MarkTheme, measureText, planMarks, readMarkTheme, spriteMessages } from "./marks.ts";
 
 export interface LivePopupIntents {
 	painted(sessionId: string): void;
@@ -98,6 +103,10 @@ export interface LivePopupIntents {
 	dock?(sessionId: string): void;
 	/** The Pin toggle. */
 	setPinned?(sessionId: string, on: boolean): void;
+	/** GLIM-154: overlay mode on / off. */
+	overlay?(sessionId: string, on: boolean): void;
+	/** GLIM-154: the badges and cards for the pinned frame (bitmaps for new keys only). */
+	marks?(sessionId: string, sprites: LiveMarkSprite[]): void;
 }
 
 /** Pointer travel before a press on the strip becomes a drag (a click or double-click stays one). */
@@ -255,6 +264,78 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 
 	// Original view (Ctrl/⌘⇧O): how this window renders blocks, not session state.
 	const [original, setOriginal] = createSignal(false);
+
+	// GLIM-154: numbered markers and the overlay over the pinned region (§2.6). The numbers
+	// show only when the frame draws badges (two or more numbered blocks, frame out of capture).
+	const marksOn = () => !!props.message.marks && state().status !== "consent";
+	const marks = createMemo(() =>
+		marksOn()
+			? liveMarks(state(), {
+					linkedId: hovered(),
+					// The target arrives as a plain string over RPC; core's codes are branded.
+					target: (props.message.marks?.target ?? null) as LanguageCode | null,
+				})
+			: null,
+	);
+	const numbered = () => (marks()?.badges.length ?? 0) > 0;
+	const numberOf = (b: LivePopupBlock) =>
+		numbered() && b.badge !== undefined ? badgeLabel(b.badge, uiLang()) : undefined;
+	const overlayOn = () => state().overlay;
+	const setOverlay = (on: boolean) => props.intents.overlay?.(id(), on);
+	// A badge or card clicked on screen: its block scrolls into view and stays highlighted. The
+	// popup never takes focus for it (the game keeps the keyboard, §7).
+	createEffect(
+		on(
+			() => state().selected?.seq,
+			() => {
+				const picked = state().selected;
+				if (!picked) return;
+				raf(() => {
+					const el = shell?.querySelector<HTMLElement>(`[data-block-id="${CSS.escape(picked.id)}"]`);
+					el?.scrollIntoView?.({ block: "nearest" });
+				});
+			},
+			{ defer: true },
+		),
+	);
+	// Rasterise the marks and hand them to main; only marks whose look changed are drawn again.
+	let sentFor: string | null = null;
+	const sent = new Set<string>();
+	let theme: MarkTheme | null = null;
+	let lastCount = 0;
+	createEffect(() => {
+		const m = marks();
+		const cfg = props.message.marks;
+		const region = state().region;
+		const peekAll = original();
+		const sessionId = id();
+		if (!props.intents.marks || typeof document === "undefined") return;
+		if (sentFor !== sessionId) {
+			sentFor = sessionId;
+			sent.clear();
+			lastCount = 0;
+		}
+		if (!m || !cfg || !region) {
+			if (lastCount > 0) props.intents.marks(sessionId, []);
+			lastCount = 0;
+			sent.clear();
+			return;
+		}
+		theme = readMarkTheme();
+		const planned = planMarks(m, {
+			region,
+			uiDir: props.init.uiDir,
+			uiLang: uiLang(),
+			scale: cfg.scale,
+			peekAll,
+			theme,
+			cardType: cardTypeFor,
+			measure: measureText,
+		});
+		if (planned.length === 0 && lastCount === 0) return;
+		lastCount = planned.length;
+		props.intents.marks(sessionId, spriteMessages(planned, cfg.scale, sent));
+	});
 	const onKeyDown = (e: KeyboardEvent) => {
 		const key = liveKey(e, props.init.os === "macos");
 		if (!key) {
@@ -283,6 +364,9 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 				break;
 			case "original":
 				setOriginal(!original());
+				break;
+			case "overlay":
+				if (marksOn()) setOverlay(!overlayOn());
 				break;
 		}
 	};
@@ -379,7 +463,12 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 				</span>
 				<StatusIndicator
 					status={strip().dot}
-					label={statusLabel(strip().label, state().private, layout() === "compact")}
+					label={statusLabel(
+						strip().label,
+						state().private,
+						// GLIM-154: with the overlay toggle, " · Private" needs a wide strip (the pressed toggle still says it).
+						layout() === "compact" || (marksOn() && layout() === "regular"),
+					)}
 				/>
 				<Show when={!cloud()}>
 					<LocalIndicator label={COPY.local} tooltip={COPY.localTooltip} compact={layout() !== "wide"} />
@@ -403,6 +492,16 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 							onClick={togglePause}
 						/>
 						<IconButton icon="select-area" label={COPY.repin} onClick={() => props.intents.repin(id())} />
+					</Show>
+					{/* GLIM-154: overlay mode, when the frame can paint cards out of capture. */}
+					<Show when={marksOn()}>
+						<IconButton
+							icon="on-screen"
+							label={overlayOn() ? COPY.hideFromScreen : COPY.showOnScreen}
+							shortcut={props.init.keys.overlay}
+							pressed={overlayOn()}
+							onClick={() => setOverlay(!overlayOn())}
+						/>
 					</Show>
 					{/* GLIM-151: window controls. Dock only once moved; Pin is a toggle (on = on top). */}
 					<Show when={moved()}>
@@ -524,7 +623,9 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 								stale={state().stale}
 								original={original()}
 								marked={b.changeId !== null && b.changeId === state().changeSeq}
-								linked={hovered() === b.id}
+								linked={hovered() === b.id || state().screenLinked === b.id}
+								selected={state().selected?.id === b.id}
+								number={numberOf(b)}
 								onLink={(on) => hover(b.id, on)}
 							/>
 						)}
@@ -550,6 +651,11 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 										tag={b.lang ? languageName(b.lang, uiLang()) : undefined}
 										tagLang={uiLang()}
 										stale={state().stale}
+										blockId={b.id}
+										number={numberOf(b)}
+										linked={hovered() === b.id || state().screenLinked === b.id}
+										selected={state().selected?.id === b.id}
+										onLinkChange={(on) => hover(b.id, on)}
 									/>
 								)}
 							</For>
@@ -590,6 +696,8 @@ function LiveTextBlock(props: {
 	stale: boolean;
 	marked: boolean;
 	linked: boolean;
+	selected?: boolean;
+	number?: string | undefined;
 	onLink: (on: boolean) => void;
 	original: boolean;
 }): JSX.Element {
@@ -615,6 +723,9 @@ function LiveTextBlock(props: {
 			changedLabel={COPY.changed}
 			failedLabel={COPY.failed}
 			linked={props.linked}
+			selected={props.selected}
+			number={props.number}
+			blockId={b().id}
 			onLinkChange={props.onLink}
 		/>
 	);

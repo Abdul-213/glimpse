@@ -12,6 +12,7 @@ import {
 	languageCode,
 	type PopupSide,
 	type ProviderRef,
+	type Rect,
 	rect,
 	reduceLivePopup,
 } from "@glimpse/core";
@@ -98,6 +99,22 @@ const running = (cloud: ProviderRef | null = null, priv = false): LiveSessionEve
 };
 const changed = (): LiveSessionEvent[] => [...running(), frame([DOOR, KEY], ["L2"], ["L2"]), tr("L2", KEY[2] ?? "")];
 
+// GLIM-154: the manga fixture (docs/samples/comic-ja.png) pinned whole at (40, 40). The
+// bubbles are core groupLines' blocks for it in manga reading order, as Snip's GLIM-152 shots.
+const COMIC_REGION = rect(40, 40, 640, 720);
+const COMIC: readonly (readonly [string, Rect, string, string])[] = [
+	[
+		"c1",
+		rect(448, 53, 110, 204),
+		"ちょっと待って 今の音 聞こえた?",
+		"Wait a second. Did you hear that sound just now?",
+	],
+	["c2", rect(169, 110, 111, 150), "何も 聞こえない けど", "I can't hear anything, though."],
+	["c3", rect(48, 378, 125, 31), "その夜、森で", "That night, in the forest"],
+	["c4", rect(442, 436, 78, 158), "じゃあ あれは何？", "Then what was that?"],
+	["c5", rect(147, 471, 73, 150), "きっと 風の音だよ", "It's the wind, I'm sure."],
+];
+
 export interface LiveScenario {
 	readonly name: string;
 	readonly note: string;
@@ -111,6 +128,13 @@ export interface LiveScenario {
 	/** GLIM-151: moved away from the region (Dock shows) / not kept on top. */
 	readonly moved?: boolean;
 	readonly pinned?: boolean;
+	/**
+	 * GLIM-154: draw the pinned region too (a comic page with the frame's ticks, badges and
+	 * cards, as the native frame paints them), the popup docked at its inline-end side.
+	 */
+	readonly scene?: { readonly region: Rect };
+	/** GLIM-154: the frame can't draw marks out of capture (no numbers, no overlay toggle). */
+	readonly noMarks?: boolean;
 }
 
 export const LIVE_SCENARIOS: readonly LiveScenario[] = [
@@ -312,7 +336,74 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 		moved: true,
 		events: () => [...running(), frame([["L1", "¿Continuar?", "Continue?"]])],
 	},
+	{
+		name: "l25-comic-markers",
+		note: "GLIM-154: a manga page pinned; numbered badges on the bubbles, the same numbers in the popup; bubble 3 clicked on screen",
+		width: 320,
+		side: "inline-end",
+		maxHeight: 720,
+		scene: { region: COMIC_REGION },
+		events: () => comicEvents(false),
+	},
+	{
+		name: "l26-comic-overlay",
+		note: "GLIM-154: overlay mode: each translation painted over its bubble; bubble 2 changed in the latest update",
+		width: 320,
+		side: "inline-end",
+		maxHeight: 720,
+		scene: { region: COMIC_REGION },
+		events: () => comicEvents(true),
+	},
 ];
+
+function comicEvents(overlay: boolean): (LiveSessionEvent | LivePopupAction)[] {
+	seq = 0;
+	const comicFrame = (changeSet: readonly string[]): LiveSessionEvent => {
+		seq++;
+		return {
+			type: "frame",
+			sessionId: S,
+			frameSeq: seq,
+			upserts: COMIC.map(([id, box, source, translation], i) => ({
+				id,
+				order: i,
+				cls: "translate",
+				lang: languageCode("ja"),
+				direction: "ltr",
+				box,
+				source,
+				translation,
+				failed: false,
+				waitingForPack: false,
+				changed: changeSet.includes(id),
+			})),
+			removes: [],
+			order: COMIC.map(([id]) => id),
+			changeSet,
+			capturedAt: NOW,
+			reused: false,
+			region: COMIC_REGION,
+			image: { width: COMIC_REGION.width, height: COMIC_REGION.height },
+		};
+	};
+	const open: LiveSessionEvent = {
+		type: "opened",
+		sessionId: S,
+		region: COMIC_REGION,
+		providers: { cloud: null, localOnly: false },
+		private: false,
+	};
+	return overlay
+		? [
+				open,
+				status("starting"),
+				comicFrame([]),
+				status("live"),
+				{ type: "toggleOverlay", on: true },
+				comicFrame(["c2"]),
+			]
+		: [open, status("starting"), comicFrame([]), status("live"), { type: "select", id: "c3" }];
+}
 
 function skippedEvents(expanded: boolean): (LiveSessionEvent | LivePopupAction)[] {
 	seq = 0;
@@ -381,7 +472,16 @@ function packEvents(
 export function liveScenarioState(s: LiveScenario): LivePopupState {
 	let state = initialLivePopupState;
 	for (const e of s.events()) {
-		const own = ["session", "holdExpired", "private", "skipped", "packInstall"].includes(e.type);
+		const own = [
+			"session",
+			"holdExpired",
+			"private",
+			"skipped",
+			"packInstall",
+			"toggleOverlay",
+			"select",
+			"screenHover",
+		].includes(e.type);
 		state = reduceLivePopup(state, own ? (e as LivePopupAction) : { type: "session", event: e as LiveSessionEvent });
 	}
 	return state;
@@ -401,5 +501,7 @@ export function liveScenarioMessage(s: LiveScenario): LiveStateMessage {
 		reducedMotion: true,
 		now: NOW,
 		focused: s.focused ?? false,
+		// GLIM-154: on hardware the frame draws marks (2x displays here, as the shots).
+		...(s.noMarks ? {} : { marks: { scale: 2, target: "en" } }),
 	};
 }
