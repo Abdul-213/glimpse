@@ -37,6 +37,9 @@ export const COPY = {
 	dock: "Dock next to the area",
 	docked: "Popup docked next to the area",
 	moved: "Popup moved",
+	// GLIM-154: overlay mode (Snip's GLIM-152 copy).
+	showOnScreen: "Show translations on screen",
+	hideFromScreen: "Back to the list only",
 } as const;
 
 /** GLIM-151: read with the popup (aria-describedby): how to move it from the keyboard. */

@@ -18,7 +18,7 @@
 #define GLIM_EXPORT __attribute__((visibility("default")))
 
 // Bump together with GLIM_ABI_VERSION in app/src/bun/native/load.ts.
-#define GLIM_ABI 8
+#define GLIM_ABI 9
 
 enum {
   GLIM_OK = 0,

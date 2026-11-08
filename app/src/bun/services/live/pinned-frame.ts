@@ -6,8 +6,17 @@
 //
 // It never throws: a helper failure is logged once and the frame is dropped (Live keeps
 // running without it), as ARCHITECTURE.md §6 asks.
-import type { Display, Logger, Rect } from "@glimpse/core";
-import { type FrameHandle, type FrameNativeBinding, type FrameSpace, rgbaOf } from "../../native/frame.ts";
+import { type Display, LIVE_CARD_PEEK_OPACITY, type Logger, type Rect } from "@glimpse/core";
+import {
+	type FrameHandle,
+	type FrameNativeBinding,
+	type FrameSpace,
+	type FrameSprite,
+	premultiplied,
+	rgbaOf,
+	SPRITE_INTERACTIVE,
+	SPRITE_PEEK,
+} from "../../native/frame.ts";
 import { FRAME_COLORS, type FrameTag, frameTagText, pinnedFrameLayout } from "./frame-layout.ts";
 
 export interface PinnedFrameOptions {
@@ -23,6 +32,31 @@ export interface PinnedFrameOptions {
 	readonly accent?: () => string | null;
 }
 
+/**
+ * GLIM-154: one numbered badge or overlay card, rasterised by the Live view, in global logical
+ * px. `id` is its block's id (clicks and hovers report it back).
+ */
+export interface LiveFrameMark {
+	readonly id: string;
+	readonly kind: "badge" | "card";
+	readonly rect: Rect;
+	/** Bitmap size in pixels (the rect times the display scale). */
+	readonly width: number;
+	readonly height: number;
+	/** Straight-alpha RGBA, `width * height * 4` bytes. */
+	readonly rgba: Uint8Array;
+	readonly opacity: number;
+}
+
+/** What the pointer did over the marks since the last poll (block ids). */
+export interface LiveMarksPointer {
+	readonly hover: string | null;
+	readonly click: string | null;
+}
+
+/** WDA_EXCLUDEFROMCAPTURE, as GetWindowDisplayAffinity reads it back. */
+const WDA_EXCLUDEFROMCAPTURE = 0x11;
+
 export interface PinnedFrameState {
 	readonly region: Rect | null;
 	readonly visible: boolean;
@@ -37,6 +71,10 @@ export class PinnedFrame {
 	#handle: FrameHandle | null = null;
 	#broken = false;
 	#unexclude: (() => void) | null = null;
+	/** GLIM-154: the marks on screen, in sprite order (pointer indices map back to them). */
+	#marks: readonly LiveFrameMark[] = [];
+	/** Whether the frame window is confirmed out of capture (null: not checked yet). */
+	#excluded: boolean | null = null;
 	#state: PinnedFrameState = {
 		region: null,
 		visible: false,
@@ -93,7 +131,88 @@ export class PinnedFrame {
 		this.#call("highlight", (b, h) => b.frameSetHighlight(h, mapped?.rect ?? null));
 	}
 
+	/**
+	 * GLIM-154: badges and cards can be drawn: a native frame with sprite support whose window
+	 * is confirmed out of Glimpse's own capture. Windows reads the display affinity back (it
+	 * is WDA_NONE before build 19041, where the cards would be OCR'd); on macOS the SCK filter
+	 * leaves out the whole app, and the frame's window id is registered as a fallback. With no
+	 * confirmation, no marks: Live must never read its own cards.
+	 */
+	get marksAvailable(): boolean {
+		if (!this.available || !this.#o.binding?.frameSetSprites || this.#handle === null) return false;
+		if (this.#excluded === null) this.#excluded = this.#checkExcluded();
+		return this.#excluded;
+	}
+
+	/** The region's display scale (sprite pixels per logical px), or null without marks. */
+	get marksScale(): number | null {
+		const region = this.#state.region;
+		if (!region || !this.marksAvailable) return null;
+		return this.#displayOf(region)?.scaleFactor ?? 1;
+	}
+
+	/** Replace the badges and cards (an empty list clears them). Ignored without marks. */
+	setMarks(marks: readonly LiveFrameMark[]): void {
+		if (marks.length === 0 && this.#marks.length === 0) return;
+		if (marks.length > 0 && !this.marksAvailable) return;
+		const sprites: FrameSprite[] = [];
+		const kept: LiveFrameMark[] = [];
+		for (const m of marks) {
+			const mapped = this.#o.space(m.rect);
+			if (!mapped || m.width <= 0 || m.height <= 0 || m.rgba.length < m.width * m.height * 4) continue;
+			sprites.push({
+				rect: mapped.rect,
+				width: m.width,
+				height: m.height,
+				rgba: premultiplied(m.rgba),
+				opacity: m.opacity,
+				// Badges and cards pick their block; a card under the pointer peeks.
+				flags: SPRITE_INTERACTIVE | (m.kind === "card" ? SPRITE_PEEK : 0),
+			});
+			kept.push(m);
+		}
+		const ok = this.#call("marks", (b, h) => b.frameSetSprites?.(h, sprites, LIVE_CARD_PEEK_OPACITY));
+		this.#marks = ok ? kept : [];
+	}
+
+	get marks(): readonly LiveFrameMark[] {
+		return this.#marks;
+	}
+
+	/** The block under the pointer on screen, and the one clicked since the last poll. */
+	pointer(): LiveMarksPointer {
+		if (this.#marks.length === 0 || !this.#o.binding?.framePointer || this.#handle === null) {
+			return { hover: null, click: null };
+		}
+		const p = this.#call("pointer", (b, h) => b.framePointer?.(h) ?? { hover: -1, click: -1 });
+		const idOf = (i: number) => (i >= 0 ? (this.#marks[i]?.id ?? null) : null);
+		return p ? { hover: idOf(p.value.hover), click: idOf(p.value.click) } : { hover: null, click: null };
+	}
+
+	#checkExcluded(): boolean {
+		const h = this.#handle;
+		const b = this.#o.binding;
+		if (h === null || !b) return false;
+		let info: Record<string, number> | null = null;
+		try {
+			info = b.frameInfo(h);
+		} catch {
+			info = null;
+		}
+		let excluded = false;
+		if (info && typeof info["affinity"] === "number") excluded = info["affinity"] === WDA_EXCLUDEFROMCAPTURE;
+		else if (info && typeof info["sharingType"] === "number") excluded = true;
+		if (!excluded) {
+			this.#o.log.warn("live frame: not confirmed out of capture; numbered marks and overlay cards are off", {
+				affinity: info?.["affinity"] ?? null,
+			});
+		}
+		return excluded;
+	}
+
 	dispose(): void {
+		this.#marks = [];
+		this.#excluded = null;
 		const handle = this.#handle;
 		this.#handle = null;
 		this.#unexclude?.();

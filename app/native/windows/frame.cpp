@@ -20,6 +20,15 @@
 //   ticks: L-shapes, arm 12, stroke 2, 1 px outside the region; 1 px halo around them
 //   tag: 20 high, 6 px side padding, 4 px above the top-left tick (or below the bottom-left)
 //   highlight: linked-fill rounded rect (radius 3) with 1 px stroke + 1 px halo
+//
+// GLIM-154: sprites. The Live view rasterises the numbered badges and overlay cards
+// (live-popup.md section 2.6); glim_frame_set_sprites hands them over as premultiplied RGBA
+// bitmaps with a physical rect each, composited above the ticks. The window stays
+// click-through except over "interactive" sprites: while it has any, a 33 ms timer on the UI
+// thread reads the cursor and drops WS_EX_TRANSPARENT (and answers HTCLIENT) only while the
+// cursor is over one, so a click there picks the block (glim_frame_pointer) and every other
+// click reaches the game. Layered hit-testing also lets clicks through fully transparent
+// pixels. A hovered "peek" sprite (a card) drops to the peek opacity so the source shows.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -44,6 +53,17 @@ constexpr double kTagH = 20, kTagPad = 6, kTagGap = 4, kRadiusBox = 3, kRadiusTa
 
 enum Palette { kAccent, kHaloC, kStrokeC, kHud, kHudText, kLinkedFill, kEgress, kPaletteSize };
 
+enum SpriteFlags { kSpriteInteractive = 1, kSpritePeek = 2 };
+constexpr UINT_PTR kTrackTimer = 1;
+constexpr UINT kTrackMs = 33;
+
+struct Sprite {
+	double x = 0, y = 0, w = 0, h = 0;  // physical px
+	double opacity = 1;
+	int pw = 0, ph = 0, flags = 0;
+	std::vector<uint32_t> px;  // premultiplied BGRA, top-down
+};
+
 struct Frame {
 	HWND hwnd = nullptr;
 	double rx = 0, ry = 0, rw = 0, rh = 0;  // region, physical px
@@ -56,6 +76,11 @@ struct Frame {
 	bool hasHighlight = false;
 	double hx = 0, hy = 0, hw = 0, hh = 0;  // physical px
 	bool visible = false;
+	std::vector<Sprite> sprites;  // GLIM-154
+	double peek = 0.08;
+	int hover = -1;
+	int click = -1;
+	bool tracking = false;
 };
 
 struct Call {
@@ -67,9 +92,14 @@ struct Call {
 	const char* text;
 	uint64_t out;
 	int32_t status;
+	// GLIM-154 kSprites
+	const double* geom;
+	const int32_t* meta;
+	const uint8_t* pixels;
+	int64_t bytes;
 };
 
-enum Op { kCreate, kRect, kStyle, kHighlight, kShow, kDestroy, kWindowId };
+enum Op { kCreate, kRect, kStyle, kHighlight, kShow, kDestroy, kWindowId, kSprites, kPointer };
 
 std::mutex g_startLock;
 HANDLE g_thread = nullptr;
@@ -134,6 +164,33 @@ void fillRect(Canvas& cv, double x, double y, double w, double h, Rgba c, double
 				if (qx > 0 && qy > 0) cov *= std::clamp(radius - std::sqrt(qx * qx + qy * qy) + 0.5, 0.0, 1.0);
 			}
 			blend(cv, px, py, c, cov);
+		}
+	}
+}
+
+// A premultiplied sprite scaled (nearest) into the rect at (x, y), source-over at `opacity`.
+void drawSprite(Canvas& cv, const Sprite& sp, double x, double y, double opacity) {
+	if (sp.pw <= 0 || sp.ph <= 0 || sp.w <= 0 || sp.h <= 0 || opacity <= 0) return;
+	int x0 = (int)std::lround(x), y0 = (int)std::lround(y);
+	int dw = std::max(1, (int)std::lround(sp.w)), dh = std::max(1, (int)std::lround(sp.h));
+	double k = std::clamp(opacity, 0.0, 1.0);
+	for (int dy = 0; dy < dh; dy++) {
+		int py = y0 + dy;
+		if (py < 0 || py >= cv.h) continue;
+		int sy = std::min(sp.ph - 1, (int)((double)dy * sp.ph / dh));
+		for (int dx = 0; dx < dw; dx++) {
+			int px = x0 + dx;
+			if (px < 0 || px >= cv.w) continue;
+			int sx = std::min(sp.pw - 1, (int)((double)dx * sp.pw / dw));
+			uint32_t s = sp.px[(size_t)sy * sp.pw + sx];
+			double sa = ((s >> 24) & 0xFF) / 255.0 * k;
+			if (sa <= 0) continue;
+			uint32_t& d = cv.px[(size_t)py * cv.w + px];
+			auto ch = [&](int shift) {
+				double sv = ((s >> shift) & 0xFF) / 255.0 * k, dv = ((d >> shift) & 0xFF) / 255.0;
+				return (uint32_t)std::lround(std::clamp(sv + dv * (1 - sa), 0.0, 1.0) * 255) << shift;
+			};
+			d = ch(0) | ch(8) | ch(16) | ch(24);
 		}
 	}
 }
@@ -292,6 +349,13 @@ void paint(Frame& f) {
 		drawText(cv, cx + kTagPad * s, cy, chipH, f.tagText, s, ink, &ignored);
 	}
 
+	// GLIM-154 sprites (badges, cards), above everything else, in the order given.
+	for (size_t i = 0; i < f.sprites.size(); i++) {
+		const Sprite& sp = f.sprites[i];
+		bool peeked = (sp.flags & kSpritePeek) && (int)i == f.hover;
+		drawSprite(cv, sp, sp.x - l.winX, sp.y - l.winY, peeked ? f.peek : sp.opacity);
+	}
+
 	POINT dst{(LONG)l.winX, (LONG)l.winY};
 	SIZE size{w, h};
 	POINT src{0, 0};
@@ -303,12 +367,86 @@ void paint(Frame& f) {
 	ReleaseDC(nullptr, screen);
 }
 
+Frame* frameOf(HWND hwnd) {
+	for (auto& kv : g_frames)
+		if (kv.second.hwnd == hwnd) return &kv.second;
+	return nullptr;
+}
+
+// The interactive sprite under the cursor (topmost first), or -1. Physical px (the UI thread
+// is per-monitor DPI aware v2, so GetCursorPos is physical too).
+int hitSprite(const Frame& f) {
+	if (!f.visible) return -1;
+	POINT p{};
+	if (!GetCursorPos(&p)) return -1;
+	for (int i = (int)f.sprites.size() - 1; i >= 0; i--) {
+		const Sprite& sp = f.sprites[(size_t)i];
+		if ((sp.flags & kSpriteInteractive) && p.x >= sp.x && p.x < sp.x + sp.w && p.y >= sp.y && p.y < sp.y + sp.h)
+			return i;
+	}
+	return -1;
+}
+
+// Click-through everywhere except over a badge or card.
+void setClickThrough(Frame& f, bool through) {
+	LONG_PTR ex = GetWindowLongPtrW(f.hwnd, GWL_EXSTYLE);
+	LONG_PTR next = through ? (ex | WS_EX_TRANSPARENT) : (ex & ~(LONG_PTR)WS_EX_TRANSPARENT);
+	if (next != ex) SetWindowLongPtrW(f.hwnd, GWL_EXSTYLE, next);
+}
+
+void track(Frame& f) {
+	int hit = hitSprite(f);
+	if (hit == f.hover) return;
+	f.hover = hit;
+	setClickThrough(f, hit < 0);
+	paint(f);
+}
+
+// Poll the cursor only while there is something to hit.
+void syncTracking(Frame& f) {
+	bool want = false;
+	for (const Sprite& sp : f.sprites)
+		if (sp.flags & kSpriteInteractive) want = true;
+	if (want && !f.tracking) {
+		f.tracking = SetTimer(f.hwnd, kTrackTimer, kTrackMs, nullptr) != 0;
+	} else if (!want && f.tracking) {
+		KillTimer(f.hwnd, kTrackTimer);
+		f.tracking = false;
+	}
+	if (!want) {
+		f.hover = -1;
+		setClickThrough(f, true);
+	}
+}
+
 LRESULT CALLBACK frameProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	switch (msg) {
-		case WM_NCHITTEST:
-			return HTTRANSPARENT;
+		case WM_NCHITTEST: {
+			Frame* f = frameOf(hwnd);
+			return f && f->hover >= 0 && hitSprite(*f) == f->hover ? HTCLIENT : HTTRANSPARENT;
+		}
 		case WM_MOUSEACTIVATE:
 			return MA_NOACTIVATE;
+		case WM_SETCURSOR: {
+			Frame* f = frameOf(hwnd);
+			if (f && f->hover >= 0) {
+				SetCursor(LoadCursor(nullptr, IDC_HAND));
+				return TRUE;
+			}
+			return DefWindowProcW(hwnd, msg, wp, lp);
+		}
+		case WM_LBUTTONDOWN: {
+			Frame* f = frameOf(hwnd);
+			if (f && f->hover >= 0) f->click = f->hover;
+			return 0;
+		}
+		case WM_TIMER:
+			if (wp == kTrackTimer) {
+				Frame* f = frameOf(hwnd);
+				if (f) track(*f);
+				return 0;
+			}
+			return DefWindowProcW(hwnd, msg, wp, lp);
 		default:
 			return DefWindowProcW(hwnd, msg, wp, lp);
 	}
@@ -385,13 +523,64 @@ void handle(Call* c) {
 				SetWindowPos(f.hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 			} else {
 				ShowWindow(f.hwnd, SW_HIDE);
+				if (f.hover >= 0) {
+					f.hover = -1;
+					setClickThrough(f, true);
+				}
 			}
+			return;
+		}
+		case kSprites: {
+			Frame& f = it->second;
+			std::vector<Sprite> next;
+			int64_t off = 0;
+			for (int32_t i = 0; i < c->ints[0]; i++) {
+				const double* g = c->geom + (size_t)i * 5;
+				const int32_t* m = c->meta + (size_t)i * 3;
+				int64_t len = (int64_t)m[0] * m[1] * 4;
+				if (m[0] <= 0 || m[1] <= 0 || off + len > c->bytes) {
+					glimSetError("bad sprite %d", i);
+					c->status = GLIM_E_ARGS;
+					return;
+				}
+				Sprite sp;
+				sp.x = g[0];
+				sp.y = g[1];
+				sp.w = g[2];
+				sp.h = g[3];
+				sp.opacity = g[4];
+				sp.pw = m[0];
+				sp.ph = m[1];
+				sp.flags = m[2];
+				sp.px.resize((size_t)sp.pw * sp.ph);
+				const uint8_t* src = c->pixels + off;
+				// RGBA bytes -> BGRA u32 (both premultiplied).
+				for (size_t k = 0; k < sp.px.size(); k++) {
+					const uint8_t* q = src + k * 4;
+					sp.px[k] = (uint32_t)q[2] | ((uint32_t)q[1] << 8) | ((uint32_t)q[0] << 16) | ((uint32_t)q[3] << 24);
+				}
+				off += len;
+				next.push_back(std::move(sp));
+			}
+			f.sprites = std::move(next);
+			f.peek = c->nums ? c->nums[0] : 0.08;
+			syncTracking(f);
+			f.hover = hitSprite(f);
+			setClickThrough(f, f.hover < 0);
+			paint(f);
+			return;
+		}
+		case kPointer: {
+			Frame& f = it->second;
+			c->out = (uint64_t)(uint32_t)f.hover | ((uint64_t)(uint32_t)f.click << 32);
+			f.click = -1;
 			return;
 		}
 		case kWindowId:
 			c->out = (uint64_t)(uintptr_t)it->second.hwnd;
 			return;
 		case kDestroy:
+			if (it->second.tracking) KillTimer(it->second.hwnd, kTrackTimer);
 			DestroyWindow(it->second.hwnd);
 			g_frames.erase(it);
 			return;
@@ -474,7 +663,7 @@ int32_t call(Call& c) {
 // Create a hidden frame window. *out = its handle (an id, not a pointer).
 GLIM_EXPORT int32_t glim_frame_create(uint64_t* out) {
 	if (!out) return GLIM_E_ARGS;
-	Call c{kCreate, 0, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0};
+	Call c{kCreate, 0, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
 	int32_t r = call(c);
 	*out = c.out;
 	return r;
@@ -488,7 +677,7 @@ GLIM_EXPORT int32_t glim_frame_set_rect(uint64_t frame, const double* rect, doub
 		return GLIM_E_ARGS;
 	}
 	double nums[5] = {rect[0], rect[1], rect[2], rect[3], scale};
-	Call c{kRect, frame, nums, {0, 0, 0, 0}, nullptr, nullptr, 0, 0};
+	Call c{kRect, frame, nums, {0, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
 	return call(c);
 }
 
@@ -498,27 +687,51 @@ GLIM_EXPORT int32_t glim_frame_set_rect(uint64_t frame, const double* rect, doub
 // tag: 0 none, 1 live, 2 paused, 3 cloud (egress-dark text); tagText UTF-8.
 GLIM_EXPORT int32_t glim_frame_set_style(uint64_t frame, int32_t style, const uint32_t* palette, int32_t tag,
                                          const char* tagText, int32_t tagBelow) {
-	Call c{kStyle, frame, nullptr, {style, tag, tagBelow, 0}, palette, tagText, 0, 0};
+	Call c{kStyle, frame, nullptr, {style, tag, tagBelow, 0}, palette, tagText, 0, 0, nullptr, nullptr, nullptr, 0};
 	return call(c);
 }
 
 // The linked block's box in physical px (has = 0 removes it).
 GLIM_EXPORT int32_t glim_frame_set_highlight(uint64_t frame, int32_t has, const double* rect) {
 	if (has && !rect) return GLIM_E_ARGS;
-	Call c{kHighlight, frame, rect, {has, 0, 0, 0}, nullptr, nullptr, 0, 0};
+	Call c{kHighlight, frame, rect, {has, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
 	return call(c);
 }
 
 // Show (without activating, HWND_TOPMOST) or hide.
 GLIM_EXPORT int32_t glim_frame_show(uint64_t frame, int32_t visible) {
-	Call c{kShow, frame, nullptr, {visible, 0, 0, 0}, nullptr, nullptr, 0, 0};
+	Call c{kShow, frame, nullptr, {visible, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
 	return call(c);
+}
+
+// GLIM-154: the badges and cards over the region. count sprites; geom f64[count * 5] = x, y,
+// w, h (physical px), opacity; meta i32[count * 3] = pixel width, pixel height, flags (1
+// interactive: hit-tested, the window catches clicks over it; 2 peek: drops to `peek` opacity
+// while hovered); pixels: premultiplied RGBA, the sprites back to back, `bytes` long. Replaces
+// the previous set; count 0 removes them all.
+GLIM_EXPORT int32_t glim_frame_set_sprites(uint64_t frame, int32_t count, const double* geom, const int32_t* meta,
+                                           const uint8_t* pixels, int64_t bytes, double peek) {
+	if (count < 0 || (count > 0 && (!geom || !meta || !pixels))) return GLIM_E_ARGS;
+	double nums[1] = {peek};
+	Call c{kSprites, frame, nums, {count, 0, 0, 0}, nullptr, nullptr, 0, 0, geom, meta, pixels, bytes};
+	return call(c);
+}
+
+// GLIM-154: out i32[2] = the interactive sprite under the cursor (-1 none), and the sprite
+// clicked since the last call (-1 none).
+GLIM_EXPORT int32_t glim_frame_pointer(uint64_t frame, int32_t* out) {
+	if (!out) return GLIM_E_ARGS;
+	Call c{kPointer, frame, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
+	int32_t r = call(c);
+	out[0] = (int32_t)(uint32_t)(c.out & 0xFFFFFFFFu);
+	out[1] = (int32_t)(uint32_t)(c.out >> 32);
+	return r;
 }
 
 // The frame's HWND value (diagnostics; WDA_EXCLUDEFROMCAPTURE already keeps it out of captures).
 GLIM_EXPORT int32_t glim_frame_window_id(uint64_t frame, uint64_t* out) {
 	if (!out) return GLIM_E_ARGS;
-	Call c{kWindowId, frame, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0};
+	Call c{kWindowId, frame, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
 	int32_t r = call(c);
 	*out = c.out;
 	return r;
@@ -529,7 +742,7 @@ GLIM_EXPORT int32_t glim_frame_window_id(uint64_t frame, uint64_t* out) {
 // clickThrough: WindowFromPoint at a tick's pixel does NOT return the frame (hit-testing
 // skips WS_EX_TRANSPARENT layered windows), i.e. a click there reaches the app below.
 GLIM_EXPORT int32_t glim_frame_info(uint64_t frame, char* buf, int32_t cap) {
-	Call c{kWindowId, frame, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0};
+	Call c{kWindowId, frame, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
 	int32_t r = call(c);
 	if (r != GLIM_OK) return -1;
 	HWND hwnd = (HWND)(uintptr_t)c.out;
@@ -550,6 +763,6 @@ GLIM_EXPORT int32_t glim_frame_info(uint64_t frame, char* buf, int32_t cap) {
 }
 
 GLIM_EXPORT int32_t glim_frame_destroy(uint64_t frame) {
-	Call c{kDestroy, frame, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0};
+	Call c{kDestroy, frame, nullptr, {0, 0, 0, 0}, nullptr, nullptr, 0, 0, nullptr, nullptr, nullptr, 0};
 	return call(c);
 }

@@ -30,6 +30,7 @@ import type {
 	LiveStatus,
 } from "../pipeline/live-events.ts";
 import type { ProviderRef } from "../providers/provenance.ts";
+import { liveBlockNumbers } from "./markers.ts";
 import { packRowState, packRowView, type SnipPackRow } from "./snip-state.ts";
 
 /** A missing language pack row at the top of the Live list (L12): the Snip pack row. */
@@ -61,6 +62,11 @@ export interface LivePopupBlock {
 	readonly changeId: number | null;
 	/** The settled capture this block's content comes from (older translations are dropped). */
 	readonly frameSeq: number;
+	/**
+	 * GLIM-154: the block's number, the same as its badge on the pinned region. Kept while
+	 * the block stays (`liveBlockNumbers`); neutral blocks have none.
+	 */
+	readonly badge?: number;
 }
 
 /** The status the popup shows: the session's, plus the consent question and closed. */
@@ -98,6 +104,15 @@ export interface LivePopupState {
 	readonly consent: LiveConsentQuestion | null;
 	/** L12: one row per source language the shown blocks wait for, first-seen order. */
 	readonly packs: readonly LivePackRow[];
+	/**
+	 * GLIM-154: overlay mode, translations painted over their boxes on the pinned region
+	 * (Settings "Show translations on screen", or the strip toggle, for this session).
+	 */
+	readonly overlay: boolean;
+	/** The block picked by clicking its badge or card on screen; `seq` grows per pick (scrolls again). */
+	readonly selected: { readonly id: string; readonly seq: number } | null;
+	/** The block whose badge or card the pointer is over on screen: its popup block lights. */
+	readonly screenLinked: string | null;
 }
 
 export type LivePopupAction =
@@ -108,7 +123,13 @@ export type LivePopupAction =
 	| { readonly type: "private"; readonly on: boolean }
 	| { readonly type: "skipped"; readonly expanded: boolean }
 	/** A pack row's resources changed install state (the model manager, GLIM-123). */
-	| { readonly type: "packInstall"; readonly lang: LanguageCode; readonly states: readonly InstallState[] };
+	| { readonly type: "packInstall"; readonly lang: LanguageCode; readonly states: readonly InstallState[] }
+	/** GLIM-154: overlay mode on / off (toggles when `on` is absent). */
+	| { readonly type: "toggleOverlay"; readonly on?: boolean }
+	/** GLIM-154: a badge or card clicked on screen picks its block. */
+	| { readonly type: "select"; readonly id: string }
+	/** GLIM-154: the pointer is over a badge or card on screen (null: none). */
+	| { readonly type: "screenHover"; readonly id: string | null };
 
 export const initialLivePopupState: LivePopupState = {
 	sessionId: null,
@@ -127,6 +148,9 @@ export const initialLivePopupState: LivePopupState = {
 	providers: { cloud: null, localOnly: false },
 	consent: null,
 	packs: [],
+	overlay: false,
+	selected: null,
+	screenLinked: null,
 };
 
 export function reduceLivePopup(state: LivePopupState, action: LivePopupAction): LivePopupState {
@@ -141,6 +165,24 @@ export function reduceLivePopup(state: LivePopupState, action: LivePopupAction):
 			return packInstall(state, action.lang, action.states);
 		case "session":
 			return onEvent(state, action.event);
+		case "toggleOverlay": {
+			const on = action.on ?? !state.overlay;
+			return on === state.overlay || state.sessionId === null ? state : { ...state, overlay: on };
+		}
+		case "select": {
+			const b = state.blocks.find((x) => x.id === action.id);
+			if (!b || b.badge === undefined) return state;
+			return {
+				...state,
+				selected: { id: b.id, seq: (state.selected?.seq ?? 0) + 1 },
+				// A picked skipped block is shown: its line expands.
+				skippedExpanded: state.skippedExpanded || b.cls === "skip",
+			};
+		}
+		case "screenHover": {
+			const id = action.id !== null && state.blocks.some((b) => b.id === action.id) ? action.id : null;
+			return id === state.screenLinked ? state : { ...state, screenLinked: id };
+		}
 	}
 }
 
@@ -271,15 +313,36 @@ function onFrame(state: LivePopupState, f: Extract<LiveSessionEvent, { type: "fr
 		}
 		blocks.push(out.order === order ? out : { ...out, order });
 	});
+	// GLIM-154: stable numbers (a block that stays keeps its badge; new ones take free numbers).
+	const numbered = withLiveNumbers(state.blocks, blocks);
+	const alive = (id: string | null | undefined) => !!id && numbered.some((b) => b.id === id);
 	return {
 		...state,
-		blocks,
+		blocks: numbered,
+		selected: alive(state.selected?.id) ? state.selected : null,
+		screenLinked: alive(state.screenLinked) ? state.screenLinked : null,
 		changeSeq: seq,
 		frameSeq: f.frameSeq,
 		capturedAt: f.capturedAt,
 		region: f.region,
 		image: f.image,
 	};
+}
+
+function withLiveNumbers(
+	prev: readonly LivePopupBlock[],
+	blocks: readonly LivePopupBlock[],
+): readonly LivePopupBlock[] {
+	const before = new Map<string, number>();
+	for (const b of prev) if (b.badge !== undefined) before.set(b.id, b.badge);
+	const numbers = liveBlockNumbers(before, blocks);
+	return blocks.map((b) => {
+		const n = numbers.get(b.id);
+		if (n === b.badge) return b;
+		if (n !== undefined) return { ...b, badge: n };
+		const { badge: _dropped, ...rest } = b;
+		return rest;
+	});
 }
 
 function onTranslation(state: LivePopupState, t: Extract<LiveSessionEvent, { type: "translation" }>): LivePopupState {

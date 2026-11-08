@@ -490,7 +490,13 @@ livePopup = new LivePopupController({
 	window: livePopupWindow,
 	live,
 	displays: readDisplays,
-	settings: () => ({ reducedMotion: appSettings.current.appearance.motion === "reduced", uiDir: "ltr" }),
+	settings: () => ({
+		reducedMotion: appSettings.current.appearance.motion === "reduced",
+		uiDir: "ltr",
+		// GLIM-154: the same setting as Snip; the cards are in the target language.
+		showOnScreen: appSettings.current.snip.showOnScreen,
+		target: appSettings.current.language.target,
+	}),
 	setPrivate: (on) => translation.setPrivate(on),
 	// L18: the session pauses while the picker is open; a new area replaces it, Esc resumes
 	// it as it was (a session the user had paused stays paused).

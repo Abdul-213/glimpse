@@ -20,6 +20,14 @@
 //   ticks: L-shapes, arm 12, stroke 2, 1 pt outside the region; 1 pt halo around them
 //   tag: 20 high, 6 pt side padding, 4 pt above the top-left tick (or below the bottom-left)
 //   highlight: linked-fill rounded rect (radius 3) with 1 pt stroke + 1 pt halo
+//
+// GLIM-154: sprites. The Live view rasterises the numbered badges and overlay cards
+// (live-popup.md §2.6) and glim_frame_set_sprites hands them over as premultiplied RGBA
+// bitmaps with a global rect each; they sit above the ticks, one CALayer per sprite. The panel
+// stays click-through except over "interactive" sprites (badges, cards): while it has any, a
+// 30 Hz timer reads the pointer and turns ignoresMouseEvents off only while the pointer is over
+// one, so a click there picks the block (glim_frame_pointer) and every other click reaches the
+// game. A hovered "peek" sprite (a card) drops to the peek opacity so the source shows.
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
 #include <dispatch/dispatch.h>
@@ -44,21 +52,32 @@ static CGColorRef glim_color(uint32_t rgba, CGFloat opacity) {
   return color;  // caller releases
 }
 
-@interface GlimFrameView : NSView
+enum { kSpriteInteractive = 1, kSpritePeek = 2 };
+
+@interface GlimSprite : NSObject
+@property(nonatomic) CGRect rect;  // global points, top-left origin
+@property(nonatomic) CGFloat opacity;
+@property(nonatomic) int flags;
+@property(nonatomic, strong) CALayer *layer;
 @end
-@implementation GlimFrameView
-- (BOOL)isFlipped {
-  return YES;
-}
-- (NSView *)hitTest:(NSPoint)point {
-  return nil;  // belt and braces: the window already ignores mouse events
-}
+@implementation GlimSprite
+@end
+
+@class GlimFrame;
+
+@interface GlimFrameView : NSView
+@property(nonatomic, weak) GlimFrame *owner;
 @end
 
 @interface GlimFrame : NSObject {
  @public
   uint32_t palette[kPaletteSize];
 }
+@property(nonatomic, strong) NSMutableArray<GlimSprite *> *sprites;
+@property(nonatomic) CGFloat peekOpacity;
+@property(nonatomic) int hover;  // index into sprites, -1 none
+@property(nonatomic) int click;  // last clicked sprite since glim_frame_pointer, -1 none
+@property(nonatomic, strong) NSTimer *tracker;
 @property(nonatomic, strong) NSPanel *panel;
 @property(nonatomic, strong) CAShapeLayer *halo;
 @property(nonatomic, strong) CAShapeLayer *ticks;
@@ -76,6 +95,25 @@ static CGColorRef glim_color(uint32_t rgba, CGFloat opacity) {
 @end
 
 @implementation GlimFrame
+@end
+
+@implementation GlimFrameView
+- (BOOL)isFlipped {
+  return YES;
+}
+- (NSView *)hitTest:(NSPoint)point {
+  // Only reached while the pointer is over an interactive sprite (the panel ignores mouse
+  // events otherwise); never anywhere else.
+  GlimFrame *f = self.owner;
+  return f && f.hover >= 0 ? self : nil;
+}
+- (BOOL)acceptsFirstMouse:(NSEvent *)event {
+  return YES;  // the first click on a badge picks it; the panel never activates Glimpse
+}
+- (void)mouseDown:(NSEvent *)event {
+  GlimFrame *f = self.owner;
+  if (f && f.hover >= 0) f.click = f.hover;
+}
 @end
 
 static NSMutableDictionary<NSNumber *, GlimFrame *> *g_frames;
@@ -183,11 +221,73 @@ static void glim_frame_layout(GlimFrame *f) {
   } else {
     f.tagChip.hidden = YES;
   }
+
+  // GLIM-154 sprites (badges, cards), above everything else, in the order given. A hovered
+  // peek sprite (a card under the pointer) shows the source through it.
+  for (NSUInteger i = 0; i < f.sprites.count; i++) {
+    GlimSprite *s = f.sprites[i];
+    s.layer.frame = CGRectOffset(s.rect, -win.origin.x, -win.origin.y);
+    BOOL peeked = (s.flags & kSpritePeek) && (NSInteger)i == f.hover;
+    s.layer.opacity = (float)(peeked ? f.peekOpacity : s.opacity);
+  }
   CGFloat backing = f.panel.backingScaleFactor > 0 ? f.panel.backingScaleFactor : 2;
   f.tagText.contentsScale = backing;
   f.ticks.contentsScale = backing;
   f.halo.contentsScale = backing;
   [CATransaction commit];
+}
+
+// The interactive sprite under the pointer (topmost first), or -1. Global top-left points.
+static int glim_frame_hit(GlimFrame *f) {
+  if (!f.panel.visible) return -1;
+  NSPoint m = [NSEvent mouseLocation];  // Cocoa: bottom-left origin on the primary screen
+  CGPoint p = CGPointMake(m.x, glim_primary_height() - m.y);
+  for (NSInteger i = (NSInteger)f.sprites.count - 1; i >= 0; i--) {
+    GlimSprite *s = f.sprites[(NSUInteger)i];
+    if ((s.flags & kSpriteInteractive) && CGRectContainsPoint(s.rect, p)) return (int)i;
+  }
+  return -1;
+}
+
+static void glim_frame_track(GlimFrame *f) {
+  int hit = glim_frame_hit(f);
+  if (hit == f.hover) return;
+  f.hover = hit;
+  // Click-through everywhere except over a badge or card.
+  f.panel.ignoresMouseEvents = hit < 0;
+  glim_frame_layout(f);
+}
+
+// Track the pointer only while there is something to hit.
+static void glim_frame_sync_tracker(GlimFrame *f) {
+  BOOL want = NO;
+  for (GlimSprite *s in f.sprites) {
+    if (s.flags & kSpriteInteractive) {
+      want = YES;
+      break;
+    }
+  }
+  if (want && !f.tracker) {
+    __weak GlimFrame *weak = f;
+    f.tracker = [NSTimer timerWithTimeInterval:1.0 / 30
+                                       repeats:YES
+                                         block:^(NSTimer *timer) {
+                                           GlimFrame *strong = weak;
+                                           if (strong) {
+                                             glim_frame_track(strong);
+                                           } else {
+                                             [timer invalidate];
+                                           }
+                                         }];
+    [[NSRunLoop mainRunLoop] addTimer:f.tracker forMode:NSRunLoopCommonModes];
+  } else if (!want && f.tracker) {
+    [f.tracker invalidate];
+    f.tracker = nil;
+  }
+  if (!want) {
+    f.hover = -1;
+    f.panel.ignoresMouseEvents = YES;
+  }
 }
 
 typedef struct {
@@ -199,9 +299,14 @@ typedef struct {
   const char *text;
   uint64_t out;
   int32_t status;
+  // GLIM-154 kSprites
+  const double *geom;
+  const int32_t *meta;
+  const uint8_t *pixels;
+  int64_t bytes;
 } glim_frame_call;
 
-enum { kCreate, kRect, kStyle, kHighlight, kShow, kDestroy, kWindowId };
+enum { kCreate, kRect, kStyle, kHighlight, kShow, kDestroy, kWindowId, kSprites, kPointer };
 
 static void glim_frame_do(void *ctx) {
   glim_frame_call *c = (glim_frame_call *)ctx;
@@ -235,6 +340,11 @@ static void glim_frame_do(void *ctx) {
 
     GlimFrame *f = [GlimFrame new];
     f.panel = panel;
+    f.sprites = [NSMutableArray array];
+    f.hover = -1;
+    f.click = -1;
+    f.peekOpacity = 0.08;
+    view.owner = f;
     f.highlightHalo = [CAShapeLayer layer];
     f.highlight = [CAShapeLayer layer];
     f.halo = [CAShapeLayer layer];
@@ -284,6 +394,8 @@ static void glim_frame_do(void *ctx) {
         [f.panel orderFrontRegardless];
       } else {
         [f.panel orderOut:nil];
+        f.hover = -1;
+        f.panel.ignoresMouseEvents = YES;
       }
       return;
     case kWindowId: {
@@ -291,7 +403,65 @@ static void glim_frame_do(void *ctx) {
       c->out = n > 0 ? (uint64_t)n : 0;
       return;
     }
+    case kSprites: {
+      for (GlimSprite *s in f.sprites) [s.layer removeFromSuperlayer];
+      [f.sprites removeAllObjects];
+      f.peekOpacity = c->nums[0];
+      CALayer *root = f.panel.contentView.layer;
+      CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+      int64_t off = 0;
+      for (int32_t i = 0; i < c->ints[0]; i++) {
+        const double *g = c->geom + (size_t)i * 5;
+        const int32_t *m = c->meta + (size_t)i * 3;
+        int32_t pw = m[0], ph = m[1];
+        int64_t len = (int64_t)pw * ph * 4;
+        if (pw <= 0 || ph <= 0 || off + len > c->bytes) {
+          glim_set_error("bad sprite %d", i);
+          c->status = GLIM_E_ARGS;
+          break;
+        }
+        NSData *data = [NSData dataWithBytes:c->pixels + off length:(NSUInteger)len];
+        off += len;
+        CGDataProviderRef provider = CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
+        CGImageRef image = CGImageCreate((size_t)pw, (size_t)ph, 8, 32, (size_t)pw * 4, space,
+                                         kCGImageAlphaPremultipliedLast | kCGBitmapByteOrderDefault, provider, NULL,
+                                         false, kCGRenderingIntentDefault);
+        CGDataProviderRelease(provider);
+        if (!image) continue;
+        CALayer *layer = [CALayer layer];
+        layer.contents = (__bridge id)image;  // the layer retains it
+        CGImageRelease(image);
+        layer.contentsGravity = kCAGravityResize;
+        // Sprites swap instantly (spec §9: the frame never animates).
+        layer.actions = @{
+          @"contents" : [NSNull null],
+          @"position" : [NSNull null],
+          @"bounds" : [NSNull null],
+          @"opacity" : [NSNull null],
+          @"hidden" : [NSNull null]
+        };
+        GlimSprite *s = [GlimSprite new];
+        s.rect = CGRectMake(g[0], g[1], g[2], g[3]);
+        s.opacity = g[4];
+        s.flags = m[2];
+        s.layer = layer;
+        [root addSublayer:layer];
+        [f.sprites addObject:s];
+      }
+      CGColorSpaceRelease(space);
+      if (f.hover >= (int)f.sprites.count) f.hover = -1;
+      glim_frame_sync_tracker(f);
+      glim_frame_track(f);
+      glim_frame_layout(f);
+      return;
+    }
+    case kPointer:
+      c->out = (uint64_t)(uint32_t)f.hover | ((uint64_t)(uint32_t)f.click << 32);
+      f.click = -1;
+      return;
     case kDestroy:
+      [f.tracker invalidate];
+      f.tracker = nil;
       [f.panel orderOut:nil];
       [f.panel close];
       [g_frames removeObjectForKey:@(c->id)];
@@ -313,7 +483,7 @@ static int32_t glim_frame_on_main(glim_frame_call *c) {
 // Create a hidden frame panel. *out = its handle (an id, not a pointer).
 GLIM_EXPORT int32_t glim_frame_create(uint64_t *out) {
   if (!out) return GLIM_E_ARGS;
-  glim_frame_call c = {kCreate, 0, {0}, {0}, NULL, NULL, 0, GLIM_E_API};
+  glim_frame_call c = {kCreate, 0, {0}, {0}, NULL, NULL, 0, GLIM_E_API, NULL, NULL, NULL, 0};
   int32_t r = glim_frame_on_main(&c);
   *out = c.out;
   return r;
@@ -326,7 +496,7 @@ GLIM_EXPORT int32_t glim_frame_set_rect(uint64_t frame, const double *rect, doub
     glim_set_error("bad frame rect");
     return GLIM_E_ARGS;
   }
-  glim_frame_call c = {kRect, frame, {rect[0], rect[1], rect[2], rect[3]}, {0}, NULL, NULL, 0, GLIM_E_API};
+  glim_frame_call c = {kRect, frame, {rect[0], rect[1], rect[2], rect[3]}, {0}, NULL, NULL, 0, GLIM_E_API, NULL, NULL, NULL, 0};
   return glim_frame_on_main(&c);
 }
 
@@ -335,28 +505,52 @@ GLIM_EXPORT int32_t glim_frame_set_rect(uint64_t frame, const double *rect, doub
 // tag: 0 none, 1 live, 2 paused, 3 cloud; tagText UTF-8; tagBelow: chip under the region.
 GLIM_EXPORT int32_t glim_frame_set_style(uint64_t frame, int32_t style, const uint32_t *palette, int32_t tag,
                                          const char *tagText, int32_t tagBelow) {
-  glim_frame_call c = {kStyle, frame, {0}, {style, tag, tagBelow}, palette, tagText, 0, GLIM_E_API};
+  glim_frame_call c = {kStyle, frame, {0}, {style, tag, tagBelow}, palette, tagText, 0, GLIM_E_API, NULL, NULL, NULL, 0};
   return glim_frame_on_main(&c);
 }
 
 // The linked block's box in global points (has = 0 removes it).
 GLIM_EXPORT int32_t glim_frame_set_highlight(uint64_t frame, int32_t has, const double *rect) {
   if (has && !rect) return GLIM_E_ARGS;
-  glim_frame_call c = {kHighlight, frame, {0}, {has, 0, 0}, NULL, NULL, 0, GLIM_E_API};
+  glim_frame_call c = {kHighlight, frame, {0}, {has, 0, 0}, NULL, NULL, 0, GLIM_E_API, NULL, NULL, NULL, 0};
   if (has) memcpy(c.nums, rect, sizeof c.nums);
   return glim_frame_on_main(&c);
 }
 
 // Show (orderFrontRegardless: never activates) or hide (orderOut).
 GLIM_EXPORT int32_t glim_frame_show(uint64_t frame, int32_t visible) {
-  glim_frame_call c = {kShow, frame, {0}, {visible, 0, 0}, NULL, NULL, 0, GLIM_E_API};
+  glim_frame_call c = {kShow, frame, {0}, {visible, 0, 0}, NULL, NULL, 0, GLIM_E_API, NULL, NULL, NULL, 0};
   return glim_frame_on_main(&c);
+}
+
+// GLIM-154: the badges and cards over the region. count sprites; geom f64[count * 5] = x, y,
+// w, h (global points, top-left origin), opacity; meta i32[count * 3] = pixel width, pixel
+// height, flags (1 interactive: hit-tested, the panel catches clicks over it; 2 peek: drops to
+// `peek` opacity while hovered); pixels: premultiplied RGBA, the sprites back to back, `bytes`
+// long. Replaces the previous set; count 0 removes them all.
+GLIM_EXPORT int32_t glim_frame_set_sprites(uint64_t frame, int32_t count, const double *geom, const int32_t *meta,
+                                           const uint8_t *pixels, int64_t bytes, double peek) {
+  if (count < 0 || (count > 0 && (!geom || !meta || !pixels))) return GLIM_E_ARGS;
+  glim_frame_call c = {kSprites, frame, {peek, 0, 0, 0}, {count, 0, 0}, NULL, NULL, 0, GLIM_E_API,
+                       geom, meta, pixels, bytes};
+  return glim_frame_on_main(&c);
+}
+
+// GLIM-154: out i32[2] = the interactive sprite under the pointer (-1 none), and the sprite
+// clicked since the last call (-1 none).
+GLIM_EXPORT int32_t glim_frame_pointer(uint64_t frame, int32_t *out) {
+  if (!out) return GLIM_E_ARGS;
+  glim_frame_call c = {kPointer, frame, {0}, {0}, NULL, NULL, 0, GLIM_E_API, NULL, NULL, NULL, 0};
+  int32_t r = glim_frame_on_main(&c);
+  out[0] = (int32_t)(uint32_t)(c.out & 0xFFFFFFFFu);
+  out[1] = (int32_t)(uint32_t)(c.out >> 32);
+  return r;
 }
 
 // The panel's CGWindowID (for the SCK by-window exclusion fallback); 0 before it is shown.
 GLIM_EXPORT int32_t glim_frame_window_id(uint64_t frame, uint64_t *out) {
   if (!out) return GLIM_E_ARGS;
-  glim_frame_call c = {kWindowId, frame, {0}, {0}, NULL, NULL, 0, GLIM_E_API};
+  glim_frame_call c = {kWindowId, frame, {0}, {0}, NULL, NULL, 0, GLIM_E_API, NULL, NULL, NULL, 0};
   int32_t r = glim_frame_on_main(&c);
   *out = c.out;
   return r;
@@ -364,7 +558,7 @@ GLIM_EXPORT int32_t glim_frame_window_id(uint64_t frame, uint64_t *out) {
 
 typedef struct {
   uint64_t id;
-  char json[320];
+  char json[384];
   int32_t status;
 } glim_frame_info_call;
 
@@ -379,10 +573,11 @@ static void glim_frame_info_do(void *ctx) {
   NSRect r = p.frame;
   snprintf(c->json, sizeof c->json,
            "{\"ignoresMouseEvents\":%d,\"level\":%ld,\"sharingType\":%ld,\"collectionBehavior\":%lu,"
-           "\"visible\":%d,\"canBecomeKey\":%d,\"x\":%.1f,\"y\":%.1f,\"w\":%.1f,\"h\":%.1f,\"windowNumber\":%ld}",
+           "\"visible\":%d,\"canBecomeKey\":%d,\"x\":%.1f,\"y\":%.1f,\"w\":%.1f,\"h\":%.1f,\"windowNumber\":%ld,"
+           "\"sprites\":%lu,\"hover\":%d}",
            p.ignoresMouseEvents ? 1 : 0, (long)p.level, (long)p.sharingType, (unsigned long)p.collectionBehavior,
            p.visible ? 1 : 0, p.canBecomeKeyWindow ? 1 : 0, r.origin.x, r.origin.y, r.size.width, r.size.height,
-           (long)p.windowNumber);
+           (long)p.windowNumber, (unsigned long)f.sprites.count, f.hover);
   c->status = GLIM_OK;
 }
 
@@ -400,6 +595,6 @@ GLIM_EXPORT int32_t glim_frame_info(uint64_t frame, char *buf, int32_t cap) {
 }
 
 GLIM_EXPORT int32_t glim_frame_destroy(uint64_t frame) {
-  glim_frame_call c = {kDestroy, frame, {0}, {0}, NULL, NULL, 0, GLIM_E_API};
+  glim_frame_call c = {kDestroy, frame, {0}, {0}, NULL, NULL, 0, GLIM_E_API, NULL, NULL, NULL, 0};
   return glim_frame_on_main(&c);
 }

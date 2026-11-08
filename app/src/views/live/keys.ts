@@ -2,7 +2,7 @@
 // Only while the popup has focus; Live's global keys are hotkeys (GLIM-23).
 
 /** live-popup.md §6.2, popup focused. ↑ ↓ Home End move between blocks (BlockList). */
-export type LiveKey = "escape" | "pause" | "stop" | "copy" | "copyOriginal" | "original";
+export type LiveKey = "escape" | "pause" | "stop" | "copy" | "copyOriginal" | "original" | "overlay";
 
 export function liveKey(
 	e: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey">,
@@ -16,6 +16,8 @@ export function liveKey(
 	if (k === "w" && !e.shiftKey) return "stop";
 	if (k === "c") return e.shiftKey ? "copyOriginal" : "copy";
 	if (k === "o" && e.shiftKey) return "original";
+	// GLIM-154: overlay mode, as in Snip.
+	if (k === "t" && e.shiftKey) return "overlay";
 	return null;
 }
 

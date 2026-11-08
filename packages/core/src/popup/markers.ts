@@ -25,3 +25,36 @@ export function badgeLabel(n: number, locale?: string): string {
 		return String(n);
 	}
 }
+
+/**
+ * GLIM-154: numbers for a Live region, kept stable across updates. A block that is still
+ * there keeps its number; new blocks take the smallest free numbers, in reading order. So a
+ * bubble that stays on screen is "3" for as long as it stays, and once every block has been
+ * replaced (a page turn) the numbers start again at 1. Neutral blocks get none.
+ */
+export function liveBlockNumbers(
+	prev: ReadonlyMap<string, number>,
+	blocks: readonly { readonly id: string; readonly cls: BlockClass }[],
+): ReadonlyMap<string, number> {
+	const kept = new Map<string, number>();
+	const used = new Set<number>();
+	for (const b of blocks) {
+		const n = prev.get(b.id);
+		if (b.cls === "neutral" || n === undefined || used.has(n)) continue;
+		kept.set(b.id, n);
+		used.add(n);
+	}
+	const out = new Map<string, number>();
+	let next = 1;
+	for (const b of blocks) {
+		if (b.cls === "neutral") continue;
+		let n = kept.get(b.id);
+		if (n === undefined) {
+			while (used.has(next)) next++;
+			n = next;
+			used.add(n);
+		}
+		out.set(b.id, n);
+	}
+	return out;
+}

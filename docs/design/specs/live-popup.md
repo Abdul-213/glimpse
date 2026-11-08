@@ -4,7 +4,7 @@ Status: **agent draft, awaiting owner approval** (2026-11-01). Implemented by GL
 
 Inputs: `PRODUCT.md`, `DESIGN.md` (token names are frontmatter keys), `.impeccable/design.json`, `docs/design/flows/live.html` (L1–L9, C1–C3), decisions GLIM-20 (cache, **Private**), GLIM-21 (classes, hysteresis), GLIM-22 (cloud indicator), GLIM-23 (keys), GLIM-85 (packs), spikes `overlay`, `window-materials` and `capture-exclusion`. Shared pieces (block anatomy, skipped line, provider badge, error copy) are defined in [`snip-popup.md`](snip-popup.md) and referenced, not repeated. The picker is [`region-picker.md`](region-picker.md).
 
-Not in Live yet: the numbered markers and on-screen overlay that Snip got in GLIM-152 (`snip-popup.md` §2.2, §2.3, §2.5). Live follows in GLIM-154, after GLIM-151.
+Numbered markers and the on-screen overlay (Snip's GLIM-152, `snip-popup.md` §2.2, §2.3, §2.5) came to Live in GLIM-154: §2.6.
 
 Units are logical px, global top-left-origin. Inline-start/end follow the UI language.
 
@@ -38,11 +38,12 @@ Inline-start to end:
 | Private toggle | `button-icon` 24px, eye-off icon, `aria-pressed`. On: `overlay-selected` background, icon `text-primary`. |
 | Pause / Resume | `button-icon`, pause icon ↔ play icon. |
 | Re-pin | `button-icon`, "select area" icon. |
+| Overlay (GLIM-154) | `button-icon` toggle, `on-screen` (speech bubble) icon, `aria-pressed`, tooltip "Show translations on screen" / "Back to the list only" with `Ctrl+Shift+T` / `⌘⇧T`. Only when the frame can draw marks out of capture (§2.6). On: `overlay-selected` background. |
 | Dock (GLIM-151) | `button-icon`, magnet icon, "Dock next to the area". **Only while moved** (§3.3). |
 | Pin (GLIM-151) | `button-icon` toggle, `aria-pressed`, "Keep on top of other windows". On (default): pin icon, `overlay-selected` background. Off: struck-through pin icon, no background. |
 | Stop | `button-icon`, stop (square) icon. Stops and unpins. |
 
-Icon buttons are 4px apart. Width budget at the 240px minimum: 216px of content = grip 12 + dot 8 + 6 + "Paused" ≈ 40 + 8 + local icon 16 + flex + 5 × 24 + 4 × 4 = 136 (6 buttons and 160 once moved) ⇒ more than 216, so a **compact strip wraps**: the buttons drop to a second line at inline-end (4px row gap) instead of squeezing the status label. Regular and wide strips never wrap. Hence the three widths: **compact** < 300 (icon-only local indicator, no " · Private" in the label), **regular** 300–359, **wide** ≥ 360 (full "On device").
+Icon buttons are 4px apart. GLIM-154: with the Overlay button a regular strip has no room for " · Private" either; the label adds it only on wide strips then (the pressed Private toggle still says it), so regular strips still never wrap. Width budget at the 240px minimum: 216px of content = grip 12 + dot 8 + 6 + "Paused" ≈ 40 + 8 + local icon 16 + flex + 5 × 24 + 4 × 4 = 136 (6 buttons and 160 once moved) ⇒ more than 216, so a **compact strip wraps**: the buttons drop to a second line at inline-end (4px row gap) instead of squeezing the status label. Regular and wide strips never wrap. Hence the three widths: **compact** < 300 (icon-only local indicator, no " · Private" in the label), **regular** 300–359, **wide** ≥ 360 (full "On device").
 
 There is no Hide button in the strip; hiding is a tray item and an optional global key (§6, owner question 5).
 
@@ -61,7 +62,8 @@ Drawn by a native click-through window (§12.2), not a webview.
 |---|---|
 | Corner ticks | Four L-shaped ticks, each arm 12px long, 2px `accent` over a 1px `picker-halo` outline, drawn **outside** the region: the ticks' inner edge sits 1px outside the region rect, so they never cover a pixel of it. No full rectangle. |
 | Paused / error | Ticks turn `picker-stroke` at 60% opacity (halo unchanged). |
-| Linked block | When a popup block is hovered or focused: a `box-linked-fill` rect, `rounded.box`, with 1px `picker-stroke` + `picker-halo`, at that block's detected box. |
+| Linked block | When a popup block is hovered or focused (or its badge or card is under the pointer on screen, GLIM-154): a `box-linked-fill` rect, `rounded.box`, with 1px `picker-stroke` + `picker-halo`, at that block's detected box. |
+| Badges and cards (GLIM-154) | Painted by the same window, above the ticks: §2.6. |
 | Region tag | **Only when the popup is hidden.** A HUD chip (`picker-readout` shape: `picker-hud`, `label` type, `picker-hud-text`, 20px, `rounded.kbd`) 4px above the top-left tick (below the bottom-left tick if there's no room above). Text "Live", "Live · Paused", or, with cloud, a cloud icon and "Live · {company}" in `egress-dark`. With cloud, sending is never invisible (flows C3). |
 
 ### 2.5 Block list
@@ -78,6 +80,27 @@ Blocks reuse the Snip anatomy (`snip-popup.md` §2.2: translation, source line, 
 | Skipped line | As Snip, last row. Count and language list update silently (no highlight; filtering isn't change). Its expanded/collapsed state persists for the session. |
 | Neutral blocks | Update their text silently; **never** marked as changed (a ticking HP counter is not news). |
 | Scrollbar | As Snip. |
+
+### 2.6 Numbered markers and overlay (GLIM-154)
+
+Snip's markers and overlay (`snip-popup.md` §2.2, §2.3, §2.5: same tokens, same `fitText`), over the pinned region and kept current as Live updates. Owner ask: tell which translation belongs to which speech bubble when reading comics. Screenshots: `screens/live-popup/l25-comic-markers-macos-light.png` (bubble 3 picked on screen) and `l26-comic-overlay-*` (bubble 2 changed in the latest update).
+
+| Element | Tokens / values |
+|---|---|
+| Numbers | Every block with a box (translate, target-language and skipped; not neutral) has a number, shown as its badge on screen and as Snip's `block-number` chip beside its popup block (skipped blocks too, inside the skipped line). **Stable**: a block that stays keeps its number across updates; new blocks take the smallest free numbers in reading order, so once every block has been replaced (a page turn) numbering starts again at 1 (core `liveBlockNumbers`). |
+| When | Only with **two or more** numbered blocks: a single subtitle line needs no matching, and a "1" on every subtitle would be churn over the video. Cards don't need numbers and show with one block too. Never during consent (L10) or the empty state (L7). |
+| Popup gutter | A numbered Live block pads 32px at inline-start: number 4–20px, change mark 23–29px, text from 32px, so neither ever shifts the text. |
+| Badge | Snip's `box-badge` on the box's top inline-start corner, kept inside the frame window (region + 16px). Skipped blocks' badges at 60%. Linked (popup hover/focus, pointer on it) or picked: `accent` with `on-accent` digits. |
+| Card | Snip's card (opaque `surface-popup-solid`, `text-primary`, hairline edge, Tooltip shadow, `rounded.control`, fitted text in the target's script stack, 2px `accent` ring when linked or picked). It shows **what the popup shows**: the old translation while a changed block is held (600 ms, §8); nothing while its new source is pending (the new source on screen shows through); the new translation once it lands. Failed, waiting-for-pack, skipped, neutral and target-language blocks: no card (badge only). Clamped into the frame window. |
+| Change | Cards in the latest change set get the resting change tint (`change-rest` over the card) and a 6px `change-mark` dot inset 5px from the card's top inline-end corner. No flash on screen: the frame never animates (§9). Older marks clear with the next change set, as in the popup. Neutral updates are never marked. |
+| In place | The view draws each badge and card once into a bitmap keyed by its look (text, box size, lit, changed, scale, theme); an update re-renders only marks whose look changed, and moves the rest. |
+| Paused / stale / error | Badges and cards stay, at 60% like the ticks. |
+| Pointer | The frame stays click-through **except over badges and cards** (the game keeps the rest of the region). Hover a badge or card: its popup block lights (and its box fills); a card under the pointer peeks (8% opacity, the source shows). Click: **picks** the block: the popup scrolls it into view and holds it with `overlay-selected` (and its number lit) until another pick or the block leaves; the popup never takes focus for it. |
+| Peek | Original view (`Ctrl/⌘⇧O`, popup focused) peeks every card. Holding Shift (Snip's peek) isn't available: the game has the keyboard. |
+| Toggle | Strip button (§2.2) or `Ctrl/⌘⇧T` in the focused popup, for this session. Settings › General › "Show translations on screen" (`snip.showOnScreen`, shared with Snip) opens every session with the overlay on. |
+| Capture | The marks are drawn by the frame window, which is always excluded from capture whatever "Hide Glimpse from screenshots" says (it is a `surface`, GLIM-98): Windows `WDA_EXCLUDEFROMCAPTURE`, macOS the SCK filter that leaves out the whole app (plus its window id). Live only draws marks after confirming it: on Windows the frame's display affinity is read back and must be `WDA_EXCLUDEFROMCAPTURE` (it isn't before Windows 10 2004, where marks and the toggle are off); without a native frame (Linux) there are none. Masking (GLIM-98's fallback for un-flagged popups) is never used for marks: painting over the cards would paint over the source text under them. Tested headless in `app/test/live-marks-capture.test.ts`. |
+| Accessibility | The marks are not accessible objects (the native window has none); the popup is the accessible surface with the same numbers. |
+| Forced colours | Not followed on screen yet (the bitmaps use the theme's tokens); the popup follows them. Follow-up GLIM-155. |
 
 ## 3. Sizing and docking
 
@@ -172,7 +195,9 @@ The change set is all changed and added blocks from one settled capture.
 | Click Pause / Resume, Re-pin, Stop, Private, Pin, Dock | Acts on the **first click**, without activating Glimpse or taking focus from the game (§7). |
 | Drag the strip | Moves the popup (§3.3), without activating. |
 | Double-click the strip | Dock (§3.3), while moved. |
-| Hover a block | `overlay-hover`; linked box on the frame. |
+| Hover a block | `overlay-hover`; linked box on the frame (and its badge lit). |
+| Hover a badge or card on the region (GLIM-154) | Its popup block lights; a card peeks (§2.6). |
+| Click a badge or card on the region (GLIM-154) | Picks the block: the popup scrolls to it and holds it; no focus change. Every other click on the region reaches the app below. |
 | Hover anywhere on the popup | Pauses auto-scroll (§4 L20). |
 | Wheel | Scrolls the list. |
 | Click in text | Places nothing (no activation). Text selection needs keyboard focus (§7). |
@@ -188,7 +213,8 @@ Stop never asks for confirmation; it ends the session and drops its caches (GLIM
 | `Ctrl+W` / `⌘W` | Stop (unpin). |
 | `Ctrl+C` / `⌘C` | Copy translation (manual only; Live never writes the clipboard by itself). Selection if any. |
 | `Ctrl+Shift+C` / `⌘⇧C` | Copy original. |
-| `Ctrl+Shift+O` / `⌘⇧O` | Toggle original view. |
+| `Ctrl+Shift+O` / `⌘⇧O` | Toggle original view (cards on the region peek while it is on, GLIM-154). |
+| `Ctrl+Shift+T` / `⌘⇧T` | Overlay on / off (GLIM-154). |
 | `↑` / `↓`, `Home` / `End` | Move between blocks. |
 | `Alt+arrows` / `⌥+arrows` (+ `Shift`) | Move the popup 10px (50px) (§3.3). Taken before the toolbar and list see the arrows. |
 | `Tab` / `Shift+Tab` | Strip buttons → state-row buttons → blocks, wrapping. |
@@ -325,6 +351,8 @@ Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private
 | `live.action.settings` | Open System Settings |
 | `live.action.repin` | Pick a new area |
 | `live.action.stop` | Stop Live |
+| `live.overlay.on` | Show translations on screen (GLIM-154, Snip's `snip.showOnScreen`) |
+| `live.overlay.off` | Back to the list only |
 | `live.tag` | Live |
 | `live.tag.paused` | Live · Paused |
 | `live.tag.cloud` | Live · {company} |
@@ -370,6 +398,19 @@ int   glim_frame_destroy(void *f);
 ```
 
 Tag text is rendered by the helper with the system UI font at 12px/500 (CoreText / DirectWrite).
+
+**Sprites (GLIM-154).** The badges and cards are bitmaps from the Live view (canvas, so the text is fitted and shaped exactly like Snip's DOM cards), sent to main once per look and handed over with:
+
+```c
+// geom f64[n*5] = x, y, w, h (frame space), opacity; meta i32[n*3] = px width, px height,
+// flags (1 interactive, 2 peek); pixels = premultiplied RGBA back to back. n = 0 clears.
+int glim_frame_set_sprites(uint64_t f, int32_t n, const double *geom, const int32_t *meta,
+                           const uint8_t *pixels, int64_t bytes, double peekOpacity);
+// out[0] = interactive sprite under the pointer (-1), out[1] = sprite clicked since last call (-1).
+int glim_frame_pointer(uint64_t f, int32_t *out);
+```
+
+macOS: one `CALayer` per sprite above the ticks; while there are interactive sprites a 30 Hz timer reads `NSEvent.mouseLocation` and sets `ignoresMouseEvents = NO` only while the pointer is over one (the panel stays non-activating; `acceptsFirstMouse`). Windows: sprites composited into the layered DIB; a 33 ms `WM_TIMER` reads `GetCursorPos` and drops `WS_EX_TRANSPARENT` (and answers `HTCLIENT`) only over one; `WM_MOUSEACTIVATE` returns `MA_NOACTIVATE`. Main polls `glim_frame_pointer` every 50 ms while marks are up. ABI 9.
 
 ### 12.3 Other helper calls
 
@@ -445,6 +486,7 @@ type LiveFromView =
 7. **Paused / stale** is shown by the dot, dimmed blocks and a `body` state row; DESIGN.md's `heading` type is used for error titles only.
 8. **The pinned frame is drawn natively**, not by a webview, so it can be click-through on both OSes.
 9. **Region tag** on the frame only while the popup is hidden (flows C3), including the cloud name.
+10. **Live markers (GLIM-154):** badges only with two or more numbered blocks; numbers kept while a block stays and reused from the smallest free one; cards follow the popup's hold/pending rules; changed cards get the resting tint and mark without a flash; the frame is click-through except over badges and cards; no Shift peek (original view peeks instead); marks only when the frame is confirmed out of capture.
 
 ## 14. Open questions for the owner
 
@@ -477,3 +519,6 @@ type LiveFromView =
 - [ ] Frame ticks never cover the region and are click-through on both OSes; our windows never appear in captures.
 - [ ] Reduced motion: no spring, no decay, no smooth scroll; tint, mark and text still update.
 - [ ] Screen-reader announcements per §10 when enabled.
+- [ ] (GLIM-154) With two or more blocks, every boxed block has a badge with the same number as its popup block; numbers stay put while blocks persist.
+- [ ] (GLIM-154) Hovering a popup block lights its badge and box; hovering a badge or card lights the popup block; clicking one scrolls to and highlights it without taking focus; clicks elsewhere on the region reach the game.
+- [ ] (GLIM-154) Overlay (strip toggle, `Ctrl/⌘⇧T`, Settings): cards over each bubble update in place, respect the 600 ms hold and pending state, carry the change mark, dim when paused, and never appear in Live's own capture (including with "Hide Glimpse from screenshots" off).

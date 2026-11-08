@@ -92,6 +92,22 @@ Open **[samples/comic-ja.png](samples/comic-ja.png)** (a manga page, vertical Ja
 | 15 | If you use them: dark mode, Reduce motion, and High contrast (Windows) or Increase contrast (macOS). | Cards follow light/dark; peeking has no fade with reduced motion; in high contrast cards and badges use system colours with a visible border. |
 | 16 | With the cards on screen, press the Snip shortcut and snip the manga page again. | The new popup translates the Japanese again; it never reads the English cards (Glimpse leaves its own overlays out of its captures). |
 
+### Comics in Live: numbers and cards over a pinned page (GLIM-154)
+
+Keep the manga page open at full size, with another app (a text editor) focused next to it.
+
+| # | Do this | You should see |
+|---|---|---|
+| 17 | Press the Live shortcut and drag over the whole manga page. | The corner ticks appear around the page and a number badge sits on each bubble's top-left corner (1 top-right bubble, 2 top-left, 3 narration box, 4 bottom-right, 5 bottom-left); the Live popup lists the translations with the same numbers. The editor keeps keyboard focus. |
+| 18 | Hover a translation in the Live popup. | That bubble fills light blue on the page and its badge turns blue. |
+| 19 | Move the mouse onto badge **3** on the page (don't click), then click it. Then click on the page **between** bubbles, and type in the editor. | Hovering the badge turns translation 3 blue in the popup; clicking scrolls the popup to it and highlights it. The click between bubbles goes to the app under the page (the frame is click-through except on badges and cards); the editor still has keyboard focus and typing goes to it. |
+| 20 | Click the speech-bubble button in the Live popup's top bar. | Each translation is painted on a card over its bubble, sized to fit. Hover one card: it goes almost transparent and the Japanese shows under it. |
+| 21 | Scroll or edit so one bubble's text changes (or open **[samples/comic-en-fr.png](samples/comic-en-fr.png)** in the same spot). | Within a second or two only the changed cards update in place; a changed card gets a small blue dot and a faint blue tint; unchanged bubbles keep their numbers. A page whose bubbles all change starts again at 1. The cards never show the translation of a card (Live never reads its own cards). |
+| 22 | Pause Live from the popup, then resume. | While paused the badges and cards fade to 60 % with the ticks; on resume they come back. |
+| 23 | Tray › *Hide Live popup*, then show it again; drag the popup's top bar, press the magnet, toggle the pin. | The region tag ("Live") appears above the page while the popup is hidden; the badges and cards stay. Moving, docking and pinning work as in steps 5a–5d. |
+| 24 | Settings › Privacy › turn **Hide Glimpse from screenshots** off, start Live on the page with the cards on, and take a screenshot (Win+Shift+S / ⌘⇧4) of the page. | The cards still never feed back into Live (step 21). In your screenshot the badges and cards are **not** visible (they are always left out of captures; only the popup follows that setting). Turn the setting back on. |
+| 25 | Settings › General › **Show translations on screen** on, then start Live on the page. | Live opens with the cards already on. Windows 10 before version 2004: no badges, no cards and no speech-bubble button (Glimpse can't keep them out of its own captures there); the popup works as before. |
+
 ## 5. If something fails
 
 Please send (an issue on GitHub, or a message):

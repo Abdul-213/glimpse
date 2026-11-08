@@ -7,6 +7,9 @@ import {
 	BADGE_HIT_RADIUS,
 	badgeAnchor,
 	badgeLabel,
+	CARD_MAX_PX,
+	CARD_MAX_WIDTH,
+	CARD_MIN_PX,
 	type FitTextResult,
 	fitText,
 	type Rect,
@@ -15,11 +18,8 @@ import {
 } from "@glimpse/core";
 import { createEffect, createSignal, For, type JSX, Show } from "solid-js";
 
-/** Largest and smallest card text (px) before script scaling: the popup's translation size, and the floor. */
-export const CARD_MAX_PX = 15;
-export const CARD_MIN_PX = 11;
-/** Widest a card may grow (px) to fit one long word in a narrow (vertical) box. */
-export const CARD_MAX_WIDTH = 240;
+// Card text sizes and the widest card: core's, shared with Live (GLIM-154).
+export { CARD_MAX_PX, CARD_MAX_WIDTH, CARD_MIN_PX } from "@glimpse/core";
 
 let measureCtx: CanvasRenderingContext2D | null = null;
 const measurer = (family: string) => {

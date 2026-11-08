@@ -88,6 +88,8 @@ render(
 								move: (sessionId, direction, large) => rpc.send.moveRequested({ sessionId, direction, large }),
 								dock: (sessionId) => rpc.send.dockRequested({ sessionId }),
 								setPinned: (sessionId, on) => rpc.send.pinToggled({ sessionId, on }),
+								overlay: (sessionId, on) => rpc.send.overlayToggled({ sessionId, on }),
+								marks: (sessionId, sprites) => rpc.send.liveMarks({ sessionId, sprites }),
 							}}
 						/>
 					)}

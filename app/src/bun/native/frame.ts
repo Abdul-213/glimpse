@@ -19,8 +19,79 @@ export interface FrameNativeStyle {
 	readonly tagBelow: boolean;
 }
 
+/** Sprite flags (frame.m / frame.cpp). */
+export const SPRITE_INTERACTIVE = 1;
+export const SPRITE_PEEK = 2;
+
+/**
+ * GLIM-154: one bitmap the frame paints above its ticks (a numbered badge or an overlay card).
+ * `rect` is in the frame's space (`FrameSpace`: macOS global points, Windows physical px).
+ */
+export interface FrameSprite {
+	readonly rect: Rect;
+	/** Bitmap size in pixels. */
+	readonly width: number;
+	readonly height: number;
+	/** Premultiplied RGBA, `width * height * 4` bytes. */
+	readonly rgba: Uint8Array;
+	readonly opacity: number;
+	/** SPRITE_INTERACTIVE (hit-tested, catches clicks) | SPRITE_PEEK (fades while hovered). */
+	readonly flags: number;
+}
+
+/** What `glim_frame_pointer` reports: sprite indices, -1 for none. */
+export interface FramePointer {
+	readonly hover: number;
+	readonly click: number;
+}
+
+/** Straight-alpha RGBA (canvas `getImageData`) to premultiplied RGBA, as the helpers take it. */
+export function premultiplied(rgba: Uint8Array): Uint8Array {
+	const out = new Uint8Array(rgba.length);
+	for (let i = 0; i + 3 < rgba.length; i += 4) {
+		const a = rgba[i + 3] ?? 0;
+		out[i] = Math.round(((rgba[i] ?? 0) * a) / 255);
+		out[i + 1] = Math.round(((rgba[i + 1] ?? 0) * a) / 255);
+		out[i + 2] = Math.round(((rgba[i + 2] ?? 0) * a) / 255);
+		out[i + 3] = a;
+	}
+	return out;
+}
+
+/** The sprites as the C ABI takes them: geom f64[n*5], meta i32[n*3], pixels back to back. */
+export function packSprites(sprites: readonly FrameSprite[]): {
+	count: number;
+	geom: Float64Array;
+	meta: Int32Array;
+	pixels: Uint8Array;
+} {
+	const count = sprites.length;
+	// Never zero-length: bun:ffi `ptr()` needs a backing store.
+	const geom = new Float64Array(Math.max(1, count * 5));
+	const meta = new Int32Array(Math.max(1, count * 3));
+	let bytes = 0;
+	for (const s of sprites) bytes += s.width * s.height * 4;
+	const pixels = new Uint8Array(Math.max(1, bytes));
+	let off = 0;
+	sprites.forEach((s, i) => {
+		geom.set([s.rect.x, s.rect.y, s.rect.width, s.rect.height, s.opacity], i * 5);
+		meta.set([s.width, s.height, s.flags], i * 3);
+		const len = s.width * s.height * 4;
+		pixels.set(s.rgba.subarray(0, len), off);
+		off += len;
+	});
+	return { count, geom, meta, pixels: bytes === 0 ? pixels : pixels.subarray(0, bytes) };
+}
+
 /** What the pinned frame needs from libglimpse.dylib / glimpse.dll. Faked in tests. */
 export interface FrameNativeBinding {
+	/**
+	 * GLIM-154: replace the badges and cards (count 0 clears them). `peek`: the opacity of a
+	 * hovered SPRITE_PEEK sprite. Optional: older fakes have no sprites.
+	 */
+	frameSetSprites?(handle: FrameHandle, sprites: readonly FrameSprite[], peek: number): void;
+	/** GLIM-154: the hovered sprite and the one clicked since the last call. */
+	framePointer?(handle: FrameHandle): FramePointer;
 	frameCreate(): FrameHandle;
 	/** Region in the OS's frame space (see `FrameSpace`), plus the UI scale there. Throws CaptureError. */
 	frameSetRect(handle: FrameHandle, region: Rect, scale: number): void;

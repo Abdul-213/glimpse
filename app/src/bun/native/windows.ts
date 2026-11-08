@@ -4,7 +4,14 @@
 import { dlopen, FFIType, JSCallback, type Pointer, ptr } from "bun:ffi";
 import type { CapturePiece, Rect, RgbaImage } from "@glimpse/core";
 import type { NativeMaterial, ThemeSetting, WindowChromeNative } from "./chrome.ts";
-import type { FrameHandle, FrameNativeBinding, FrameNativeStyle } from "./frame.ts";
+import {
+	type FrameHandle,
+	type FrameNativeBinding,
+	type FrameNativeStyle,
+	type FramePointer,
+	type FrameSprite,
+	packSprites,
+} from "./frame.ts";
 import { loadNativeLibrary, type NativeStatus, readNativeString } from "./load.ts";
 import {
 	SESSION_KIND_CODE,
@@ -42,6 +49,12 @@ const glimpseSymbols = {
 	glim_frame_window_id: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
 	glim_frame_destroy: { args: [FFIType.u64], returns: FFIType.i32 },
 	glim_frame_info: { args: [FFIType.u64, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+	// GLIM-154: handle, count, geom f64[n*5], meta i32[n*3], pixels, bytes, peek / handle, out i32[2]
+	glim_frame_set_sprites: {
+		args: [FFIType.u64, FFIType.i32, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.i64, FFIType.f64],
+		returns: FFIType.i32,
+	},
+	glim_frame_pointer: { args: [FFIType.u64, FFIType.ptr], returns: FFIType.i32 },
 	// GLIM-119 lock / sleep notifications (session.cpp)
 	glim_session_start: { args: [FFIType.function], returns: FFIType.i32 },
 	glim_session_stop: { args: [], returns: FFIType.i32 },
@@ -284,6 +297,27 @@ class GlimpseDll
 
 	frameDestroy(handle: FrameHandle): void {
 		this.sym.glim_frame_destroy(handle);
+	}
+
+	frameSetSprites(handle: FrameHandle, sprites: readonly FrameSprite[], peek: number): void {
+		const p = packSprites(sprites);
+		const r = this.sym.glim_frame_set_sprites(
+			handle,
+			p.count,
+			ptr(p.geom),
+			ptr(p.meta),
+			ptr(p.pixels),
+			BigInt(p.count === 0 ? 0 : p.pixels.byteLength),
+			peek,
+		);
+		if (r !== 0) this.frameFail("drawing the Live marks", r);
+	}
+
+	framePointer(handle: FrameHandle): FramePointer {
+		const out = new Int32Array(2);
+		const r = this.sym.glim_frame_pointer(handle, ptr(out));
+		if (r !== 0) this.frameFail("reading the pointer over the Live marks", r);
+		return { hover: out[0] ?? -1, click: out[1] ?? -1 };
 	}
 
 	frameInfo(handle: FrameHandle): Record<string, number> | null {

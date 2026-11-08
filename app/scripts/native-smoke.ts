@@ -44,8 +44,20 @@ function frameSmoke(binding: FrameNativeBinding, check: (info: Record<string, nu
 	binding.frameSetRect(h, rect(200, 200, 320, 90), 1);
 	binding.frameShow(h, true);
 	binding.frameSetHighlight(h, rect(220, 220, 120, 24));
+	// GLIM-154: a badge and a card as sprites, the pointer read back, then cleared.
+	const px = (w: number, h: number) => new Uint8Array(w * h * 4).fill(200);
+	binding.frameSetSprites?.(
+		h,
+		[
+			{ rect: rect(230, 230, 60, 30), width: 120, height: 60, rgba: px(120, 60), opacity: 1, flags: 3 },
+			{ rect: rect(222, 222, 20, 20), width: 40, height: 40, rgba: px(40, 40), opacity: 0.6, flags: 1 },
+		],
+		0.08,
+	);
+	console.log("live frame pointer:", JSON.stringify(binding.framePointer?.(h)));
 	const info = binding.frameInfo(h);
 	console.log("live frame:", JSON.stringify(info), "window id", binding.frameWindowId(h));
+	binding.frameSetSprites?.(h, [], 0.08);
 	binding.frameSetStyle(h, {
 		paused: true,
 		palette: Uint32Array.from(FRAME_PALETTE_ORDER.map((k) => rgbaOf(FRAME_COLORS[k]))),
