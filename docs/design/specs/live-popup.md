@@ -4,6 +4,8 @@ Status: **agent draft, awaiting owner approval** (2026-11-01). Implemented by GL
 
 Inputs: `PRODUCT.md`, `DESIGN.md` (token names are frontmatter keys), `.impeccable/design.json`, `docs/design/flows/live.html` (L1–L9, C1–C3), decisions GLIM-20 (cache, **Private**), GLIM-21 (classes, hysteresis), GLIM-22 (cloud indicator), GLIM-23 (keys), GLIM-85 (packs), spikes `overlay`, `window-materials` and `capture-exclusion`. Shared pieces (block anatomy, skipped line, provider badge, error copy) are defined in [`snip-popup.md`](snip-popup.md) and referenced, not repeated. The picker is [`region-picker.md`](region-picker.md).
 
+Not in Live yet: the numbered markers and on-screen overlay that Snip got in GLIM-152 (`snip-popup.md` §2.2, §2.3, §2.5). Live follows in GLIM-154, after GLIM-151.
+
 Units are logical px, global top-left-origin. Inline-start/end follow the UI language.
 
 ## 1. Job

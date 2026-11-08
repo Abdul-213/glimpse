@@ -165,6 +165,25 @@ body,
 	position: absolute;
 	inset: 0;
 	pointer-events: none;
+	/*
+	 * The overlay's root is `color-scheme: dark` (the HUD is always dark), and the theme's
+	 * light-dark() tokens resolve where they are declared, so the cards can't inherit them.
+	 * They follow the OS appearance with the same DESIGN.md values: surface-popup-solid,
+	 * text-primary, border-hairline and the Tooltip shadow, light then dark.
+	 */
+	--card-surface: #f5f5f7;
+	--card-text: #1d1d1f;
+	--card-edge: #0000001f;
+	--card-shadow: 0 2px 8px #00000026;
+}
+
+@media (prefers-color-scheme: dark) {
+	.results-marks {
+		--card-surface: #262628;
+		--card-text: #f4f4f6;
+		--card-edge: #ffffff1f;
+		--card-shadow: 0 2px 8px #00000066;
+	}
 }
 
 .results-badge {
@@ -214,12 +233,11 @@ body,
 	padding: var(--spacing) calc(var(--spacing) * 1.5);
 	overflow: hidden;
 	border-radius: var(--radius-control);
-	background: var(--color-surface-popup-solid);
-	color: var(--color-text-primary);
+	background: var(--card-surface);
+	color: var(--card-text);
 	box-shadow:
-		var(--shadow-tooltip),
-		0 0 0 1px var(--color-border-hairline);
-	color-scheme: light dark;
+		var(--card-shadow),
+		0 0 0 1px var(--card-edge);
 	font-weight: var(--text-translation--font-weight);
 	text-align: center;
 	unicode-bidi: plaintext;
@@ -238,7 +256,7 @@ body,
 
 .results-card[data-linked] {
 	box-shadow:
-		var(--shadow-tooltip),
+		var(--card-shadow),
 		0 0 0 2px var(--color-accent);
 }
 

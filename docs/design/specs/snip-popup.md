@@ -1,6 +1,6 @@
 # Snip popup: spec (GLIM-30)
 
-Status: **agent draft, awaiting owner approval** (2026-11-01). Implemented by GLIM-65 (popup near the snip), GLIM-71 (auto-copy), GLIM-72 (placement and dismissal), GLIM-73 (loading and error states), GLIM-74 (show original), GLIM-80 (cloud indicator), GLIM-82 (skipped blocks). Mockup: [`mockups/snip-popup.html`](mockups/snip-popup.html), screenshots in [`mockups/screenshots/`](mockups/screenshots/).
+Status: **agent draft, awaiting owner approval** (2026-11-01). Implemented by GLIM-65 (popup near the snip), GLIM-71 (auto-copy), GLIM-72 (placement and dismissal), GLIM-73 (loading and error states), GLIM-74 (show original), GLIM-80 (cloud indicator), GLIM-82 (skipped blocks). GLIM-152 (owner feedback on 0.0.1, comics) added numbered markers (§2.2, §2.3, §5) and overlay mode (§2.5). Mockup: [`mockups/snip-popup.html`](mockups/snip-popup.html), screenshots in [`mockups/screenshots/`](mockups/screenshots/).
 
 Inputs: `PRODUCT.md`, `DESIGN.md` (token names are its frontmatter keys), `.impeccable/design.json`, `docs/design/flows/snip.html` (S5–S8b, D1–D7, E1–E4), decisions GLIM-20 (cache, Private), GLIM-21 (block classes), GLIM-22 (cloud indicator copy), GLIM-23 (keys), GLIM-85 (language packs), and `spikes/window-materials/FINDINGS.md`. The picker and the on-screen results layer are in [`region-picker.md`](region-picker.md).
 
@@ -26,7 +26,9 @@ The user has just dragged a box over text they can't read. Within a tenth of a s
 | Element | Tokens / values |
 |---|---|
 | Block list | `role="list"`. Gap `spacing.2` (8px) between blocks. Overflow-y auto; scrollbar `scrollbar-width: thin`, thumb `overlay-pressed`, track transparent. When the list overflows, a 1px `divider` rule appears above the footer; otherwise none. |
-| Block (container) | Component `block-translation`: padding 4px 8px, `rounded.control`. Hover or focus: `overlay-hover` background (`duration-fast`, `ease-standard`), and the linked box lights on screen. Focus ring per DESIGN.md §Focus. |
+| Block (container) | Component `block-translation`: padding 4px 8px, `rounded.control`. Hover or focus: `overlay-hover` background (`duration-fast`, `ease-standard`), and the linked box lights on screen. Focus ring per DESIGN.md §Focus. Hovering its box on screen gives the same `overlay-hover` (GLIM-152). |
+| Block number (GLIM-152) | Component `block-number`: every block that has a box on screen (translate, target-language and skipped blocks; not neutral ones) carries the number of its badge on screen (§2.3), so the reader can match a translation to its bubble. A 16px pill (`rounded.pill`, min-width 16px, 2px inline padding) in `numeric` type, `overlay-pressed` background, `text-secondary`, in a 24px gutter at the block's inline-start (the block pads 24px at inline-start, so text never shifts), centred on the first line. Linked (hover, focus, or its box hovered on screen) or **picked** (its box clicked on screen): `accent` background, `on-accent` digits. Numbers are given in reading order at recognition and never change for the request ("Translate these" keeps a skipped block's number). Digits are formatted for the UI locale. Error states that list the original plainly (E2, E3) show no numbers. |
+| Picked block (GLIM-152) | A block whose box or badge was clicked on screen: the list scrolls it into view (no animation), focuses it, and holds it with `overlay-selected` until another block is picked. A picked skipped block expands the skipped list first. |
 | Translation | Typography `translation` (15px / 400 / 1.5), `text-primary`. Per-script size and leading from DESIGN.md's script table via `:lang()`, on the **target** language tag. |
 | Source line | Typography `source` (13px, 14px on Windows; 1.5), `text-secondary`, `margin-block-start` `spacing.1` (4px). Shown under each translation only when "Show original under translation" is on (Settings; off by default). `lang` = detected source language. |
 | Pending source | Before its translation arrives, a translate-class block shows its OCR text in `source` style in the translation's slot. |
@@ -48,9 +50,30 @@ Drawn by the picker's overlay windows in their results phase (`region-picker.md`
 | Translate, target-language | 1px `picker-stroke` + 1px `picker-halo`, `rounded.box`, no fill. |
 | Skipped | Same stroke, dashed 3px / 3px, at 60% opacity. |
 | Neutral | No box. |
-| Linked (the block hovered or focused in the popup) | Fill `box-linked-fill`, stroke as its class. Only one at a time. Linking works in both directions for hover only: hovering a box on screen does not highlight the popup block (the overlay is a hit-catcher, §5). |
+| Linked (the block hovered or focused in the popup, or the box under the pointer on screen) | Fill `box-linked-fill`, stroke as its class. Only one at a time; the popup's hover or focus wins over the screen's. GLIM-152 made it work in both directions: the results layer hit-tests its own boxes (§5). |
+| Badge (GLIM-152) | Component `box-badge`, on every box with a number (§2.2), centred on the box's top inline-start corner (UI direction) so it covers as little of the text as possible, clamped onto the display. A 20px pill (min-width 20px, 6px inline padding), `numeric` type in `picker-hud-text` on `picker-hud`, ringed 1px `picker-stroke` with the HUD shadow: the picker's dark-core, white-edge language, readable on any content. Skipped boxes' badges at 60% like their dashed box. Linked or picked: `accent` with `on-accent` digits, matching the popup number. Badges appear with the classes (at recognition) and stay until the popup closes, in overlay mode too. |
 
 The selection edge stays drawn around the region (1px stroke + halo).
+
+### 2.5 Overlay mode (on screen, GLIM-152)
+
+For comics and busy layouts, where matching numbers is still work: the results layer paints each translation **over** its box. This is the one place Glimpse covers the source, so it is opt-in (Settings › General › "Show translations on screen", off by default, or the footer toggle per Snip) and the source is always one key away.
+
+| Element | Tokens / values |
+|---|---|
+| Toggle | A footer `button-icon` before Show original (§2.4), speech-bubble-with-lines icon, `aria-pressed`, tooltip "Show translations on screen" / "Back to the list only" with `Ctrl+Shift+T` / `⌘⇧T`. Disabled until a translate-class block exists, and in error states. The popup itself stays as it is (list, footer, keys); the overlay is an addition. The ticket asked for a header toggle; the popup has no header (§14 decision 3), so it joins the footer's icon buttons. |
+| Card | One per translate-class block with a final translation (pending, failed and waiting blocks keep their plain box and badge until there is something to paint). Opaque: `surface-popup-solid` background, `text-primary`, 1px `border-hairline` edge, the **Tooltip** shadow, `rounded.control`, 4px 6px padding, following the OS appearance (light or dark). Text in `translation` weight with the target language's script stack, size step and leading (`:lang()`), centred, `dir` of the target language (RTL targets right-to-left). The card sits on the box's top edge. |
+| Fitting | Pure `fitText` (core): the largest size from 15px (the popup's `translation` size, × the script's size step) down to 11px in 0.5px steps at which the wrapped text fits the box, never breaking inside a word above the floor. At 11px, if it still doesn't fit, the card grows **downward**. A card is at least 72px wide, and widens around the box's centre (up to 240px) to fit its longest word, so a tall, narrow manga column doesn't get one letter per line. Lines wrap at spaces, and between words in scripts without spaces (CJK, Thai; `Intl.Segmenter`), punctuation staying with its word. The card is clamped onto the display. |
+| Linked / picked | A 2px `accent` ring (the card hides the box fill). |
+| Peek | Hold `Shift` in the popup (alone, no other modifier): every card goes transparent (`duration-fast` opacity; instant with reduced motion) and the source shows; releasing Shift, any other key or the popup losing key brings them back. Hovering a card on screen peeks at that card only. Original view (Ctrl/⌘⇧O) peeks at every card while it is on. The badges stay. Footer status while the overlay is on and the run is done: "Hold Shift to peek" ("Hold ⇧ to peek" on macOS). |
+| Leaving | The toggle, `Ctrl/⌘⇧T`, or `Esc` (the first Esc leaves overlay mode; the next closes the popup). |
+| Forced colours | Cards and badges: `Canvas` / `CanvasText` with a 1px `CanvasText` border; linked or picked: `Highlight` / `HighlightText`. |
+| Capture | Cards and badges are drawn by the picker's overlay windows, which are excluded from Glimpse's own capture like the rest of the results layer (`region-picker.md` §9; GLIM-98): a new Snip over the same text never reads its own cards. |
+| Accessibility | The marks are `aria-hidden`: the popup is the accessible surface for the same text, with the same numbers in its list. |
+
+Screenshots (regenerate with `bun app/scripts/results-shots.ts` and `bun app/scripts/popup-shots.ts --shots docs/design/screens/snip-popup`): the manga fixture with badges, `docs/design/screens/results-layer/comic-badges-macos-light.png`; overlay mode, `comic-overlay-macos-light.png`, `comic-overlay-windows-dark.png` and `comic-overlay-peek-macos-light.png`; the popup for the same page, `docs/design/screens/snip-popup/s18-comic-markers-*.png` (bubble 3 picked on screen) and `s19-overlay-on-*.png`.
+
+Live (the same overlay over a pinned region, updating in place) is a follow-up, GLIM-154: it waits for GLIM-151's movable Live popup.
 
 ### 2.4 Footer
 
@@ -148,9 +171,11 @@ Replaces the block list's top. A heading line in `heading` (15px / 600, `text-pr
 | Input | Result |
 |---|---|
 | Hover a block | `overlay-hover`, linked box lights on screen. Leaving clears it. |
+| Hover a box, badge or card on screen (GLIM-152) | Its popup block lights (and its number); the box fills. A card under the pointer peeks (§2.5). |
+| Click a box, badge or card on screen (GLIM-152) | **Picks** the block: the popup scrolls to it and highlights it (§2.2) and takes key back, so its keys keep working. Not a dismiss. |
 | Click / drag in a block | Normal text selection (`user-select: text`), themed `::selection` = `overlay-selected`. |
 | Click the skipped line | Expand / collapse. |
-| Click outside the popup | **Dismiss.** The overlay windows stay on screen as a full-display hit-catcher during the popup's life, so the click lands on them and is consumed (not passed to the app below). Owner question 3. |
+| Click outside the popup | **Dismiss.** The overlay windows stay on screen as a full-display hit-catcher during the popup's life, so the click lands on them and is consumed (not passed to the app below). Owner question 3. GLIM-152: the overlay view hit-tests the press itself (cards and badges by element, then the smallest box containing the point within 2px; badges count within 12px of their centre) and sends the block id with it; only a press on no box dismisses. The click takes key from the popup: for 400 ms after a pick, the popup's loss of key is its own and it re-activates instead of starting the app-switch grace (§7.5). |
 | Drag the footer background | Moves the popup window. |
 | Wheel / trackpad | Scrolls the list. |
 | Right-click | The webview's default context menu is disabled; nothing happens in v1. |
@@ -226,10 +251,12 @@ Never global. Windows / macOS.
 
 | Key | Action |
 |---|---|
-| `Esc` | Close (always; one keystroke, even with the skipped list expanded). |
+| `Esc` | Close (always; one keystroke, even with the skipped list expanded). Overlay mode: the first Esc leaves it, the next closes (GLIM-152). |
 | `Ctrl+C` / `⌘C` | Copy translation; if text is selected in the popup, copy the selection instead. |
 | `Ctrl+Shift+C` / `⌘⇧C` | Copy original. |
 | `Ctrl+Shift+O` / `⌘⇧O` | Toggle original view. |
+| `Ctrl+Shift+T` / `⌘⇧T` | Toggle overlay mode (GLIM-152, §2.5). |
+| `Shift` (held) | Overlay mode only: peek at the source under the cards. |
 | `↑` / `↓` | Previous / next block (the skipped line and its expanded blocks are part of the sequence). |
 | `Home` / `End` | First / last block. |
 | `Enter` / `Space` on the skipped line | Expand / collapse. |
@@ -308,6 +335,10 @@ Never global. Windows / macOS.
 | `snip.e7.title` | Text recognition stopped |
 | `snip.e7.body` | Glimpse's text recognition model failed to run. Snip again, and if it keeps happening, reinstall Glimpse. |
 | `snip.e7.primary` | Snip again |
+| `snip.btn.overlay` | Show translations on screen ({key}) |
+| `snip.btn.overlayOff` | Back to the list only ({key}) |
+| `snip.status.peek` | Hold {key} to peek |
+| `settings.snip.showOnScreen` | Show translations on screen. Each translation covers the text it translates, for comics and busy layouts. |
 | `snip.a11y.dialog` | Translation |
 | `snip.a11y.list` | Translated text |
 | `snip.a11y.done` | Translated {n} blocks. Copied to clipboard. |
@@ -374,6 +405,8 @@ type SnipFromView =
   | { t: "painted"; requestId: string }
   | { t: "resize"; requestId: string; contentHeight: number }
   | { t: "hoverBlock"; requestId: string; id: string | null }      // → overlay linked box
+  | { t: "overlay"; requestId: string; on: boolean }               // GLIM-152 overlay mode (snipOverlay)
+  | { t: "peek"; requestId: string; on: boolean }                  // GLIM-152 Shift held (snipPeek)
   | { t: "copy"; requestId: string; what: "translation" | "original" }
   | { t: "toggleOriginal"; requestId: string; on: boolean }
   | { t: "translateSkipped"; requestId: string }
@@ -382,12 +415,17 @@ type SnipFromView =
   | { t: "dismiss"; requestId: string; reason: "esc" | "close" | "outside" | "blur" };
 
 // To the overlay views (results layer, region-picker.md §9.4 `results`):
-interface SnipBoxesState {
+interface SnipBoxesState {          // ResultsLayerState in @glimpse/core
   requestId: string;
   region: Rect;
-  boxes: Array<{ id: string; rect: Rect; cls: BlockClass }>;
+  boxes: Array<{ id: string; rect: Rect; cls: BlockClass; badge?: number }>;  // GLIM-152 numbers
   linkedId: string | null;
+  selectedId?: string | null;                                     // GLIM-152 picked on screen
+  overlay?: { cards: Array<{ id: string; text: string; lang: string | null; dir: "ltr" | "rtl" }>; peek: boolean } | null;
+  uiDir?: "ltr" | "rtl";
 }
+// Overlay → main (picker pointer messages on the results layer) carry `blockId: string | null`,
+// the view's own hit test; main turns a press into a pick or a dismiss, a move into screen hover.
 ```
 
 Every message carries `requestId`; the view drops messages for an older request (a quick second Snip can't mix results).
@@ -396,7 +434,7 @@ The clipboard is written by Bun (Electrobun clipboard API), not the webview, so 
 
 ### 13.3 Pure modules and tests (Linux)
 
-`placeSnipPopup` (every side, edges, RTL UI, inside fallback, mixed-DPI rounding), `readingOrder` (lines, RTL re-order), `clipboardText` (classes, failed blocks, skipped rules), `footerLayout(width, badge)` (wrap and short-name rules), `skippedSummary` (plural and language lists), and the view's reducer from `SnipToView` messages to rendered state (slot stability: a late translation for block 1 never moves block 3).
+`placeSnipPopup` (every side, edges, RTL UI, inside fallback, mixed-DPI rounding), GLIM-152's `blockNumbers`, `fitText` / `wrapText`, `hitResultsBox`, `overlayCards` and the reducer's `toggleOverlay` / `select` / `screenHover` / `peek`, `readingOrder` (lines, RTL re-order), `clipboardText` (classes, failed blocks, skipped rules), `footerLayout(width, badge)` (wrap and short-name rules), `skippedSummary` (plural and language lists), and the view's reducer from `SnipToView` messages to rendered state (slot stability: a late translation for block 1 never moves block 3).
 
 ## 14. Decisions made in this spec (to fold back into DESIGN.md, GLIM-93)
 
@@ -407,6 +445,9 @@ The clipboard is written by Bun (Electrobun clipboard API), not the webview, so 
 5. **Click outside dismisses and is consumed**, because the overlays act as the hit-catcher (no window-level click-through exists in Electrobun, spike §8).
 6. Windows 10 popup radius is **0** (spike §8).
 7. Missing packs show **one row per language** at the top of the list, not a row per block.
+8. (GLIM-152) **Numbers, not lines:** blocks and their boxes share a number in reading order rather than leader lines drawn across the screen. Skipped blocks are numbered too, so numbers never change.
+9. (GLIM-152) **Overlay mode covers the source**, against DESIGN.md's margin-note rule, because comic readers asked for it: opt-in, opaque, one key from the source, off by default.
+10. (GLIM-152) The overlay toggle lives in the **footer**, not a new header.
 
 ## 15. Open questions for the owner
 
@@ -429,3 +470,5 @@ The clipboard is written by Bun (Electrobun clipboard API), not the webview, so 
 - [ ] Every error state has its exact copy and a keyboard-reachable recovery.
 - [ ] Esc, click outside and Close dismiss and return focus to the previous app.
 - [ ] Reduced motion: no scale, no crossfade longer than 100 ms.
+- [ ] (GLIM-152) Every boxed block has a badge with the same number as its popup block; clicking a box or badge picks the block and keeps the popup open; clicking elsewhere dismisses.
+- [ ] (GLIM-152) Overlay mode paints fitted cards over their boxes, Shift and hover peek, Esc and the toggle leave it, the setting opens Snips in it, and a new Snip never reads the cards.

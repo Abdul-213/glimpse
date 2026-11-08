@@ -41,7 +41,7 @@ const LIVE_SCENARIOS = [
 	"l11-skipped-expanded",
 	"l16-ocr-stopped",
 ];
-const PICKER_STATES = ["hover", "drag", "keyboard", "tooSmall", "live", "results"];
+const PICKER_STATES = ["hover", "drag", "keyboard", "tooSmall", "live", "results", "comic", "comic-overlay"];
 
 /** The pages, without building anything. `light` keeps one appearance per query (URL scanners can't set it). */
 export function surfacePages(): SurfacePage[] {
