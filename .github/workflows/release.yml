@@ -116,7 +116,8 @@ jobs:
           cd "$RUNNER_TEMP/release"
           prerelease=""
           case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" --draft $prerelease --verify-tag \
+          # Runs outside the checkout, so name the repository (v0.0.1 failed here: "not a git repository").
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft $prerelease --verify-tag \
             --title "Glimpse $VERSION" --notes-file NOTES.md \
             glimpse-* SHA256SUMS
 
