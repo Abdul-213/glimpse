@@ -46,6 +46,12 @@ export interface GroupOptions {
 	readonly wrapRatio: number;
 	/** Same-row fragments closer than this (x line height) are one line. */
 	readonly wordGap: number;
+	/**
+	 * Lettering (GLIM-152): lines or columns set this tight (gap x line height) stack even when
+	 * they are short, if they are centred on each other (speech bubbles, captions) or, for
+	 * vertical columns, share an edge. Comic lettering is short lines with almost no leading.
+	 */
+	readonly tightGap: number;
 	/** Block ids are `<prefix><n>` in reading order. */
 	readonly idPrefix: string;
 }
@@ -67,6 +73,7 @@ export const GROUP_DEFAULTS: GroupOptions = {
 	minColumnLength: 3,
 	wrapRatio: 0.6,
 	wordGap: 0.6,
+	tightGap: 0.25,
 	idPrefix: "b",
 };
 
@@ -156,8 +163,11 @@ function mergeRows(items: Item[], o: GroupOptions): Item[] {
 	return rows;
 }
 
-/** Step 2: stack wrapped lines into blocks. Returns groups of rows, top to bottom. */
-function stackRows(rows: Item[], o: GroupOptions): Item[][] {
+/**
+ * Step 2: stack wrapped lines into blocks. Returns groups of rows, top to bottom. `vertical`:
+ * the rows are vertical columns in the rotated frame.
+ */
+function stackRows(rows: Item[], o: GroupOptions, vertical: boolean): Item[][] {
 	const sorted = [...rows].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
 	/** The nearest row below `a` that overlaps it horizontally. */
 	const below = (a: Item): Item | null => {
@@ -199,6 +209,13 @@ function stackRows(rows: Item[], o: GroupOptions): Item[][] {
 		const centred = Math.abs(a.box.x + a.box.width / 2 - (b.box.x + b.box.width / 2)) <= 0.5 * h;
 		const aligned = a.rtl ? rightAligned || centred : leftAligned || centred;
 		if (!aligned) return false;
+		// Lettering: short, tightly set lines in a bubble are one block (GLIM-152). A stack of
+		// short lines centred on each other (more closely than their start edges line up, so a
+		// left-aligned menu doesn't count) is a speech bubble; vertical columns that touch are one too.
+		const dc = Math.abs(a.box.x + a.box.width / 2 - (b.box.x + b.box.width / 2));
+		const dEdge = a.rtl ? Math.abs(right(a.box) - right(b.box)) : Math.abs(a.box.x - b.box.x);
+		const lettered = dc <= 0.25 * h && dc <= dEdge;
+		if (gap <= o.tightGap * h && (lettered || vertical)) return true;
 		return a.box.width >= o.minWrapLength * ha && a.box.width >= o.wrapRatio * b.box.width;
 	};
 	const next = new Map<Item, Item>();
@@ -235,7 +252,7 @@ function groupInFrame(lines: readonly OcrLine[], frame: Frame, writing: WritingM
 		writing === "vertical-rl"
 			? { ...o, lineGap: o.columnGap, cjkLineGap: o.columnGap, minWrapLength: o.minColumnLength }
 			: o;
-	const groups = stackRows(mergeRows(items, o), stackOptions);
+	const groups = stackRows(mergeRows(items, o), stackOptions, writing === "vertical-rl");
 	return groups.map((rows) => {
 		const all = rows.flatMap((r) => r.lines);
 		const weight = (l: OcrLine) => Math.max(1, [...l.text].length);

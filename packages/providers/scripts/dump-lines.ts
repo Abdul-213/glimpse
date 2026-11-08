@@ -15,6 +15,8 @@ const cases: [string, string[]][] = [
 	["vertical-ja", ["ja"]],
 	["region-en", ["en"]],
 	["region-game-dark", ["ja"]],
+	["comic-ja", ["ja"]],
+	["comic-en-fr", ["en", "fr"]],
 ];
 const p = new PaddleOcrProvider({ grouping: "lines" }, { models: cacheSource });
 await p.init();
