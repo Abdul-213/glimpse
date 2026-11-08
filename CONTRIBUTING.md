@@ -115,7 +115,11 @@ files stay uncommitted. `/impeccable hooks off` removes it.
 You don't need a local toolchain to try Glimpse on a real PC or Mac: `.github/workflows/desktop.yml`
 (GLIM-34, GLIM-50) builds it on GitHub's Windows and macOS runners. It typechecks, runs the unit
 tests, builds the native helper and makes a release build (`hutch electrobun build --env=stable`),
-then uploads **unsigned** artifacts, kept for 14 days:
+smoke-tests it (`app/scripts/bundle-smoke.ts`: one OCR call through the staged Worker and
+onnxruntime; `app/scripts/pipeline-smoke.ts`, GLIM-146: a Snip of a Japanese/German fixture
+through the app's translation service and the staged Workers, with real Bergamot packs, which
+must come back in English), then uploads **unsigned** artifacts, kept for 14 days. To test one by
+hand, see [docs/mvp-test.md](docs/mvp-test.md).
 
 | Artifact | What it is |
 |---|---|

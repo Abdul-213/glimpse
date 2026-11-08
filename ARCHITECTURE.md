@@ -144,7 +144,10 @@ Don't create packages for grouping alone; use folders.
   fetched from npm by sha512 into `~/.cache/glimpse/` at build time (`scripts/onnxruntime-legacy.ts`,
   `ortPackageFor` is the switch; `docs/decisions/GLIM-89-intel-mac-onnxruntime.md`). `scripts/ocr-smoke.ts <app dir>` runs one OCR call through a
   built app's Worker and prints which onnxruntime files were loaded; `scripts/bundle-smoke.ts`
-  (desktop.yml) runs it over the staged `dist/` files.
+  (desktop.yml) runs it over the staged `dist/` files. `scripts/pipeline-smoke.ts` (GLIM-146;
+  ci.yml and desktop.yml) runs a whole Snip over the staged Workers and models through
+  `TranslationService`, wired like the composition root, with real packs downloaded through
+  `TranslationPacks`.
 - **onnxruntime telemetry is off (GLIM-112).** The official ORT builds upload usage events with a
   persistent device id unless `ORT_DISABLE_TELEMETRY=1` is in the *native* process environment
   before ORT starts. `ocrSpawner` sets it (`services/ocr/ort-telemetry.ts` →
