@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  Sample text for the 5-minute MVP test (docs/mvp-test.md, GLIM-146). Open it in any browser and
+  snip the paragraphs with Glimpse. docs/mvp-sample.png is a screenshot of this page at 1x, for
+  snipping straight from GitHub.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glimpse sample text</title>
+<style>
+	body {
+		margin: 0;
+		padding: 32px 40px;
+		background: #f6f5f1;
+		color: #1b1d21;
+		font: 22px/1.5 system-ui, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", "Noto Sans", sans-serif;
+	}
+	main { max-width: 760px; }
+	h1 { font-size: 16px; font-weight: 600; color: #5b5f67; margin: 0 0 24px; }
+	section { background: #fff; border: 1px solid #dcdad3; border-radius: 8px; padding: 16px 20px; margin: 0 0 20px; }
+	section h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: #6b6f77; margin: 0 0 6px; }
+	p { margin: 0; }
+	.mixed p + p { margin-top: 28px; }
+	.answers { font-size: 15px; color: #4a4e56; margin-top: 32px; }
+	.answers li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+	<h1>Glimpse sample text: snip each box (or several at once)</h1>
+
+	<section lang="de">
+		<h2>1 · DEUTSCH</h2>
+		<p>Die Datei konnte nicht gespeichert werden. Bitte versuchen Sie es später noch einmal.</p>
+	</section>
+
+	<section lang="ja">
+		<h2>2 · 日本語</h2>
+		<p>明日の会議は午後三時に始まります。資料は共有フォルダに保存しました。</p>
+	</section>
+
+	<section lang="fr">
+		<h2>3 · FRANÇAIS</h2>
+		<p>Le train pour Lyon partira avec vingt minutes de retard. Merci de votre patience.</p>
+	</section>
+
+	<section class="mixed">
+		<h2>4 · MIXED (each block is translated on its own)</h2>
+		<p lang="ja">設定を保存しました。</p>
+		<p lang="de">Das Fenster wird jetzt geschlossen.</p>
+		<p lang="fr">Votre commande a été expédiée.</p>
+	</section>
+
+	<div class="answers">
+		<p>Roughly what the English should say:</p>
+		<ol>
+			<li>The file could not be saved. Please try again later.</li>
+			<li>Tomorrow's meeting starts at 3 pm. The materials were saved in the shared folder.</li>
+			<li>The train to Lyon will leave twenty minutes late. Thank you for your patience.</li>
+			<li>Settings saved. / The window will now close. / Your order has been shipped. (Three separate blocks, one per language.)</li>
+		</ol>
+	</div>
+</main>
+</body>
+</html>

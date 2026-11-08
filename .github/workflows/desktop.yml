@@ -127,6 +127,20 @@ jobs:
         working-directory: app
         run: bun scripts/bundle-smoke.ts
 
+      # GLIM-146: a Snip of a Japanese/German fixture through the app's translation service
+      # over the staged Workers and models (OCR -> grouping -> language detection -> Bergamot
+      # -> English), with real ja/de->en packs from Remote Settings (~105 MB, cached).
+      - name: Cache translation packs for the pipeline smoke
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/pipeline-smoke
+          key: glimpse-smoke-packs-${{ runner.os }}-${{ hashFiles('app/scripts/pipeline-smoke.ts') }}
+          restore-keys: glimpse-smoke-packs-${{ runner.os }}-
+
+      - name: End-to-end translation smoke (bundled Workers)
+        working-directory: app
+        run: bun scripts/pipeline-smoke.ts
+
       - name: Package
         id: package
         run: |
@@ -170,7 +184,8 @@ jobs:
   macos:
     name: macOS arm64
     runs-on: macos-latest
-    timeout-minutes: 15
+    # 15 before GLIM-146's translation smoke (~1 min, more on a pack-cache miss).
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -235,6 +250,20 @@ jobs:
       - name: OCR smoke test (bundled onnxruntime)
         working-directory: app
         run: bun scripts/bundle-smoke.ts
+
+      # GLIM-146: a Snip of a Japanese/German fixture through the app's translation service
+      # over the staged Workers and models (OCR -> grouping -> language detection -> Bergamot
+      # -> English), with real ja/de->en packs from Remote Settings (~105 MB, cached).
+      - name: Cache translation packs for the pipeline smoke
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/pipeline-smoke
+          key: glimpse-smoke-packs-${{ runner.os }}-${{ hashFiles('app/scripts/pipeline-smoke.ts') }}
+          restore-keys: glimpse-smoke-packs-${{ runner.os }}-
+
+      - name: End-to-end translation smoke (bundled Workers)
+        working-directory: app
+        run: bun scripts/pipeline-smoke.ts
 
       # Unsigned for distribution, but every arm64 binary must carry a valid signature to run
       # at all, so the bundle is ad-hoc signed as a whole after Electrobun has assembled it.

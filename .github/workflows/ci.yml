@@ -142,3 +142,17 @@ jobs:
       - name: Build the app (Linux)
         working-directory: app
         run: hutch electrobun build --env=dev
+
+      # GLIM-146: one Snip of a Japanese/German fixture through the build's staged Workers,
+      # onnxruntime and models and the app's translation service, with real ja/de->en packs
+      # from Remote Settings (~105 MB, cached). Fails on a missing or wrong translation.
+      - name: Cache translation packs for the pipeline smoke
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/pipeline-smoke
+          key: glimpse-smoke-packs-${{ runner.os }}-${{ hashFiles('app/scripts/pipeline-smoke.ts') }}
+          restore-keys: glimpse-smoke-packs-${{ runner.os }}-
+
+      - name: End-to-end translation smoke (staged bundle)
+        working-directory: app
+        run: bun scripts/pipeline-smoke.ts

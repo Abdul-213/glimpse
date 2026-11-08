@@ -38,6 +38,10 @@ Glimpse is in development and there is no published release yet. Builds are not 
 Step-by-step instructions, including each warning an unsigned build triggers, the macOS
 Screen Recording permission and what you agree to: **[docs/install.md](docs/install.md)**.
 
+Trying a test build? **[docs/mvp-test.md](docs/mvp-test.md)** says where to download one (GitHub
+Actions artifacts until the first release), how to set it up, and a 5-minute checklist with a
+sample page to snip.
+
 In short, once releases are published:
 
 1. Download from the [Releases page](https://github.com/Abdul-213/glimpse/releases):
