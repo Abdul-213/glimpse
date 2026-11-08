@@ -8,12 +8,14 @@
 // The window comes in through `PopupWindowPort` (Electrobun in windows/popup.ts, a fake in
 // tests and the Linux harness). No electrobun import here.
 import {
+	blockNumbers,
 	clipboardText,
 	type Display,
 	type FocusKeeper,
 	type InstallState,
 	initialSnipState,
 	type Logger,
+	overlayCards,
 	type PipelineEvent,
 	type PipelineListener,
 	type Point,
@@ -45,6 +47,8 @@ export const PAINT_TIMEOUT_MS = 32;
  * "outside" (with focus restore), not as "blur" (spec §7.4 vs §7.5).
  */
 export const BLUR_GRACE_MS = 120;
+/** After a click on a box, the popup's loss of key within this long is ours, not an app switch (GLIM-152). */
+export const KEEP_KEY_MS = 400;
 /** "Copied" stays in the footer this long (spec §2.4). */
 export const COPIED_MS = 2_000;
 /** Height the window starts at, before the view measures: S0 (two skeleton bars + footer). */
@@ -57,6 +61,11 @@ export interface PopupWindowPort {
 	show(): void;
 	hide(): void;
 	send(message: SnipStateMessage): void;
+	/**
+	 * Make the (shown) popup key again: a click on a box on the results layer takes key from
+	 * it, and the popup takes it back (GLIM-152). Optional: without it focus stays where it went.
+	 */
+	activate?(): void;
 }
 
 /** Runs one Snip through the pipeline (TranslationService in the app). */
@@ -123,6 +132,8 @@ export interface SnipPopupSettings {
 	readonly showOriginalUnder?: boolean;
 	/** Settings › Copy translation after Snip (on by default, spec §6). */
 	readonly autoCopy?: boolean;
+	/** Settings › Show translations on screen (GLIM-152): Snips open in overlay mode. Off by default. */
+	readonly showOnScreen?: boolean;
 	readonly uiDir: "ltr" | "rtl";
 }
 
@@ -172,6 +183,9 @@ interface Request {
 	hovered: string | null;
 	/** What the results layer last got, so unchanged state isn't re-sent. */
 	boxesKey: string;
+	/** A box was just clicked on screen: the popup takes key back instead of treating the blur as an app switch. */
+	keepKey: boolean;
+	cancelKeepKey: (() => void) | null;
 }
 
 let counter = 0;
@@ -232,6 +246,7 @@ export class SnipPopupController {
 				alwaysShowLanguages: settings.alwaysShowLanguages,
 				showOriginalUnder: settings.showOriginalUnder ?? false,
 				autoCopy: settings.autoCopy ?? true,
+				overlay: settings.showOnScreen ?? false,
 			}),
 			shown: false,
 			contentHeight: INITIAL_CONTENT_HEIGHT,
@@ -247,6 +262,8 @@ export class SnipPopupController {
 			detected: [],
 			hovered: null,
 			boxesKey: "",
+			keepKey: false,
+			cancelKeepKey: null,
 		};
 		this.request = request;
 		// Move (and size) the hidden window first, so it re-rasterises at the target display's
@@ -298,6 +315,46 @@ export class SnipPopupController {
 		this.pushBoxes(r);
 	}
 
+	/** Overlay mode on or off (GLIM-152, §2.5): the footer toggle, Ctrl/⌘⇧T, Esc while it is on. */
+	toggleOverlay(requestId: string, on: boolean): void {
+		if (this.current(requestId)) this.dispatch({ type: "toggleOverlay", on });
+	}
+
+	/** The peek key is held or released in the popup (GLIM-152): overlay cards step aside. */
+	peek(requestId: string, on: boolean): void {
+		if (this.current(requestId)) this.dispatch({ type: "peek", on });
+	}
+
+	/**
+	 * A press on the results layer (GLIM-152): on a box or its badge (`blockId`), the popup
+	 * scrolls to that block and highlights it, and takes key back; anywhere else it is a click
+	 * outside, which dismisses (spec §5).
+	 */
+	screenPress(blockId: string | null): void {
+		const r = this.request;
+		if (!r) return;
+		if (blockId === null || !r.state.blocks.some((b) => b.id === blockId && b.cls !== "neutral")) {
+			this.close("outside");
+			return;
+		}
+		r.cancelBlur?.();
+		r.cancelBlur = null;
+		r.keepKey = true;
+		r.cancelKeepKey?.();
+		const id = r.id;
+		r.cancelKeepKey = this.scheduler.later(KEEP_KEY_MS, () => {
+			const cur = this.current(id);
+			if (cur) cur.keepKey = false;
+		});
+		this.dispatch({ type: "select", id: blockId });
+		if (r.shown) this.deps.window.activate?.();
+	}
+
+	/** The pointer moved onto a box on screen, or off every box (null). GLIM-152. */
+	screenHover(blockId: string | null): void {
+		if (this.request) this.dispatch({ type: "screenHover", id: blockId });
+	}
+
 	/** Original view on or off (§4 S6). The clipboard is unchanged by it. */
 	toggleOriginal(requestId: string, on: boolean): void {
 		if (this.current(requestId)) this.dispatch({ type: "toggleOriginal", on });
@@ -318,13 +375,18 @@ export class SnipPopupController {
 		r.cancelBlur?.();
 		r.cancelBlur = null;
 		if (focused) return;
+		// A click on a box took key from the popup: take it back, it isn't an app switch.
+		if (r.keepKey) {
+			this.deps.window.activate?.();
+			return;
+		}
 		const id = r.id;
 		r.cancelBlur = this.scheduler.later(BLUR_GRACE_MS, () => this.dismiss(id, "blur"));
 	}
 
-	/** A press on the results layer: click outside the popup (spec §5). */
+	/** A press on the results layer outside every box: click outside the popup (spec §5). */
 	outsideClick(): void {
-		if (this.request) this.close("outside");
+		this.screenPress(null);
 	}
 
 	/**
@@ -629,17 +691,29 @@ export class SnipPopupController {
 		const layer = this.deps.results;
 		if (!layer?.showBoxes) return;
 		const byId = new Map(r.recognised.map((b) => [b.id, b.box]));
+		const numbers = blockNumbers(r.state.blocks);
 		const blocks =
 			r.state.blocks.length > 0
 				? r.state.blocks.flatMap((b) => {
 						const box = byId.get(b.id);
-						return box ? [{ id: b.id, box, cls: b.cls }] : [];
+						const badge = numbers.get(b.id);
+						return box ? [{ id: b.id, box, cls: b.cls, ...(badge !== undefined ? { badge } : {}) }] : [];
 					})
 				: r.detected.map((d) => ({ id: d.id, box: d.box, cls: null }));
+		const s = r.state;
+		const settings = this.deps.settings();
 		const state: ResultsLayerState = {
 			requestId: r.id,
 			boxes: resultsBoxes(r.region, r.scale, blocks),
-			linkedId: r.hovered,
+			// The popup's hover or focus wins; otherwise the box under the pointer on screen.
+			linkedId: r.hovered ?? s.screenLinked,
+			selectedId: s.selected?.id ?? null,
+			overlay:
+				s.overlay && !s.error
+					? { cards: overlayCards(s.blocks, s.target), peek: s.peek || s.view === "original" }
+					: null,
+			uiDir: settings.uiDir,
+			reducedMotion: settings.reducedMotion,
 		};
 		const key = JSON.stringify(state);
 		if (key === r.boxesKey) return;
@@ -654,6 +728,7 @@ export class SnipPopupController {
 		r.cancelPaintTimer?.();
 		r.cancelBlur?.();
 		r.cancelCopied?.();
+		r.cancelKeepKey?.();
 		r.abort.abort();
 		this.deps.window.hide();
 		// Boxes clear with the popup (spec §2.3), then the layer goes.

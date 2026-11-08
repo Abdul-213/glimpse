@@ -33,6 +33,9 @@ export const COPY = {
 	copyTranslation: "Copy translation",
 	showOriginal: "Show original",
 	showTranslation: "Show translation",
+	// GLIM-152: overlay mode and numbered markers.
+	showOnScreen: "Show translations on screen",
+	hideFromScreen: "Back to the list only",
 } as const;
 
 export const translatingText = (done: number, total: number) => `Translating ${done} of ${total}`;
@@ -42,9 +45,14 @@ export const partialOcrText = (languages: readonly string[]) =>
 	`${languages.join(", ")} tone marks are often lost when text is read on this device.`;
 export const alreadyIn = (target: string, uiLang: string) => `Already in ${languageName(target, uiLang)}`;
 
-/** The visible footer status (§2.4). */
-export function statusText(s: SnipStatus): string {
+/** GLIM-152: overlay mode's status line names the peek key ("Hold Shift to peek", "Hold ⇧ to peek"). */
+export const peekText = (key: string) => `Hold ${key} to peek`;
+
+/** The visible footer status (§2.4). `peekKey`: the peek key's label for the overlay status. */
+export function statusText(s: SnipStatus, peekKey = "Shift"): string {
 	switch (s.kind) {
+		case "overlay":
+			return peekText(peekKey);
 		case "none":
 			return "";
 		case "reading":

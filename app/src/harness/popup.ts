@@ -40,6 +40,11 @@ export class FakePopupWindow implements PopupWindowPort {
 	hide(): void {
 		this.visible = false;
 	}
+	/** Times the popup took key back after a click on the results layer (GLIM-152). */
+	activations = 0;
+	activate(): void {
+		this.activations++;
+	}
 	send(message: SnipStateMessage): void {
 		this.messages.push(message);
 	}

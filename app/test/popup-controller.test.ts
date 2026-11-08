@@ -314,7 +314,14 @@ describe("popup window helpers", () => {
 	});
 
 	test("view init: OS-specific shortcut labels", () => {
-		expect(snipViewInit("macos").keys).toEqual({ copy: "⌘C", copyOriginal: "⌘⇧C", original: "⌘⇧O", close: "Esc" });
+		expect(snipViewInit("macos").keys).toEqual({
+			copy: "⌘C",
+			copyOriginal: "⌘⇧C",
+			original: "⌘⇧O",
+			close: "Esc",
+			overlay: "⌘⇧T",
+			peek: "⇧",
+		});
 		expect(snipViewInit("windows").keys.original).toBe("Ctrl+Shift+O");
 	});
 });

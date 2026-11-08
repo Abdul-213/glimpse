@@ -101,6 +101,12 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 						if (typeof m?.requestId !== "string") return;
 						c()?.hoverBlock(m.requestId, typeof m.blockId === "string" ? m.blockId : null);
 					},
+					snipOverlay: (m) => {
+						if (typeof m?.requestId === "string") c()?.toggleOverlay(m.requestId, !!m.on);
+					},
+					snipPeek: (m) => {
+						if (typeof m?.requestId === "string") c()?.peek(m.requestId, !!m.on);
+					},
 					snipRetryBlock: (m) => {
 						if (typeof m?.requestId === "string" && typeof m.blockId === "string") {
 							c()?.retryBlock(m.requestId, m.blockId);
@@ -192,6 +198,24 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 		// has activated it, so the first visible frame is the new Snip.
 		if (this.chrome?.cloaked) this.chrome.setCloaked(false);
 		this.visible = true;
+		const handle = this.win.ptr;
+		if (process.platform === "win32" && handle) {
+			try {
+				raiseTopmost(handle);
+			} catch {
+				// best effort
+			}
+		}
+	}
+
+	/** Take key back after a click on the results layer (GLIM-152). */
+	activate(): void {
+		if (!this.visible) return;
+		try {
+			this.win.activate();
+		} catch {
+			// best effort
+		}
 		const handle = this.win.ptr;
 		if (process.platform === "win32" && handle) {
 			try {

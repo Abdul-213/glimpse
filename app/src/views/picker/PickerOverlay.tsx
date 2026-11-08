@@ -1,7 +1,7 @@
 // One display's picker overlay (region-picker spec 2, 9.4). Thin: it renders the state
 // main pushes and sends raw input back. All positions arrive global logical and are drawn
 // relative to this display's origin.
-import type { PickerMode, PickerViewState, ResultsLayerState } from "@glimpse/core";
+import { hitResultsBox, type PickerMode, type PickerViewState, type ResultsLayerState } from "@glimpse/core";
 import { Kbd } from "@glimpse/ui";
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type {
@@ -14,6 +14,7 @@ import type {
 } from "../../shared/rpc.ts";
 import { A11Y_OPEN, a11yBox, a11yLabel, hintParts, keyLabel, MODE_LABEL, REPLACES_LIVE } from "./copy.ts";
 import { decodeBase64, drawLoupe, drawOverlay, drawResults, type Palette, readPalette } from "./draw.ts";
+import { ResultsMarks } from "./ResultsMarks.tsx";
 
 export interface PickerInput {
 	pointer(m: PickerPointerMessage): void;
@@ -155,7 +156,44 @@ export function PickerOverlay(props: { init: PickerViewInit; store: PickerStore;
 		lastMode = m ?? null;
 	});
 
+	// GLIM-152: on the results layer, the view hit-tests its own cards, badges and boxes, so a
+	// press on one picks its block in the popup (and anywhere else stays a click outside).
+	const results = () => {
+		const r = props.store.results?.();
+		return r && !s()?.scrim ? r : null;
+	};
+	const [hoverId, setHoverId] = createSignal<string | null>(null);
+	const hitAt = (e: PointerEvent): string | null => {
+		const r = results();
+		if (!r) return null;
+		const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-card], [data-badge]") : null;
+		const id = el?.dataset["card"] ?? el?.dataset["badge"];
+		if (id) return id;
+		return hitResultsBox(r, { x: e.clientX + init.origin.x, y: e.clientY + init.origin.y });
+	};
+
 	const pointer = (phase: PickerPointerMessage["phase"]) => (e: PointerEvent) => {
+		const r = results();
+		if (r) {
+			// Results layer: only presses and changes of the box under the pointer matter.
+			const id = phase === "leave" ? null : hitAt(e);
+			if (phase === "move" || phase === "leave") {
+				if (id === hoverId()) return;
+				setHoverId(id);
+			}
+			if (phase === "up") return;
+			props.input.pointer({
+				displayId: init.displayId,
+				phase,
+				x: e.clientX,
+				y: e.clientY,
+				button: e.button,
+				detail: phase === "move" ? 0 : e.detail || 1,
+				mods: mods(e),
+				blockId: id,
+			});
+			return;
+		}
 		if (phase === "down") {
 			root?.setPointerCapture(e.pointerId);
 			root?.focus();
@@ -225,7 +263,8 @@ export function PickerOverlay(props: { init: PickerViewInit; store: PickerStore;
 			aria-label={a11yLabel(s()?.mode ?? props.store.open()?.mode ?? "snip")}
 			tabIndex={-1}
 			style={{
-				cursor: s()?.cursorStyle ?? "crosshair",
+				// GLIM-152: a box, badge or card on the results layer can be clicked.
+				cursor: results() && hoverId() ? "pointer" : (s()?.cursorStyle ?? "crosshair"),
 				opacity: opacity(),
 				"transition-property": "opacity",
 				"transition-duration": `${fadeMs()}ms`,
@@ -239,6 +278,17 @@ export function PickerOverlay(props: { init: PickerViewInit; store: PickerStore;
 			onWheel={(e) => e.preventDefault()}
 		>
 			<canvas ref={canvas} class="picker-canvas" />
+
+			<Show when={results()}>
+				{(r) => (
+					<ResultsMarks
+						results={r()}
+						origin={init.origin}
+						size={{ width: init.size.width, height: init.size.height }}
+						hoverId={hoverId()}
+					/>
+				)}
+			</Show>
 
 			<Show when={s()?.loupe && mine(s()?.loupe?.displayId) ? s()?.loupe : null}>
 				{(l) => (

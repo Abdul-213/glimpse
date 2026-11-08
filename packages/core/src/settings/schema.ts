@@ -59,6 +59,8 @@ export interface Settings {
 		readonly showOriginalUnder: boolean;
 		/** Settings › "Always show languages": per-block tags even when a region has one language. */
 		readonly alwaysShowLanguages: boolean;
+		/** Settings › "Show translations on screen" (GLIM-152, snip-popup.md §2.5): Snips open in overlay mode. Off by default. */
+		readonly showOnScreen: boolean;
 	};
 	readonly picker: {
 		/** Settings › "Show magnifier": the loupe next to the crosshair (region-picker.md §2 C). */
@@ -169,6 +171,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			copyAfterSnip: withDefault(boolean(), true),
 			showOriginalUnder: withDefault(boolean(), false),
 			alwaysShowLanguages: withDefault(boolean(), false),
+			showOnScreen: withDefault(boolean(), false),
 		}),
 		picker: object({
 			showLoupe: withDefault(boolean(), true),

@@ -15,7 +15,7 @@ import {
 } from "@glimpse/core";
 import { FakePointer, RecordingFocusKeeper, SolidPixelSampler, StaticWindowList } from "@glimpse/core/testing";
 import { PickerController } from "../src/bun/windows/picker-controller.ts";
-import type { SnipRunner } from "../src/bun/windows/popup-controller.ts";
+import { BLUR_GRACE_MS, KEEP_KEY_MS, type SnipRunner } from "../src/bun/windows/popup-controller.ts";
 import { FakeOverlayFactory, ManualScheduler } from "../src/harness/overlays.ts";
 import { popupHarness } from "../src/harness/popup.ts";
 
@@ -69,7 +69,7 @@ describe("resultsBoxes (core)", () => {
 });
 
 /** A runner that plays scripted pipeline events, holding before `done` until released. */
-function scriptedRunner() {
+function scriptedRunner(opts: { translateB1?: string } = {}) {
 	let release: () => void = () => {};
 	const runner: SnipRunner = {
 		snip: async (_rect, onEvent, _signal, runId) => {
@@ -102,6 +102,18 @@ function scriptedRunner() {
 					rb("b3", 2, rect(0, 50, 120, 20), "skip", "ru"),
 				],
 			});
+			if (opts.translateB1)
+				ev({
+					type: "translation",
+					runId,
+					translation: {
+						blockId: "b1",
+						text: opts.translateB1,
+						final: true,
+						failure: null,
+						provider: { id: "bergamot", kind: "local", name: "On-device translation" },
+					},
+				} as PipelineEvent);
 			await new Promise<void>((r) => {
 				release = r;
 			});
@@ -150,6 +162,94 @@ describe("Snip popup → results layer (GLIM-115)", () => {
 	});
 });
 
+describe("numbered markers and overlay mode (GLIM-152)", () => {
+	test("badges number boxed blocks in reading order; the popup and the boxes agree", async () => {
+		const { runner } = scriptedRunner();
+		const h = popupHarness({ displays: () => DESK, runner });
+		h.controller.open(REGION);
+		await Bun.sleep(5);
+		const last = h.boxes.at(-1) as ResultsLayerState;
+		expect(last.boxes.map((b) => [b.id, b.badge])).toEqual([
+			["b1", 1],
+			["b3", 2],
+		]);
+		expect(last.overlay).toBeNull();
+		expect(last.uiDir).toBe("ltr");
+	});
+
+	test("a click on a box picks its block, keeps the popup open and takes key back", async () => {
+		const { runner } = scriptedRunner();
+		const h = popupHarness({ displays: () => DESK, runner });
+		h.controller.open(REGION);
+		h.controller.painted(RUN);
+		await Bun.sleep(5);
+		// The click on the overlay took key from the popup first.
+		h.controller.windowFocus(false);
+		h.controller.screenPress("b3");
+		h.scheduler.advance(BLUR_GRACE_MS * 2);
+		expect(h.controller.isOpen).toBe(true);
+		expect(h.window.activations).toBe(1);
+		await Bun.sleep(0);
+		expect(h.window.last?.state.selected).toEqual({ id: "b3", seq: 1 });
+		expect(h.window.last?.state.skippedExpanded).toBe(true);
+		expect(h.boxes.at(-1)?.selectedId).toBe("b3");
+		// Key lost again right after the click (the order can be either way): taken back again.
+		h.controller.windowFocus(false);
+		expect(h.window.activations).toBe(2);
+		h.scheduler.advance(KEEP_KEY_MS);
+		// Later, losing key is an app switch again.
+		h.controller.windowFocus(false);
+		h.scheduler.advance(BLUR_GRACE_MS);
+		expect(h.controller.isOpen).toBe(false);
+		expect(h.focusRestores()).toBe(0);
+	});
+
+	test("a click on a neutral block's area or outside every box still dismisses", async () => {
+		const { runner } = scriptedRunner();
+		const h = popupHarness({ displays: () => DESK, runner });
+		h.controller.open(REGION);
+		h.controller.painted(RUN);
+		await Bun.sleep(5);
+		h.controller.screenPress("b2");
+		expect(h.controller.isOpen).toBe(false);
+		expect(h.focusRestores()).toBe(1);
+	});
+
+	test("hovering a box lights its popup block and the box", async () => {
+		const { runner } = scriptedRunner();
+		const h = popupHarness({ displays: () => DESK, runner });
+		h.controller.open(REGION);
+		await Bun.sleep(5);
+		h.controller.screenHover("b1");
+		await Bun.sleep(0);
+		expect(h.window.last?.state.screenLinked).toBe("b1");
+		expect(h.boxes.at(-1)?.linkedId).toBe("b1");
+		h.controller.screenHover(null);
+		await Bun.sleep(0);
+		expect(h.boxes.at(-1)?.linkedId).toBeNull();
+	});
+
+	test("overlay mode: cards for translated blocks, peek, original view peeks, off clears", async () => {
+		const { runner } = scriptedRunner({ translateB1: "Hello" });
+		const h = popupHarness({ displays: () => DESK, runner, settings: { showOnScreen: true } });
+		h.controller.open(REGION);
+		await Bun.sleep(5);
+		const on = h.boxes.at(-1) as ResultsLayerState;
+		expect(on.overlay).toEqual({ cards: [{ id: "b1", text: "Hello", lang: L("en"), dir: "ltr" }], peek: false });
+		h.controller.peek(RUN, true);
+		await Bun.sleep(0);
+		expect(h.boxes.at(-1)?.overlay?.peek).toBe(true);
+		h.controller.peek(RUN, false);
+		h.controller.toggleOriginal(RUN, true);
+		await Bun.sleep(0);
+		expect(h.boxes.at(-1)?.overlay?.peek).toBe(true);
+		h.controller.toggleOverlay(RUN, false);
+		await Bun.sleep(0);
+		expect(h.boxes.at(-1)?.overlay).toBeNull();
+		expect(h.controller.isOpen).toBe(true);
+	});
+});
+
 describe("PickerController results layer (GLIM-115)", () => {
 	function picker() {
 		const factory = new FakeOverlayFactory();
@@ -191,6 +291,33 @@ describe("PickerController results layer (GLIM-115)", () => {
 		expect(o?.resultsSent.at(-1)).toEqual(state);
 		controller.dismiss();
 		expect(o?.resultsSent.at(-1)).toBeNull();
+	});
+
+	test("presses and hovers on the layer name the block the view hit (GLIM-152)", () => {
+		const { controller } = picker();
+		const presses: (string | null)[] = [];
+		const hovers: (string | null)[] = [];
+		controller.onResultsPointerDown((id) => presses.push(id));
+		controller.onResultsHover((id) => hovers.push(id));
+		controller.open("snip");
+		controller.viewKey({ displayId: 1, key: "ArrowRight", down: true, repeat: false, mods: NO_MODIFIERS });
+		controller.viewKey({ displayId: 1, key: "Enter", down: true, repeat: false, mods: NO_MODIFIERS });
+		const p = (phase: "down" | "move" | "leave", blockId?: string | null) => ({
+			displayId: 1,
+			phase,
+			x: 5,
+			y: 5,
+			button: 0,
+			detail: 1,
+			mods: NO_MODIFIERS,
+			...(blockId !== undefined ? { blockId } : {}),
+		});
+		controller.viewPointer(p("move", "b1"));
+		controller.viewPointer(p("leave", "b1"));
+		controller.viewPointer(p("down", "b1"));
+		controller.viewPointer(p("down"));
+		expect(hovers).toEqual(["b1", null]);
+		expect(presses).toEqual(["b1", null]);
 	});
 
 	test("a new open clears the old boxes", () => {
