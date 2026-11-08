@@ -11,6 +11,21 @@ workflow builds Windows and macOS and leaves a **draft** release for the owner t
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-11-09
+
+Third MVP preview. Unsigned. What to try: [docs/mvp-test.md](docs/mvp-test.md) steps 17–25.
+
+### Added
+
+- **Numbered markers for Live.** With two or more blocks in a pinned region, each gets a number
+  on screen and the same number in the Live popup; a block keeps its number while it stays.
+  Clicking a badge scrolls the popup to its translation without taking focus from your app.
+  (GLIM-154)
+- **Show translations on screen for Live.** The same toggle (Ctrl+Shift+T / ⌘⇧T) and setting
+  as Snip paint each translation over its block on the pinned region, updated in place as the
+  text changes. The cards are hidden from Glimpse's own capture, so Live never reads them back;
+  where Windows can't hide them (Windows 10 before 2004) the option is not offered. (GLIM-154)
+
 ## [0.0.2] - 2026-11-08
 
 Second MVP preview, after the owner's first test of 0.0.1. Unsigned. What to try:
