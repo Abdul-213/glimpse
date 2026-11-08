@@ -65,10 +65,15 @@ Shortcuts: Windows **Alt+Shift+S** (Snip) and **Alt+Shift+L** (Live); macOS **�
 | 3 | Paste into any text field (Ctrl+V / ⌘V). | The English translation was copied. |
 | 4 | Snip the **Japanese** box, then the **mixed** box. | Japanese → *"Tomorrow's meeting starts at 3 pm…"*. In the mixed box each line is translated on its own. If a language pack is missing, the popup offers a **Download** button instead; click it and the text translates when it lands. |
 | 5 | Press the Live shortcut (or tray › *Live: pin a region*) and drag over the **French** box. | A Live popup docks to the region and shows the English. Scroll the page so other text moves into the region: within a second or two the popup updates. Press the shortcut again (or tray › *Stop Live*) to stop. |
+| 5a | With Live running and another app (the browser) focused, **drag the Live popup's top bar** (the dotted grip at its left end) somewhere else, then type in the browser's address bar. | The popup follows the pointer and stays where you drop it, fully on screen; the browser keeps keyboard focus the whole time (typing still goes to it). As the text changes the popup grows downward from where you put it. |
+| 5b | Click the **magnet** button in the popup's top bar (or double-click the bar). | The popup snaps back next to the Live region. The magnet disappears until you move it again. |
+| 5c | Move the popup again, stop Live and start it again on the same box. | The new popup opens where you last put it (relative to the box). Clicking the magnet then forgets that spot. |
+| 5d | Click the **pin** button (it loses its highlighted background and gets a slash), then click the browser window. | The browser now covers the popup. Click the pin again: the popup comes back on top. Neither click takes focus away from the browser. |
+| 5e | Tray › *Focus Live popup* (Settings › Shortcuts can bind it), then press **Alt+arrow keys** (Mac: **Option+arrow keys**), with and without Shift. Press Esc. | The popup moves 10 px per press (50 px with Shift) and stops at the screen edge. A screen reader says "Popup moved". Esc hands focus back. |
 | 6 | Tray › **Settings…** | The Settings window opens (General, Languages, Shortcuts, Providers, Models, Privacy, About). Close it; Glimpse keeps running. |
 | 7 | Tray › **Private** (a check mark appears), then Snip any box again. | The popup shows a **Private** badge (nothing from that Snip is remembered). Turn Private off again from the tray. |
 
-All seven pass? The MVP works on your machine. Quit from tray › **Quit Glimpse**.
+All of them pass? The MVP works on your machine. Quit from tray › **Quit Glimpse**.
 
 ## 5. If something fails
 

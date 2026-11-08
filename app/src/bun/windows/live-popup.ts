@@ -9,6 +9,15 @@
 //            HWND_TOPMOST, shown with `showInactive` (SW_SHOWNOACTIVATE).
 //   Both     the first show goes through CaptureExclusion, so Live never reads its own popup.
 //
+// Moving and Pin (GLIM-151, live-popup.md §3.3): Electrobun's own drag (`app-region: drag` →
+// startWindowMove) moves the window natively without telling us where it went, without
+// clamping, and its Windows path rides on raw input; its setAlwaysOnTop drops the macOS panel
+// to NSFloatingWindowLevel and calls SetWindowPos without SWP_NOACTIVATE. So the view sends
+// pointer events, the controller follows the OS cursor (`Screen.getCursorScreenPoint`) and
+// calls `setFrame` (SetWindowPos with SWP_NOACTIVATE / -[NSWindow setFrame:] on the
+// non-activating panel), and Pin goes through our own calls: `glim_window_set_level` 101 / 0
+// on macOS, HWND_TOPMOST / HWND_NOTOPMOST with SWP_NOACTIVATE on Windows.
+//
 // Materials and theme (GLIM-132) come from WindowChrome (window-chrome.ts), as for the Snip
 // popup: NSVisualEffectView .popover on macOS, Acrylic on Windows 11 22H2+, the solid veil on
 // Windows 10 / 21H2 and with reduced transparency (re-read before every show); it also sets the
@@ -18,10 +27,10 @@ import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { LiveRPC, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
 import { loadAnnounceNative } from "../native/announce.ts";
 import { loadMacNative } from "../native/macos.ts";
-import { configureLivePopupWindow, raiseTopmost } from "../native/windows.ts";
+import { configureLivePopupWindow, dropTopmost, raiseTopmost } from "../native/windows.ts";
 import type { CaptureExclusion } from "./capture-exclusion.ts";
 import { electrobunChromeTarget } from "./chrome-target.ts";
-import type { LivePopupController, LivePopupWindowPort } from "./live-popup-controller.ts";
+import type { LiveMoveResult, LivePopupController, LivePopupWindowPort } from "./live-popup-controller.ts";
 import { macFlipOffset } from "./popup-init.ts";
 import type { ChromeHandle, WindowChrome } from "./window-chrome.ts";
 
@@ -37,6 +46,14 @@ export interface ElectrobunLivePopupDeps {
 }
 
 const str = (v: unknown): v is string => typeof v === "string";
+const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+const DIRECTIONS = new Set(["up", "down", "left", "right"] as const);
+const isDirection = (v: unknown): v is "up" | "down" | "left" | "right" =>
+	typeof v === "string" && DIRECTIONS.has(v as "up");
+
+/** macOS levels for the Pin toggle: pop-up menu (101, as configured) and normal (0). */
+const MAC_LEVEL_PINNED = 101;
+const MAC_LEVEL_NORMAL = 0;
 
 export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 	private readonly win: BrowserWindow;
@@ -45,6 +62,7 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 	private visible = false;
 	private last: LiveStateMessage | null = null;
 	private displayId: number | null = null;
+	private pinned = true;
 	private readonly chrome: ChromeHandle | null;
 
 	constructor(private readonly deps: ElectrobunLivePopupDeps) {
@@ -94,6 +112,14 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 					},
 					liveBlurred: (m) => str(m?.sessionId) && c()?.blurred(m.sessionId),
 					livePointerEntered: (m) => str(m?.sessionId) && c()?.pointerEntered(m.sessionId),
+					liveDragStart: (m) => str(m?.sessionId) && c()?.dragStart(m.sessionId),
+					liveDragMove: (m) => str(m?.sessionId) && c()?.dragMove(m.sessionId, num(m.dx), num(m.dy)),
+					liveDragEnd: (m) => str(m?.sessionId) && c()?.dragEnd(m.sessionId),
+					moveRequested: (m) => {
+						if (str(m?.sessionId) && isDirection(m.direction)) c()?.moveBy(m.sessionId, m.direction, !!m.large);
+					},
+					dockRequested: (m) => str(m?.sessionId) && c()?.dock(m.sessionId),
+					pinToggled: (m) => str(m?.sessionId) && c()?.setPinned(m.sessionId, !!m.on),
 				},
 			},
 		});
@@ -171,12 +197,39 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 		}
 		this.visible = true;
 		const handle = this.win.ptr;
-		if (process.platform === "win32" && handle) {
+		if (process.platform === "win32" && handle && this.pinned) {
 			try {
 				raiseTopmost(handle);
 			} catch {
 				// best effort
 			}
+		}
+	}
+
+	/** GLIM-151 Pin: above other windows or a normal level. Never activates. */
+	setPinned(on: boolean): void {
+		if (on === this.pinned) return;
+		this.pinned = on;
+		const handle = this.win.ptr;
+		if (!handle) return;
+		try {
+			if (process.platform === "win32") {
+				if (on) raiseTopmost(handle);
+				else dropTopmost(handle);
+			} else if (process.platform === "darwin") {
+				loadMacNative().binding?.setLevel(handle, on ? MAC_LEVEL_PINNED : MAC_LEVEL_NORMAL);
+			}
+		} catch (e) {
+			this.deps.log(`[live-popup] pin ${on ? "on" : "off"} failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+	}
+
+	/** GLIM-151: a keyboard move or Dock happened; the view announces it. */
+	moved(sessionId: string, result: LiveMoveResult): void {
+		try {
+			this.rpc.send.liveMoved({ sessionId, kind: result.kind, edges: [...result.edges] });
+		} catch {
+			// not connected
 		}
 	}
 

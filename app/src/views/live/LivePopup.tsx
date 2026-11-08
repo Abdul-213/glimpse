@@ -5,6 +5,10 @@
 // changes one block re-renders that block only; the others keep their DOM nodes (and their
 // running flash animations). A block's `changeId` restarts its flash → rest tint and moves the
 // mark (TextBlock); reduced motion shows the resting tint and the mark at once (CSS).
+//
+// Moving (GLIM-151, §3.3): the strip is the drag handle (pointer events → main, at most one
+// move per animation frame; main moves the window without activating it), double-click on it
+// docks, Alt/Option+arrows move the focused popup. Pin and Dock sit with the window controls.
 import {
 	downloadNeedsConfirm,
 	facingEdge,
@@ -20,6 +24,7 @@ import {
 	BlockList,
 	Button,
 	EgressBadge,
+	Icon,
 	IconButton,
 	LocalIndicator,
 	languageName,
@@ -32,9 +37,15 @@ import {
 	TextButton,
 	Toolbar,
 } from "@glimpse/ui";
-import { createEffect, createSignal, For, type JSX, on, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, type JSX, on, onCleanup, onMount, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
-import type { LiveConsentAnswer, LiveSkippedAction, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
+import type {
+	LiveConsentAnswer,
+	LiveMoveDirection,
+	LiveSkippedAction,
+	LiveStateMessage,
+	LiveViewInit,
+} from "../../shared/live-rpc.ts";
 import {
 	COPY,
 	company,
@@ -42,6 +53,7 @@ import {
 	egressTooltip,
 	errorCopy,
 	type LiveErrorAction,
+	moveHint,
 	packConfirmCancel,
 	packConfirmText,
 	packDownloadText,
@@ -54,7 +66,7 @@ import {
 	staleText,
 	statusLabel,
 } from "./copy.ts";
-import { liveKey } from "./keys.ts";
+import { liveKey, liveMoveKey } from "./keys.ts";
 
 export interface LivePopupIntents {
 	painted(sessionId: string): void;
@@ -76,7 +88,23 @@ export interface LivePopupIntents {
 	continueCloud?(sessionId: string): void;
 	/** GLIM-131: the skipped line's "Translate these" / "Edit source languages…". */
 	skippedAction?(sessionId: string, action: LiveSkippedAction): void;
+	/** GLIM-151: drag on the strip (screen deltas since pointer-down). Optional: previews may omit them. */
+	dragStart?(sessionId: string): void;
+	dragMove?(sessionId: string, dx: number, dy: number): void;
+	dragEnd?(sessionId: string): void;
+	/** Alt/Option+arrows. */
+	move?(sessionId: string, direction: LiveMoveDirection, large: boolean): void;
+	/** Dock button, double-click on the strip. */
+	dock?(sessionId: string): void;
+	/** The Pin toggle. */
+	setPinned?(sessionId: string, on: boolean): void;
 }
+
+/** Pointer travel before a press on the strip becomes a drag (a click or double-click stays one). */
+const DRAG_SLOP_PX = 3;
+
+const onControl = (target: EventTarget | null) =>
+	target instanceof Element && target.closest("button, input, a, [role='button']") !== null;
 
 export interface LivePopupProps {
 	init: LiveViewInit;
@@ -259,6 +287,61 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 		}
 	};
 
+	// GLIM-151: drag the strip. Pointer capture keeps the moves coming while the window
+	// catches up with the pointer; main follows the OS cursor, the deltas are a fallback.
+	const moved = () => !!props.message.layout.moved;
+	const pinned = () => props.message.layout.pinned !== false;
+	const [dragging, setDragging] = createSignal(false);
+	let press: { id: number; x: number; y: number } | null = null;
+	let pending: { dx: number; dy: number } | null = null;
+	const flushMove = () => {
+		if (!pending) return;
+		const { dx, dy } = pending;
+		pending = null;
+		props.intents.dragMove?.(id(), dx, dy);
+	};
+	const onStripDown = (e: PointerEvent) => {
+		if (e.button !== 0 || onControl(e.target) || !props.intents.dragStart) return;
+		press = { id: e.pointerId, x: e.screenX, y: e.screenY };
+		(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+		props.intents.dragStart(id());
+	};
+	const onStripMove = (e: PointerEvent) => {
+		if (!press || e.pointerId !== press.id) return;
+		const dx = e.screenX - press.x;
+		const dy = e.screenY - press.y;
+		if (!dragging()) {
+			if (Math.hypot(dx, dy) < DRAG_SLOP_PX) return;
+			setDragging(true);
+		}
+		const first = pending === null;
+		pending = { dx, dy };
+		if (first) raf(flushMove);
+	};
+	const onStripUp = (e: PointerEvent) => {
+		if (!press || e.pointerId !== press.id) return;
+		press = null;
+		flushMove();
+		setDragging(false);
+		props.intents.dragEnd?.(id());
+	};
+	const onStripDoubleClick = (e: MouseEvent) => {
+		if (!onControl(e.target) && moved()) props.intents.dock?.(id());
+	};
+	// Alt/Option+arrows, before the toolbar's and block list's own arrow keys see them.
+	const onMoveKey = (e: KeyboardEvent) => {
+		const k = liveMoveKey(e);
+		if (!k || !props.intents.move) return;
+		e.preventDefault();
+		e.stopPropagation();
+		props.intents.move(id(), k.direction, k.large);
+	};
+	onMount(() => {
+		shell?.addEventListener("keydown", onMoveKey, true);
+		onCleanup(() => shell?.removeEventListener("keydown", onMoveKey, true));
+	});
+	const hintId = `live-move-hint-${Math.random().toString(36).slice(2, 8)}`;
+
 	return (
 		<PopupShell
 			kind="live"
@@ -268,7 +351,10 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 			facing={facingEdge(props.message.layout.side)}
 			entering={entering() && !props.message.reducedMotion}
 			aria-label={COPY.region}
+			aria-describedby={hintId}
 			class="live-popup"
+			data-moved={moved() ? "" : undefined}
+			data-dragging={dragging() ? "" : undefined}
 			data-layout={layout()}
 			data-stale={state().stale ? "" : undefined}
 			onKeyDown={onKeyDown}
@@ -278,7 +364,19 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 			}}
 			onPointerLeave={() => setPointerInside(false)}
 		>
-			<div class="live-strip">
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only drag handle; keyboard users move the popup with Alt/Option+arrows (described on the popup) and dock with the Dock button. */}
+			<div
+				class="live-strip"
+				onPointerDown={onStripDown}
+				onPointerMove={onStripMove}
+				onPointerUp={onStripUp}
+				onPointerCancel={onStripUp}
+				onLostPointerCapture={onStripUp}
+				onDblClick={onStripDoubleClick}
+			>
+				<span class="live-grip" aria-hidden="true">
+					<Icon name="grip" size={12} />
+				</span>
 				<StatusIndicator
 					status={strip().dot}
 					label={statusLabel(strip().label, state().private, layout() === "compact")}
@@ -306,6 +404,16 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 						/>
 						<IconButton icon="select-area" label={COPY.repin} onClick={() => props.intents.repin(id())} />
 					</Show>
+					{/* GLIM-151: window controls. Dock only once moved; Pin is a toggle (on = on top). */}
+					<Show when={moved()}>
+						<IconButton icon="magnet" label={COPY.dock} onClick={() => props.intents.dock?.(id())} />
+					</Show>
+					<IconButton
+						icon={pinned() ? "pin" : "pin-off"}
+						label={COPY.pin}
+						pressed={pinned()}
+						onClick={() => props.intents.setPinned?.(id(), !pinned())}
+					/>
 					<IconButton
 						icon="stop"
 						label={COPY.stop}
@@ -458,6 +566,9 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 					</Show>
 				</Show>
 			</BlockList>
+			<span id={hintId} class="sr-only">
+				{moveHint(props.init.os === "macos")}
+			</span>
 			{/* §10: read while the popup has focus; main speaks through the OS otherwise. */}
 			<div class="sr-only" role="log" aria-live="polite" aria-relevant="additions" aria-label={COPY.changesLog}>
 				<For each={(props.announcements ?? []).filter((a) => a.kind === "change").slice(-5)}>
@@ -465,7 +576,10 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 				</For>
 			</div>
 			<span class="sr-only" role="status">
-				{(props.announcements ?? []).filter((a) => a.kind === "status").at(-1)?.text ?? ""}
+				{/* Keyed by id, so the same words twice ("Popup moved") are a new node and read again. */}
+				<For each={(props.announcements ?? []).filter((a) => a.kind === "status").slice(-1)}>
+					{(a) => <span>{a.text}</span>}
+				</For>
 			</span>
 		</PopupShell>
 	);

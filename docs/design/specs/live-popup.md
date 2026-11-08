@@ -28,6 +28,7 @@ Inline-start to end:
 
 | Element | Tokens / values |
 |---|---|
+| Grip (GLIM-151) | 12px six-dot `grip` icon, `text-secondary` at 55% opacity, full while the strip is hovered or dragged; decorative (`aria-hidden`). Says "this bar moves the popup". |
 | Status dot | 8px circle. Running / updating: `accent` fill. Paused: hollow 1.5px ring in `text-secondary`. Error: `danger` fill. Consent pending: hollow ring. **Never pulses.** |
 | Status label | `label` (12px / 500), `text-secondary`, 6px after the dot. Text per state (§4, copy §11). " · Private" is appended when Private is on and the popup is ≥ 300px wide. |
 | Local indicator | `local-indicator` (chip icon, `text-secondary`). Icon + "On device" at ≥ 360px wide; icon only below that, with `aria-label` and tooltip. 8px after the label. Hidden when cloud is in use (the cloud row replaces it). |
@@ -35,9 +36,11 @@ Inline-start to end:
 | Private toggle | `button-icon` 24px, eye-off icon, `aria-pressed`. On: `overlay-selected` background, icon `text-primary`. |
 | Pause / Resume | `button-icon`, pause icon ↔ play icon. |
 | Re-pin | `button-icon`, "select area" icon. |
+| Dock (GLIM-151) | `button-icon`, magnet icon, "Dock next to the area". **Only while moved** (§3.3). |
+| Pin (GLIM-151) | `button-icon` toggle, `aria-pressed`, "Keep on top of other windows". On (default): pin icon, `overlay-selected` background. Off: struck-through pin icon, no background. |
 | Stop | `button-icon`, stop (square) icon. Stops and unpins. |
 
-Icon buttons are 4px apart. Width budget at the 240px minimum: 216px of content = dot 8 + 6 + "Paused" ≈ 40 + 8 + local icon 16 + flex + 4 × 24 + 3 × 4 = 108 ⇒ ≈ 194px; fits. Hence the three widths: **compact** < 300 (icon-only local indicator, no " · Private" in the label), **regular** 300–359, **wide** ≥ 360 (full "On device").
+Icon buttons are 4px apart. Width budget at the 240px minimum: 216px of content = grip 12 + dot 8 + 6 + "Paused" ≈ 40 + 8 + local icon 16 + flex + 5 × 24 + 4 × 4 = 136 (6 buttons and 160 once moved) ⇒ more than 216, so a **compact strip wraps**: the buttons drop to a second line at inline-end (4px row gap) instead of squeezing the status label. Regular and wide strips never wrap. Hence the three widths: **compact** < 300 (icon-only local indicator, no " · Private" in the label), **regular** 300–359, **wide** ≥ 360 (full "On device").
 
 There is no Hide button in the strip; hiding is a tray item and an optional global key (§6, owner question 5).
 
@@ -101,7 +104,18 @@ Pure function `placeLivePopup(region, display, uiDir) → { side, frame, maxHeig
 
 **Display change:** if the region's display disappears or changes resolution, the session pauses with error L-gone; the popup moves to the primary display's work area, top inline-end corner, inset 8px.
 
-**Not draggable** in v1 (owner question 4).
+### 3.3 Moving, Dock and Pin (GLIM-151)
+
+Owner feedback on 0.0.1: the popup must move and pin / unpin. (This replaces "not draggable in v1", owner question 4.)
+
+- **Drag:** the whole strip is the handle (cursor `grab` / `grabbing`; the buttons keep theirs). A press that travels 3px becomes a drag; less stays a click. The window follows the OS cursor (main reads it, at most one move per animation frame) and is clamped `MARGIN` inside the work area of the display it is mostly on, with its current height visible. It moves without activating (§7): no focus change, no raise.
+- **Moved = stays put:** for the rest of the session the popup is never re-docked. It is anchored at its **top-left**: content grows down, and its height limit becomes `max(docked limit, 0.4 × work-area height)` capped by the room below it, so growing never moves it or pushes it off screen. Re-pin starts a new session (next bullet).
+- **Remembered:** on release (and after each keyboard step) the offset of the popup's top-left from the region's top-left is saved in settings `live.popupOffsets`, keyed by the region's display (bounds + scale; at most 8 displays). The next session on that display starts at region + offset (clamped as above), already "moved". Other displays dock as usual.
+- **Dock:** the Dock button, or a **double-click on the strip**, puts the popup back with `placeLivePopup` for the current region (keeping its content height) and forgets that display's offset. The Dock button only shows while moved; double-click while docked does nothing.
+- **Keyboard:** with the popup focused, `Alt+arrows` (`Option+arrows` on macOS) move it 10px, with `Shift` 50px (physical directions, not mirrored in RTL). Announced in the polite status region: "Popup moved", or "Popup at the left edge of the screen" when it stopped at an edge; Dock says "Popup docked next to the area". The popup's description tells screen-reader users how to move it.
+- **Pin:** on (default) = above other windows (macOS level 101; Windows `HWND_TOPMOST`), today's behaviour. Off = a normal window level (macOS level 0; Windows `HWND_NOTOPMOST`), so other apps, and a focused fullscreen game, can cover it; it stays non-activating. The choice applies to the next sessions too, until Glimpse quits (not saved: a forgotten "off" would look like a missing popup next launch).
+
+Pure logic in `@glimpse/core` (`live-move.ts`): `moveLivePopup`, `liveMoveStep`, `displayKey`, `offsetFor` / `rememberOffset` / `forgetOffset`.
 
 ## 4. States
 
@@ -153,7 +167,9 @@ The change set is all changed and added blocks from one settled capture.
 
 | Input | Result |
 |---|---|
-| Click Pause / Resume, Re-pin, Stop, Private | Acts on the **first click**, without activating Glimpse or taking focus from the game (§7). |
+| Click Pause / Resume, Re-pin, Stop, Private, Pin, Dock | Acts on the **first click**, without activating Glimpse or taking focus from the game (§7). |
+| Drag the strip | Moves the popup (§3.3), without activating. |
+| Double-click the strip | Dock (§3.3), while moved. |
 | Hover a block | `overlay-hover`; linked box on the frame. |
 | Hover anywhere on the popup | Pauses auto-scroll (§4 L20). |
 | Wheel | Scrolls the list. |
@@ -172,6 +188,7 @@ Stop never asks for confirmation; it ends the session and drops its caches (GLIM
 | `Ctrl+Shift+C` / `⌘⇧C` | Copy original. |
 | `Ctrl+Shift+O` / `⌘⇧O` | Toggle original view. |
 | `↑` / `↓`, `Home` / `End` | Move between blocks. |
+| `Alt+arrows` / `⌥+arrows` (+ `Shift`) | Move the popup 10px (50px) (§3.3). Taken before the toolbar and list see the arrows. |
 | `Tab` / `Shift+Tab` | Strip buttons → state-row buttons → blocks, wrapping. |
 | `Enter` / `Space` | Activate the focused button; toggle the skipped line. |
 
@@ -260,6 +277,12 @@ Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private
 | `live.status.offline` | Offline |
 | `live.local` | On device |
 | `live.local.tooltip` | Text is read and translated on this device. Nothing is sent. |
+| `live.pin` | Keep on top of other windows |
+| `live.dock` | Dock next to the area |
+| `live.move.hint` | Drag the top bar to move. {Alt\|Option}+arrow keys move it too, with Shift for bigger steps. |
+| `live.move.moved` | Popup moved |
+| `live.move.edge` | Popup at the {edges} edge of the screen |
+| `live.move.docked` | Popup docked next to the area |
 | `live.egress` | Sent to {provider} |
 | `live.egress.tooltip` | Changes in this area are sent to {provider} as text |
 | `live.stale` | Showing text from {age} |
@@ -323,6 +346,8 @@ Pack-missing and skipped-line copy is shared with Snip (`snip.pack.*`, `snip.ski
 | Show / hide | `orderFrontRegardless` / `orderOut`. | `SW_SHOWNOACTIVATE`; hide with DWM cloak. | Same. |
 | Capture exclusion | SCK app exclusion (the Live capture stream's filter); `sharingType = .none` ≤ 14. | `WDA_EXCLUDEFROMCAPTURE`. | Same. |
 | Frame | `glim_window_set_frame` (global logical). | `SetWindowPos(…, SWP_NOACTIVATE)`. | Same. |
+| Drag (GLIM-151) | View pointer events → RPC → controller → `setFrame` on the panel. Electrobun's own `app-region: drag` (`startWindowMove`) isn't used: it moves the window behind our back (no clamping, no offset memory, no capture-exclusion bounds) and its Windows path rides on raw input. | Same path; Electrobun's `setWindowFrame` uses `SWP_NOACTIVATE`. | Same. |
+| Pin off / on (GLIM-151) | `glim_window_set_level` 0 / 101 (Electrobun's `setAlwaysOnTop` only reaches `NSFloatingWindowLevel`). | `SetWindowPos(HWND_NOTOPMOST / HWND_TOPMOST, SWP_NOMOVE \| SWP_NOSIZE \| SWP_NOACTIVATE)` (Electrobun's lacks `SWP_NOACTIVATE`); the show path re-asserts `HWND_TOPMOST` only while pinned. | Same. |
 
 ### 12.2 Pinned frame: native click-through window (new helper code, GLIM-90)
 
@@ -405,7 +430,7 @@ type LiveFromView =
 
 ### 12.5 Pure modules and tests (Linux)
 
-`placeLivePopup` (sides, centring, inside fallback), `diffLiveBlocks` (IoU and text matching, neutral/skip silent updates, stable order, removal), `stripLayout(width, private, cloud)` (compact / regular / wide), `staleLabel(capturedAt, now)`, `announcementText(changeSet, max = 300)`, and a timing test for the 600 ms hold rule using a fake clock.
+`placeLivePopup` (sides, centring, inside fallback), `moveLivePopup` and the offset memory (GLIM-151), `diffLiveBlocks` (IoU and text matching, neutral/skip silent updates, stable order, removal), `stripLayout(width, private, cloud)` (compact / regular / wide), `staleLabel(capturedAt, now)`, `announcementText(changeSet, max = 300)`, and a timing test for the 600 ms hold rule using a fake clock.
 
 ## 13. Decisions made in this spec (to fold back into DESIGN.md, GLIM-93)
 
@@ -424,7 +449,7 @@ type LiveFromView =
 1. Is 1.6 s right for the flash → rest decay with subtitles that change every 2–3 s? (DESIGN.md question 7)
 2. Empty hold of 5 s before "No text in this area right now"? Shorter is more honest; longer is calmer between subtitle lines.
 3. Private: one app-wide state shared by the tray and the popup (chosen), or per Live session? And is "Private" the name? (GLIM-20 question 2)
-4. Should the Live popup be draggable, or always docked to the side chosen at pin time (chosen)?
+4. ~~Should the Live popup be draggable, or always docked to the side chosen at pin time?~~ Answered after 0.0.1 (GLIM-151): draggable, with Dock and Pin (§3.3).
 5. Removing Hide from the strip (tray and optional key only): OK?
 6. Add an unbound global action "Focus Live popup" (proposed) so keyboard and screen-reader users can reach the controls while a game has focus?
 7. Screen lock and sleep: auto-pause and auto-resume (chosen), or stay paused until the user resumes? (GLIM-20 question 3)
@@ -436,6 +461,10 @@ type LiveFromView =
 
 - [ ] Pinning shows the popup on the chosen side within 100 ms, without taking focus; the game keeps keyboard focus throughout.
 - [ ] The side never changes during a session; the anchored edge never moves as the popup grows or shrinks.
+- [ ] Dragging the strip moves the popup without activating it (Windows and macOS); a moved popup stays put, grows from its top-left and stays on screen; the offset is reused next session on that display.
+- [ ] Dock (button, double-click) snaps it back next to the region and forgets the offset.
+- [ ] Pin off lets other windows cover it; Pin on keeps it above them; neither activates it.
+- [ ] Alt/Option+arrows move it 10px (Shift 50px) and are announced politely.
 - [ ] Only changed blocks re-render; they flash and decay over 1.6 s with a 6px mark that stays until the next change; neutral and skipped updates are silent.
 - [ ] Pause dims the blocks, shows "Showing text from …", hollows the dot and greys the frame ticks; resume marks what changed while paused.
 - [ ] Re-pin opens the picker pre-drawn; Esc returns to the old pin.

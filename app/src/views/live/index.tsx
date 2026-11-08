@@ -5,6 +5,7 @@ import { createSignal, Show } from "solid-js";
 import { render } from "solid-js/web";
 import type { LiveRPC, LiveStateMessage, LiveViewInit } from "../../shared/live-rpc.ts";
 import { connect } from "../rpc.ts";
+import { moveAnnouncement } from "./copy.ts";
 import { type LiveAnnouncement, LivePopup } from "./LivePopup.tsx";
 
 const [init, setInit] = createSignal<LiveViewInit | null>(null);
@@ -27,6 +28,12 @@ const rpc = connect<LiveRPC>({
 		liveAnnounce: (m) => {
 			if (message()?.sessionId !== m.sessionId) return;
 			setAnnouncements((list) => [...list, { id: ++announcementId, text: m.text, kind: m.kind }].slice(-10));
+		},
+		// GLIM-151: a keyboard move or Dock, into the polite role="status" region.
+		liveMoved: (m) => {
+			if (message()?.sessionId !== m.sessionId) return;
+			const text = moveAnnouncement(m.kind, m.edges);
+			setAnnouncements((list) => [...list, { id: ++announcementId, text, kind: "status" as const }].slice(-10));
 		},
 	},
 });
@@ -75,6 +82,12 @@ render(
 								skipped: (sessionId, expanded) => rpc.send.skippedToggled({ sessionId, expanded }),
 								downloadPack: (sessionId, lang) => rpc.send.downloadPack({ sessionId, lang }),
 								skippedAction: (sessionId, action) => rpc.send.skippedAction({ sessionId, action }),
+								dragStart: (sessionId) => rpc.send.liveDragStart({ sessionId }),
+								dragMove: (sessionId, dx, dy) => rpc.send.liveDragMove({ sessionId, dx, dy }),
+								dragEnd: (sessionId) => rpc.send.liveDragEnd({ sessionId }),
+								move: (sessionId, direction, large) => rpc.send.moveRequested({ sessionId, direction, large }),
+								dock: (sessionId) => rpc.send.dockRequested({ sessionId }),
+								setPinned: (sessionId, on) => rpc.send.pinToggled({ sessionId, on }),
 							}}
 						/>
 					)}

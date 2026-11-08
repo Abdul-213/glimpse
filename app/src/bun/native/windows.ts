@@ -413,6 +413,24 @@ export function configureLivePopupWindow(hwnd: Pointer): number {
 	return Number(u.GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
 }
 
+const HWND_NOTOPMOST = -2;
+
+/**
+ * The Live popup's Pin toggle off (GLIM-151): HWND_NOTOPMOST puts it at the top of the normal
+ * windows, below every topmost one, so other apps can cover it. Never activates.
+ */
+export function dropTopmost(hwnd: Pointer): void {
+	openUser32().SetWindowPos(
+		hwnd,
+		HWND_NOTOPMOST,
+		0,
+		0,
+		0,
+		0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS,
+	);
+}
+
 /** Re-assert HWND_TOPMOST without activating (the Snip popup above the results layer, spec 9.1). */
 export function raiseTopmost(hwnd: Pointer, extraFlags = 0): void {
 	openUser32().SetWindowPos(

@@ -18,3 +18,24 @@ export function liveKey(
 	if (k === "o" && e.shiftKey) return "original";
 	return null;
 }
+
+/** GLIM-151: Alt+arrows (Option+arrows on macOS) move the popup; Shift for larger steps. */
+export interface LiveMoveKeyPress {
+	readonly direction: "up" | "down" | "left" | "right";
+	readonly large: boolean;
+}
+
+const ARROWS: Readonly<Record<string, LiveMoveKeyPress["direction"]>> = {
+	ArrowUp: "up",
+	ArrowDown: "down",
+	ArrowLeft: "left",
+	ArrowRight: "right",
+};
+
+export function liveMoveKey(
+	e: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey">,
+): LiveMoveKeyPress | null {
+	const direction = ARROWS[e.key];
+	if (!direction || !e.altKey || e.ctrlKey || e.metaKey) return null;
+	return { direction, large: e.shiftKey };
+}

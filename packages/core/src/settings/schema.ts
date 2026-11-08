@@ -11,6 +11,7 @@
 import { SCREEN_ACCESS_MEMORY, type ScreenAccessMemory } from "../capture/screen-access.ts";
 import { type LanguageCode, languageCode, parseLanguageCode, sourceLanguageFor } from "../language.ts";
 import { LOG_LEVELS, type LogLevel } from "../logging/types.ts";
+import { LIVE_OFFSETS_MAX, type LivePopupOffset } from "../popup/live-move.ts";
 import type { ProvidersConfig } from "../providers/registry.ts";
 import { SPEND_CAPS, type SpendCap } from "../providers/usage.ts";
 import {
@@ -80,6 +81,12 @@ export interface Settings {
 		 * running at session start (VoiceOver, SPI_GETSCREENREADER), `on`, `off`.
 		 */
 		readonly announceChanges: "auto" | "on" | "off";
+		/**
+		 * Where the user last moved the Live popup, relative to the region, per display
+		 * (GLIM-151, live-popup.md §3.3). Written by main on drag / keyboard move; Dock removes
+		 * that display's entry. Empty = docked next to the region.
+		 */
+		readonly popupOffsets: readonly LivePopupOffset[];
 	};
 	readonly privacy: {
 		/** Start every Snip/Live session in Private mode (its own cache, discarded after; GLIM-20). */
@@ -172,6 +179,17 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			diffThreshold: withDefault(number({ min: 0, max: 1 }), 0.02),
 			stabilityMs: withDefault(number({ min: 0, max: 5000, integer: true }), 300),
 			announceChanges: withDefault(oneOf(["auto", "on", "off"] as const), "auto"),
+			popupOffsets: withDefault(
+				array(
+					object({
+						display: string({ maxLength: 96 }),
+						dx: number({ min: -100_000, max: 100_000, integer: true }),
+						dy: number({ min: -100_000, max: 100_000, integer: true }),
+					}),
+					{ maxLength: LIVE_OFFSETS_MAX, uniqueBy: (o) => o.display },
+				),
+				[],
+			),
 		}),
 		privacy: object({
 			privateByDefault: withDefault(boolean(), false),

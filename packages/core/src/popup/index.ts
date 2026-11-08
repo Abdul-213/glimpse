@@ -9,6 +9,8 @@ export * from "./egress.ts";
 export * from "./live-announcer.ts";
 export * from "./live-diff.ts";
 export * from "./live-layout.ts";
+// Moving, docking and the remembered offset (GLIM-151).
+export * from "./live-move.ts";
 export * from "./live-state.ts";
 export * from "./placement.ts";
 // Detection boxes on screen under the Snip popup (GLIM-115).
