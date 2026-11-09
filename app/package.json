@@ -1,6 +1,6 @@
 {
 	"name": "@glimpse/app",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"private": true,
 	"description": "The Glimpse Electrobun app: Bun main process, Solid webviews, native helpers",
 	"type": "module",

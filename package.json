@@ -1,6 +1,6 @@
 {
 	"name": "glimpse",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"private": true,
 	"description": "Desktop screen-OCR translator for Windows and macOS",
 	"license": "MIT",
