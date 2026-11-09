@@ -11,6 +11,30 @@ workflow builds Windows and macOS and leaves a **draft** release for the owner t
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-11-09
+
+Fourth MVP preview, after the owner's test of 0.0.3. Unsigned. What to try:
+[docs/mvp-test.md](docs/mvp-test.md).
+
+### Added
+
+- **On screen button.** A labelled "On screen" button in the Snip popup and the Live top bar
+  turns the on-screen translations on and off (shortcut in its tooltip), a one-time tip on the
+  first Snip, and a tray checkbox. (GLIM-158)
+- **Live update mode.** Settings › General › Live › Update: "When the text changes" (default)
+  or "Only when I refresh", with a Refresh button, Ctrl/⌘R in the popup and a tray item.
+  (GLIM-157)
+- A `snip capture` line in the log for every Snip, so a failed capture can be diagnosed from
+  Copy diagnostics. (GLIM-156)
+
+### Fixed
+
+- **Snip failing after the first one** ("Glimpse couldn't capture this area"): on Windows the
+  screen overlays are now replaced after each Snip instead of being re-shown. (GLIM-156)
+- The On screen toggle and Ctrl/⌘⇧T did nothing in the Snip popup. (GLIM-158)
+- Live no longer flashes or re-translates when the text hasn't changed (OCR reading the same
+  line slightly differently after a hover counted as a change). (GLIM-157)
+
 ## [0.0.3] - 2026-11-09
 
 Third MVP preview. Unsigned. What to try: [docs/mvp-test.md](docs/mvp-test.md) steps 17–25.
