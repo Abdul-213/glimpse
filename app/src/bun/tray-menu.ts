@@ -32,6 +32,8 @@ export interface TrayState {
 	readonly notices?: readonly TrayNotice[];
 	/** GLIM-158: Settings › Show translations on screen (`snip.showOnScreen`). Default false. */
 	readonly showOnScreen?: boolean;
+	/** GLIM-157: Settings › Live › Update is "Only when I refresh": the tray offers Refresh. */
+	readonly liveManual?: boolean;
 	/** The docked Live popup is hidden (L19). Default false. */
 	readonly livePopupHidden?: boolean;
 }
@@ -124,6 +126,10 @@ export function buildTrayMenu(state: TrayState): TrayMenuItem[] {
 					state.live === "running"
 						? item(t("Pause Live", "Pause Live"), "live.pause")
 						: item(t("Resume Live", "Resume Live"), "live.resume"),
+					// GLIM-157: in "Only when I refresh" this is how Live updates.
+					...(state.liveManual && state.live === "running"
+						? [item(t("Refresh Live", "Refresh Live"), "live.refresh")]
+						: []),
 					// live-popup.md §6.3: the tray mirrors the popup's controls.
 					item(
 						state.livePopupHidden ? t("Show Live popup", "Show Live Popup") : t("Hide Live popup", "Hide Live Popup"),

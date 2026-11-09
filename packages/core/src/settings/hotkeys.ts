@@ -125,6 +125,8 @@ export interface HotkeyBindings {
 	readonly toggleLivePopup: Hotkey | null;
 	/** GLIM-130: move keyboard focus to the Live popup (keyboard and screen-reader users). */
 	readonly focusLivePopup: Hotkey | null;
+	/** GLIM-157: read the Live area now (Refresh; the way to update in "Only when I refresh"). */
+	readonly refreshLive: Hotkey | null;
 }
 
 export type HotkeyAction = keyof HotkeyBindings;
@@ -138,6 +140,7 @@ export const DEFAULT_HOTKEYS: { readonly windows: HotkeyBindings; readonly macos
 		resnip: null,
 		toggleLivePopup: null,
 		focusLivePopup: null,
+		refreshLive: null,
 	},
 	macos: {
 		snip: "Ctrl+Shift+S",
@@ -146,6 +149,7 @@ export const DEFAULT_HOTKEYS: { readonly windows: HotkeyBindings; readonly macos
 		resnip: null,
 		toggleLivePopup: null,
 		focusLivePopup: null,
+		refreshLive: null,
 	},
 };
 
@@ -162,6 +166,7 @@ export function hotkeyBindingsSchema(defaults: HotkeyBindings): Schema<HotkeyBin
 		resnip: withDefault(nullable(hotkeySchema()), defaults.resnip),
 		toggleLivePopup: withDefault(nullable(hotkeySchema()), defaults.toggleLivePopup),
 		focusLivePopup: withDefault(nullable(hotkeySchema()), defaults.focusLivePopup),
+		refreshLive: withDefault(nullable(hotkeySchema()), defaults.refreshLive),
 	});
 	return {
 		parse(input, ctx) {

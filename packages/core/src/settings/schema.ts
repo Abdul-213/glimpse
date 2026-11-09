@@ -84,6 +84,11 @@ export interface Settings {
 		 */
 		readonly announceChanges: "auto" | "on" | "off";
 		/**
+		 * GLIM-157, Settings › Live › Update: `text` = when the text changes (re-read on pixel
+		 * changes, show only text changes); `manual` = only when the user refreshes.
+		 */
+		readonly update: "text" | "manual";
+		/**
 		 * Where the user last moved the Live popup, relative to the region, per display
 		 * (GLIM-151, live-popup.md §3.3). Written by main on drag / keyboard move; Dock removes
 		 * that display's entry. Empty = docked next to the region.
@@ -184,6 +189,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			diffThreshold: withDefault(number({ min: 0, max: 1 }), 0.02),
 			stabilityMs: withDefault(number({ min: 0, max: 5000, integer: true }), 300),
 			announceChanges: withDefault(oneOf(["auto", "on", "off"] as const), "auto"),
+			update: withDefault(oneOf(["text", "manual"] as const), "text"),
 			popupOffsets: withDefault(
 				array(
 					object({

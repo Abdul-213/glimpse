@@ -25,6 +25,8 @@
 //                liveDragStart / liveDragMove / liveDragEnd  dragging the strip (GLIM-151)
 //                moveRequested     Alt/Option+arrows; dockRequested; pinToggled
 //   main → view  liveMoved         a keyboard move / Dock happened: announce it (GLIM-151)
+//   view → main  refreshRequested  GLIM-157: Refresh (button, Ctrl/⌘R): read the area now
+//                updateModeChanged GLIM-157: Update "when the text changes" / "only when I refresh"
 //   view → main  overlayToggled    GLIM-154: overlay mode on / off (strip toggle, Ctrl/⌘⇧T)
 //                liveMarks         GLIM-154: the badges and cards for the pinned frame, as
 //                                  bitmaps (pixels only for marks main doesn't have yet)
@@ -47,6 +49,8 @@ export interface LiveViewInit {
 		focus: string | null;
 		/** GLIM-154: overlay mode. Absent in older previews. */
 		overlay?: string;
+		/** GLIM-157: Refresh in the focused popup. Absent in older previews. */
+		refresh?: string;
 	};
 }
 
@@ -86,6 +90,10 @@ export interface LiveStateMessage {
 	 * numbers or overlay toggle in the popup.
 	 */
 	marks?: LiveMarksConfig;
+	/** GLIM-157: Settings › Live › Update is "Only when I refresh". Absent: when the text changes. */
+	update?: "manual";
+	/** GLIM-157: the popup may change the Update mode (main persists it). Absent in previews without it. */
+	updateToggle?: boolean;
 }
 
 /** GLIM-154: how the view rasterises marks for the pinned frame. */
@@ -125,6 +133,10 @@ export type LiveRPC = {
 		};
 		messages: {
 			livePainted: { sessionId: string };
+			/** GLIM-157: Refresh (button, Ctrl/⌘R): read the area now. */
+			refreshRequested: { sessionId: string };
+			/** GLIM-157: the popup's Update toggle: "manual" = only when I refresh. */
+			updateModeChanged: { sessionId: string; mode: "text" | "manual" };
 			liveResized: { sessionId: string; contentHeight: number };
 			pauseRequested: { sessionId: string };
 			resumeRequested: { sessionId: string };

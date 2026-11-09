@@ -106,6 +106,10 @@ export interface LivePopupIntents {
 	setPinned?(sessionId: string, on: boolean): void;
 	/** GLIM-154: overlay mode on / off. */
 	overlay?(sessionId: string, on: boolean): void;
+	/** GLIM-157: Refresh (read the area now). Optional: previews may omit it. */
+	refresh?(sessionId: string): void;
+	/** GLIM-157: Update "when the text changes" (`text`) / "only when I refresh" (`manual`). */
+	setUpdate?(sessionId: string, mode: "text" | "manual"): void;
 	/** GLIM-154: the badges and cards for the pinned frame (bitmaps for new keys only). */
 	marks?(sessionId: string, sprites: LiveMarkSprite[]): void;
 }
@@ -282,6 +286,9 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 	const numberOf = (b: LivePopupBlock) =>
 		numbered() && b.badge !== undefined ? badgeLabel(b.badge, uiLang()) : undefined;
 	const overlayOn = () => state().overlay;
+	// GLIM-157: "Only when I refresh" and its Refresh button (only while the session runs).
+	const manual = () => props.message.update === "manual";
+	const canRefresh = () => !paused() && state().status !== "consent" && state().status !== "starting";
 	const setOverlay = (on: boolean) => props.intents.overlay?.(id(), on);
 	// A badge or card clicked on screen: its block scrolls into view and stays highlighted. The
 	// popup never takes focus for it (the game keeps the keyboard, §7).
@@ -368,6 +375,9 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 				break;
 			case "overlay":
 				if (marksOn()) setOverlay(!overlayOn());
+				break;
+			case "refresh":
+				if (canRefresh()) props.intents.refresh?.(id());
 				break;
 		}
 	};
@@ -507,6 +517,24 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 							onClick={togglePause}
 						/>
 						<IconButton icon="select-area" label={COPY.repin} onClick={() => props.intents.repin(id())} />
+						{/* GLIM-157: Update mode (the setting) and, in manual mode, Refresh. */}
+						<Show when={props.message.updateToggle}>
+							<IconButton
+								icon="refresh-off"
+								label={COPY.manualOn}
+								pressed={manual()}
+								onClick={() => props.intents.setUpdate?.(id(), manual() ? "text" : "manual")}
+							/>
+						</Show>
+						<Show when={manual()}>
+							<IconButton
+								icon="refresh"
+								label={COPY.refresh}
+								shortcut={props.init.keys.refresh}
+								disabled={!canRefresh()}
+								onClick={() => props.intents.refresh?.(id())}
+							/>
+						</Show>
 					</Show>
 					{/* GLIM-151: window controls. Dock only once moved; Pin is a toggle (on = on top). */}
 					<Show when={moved()}>
@@ -599,6 +627,10 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 				</Show>
 				<Show when={liveShowsEmpty(state())}>
 					<p class="live-quiet">{COPY.empty}</p>
+				</Show>
+				{/* GLIM-157: says why nothing updates by itself. */}
+				<Show when={manual() && state().status !== "consent" && !paused()}>
+					<p class="live-quiet">{COPY.manualNote}</p>
 				</Show>
 			</div>
 			{/* L12 (GLIM-123): one row per missing language at the top of the list; those blocks

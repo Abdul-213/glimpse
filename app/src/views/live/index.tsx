@@ -89,6 +89,8 @@ render(
 								dock: (sessionId) => rpc.send.dockRequested({ sessionId }),
 								setPinned: (sessionId, on) => rpc.send.pinToggled({ sessionId, on }),
 								overlay: (sessionId, on) => rpc.send.overlayToggled({ sessionId, on }),
+								refresh: (sessionId) => rpc.send.refreshRequested({ sessionId }),
+								setUpdate: (sessionId, mode) => rpc.send.updateModeChanged({ sessionId, mode }),
 								marks: (sessionId, sprites) => rpc.send.liveMarks({ sessionId, sprites }),
 							}}
 						/>

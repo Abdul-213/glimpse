@@ -1,7 +1,7 @@
 // live-popup.md §5: diffLiveBlocks (IoU and text matching, silent neutral / skip updates,
 // stable order, removal, first fill without marks).
 import { describe, expect, test } from "bun:test";
-import { type BlockClass, diffLiveBlocks, type LiveBlock, type LiveBlockInput, rect } from "@glimpse/core";
+import { type BlockClass, diffLiveBlocks, type LiveBlock, type LiveBlockInput, liveTextKey, rect } from "@glimpse/core";
 
 const input = (source: string, y: number, cls: BlockClass = "translate", x = 0): LiveBlockInput => ({
 	cls,
@@ -125,5 +125,38 @@ describe("diffLiveBlocks", () => {
 		const { blocks, newId } = fill([["a", 0]]);
 		const d = diffLiveBlocks(blocks, [input("b", 40), input("a", 0)], { newId });
 		expect(d.ids).toEqual(["L2", "L1"]);
+	});
+});
+
+describe("GLIM-157: OCR jitter is not a change", () => {
+	test("liveTextKey keeps letters, digits and marks, case-folded", () => {
+		expect(liveTextKey("The door is locked.")).toBe(liveTextKey("the door is locked"));
+		expect(liveTextKey("扉は閉まっている。")).toBe(liveTextKey("扉は 閉まっている"));
+		expect(liveTextKey("Tiếng Việt")).not.toBe(liveTextKey("Tieng Viet"));
+		expect(liveTextKey("10 HP")).not.toBe(liveTextKey("11 HP"));
+		expect(liveTextKey("…")).toBe("..."); // NFKC
+	});
+
+	test("a line read with a lost full stop keeps its id, text and translation; no upsert, no mark", () => {
+		const { blocks, newId } = fill([
+			["The north door is locked.", 0],
+			["Talk to the guard first.", 40],
+		]);
+		const shown = blocks.map((b) => ({ ...b, translation: `T:${b.source}` }));
+		const next = [input("the north door is locked", 1), input("Talk to the guard first.", 40)];
+		const d = diffLiveBlocks(shown, next, { newId });
+		expect(d.upserts).toEqual([]);
+		expect(d.changeSet).toEqual([]);
+		expect(d.blocks[0]).toMatchObject({
+			id: "L1",
+			source: "The north door is locked.",
+			translation: "T:The north door is locked.",
+		});
+	});
+
+	test("a changed number is a change", () => {
+		const { blocks, newId } = fill([["HP 10", 0]]);
+		const d = diffLiveBlocks(blocks, [input("HP 11", 0)], { newId });
+		expect(d.changeSet).toEqual(["L1"]);
 	});
 });

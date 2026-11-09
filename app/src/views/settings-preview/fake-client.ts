@@ -89,6 +89,7 @@ export function fakeSettingsClient(opts: PreviewOptions): SettingsClient {
 			resnip: one("resnip"),
 			toggleLivePopup: one("toggleLivePopup"),
 			focusLivePopup: one("focusLivePopup"),
+			refreshLive: one("refreshLive"),
 		};
 	};
 	let hotkeys = statusFor(settings.hotkeys);

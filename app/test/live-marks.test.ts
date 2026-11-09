@@ -224,6 +224,10 @@ class MarksSession implements LivePopupSession {
 	setMarks(m: readonly LiveFrameMark[]) {
 		this.marks.push(m);
 	}
+	refreshes: string[] = [];
+	refresh(reason: string) {
+		this.refreshes.push(reason);
+	}
 	marksPointer() {
 		const p = this.pointer;
 		this.pointer = { hover: p.hover, click: null };
@@ -250,7 +254,7 @@ const block = (id: string, order: number, box: Rect): LiveBlockUpdate => ({
 	changed: false,
 });
 
-function setup(opts: { showOnScreen?: boolean } = {}) {
+function setup(opts: { showOnScreen?: boolean; update?: "text" | "manual"; modes?: string[] } = {}) {
 	const live = new MarksSession();
 	const messages: LiveStateMessage[] = [];
 	const scheduler = new ManualScheduler();
@@ -270,7 +274,9 @@ function setup(opts: { showOnScreen?: boolean } = {}) {
 			uiDir: "ltr",
 			showOnScreen: opts.showOnScreen ?? false,
 			target: languageCode("en"),
+			...(opts.update ? { update: opts.update } : {}),
 		}),
+		...(opts.modes ? { setUpdateMode: (m: string) => opts.modes?.push(m) } : {}),
 		setPrivate: () => {},
 		repin: () => {},
 		focus: new RecordingFocusKeeper(),
@@ -382,5 +388,39 @@ describe("LivePopupController marks (GLIM-154)", () => {
 	test("the view's keys name the overlay shortcut", () => {
 		expect(liveViewInit("macos").keys.overlay).toBe("⌘⇧T");
 		expect(liveViewInit("windows").keys.overlay).toBe("Ctrl+Shift+T");
+	});
+});
+
+describe("GLIM-157: no redraw without a change; Refresh and the Update mode", () => {
+	test("the same marks in the same places are not sent to the frame again", () => {
+		const s = setup();
+		s.c.marks(S, [spriteMsg("a", "k1", true)]);
+		s.c.marks(S, [spriteMsg("a", "k1", false)]);
+		s.c.marks(S, [spriteMsg("a", "k1", false)]);
+		expect(s.live.marks).toHaveLength(1);
+		s.c.marks(S, [{ ...spriteMsg("a", "k1", false), x: 11 }]);
+		expect(s.live.marks).toHaveLength(2);
+	});
+
+	test("Refresh reaches the session; the Update toggle sets the setting; the view is told the mode", async () => {
+		const modes: string[] = [];
+		const s = setup({ update: "manual", modes });
+		await flush();
+		expect(s.last().update).toBe("manual");
+		expect(s.last().updateToggle).toBe(true);
+		s.c.refresh(S);
+		s.c.refresh("other");
+		expect(s.live.refreshes).toEqual(["user"]);
+		s.c.setUpdateMode(S, "text");
+		expect(modes).toEqual(["text"]);
+		const auto = setup();
+		await flush();
+		expect(auto.last().update).toBeUndefined();
+		expect(auto.last().updateToggle).toBeUndefined();
+	});
+
+	test("the view's keys name Refresh", () => {
+		expect(liveViewInit("macos").keys.refresh).toBe("⌘R");
+		expect(liveViewInit("windows").keys.refresh).toBe("Ctrl+R");
 	});
 });

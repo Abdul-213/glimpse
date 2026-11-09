@@ -110,8 +110,11 @@ export interface LivePopupSession {
 	answerConsent(sessionId: string, answer: LiveConsentAnswer, remember: boolean): Promise<void> | void;
 	highlightBlock(box: Rect | null, image: { readonly width: number; readonly height: number } | null): void;
 	setPopupVisible(visible: boolean): void;
-	/** Re-read the region on the next grab (a pack landed, GLIM-123). Optional for older fakes. */
-	refresh?(reason: "pack-installed"): void;
+	/**
+	 * Re-read the region: on the next grab (a pack landed, GLIM-123), or now for the user's
+	 * Refresh (GLIM-157). Optional for older fakes.
+	 */
+	refresh?(reason: "pack-installed" | "user"): void;
 	/** "Translate these" (GLIM-131): session-only source languages. Optional for older fakes. */
 	includeLanguages?(langs: readonly LanguageCode[]): void;
 	/**
@@ -132,6 +135,8 @@ export interface LivePopupSettings {
 	readonly showOnScreen?: boolean;
 	/** The target language (the cards' script and direction, GLIM-154). */
 	readonly target?: LanguageCode | null;
+	/** GLIM-157: Settings › Live › Update. Absent = `text`. */
+	readonly update?: "text" | "manual";
 }
 
 /** GLIM-154: how often the pointer over the badges and cards is read while there are any. */
@@ -185,6 +190,8 @@ export interface LivePopupControllerDeps {
 	readonly cursor?: () => Point;
 	/** Where the popup was last moved, per display (GLIM-151). Without it nothing is remembered. */
 	readonly offsets?: LivePopupOffsetStore;
+	/** GLIM-157: the popup's Update toggle sets Settings › Live › Update. Without it the toggle hides. */
+	readonly setUpdateMode?: (mode: "text" | "manual") => void;
 }
 
 export class LivePopupController {
@@ -218,6 +225,8 @@ export class LivePopupController {
 	/** GLIM-154: mark bitmaps by key (the view sends each one once). */
 	readonly #markImages = new Map<string, { width: number; height: number; rgba: Uint8Array }>();
 	#marksCount = 0;
+	/** GLIM-157: the last marks drawn (keys and places), so an identical set isn't redrawn. */
+	#marksSig = "";
 	#cancelPointer: (() => void) | null = null;
 	/** The block hovered or focused in the popup (the frame's linked box). */
 	#popupHover: string | null = null;
@@ -585,6 +594,26 @@ export class LivePopupController {
 		this.#dispatch({ type: "toggleOverlay", on });
 	}
 
+	// ---- Update mode and Refresh (GLIM-157) ---------------------------------------------
+
+	/** The Refresh button or Ctrl/⌘R in the popup: read the area now. */
+	refresh(sessionId: string): void {
+		if (!this.#mine(sessionId)) return;
+		this.#d.live.refresh?.("user");
+	}
+
+	/** The popup's "Only update when I refresh" toggle: the setting, for this and later sessions. */
+	setUpdateMode(sessionId: string, mode: "text" | "manual"): void {
+		if (!this.#mine(sessionId) || !this.#d.setUpdateMode) return;
+		this.#d.log.info("live popup: update mode", { mode });
+		this.#d.setUpdateMode(mode);
+	}
+
+	/** Settings changed (Update mode, motion): the popup shows them at once. */
+	settingsChanged(): void {
+		if (this.#state.sessionId !== null) this.#push();
+	}
+
 	/** GLIM-158: the tray's Show translations on screen; the running session follows it. */
 	setOverlay(on: boolean): void {
 		if (this.#state.sessionId === null || this.#state.overlay === on) return;
@@ -621,6 +650,10 @@ export class LivePopupController {
 			});
 		}
 		for (const k of [...this.#markImages.keys()]) if (!used.has(k)) this.#markImages.delete(k);
+		// GLIM-157: the same marks in the same places are not drawn again (no frame redraw).
+		const sig = sprites.map((s) => `${s.key}@${s.x},${s.y},${s.width},${s.height},${s.opacity}`).join("|");
+		if (sig === this.#marksSig && marks.length === this.#marksCount) return;
+		this.#marksSig = sig;
 		this.#d.live.setMarks(marks);
 		this.#marksCount = marks.length;
 		this.#syncPointerPoll();
@@ -824,6 +857,8 @@ export class LivePopupController {
 				now: this.#now(),
 				focused: this.#focused,
 				...(scale !== null ? { marks: { scale, target: settings.target ?? null } } : {}),
+				...(settings.update === "manual" ? { update: "manual" as const } : {}),
+				...(this.#d.setUpdateMode ? { updateToggle: true } : {}),
 			});
 		});
 	}
@@ -832,6 +867,7 @@ export class LivePopupController {
 		this.#cancelPointer?.();
 		this.#cancelPointer = null;
 		this.#marksCount = 0;
+		this.#marksSig = "";
 		this.#markImages.clear();
 		this.#popupHover = null;
 		this.#cancelPaint?.();
@@ -870,6 +906,7 @@ export function liveViewInit(os: LiveViewInit["os"], uiLang = "en"): LiveViewIni
 			copyOriginal: mac ? "⌘⇧C" : "Ctrl+Shift+C",
 			original: mac ? "⌘⇧O" : "Ctrl+Shift+O",
 			overlay: mac ? "⌘⇧T" : "Ctrl+Shift+T",
+			refresh: mac ? "⌘R" : "Ctrl+R",
 			focus: null,
 		},
 	};

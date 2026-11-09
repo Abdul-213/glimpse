@@ -120,6 +120,14 @@ describe("tray menu", () => {
 		);
 	});
 
+	test("GLIM-157: Refresh Live while Live runs in Only when I refresh", () => {
+		expect(byAction(buildTrayMenu({ ...base, live: "running" }), "live.refresh")).toBeUndefined();
+		expect(byAction(buildTrayMenu({ ...base, live: "running", liveManual: true }), "live.refresh")?.label).toBe(
+			"Refresh Live",
+		);
+		expect(byAction(buildTrayMenu({ ...base, live: "paused", liveManual: true }), "live.refresh")).toBeUndefined();
+	});
+
 	test("every menu action is a known command", () => {
 		const all = (m: readonly TrayMenuItem[]): string[] =>
 			m.flatMap((i) => (i.type === "normal" ? [...(i.action ? [i.action] : []), ...all(i.submenu ?? [])] : []));

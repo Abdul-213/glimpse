@@ -132,6 +132,7 @@ export function fakeOnboardingClient(opts: PreviewOptions): OnboardingClient {
 		resnip: { state: "unbound" },
 		toggleLivePopup: { state: "unbound" },
 		focusLivePopup: { state: "unbound" },
+		refreshLive: { state: "unbound" },
 	});
 
 	const setup = (): SetupState => ({

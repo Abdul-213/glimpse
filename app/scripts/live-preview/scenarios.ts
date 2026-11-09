@@ -135,6 +135,8 @@ export interface LiveScenario {
 	readonly scene?: { readonly region: Rect };
 	/** GLIM-154: the frame can't draw marks out of capture (no numbers, no overlay toggle). */
 	readonly noMarks?: boolean;
+	/** GLIM-157: Settings › Live › Update is "Only when I refresh". */
+	readonly manual?: boolean;
 }
 
 export const LIVE_SCENARIOS: readonly LiveScenario[] = [
@@ -337,6 +339,13 @@ export const LIVE_SCENARIOS: readonly LiveScenario[] = [
 		events: () => [...running(), frame([["L1", "¿Continuar?", "Continue?"]])],
 	},
 	{
+		name: "l27-manual",
+		note: "GLIM-157: Update only when I refresh: the toggle pressed, Refresh next to it, the quiet line says why",
+		width: 400,
+		manual: true,
+		events: () => [...running(), frame([DOOR, KEY], ["L2"]), tr("L2", KEY[2] ?? "")],
+	},
+	{
 		name: "l25-comic-markers",
 		note: "GLIM-154: a manga page pinned; numbered badges on the bubbles, the same numbers in the popup; bubble 3 clicked on screen",
 		width: 320,
@@ -503,5 +512,8 @@ export function liveScenarioMessage(s: LiveScenario): LiveStateMessage {
 		focused: s.focused ?? false,
 		// GLIM-154: on hardware the frame draws marks (2x displays here, as the shots).
 		...(s.noMarks ? {} : { marks: { scale: 2, target: "en" } }),
+		// GLIM-157: the app always offers the Update toggle.
+		updateToggle: true,
+		...(s.manual ? { update: "manual" as const } : {}),
 	};
 }

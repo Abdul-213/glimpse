@@ -25,6 +25,11 @@ const ACTIONS: readonly { action: HotkeyAction; label: string; description: stri
 		label: "Focus the Live popup",
 		description: "Optional. Moves the keyboard to the popup's controls; Esc hands it back.",
 	},
+	{
+		action: "refreshLive",
+		label: "Refresh Live",
+		description: "Optional. Reads the Live area again now, for “Only when I refresh”.",
+	},
 ];
 
 const labelOf = (a: HotkeyAction) => ACTIONS.find((x) => x.action === a)?.label ?? a;

@@ -149,6 +149,25 @@ export function GeneralPane(props: { state: SettingsState }): JSX.Element {
 			</SettingsGroup>
 
 			<SettingsGroup title="Live" footer="Lower rates use less battery; new text shows up a little later.">
+				{/* GLIM-157: when Live updates. Also the Live popup's toggle and the tray's Refresh Live. */}
+				<SettingsRow
+					label="Update"
+					description="Live shows only text that changed. Or it waits until you press Refresh in the Live popup."
+				>
+					{(ids) => (
+						<div class="w-56">
+							<Select
+								aria-labelledby={ids.labelId}
+								value={s().live.update}
+								options={[
+									{ value: "text", label: "When the text changes" },
+									{ value: "manual", label: "Only when I refresh" },
+								]}
+								onChange={(v) => void props.state.update({ live: { update: v === "manual" ? "manual" : "text" } })}
+							/>
+						</div>
+					)}
+				</SettingsRow>
 				<SettingsRow label="Checks per second">
 					<SegmentedControl
 						label="Checks per second"
