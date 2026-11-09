@@ -51,6 +51,15 @@ export interface OverlayWindow {
 	/** Detection boxes on the results layer (GLIM-115); null clears them. */
 	results(state: ResultsLayerState | null): void;
 	close(): void;
+	/** What the window looks like to the OS right now (GLIM-156 diagnostics). */
+	diagnostics?(): Record<string, unknown>;
+}
+
+/** One overlay's state for the logs (GLIM-156): enough to tell a stale or un-excluded window. */
+export interface OverlayState extends Record<string, unknown> {
+	readonly displayId: number;
+	/** How many times the overlays were replaced since launch (`recycleOverlays`). */
+	readonly generation: number;
 }
 
 export interface OverlayFactory {
@@ -95,6 +104,16 @@ export interface PickerControllerDeps {
 	readonly egress?: (mode: PickerMode) => string | null;
 	/** A Live session is running (spec 2 K). */
 	readonly liveRunning?: () => boolean;
+	/**
+	 * GLIM-156 (Windows): never show an overlay window again once it has been hidden; close it
+	 * and create a fresh hidden one instead. A WDA_EXCLUDEFROMCAPTURE window that is hidden and
+	 * shown again stops being left out of the composed image and reads back as a black box in
+	 * GDI and DXGI frames, so a full-screen overlay turned every Snip after the first into an
+	 * all-black capture. Electron works around the same DWM behaviour by making its windows
+	 * WS_EX_LAYERED, which breaks a transparent WebView2 (native/windows/frame.cpp), so the
+	 * overlays are single-use instead: each show is a first show, which is the path that works.
+	 */
+	readonly recycleOverlays?: boolean;
 }
 
 /**
@@ -151,6 +170,8 @@ export class PickerController {
 	private pendingView: PickerViewState | null = null;
 	private loupeSeq = 0;
 	private keeping = false;
+	/** Overlay sets created so far (1 after the first `prepare`). */
+	private generation = 0;
 	private readonly listeners = new Set<RegionListener>();
 	private readonly outcomeListeners = new Set<(o: PickerOutcome) => void>();
 	private readonly resultsClickListeners = new Set<(blockId: string | null) => void>();
@@ -219,7 +240,18 @@ export class PickerController {
 		this.overlays.clear();
 		for (const d of displays) this.overlays.set(d.id, this.deps.factory.create(d));
 		this.signature = sig;
-		this.deps.log.info("picker overlays ready", { displays: displays.length });
+		this.generation++;
+		if (this.generation === 1) this.deps.log.info("picker overlays ready", { displays: displays.length });
+		else this.deps.log.debug("picker overlays recreated", { displays: displays.length, generation: this.generation });
+	}
+
+	/** Every overlay's state, for the capture log (GLIM-156). */
+	overlayStates(): OverlayState[] {
+		return [...this.overlays.values()].map((o) => ({
+			...(o.diagnostics?.() ?? {}),
+			displayId: o.display.id,
+			generation: this.generation,
+		}));
 	}
 
 	/**
@@ -316,8 +348,10 @@ export class PickerController {
 		const d = o.display;
 		const problem = overlayMismatch(d, got);
 		if (problem) this.deps.log.warn("picker overlay mismatch", { displayId, problem, ...got });
-		// A view that loads after an open missed the reset/state pushes: replay them.
+		// A view that loads after an open missed the reset/state pushes: replay them. One that
+		// loads while the picker is closed (a recycled overlay, GLIM-156) gets them on the next open.
 		queueMicrotask(() => {
+			if (!this.isOpen && !this.keeping) return;
 			if (this.lastReset) o.reset(this.lastReset);
 			if (this.lastView) o.state(this.lastView);
 			if (this.lastResults) o.results(this.lastResults);
@@ -472,13 +506,13 @@ export class PickerController {
 		else run();
 	}
 
-	/** A new open while the results layer is up replaces it. */
+	/**
+	 * A new open while the results layer is up replaces it. The overlays stay on screen: the
+	 * open re-shows them at once, and a hide + show is what GLIM-156 is about.
+	 */
 	private finishResults(): void {
 		this.showResults(null);
-		if (this.keeping) {
-			this.keeping = false;
-			for (const o of this.overlays.values()) o.hide();
-		}
+		this.keeping = false;
 	}
 
 	private hideAll(animate: boolean): void {
@@ -486,8 +520,17 @@ export class PickerController {
 		const hide = () => {
 			this.cancelHide = null;
 			for (const o of this.overlays.values()) o.hide();
+			// GLIM-156: a hidden overlay is not shown again; fresh hidden ones load meanwhile.
+			if (this.deps.recycleOverlays && !this.isOpen) this.recycle();
 		};
 		if (animate) this.cancelHide = this.scheduler.later(EXIT_FADE_MS, hide);
 		else hide();
+	}
+
+	private recycle(): void {
+		for (const o of this.overlays.values()) o.close();
+		this.overlays.clear();
+		this.signature = "";
+		this.prepare();
 	}
 }

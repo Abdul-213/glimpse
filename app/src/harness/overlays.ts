@@ -52,6 +52,9 @@ export class FakeOverlay implements OverlayWindow {
 	get last(): PickerViewState | undefined {
 		return this.states.at(-1);
 	}
+	diagnostics(): Record<string, unknown> {
+		return { visible: this.visible, level: this.level, shows: this.shows };
+	}
 }
 
 export class FakeOverlayFactory implements OverlayFactory {

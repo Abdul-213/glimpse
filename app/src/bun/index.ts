@@ -23,6 +23,7 @@ import { overlayOpsFor } from "./native/overlay.ts";
 import { loadWindowsCapture, loadWindowsChrome } from "./native/windows.ts";
 import { platform } from "./platform.ts";
 import { AppSettings } from "./services/app-settings.ts";
+import { reportingCapture } from "./services/capture/capture-report.ts";
 import { withDeniedReport } from "./services/capture/denied-report.ts";
 import { createCaptureSource } from "./services/capture/index.ts";
 import { MaskedCaptureSource } from "./services/capture/masked.ts";
@@ -380,12 +381,25 @@ picker = new PickerController({
 	settings: () => pickerSettingsFrom(appSettings.current),
 	// `live` is declared below; this only runs when the picker opens.
 	liveRunning: () => live.active,
+	// GLIM-156: a WDA_EXCLUDEFROMCAPTURE window hidden and shown again captures as black.
+	recycleOverlays: platform === "windows",
 });
 picker.prepare();
 // Snip popup (GLIM-65): one hidden window created now, reused for every Snip. A confirmed
 // Snip region runs through the translation pipeline and streams into it; the overlays stay
 // up under it as the results layer until it closes.
 const popupLog = log.child("popup");
+// GLIM-156: one line per Snip capture (black ratio, plan, overlay states) for blank reports.
+const snipScreen = reportingCapture(screen, {
+	log: captureLog,
+	context: () => ({
+		status: capture.status,
+		overlays: picker?.overlayStates() ?? [],
+		excludedWindowIds: exclusion.windowIds.length,
+		masks: exclusion.maskRects().length,
+		hideFromCapture: exclusion.hideFromCapture,
+	}),
+});
 let snipPopup: SnipPopupController | null = null;
 const popupWindow = new ElectrobunPopupWindow({
 	exclusion,
@@ -399,7 +413,7 @@ snipPopup = new SnipPopupController({
 	window: popupWindow,
 	displays: readDisplays,
 	runner: {
-		snip: (rect, onEvent, signal, runId) => translation.snip(screen, rect, onEvent, signal, runId),
+		snip: (rect, onEvent, signal, runId) => translation.snip(snipScreen, rect, onEvent, signal, runId),
 		translate: (blocks, onEvent, signal, runId, opts) =>
 			translation.translateBlocks(blocks, onEvent, { runId, signal, ...opts }),
 		// E3 "Translate on this device" (GLIM-80).

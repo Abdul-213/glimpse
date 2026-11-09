@@ -2,7 +2,7 @@
 import type { Pointer } from "bun:ffi";
 import type { ExclusionOps } from "../windows/capture-exclusion.ts";
 import { loadMacNative } from "./macos.ts";
-import { setWindowExcludedFromCapture } from "./windows.ts";
+import { affinityName, readWindowDisplayAffinity, setWindowExcludedFromCapture } from "./windows.ts";
 
 const SHARING_NAMES = ["none", "readOnly", "readWrite"];
 
@@ -27,6 +27,7 @@ export function exclusionOpsFor(platform: string = process.platform): ExclusionO
 				const r = setWindowExcludedFromCapture(hwnd, hidden);
 				return { excluded: r.excluded, detail: r.excluded ? "WDA_EXCLUDEFROMCAPTURE" : "WDA_NONE" };
 			},
+			state: (hwnd: Pointer) => affinityName(readWindowDisplayAffinity(hwnd)),
 			// WDA_EXCLUDEFROMCAPTURE is the only thing keeping a window out of DXGI/GDI frames.
 			ownCaptureSkipsIds: false,
 		};
@@ -51,6 +52,9 @@ export function exclusionOpsFor(platform: string = process.platform): ExclusionO
 			setHidden(nsWindow: Pointer, hidden: boolean) {
 				const { sharingType } = binding.setWindowSharing(nsWindow, hidden);
 				return { excluded: sharingType === 0, detail: `sharingType ${SHARING_NAMES[sharingType] ?? sharingType}` };
+			},
+			state(nsWindow: Pointer) {
+				return `windowNumber ${binding.windowNumber(nsWindow)}`;
 			},
 			// The SCK filter skips registered window ids whatever sharingType says.
 			ownCaptureSkipsIds: true,
