@@ -106,12 +106,14 @@ export interface PickerControllerDeps {
 	readonly liveRunning?: () => boolean;
 	/**
 	 * GLIM-156 (Windows): never show an overlay window again once it has been hidden; close it
-	 * and create a fresh hidden one instead. A WDA_EXCLUDEFROMCAPTURE window that is hidden and
-	 * shown again stops being left out of the composed image and reads back as a black box in
-	 * GDI and DXGI frames, so a full-screen overlay turned every Snip after the first into an
-	 * all-black capture. Electron works around the same DWM behaviour by making its windows
-	 * WS_EX_LAYERED, which breaks a transparent WebView2 (native/windows/frame.cpp), so the
-	 * overlays are single-use instead: each show is a first show, which is the path that works.
+	 * and create a fresh hidden one instead, so every show is a first show (the path the owner's
+	 * first Snip proves works). The overlays are the only Glimpse window over the whole Snip
+	 * region when it is captured, so one that a re-show lets into GDI frames as a black box
+	 * (Electron's content-protection code works around "black window on screen capture after
+	 * hiding and showing" with WS_EX_LAYERED, which breaks a transparent WebView2) makes every
+	 * Snip after the first all black. Not reproduced on a GPU-less windows-latest runner, where
+	 * plain, layered, NOREDIRECTIONBITMAP and WebView2 windows all stay excluded across hide +
+	 * show; this removes window reuse from the Snip path whatever the exact mechanism is.
 	 */
 	readonly recycleOverlays?: boolean;
 }

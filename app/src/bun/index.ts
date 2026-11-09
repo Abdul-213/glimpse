@@ -381,7 +381,7 @@ picker = new PickerController({
 	settings: () => pickerSettingsFrom(appSettings.current),
 	// `live` is declared below; this only runs when the picker opens.
 	liveRunning: () => live.active,
-	// GLIM-156: a WDA_EXCLUDEFROMCAPTURE window hidden and shown again captures as black.
+	// GLIM-156: a hidden overlay is replaced, never re-shown (see recycleOverlays).
 	recycleOverlays: platform === "windows",
 });
 picker.prepare();

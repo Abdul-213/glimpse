@@ -7,10 +7,11 @@
 // E4 captureBlank). Under them, a model of the OS compositor that Glimpse's capture reads:
 //
 //   windows  WDA_EXCLUDEFROMCAPTURE leaves a shown window out of GDI / DXGI frames, but a window
-//            that was hidden and is shown again comes back as a black box in them (the DWM
-//            behaviour Electron works around with WS_EX_LAYERED for content-protected windows,
-//            which a transparent WebView2 can't use). The picker overlays cover their whole
-//            display, so on the old code every Snip after the first read as all black.
+//            that was hidden and is shown again comes back as a black box in them (the suspected
+//            GLIM-156 mechanism: what Electron's content-protection code works around with
+//            WS_EX_LAYERED, which a transparent WebView2 can't use; not reproduced on a GPU-less
+//            CI runner). The picker overlays cover their whole display, so with that behaviour
+//            the old code made every Snip after the first all black, which is the owner's report.
 //   macos    the ScreenCaptureKit filter leaves every Glimpse window out, shown or re-shown.
 //
 // Overlays here behave like ElectrobunOverlay (windows/picker.ts): created hidden, protected
