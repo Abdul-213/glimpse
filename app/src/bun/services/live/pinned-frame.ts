@@ -7,6 +7,7 @@
 // It never throws: a helper failure is logged once and the frame is dropped (Live keeps
 // running without it), as ARCHITECTURE.md §6 asks.
 import { type Display, LIVE_CARD_PEEK_OPACITY, type Logger, type Rect } from "@glimpse/core";
+import type { LiveMarksUnavailable } from "../../../shared/live-rpc.ts";
 import {
 	type FrameHandle,
 	type FrameNativeBinding,
@@ -30,6 +31,8 @@ export interface PinnedFrameOptions {
 	readonly log: Pick<Logger, "info" | "warn" | "debug">;
 	/** Override the DESIGN.md accent (the OS accent colour, when the shell reports one). */
 	readonly accent?: () => string | null;
+	/** Clock for re-checking a negative capture-exclusion result (GLIM-163). Default: Date.now. */
+	readonly now?: () => number;
 }
 
 /**
@@ -57,6 +60,13 @@ export interface LiveMarksPointer {
 /** WDA_EXCLUDEFROMCAPTURE, as GetWindowDisplayAffinity reads it back. */
 const WDA_EXCLUDEFROMCAPTURE = 0x11;
 
+/**
+ * GLIM-163: a frame not (yet) confirmed out of capture is asked again, at most this often,
+ * when Live next asks whether marks can be drawn (and always on show / re-pin). A confirmed
+ * frame stays confirmed.
+ */
+export const MARKS_RECHECK_MS = 2000;
+
 export interface PinnedFrameState {
 	readonly region: Rect | null;
 	readonly visible: boolean;
@@ -73,8 +83,14 @@ export class PinnedFrame {
 	#unexclude: (() => void) | null = null;
 	/** GLIM-154: the marks on screen, in sprite order (pointer indices map back to them). */
 	#marks: readonly LiveFrameMark[] = [];
-	/** Whether the frame window is confirmed out of capture (null: not checked yet). */
+	/**
+	 * Whether the frame window is confirmed out of capture (null: not checked yet). Only
+	 * `true` is final; `false` is asked again after MARKS_RECHECK_MS or on show (GLIM-163).
+	 */
 	#excluded: boolean | null = null;
+	#checkedAt = 0;
+	/** GLIM-163: the last "no marks" reason logged, so each one is logged once. */
+	#loggedReason: string | null = null;
 	#state: PinnedFrameState = {
 		region: null,
 		visible: false,
@@ -100,6 +116,8 @@ export class PinnedFrame {
 	/** Pin (or re-pin) to `region` (global logical) and show it. */
 	show(region: Rect): void {
 		this.#state = { ...this.#state, region, visible: true };
+		// GLIM-163: a negative check may have been a timing miss; ask again once shown.
+		if (this.#excluded === false) this.#excluded = null;
 		this.#apply(true);
 	}
 
@@ -139,9 +157,31 @@ export class PinnedFrame {
 	 * confirmation, no marks: Live must never read its own cards.
 	 */
 	get marksAvailable(): boolean {
-		if (!this.available || !this.#o.binding?.frameSetSprites || this.#handle === null) return false;
-		if (this.#excluded === null) this.#excluded = this.#checkExcluded();
-		return this.#excluded;
+		return this.marksUnavailable === null;
+	}
+
+	/**
+	 * GLIM-163: why badges and cards can't be drawn (null when they can). The popup shows its
+	 * On screen toggle disabled with this reason; each distinct detail is logged once.
+	 */
+	get marksUnavailable(): LiveMarksUnavailable | null {
+		const b = this.#o.binding;
+		if (!b) return this.#unavailable("no-frame", `no frame binding (${this.#o.status ?? "unknown"})`);
+		if (this.#broken) return this.#unavailable("no-frame", "the frame helper failed");
+		if (!b.frameSetSprites) return this.#unavailable("no-frame", "the frame helper has no sprite support");
+		if (this.#handle === null) return this.#unavailable("no-frame", "no frame window yet");
+		const now = this.#now();
+		if (this.#excluded === null || (this.#excluded === false && now - this.#checkedAt >= MARKS_RECHECK_MS)) {
+			const check = this.#checkExcluded();
+			this.#excluded = check.excluded;
+			this.#checkedAt = now;
+			if (!check.excluded) return this.#unavailable("not-excluded", check.why);
+			if (this.#loggedReason !== null) {
+				this.#o.log.info("live frame: confirmed out of capture; numbered marks and overlay cards are on");
+				this.#loggedReason = null;
+			}
+		}
+		return this.#excluded ? null : "not-excluded";
 	}
 
 	/** The region's display scale (sprite pixels per logical px), or null without marks. */
@@ -189,30 +229,53 @@ export class PinnedFrame {
 		return p ? { hover: idOf(p.value.hover), click: idOf(p.value.click) } : { hover: null, click: null };
 	}
 
-	#checkExcluded(): boolean {
+	#checkExcluded(): { readonly excluded: boolean; readonly why: string } {
 		const h = this.#handle;
 		const b = this.#o.binding;
-		if (h === null || !b) return false;
+		if (h === null || !b) return { excluded: false, why: "no frame window" };
 		let info: Record<string, number> | null = null;
+		let error: unknown = null;
 		try {
 			info = b.frameInfo(h);
-		} catch {
-			info = null;
+		} catch (e) {
+			error = e;
 		}
-		let excluded = false;
-		if (info && typeof info["affinity"] === "number") excluded = info["affinity"] === WDA_EXCLUDEFROMCAPTURE;
-		else if (info && typeof info["sharingType"] === "number") excluded = true;
-		if (!excluded) {
-			this.#o.log.warn("live frame: not confirmed out of capture; numbered marks and overlay cards are off", {
-				affinity: info?.["affinity"] ?? null,
-			});
+		if (!info) {
+			const detail = error === null ? "" : `: ${error instanceof Error ? error.message : String(error)}`;
+			return { excluded: false, why: `frame_info returned nothing${detail}` };
 		}
-		return excluded;
+		const affinity = info["affinity"];
+		if (typeof affinity === "number") {
+			if (affinity === WDA_EXCLUDEFROMCAPTURE) return { excluded: true, why: "" };
+			const err = info["affinityError"];
+			const setError = typeof err === "number" && err !== 0 ? `; SetWindowDisplayAffinity error ${err}` : "";
+			return {
+				excluded: false,
+				why: `display affinity reads back 0x${affinity.toString(16)}, not WDA_EXCLUDEFROMCAPTURE (0x11)${setError}`,
+			};
+		}
+		// macOS: the SCK filter leaves out the whole app; a sharingType means the panel exists.
+		if (typeof info["sharingType"] === "number") return { excluded: true, why: "" };
+		return { excluded: false, why: `frame_info has no affinity or sharingType (${Object.keys(info).join(",")})` };
+	}
+
+	/** Log each distinct reason once (info level, so Copy diagnostics has it), then return `kind`. */
+	#unavailable(kind: LiveMarksUnavailable, why: string): LiveMarksUnavailable {
+		if (this.#loggedReason !== why) {
+			this.#loggedReason = why;
+			this.#o.log.info("live frame: numbered marks and overlay cards are off", { reason: kind, why });
+		}
+		return kind;
+	}
+
+	#now(): number {
+		return this.#o.now?.() ?? Date.now();
 	}
 
 	dispose(): void {
 		this.#marks = [];
 		this.#excluded = null;
+		this.#checkedAt = 0;
 		const handle = this.#handle;
 		this.#handle = null;
 		this.#unexclude?.();

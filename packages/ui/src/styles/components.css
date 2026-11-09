@@ -406,7 +406,9 @@
 		color: var(--color-accent);
 	}
 
-	.glim-toggle-btn:disabled {
+	/* GLIM-163: `aria-disabled` stays focusable and hoverable so the tooltip can say why. */
+	.glim-toggle-btn:disabled,
+	.glim-toggle-btn[aria-disabled="true"] {
 		color: var(--color-text-disabled);
 		background: transparent;
 		box-shadow: inset 0 0 0 1px var(--color-divider);

@@ -81,7 +81,17 @@ struct Frame {
 	int hover = -1;
 	int click = -1;
 	bool tracking = false;
+	// GLIM-163: GetLastError() of the last failed SetWindowDisplayAffinity (0: it succeeded).
+	DWORD affinityError = 0;
 };
+
+// Keep the window out of every capture (build 19041+). Asked again on every show, in case
+// the first call (on a never-shown window) didn't stick; glim_frame_info reports the error.
+void excludeFromCapture(Frame& f) {
+	DWORD now = 0;
+	if (GetWindowDisplayAffinity(f.hwnd, &now) && now == WDA_EXCLUDEFROMCAPTURE) return;
+	f.affinityError = SetWindowDisplayAffinity(f.hwnd, WDA_EXCLUDEFROMCAPTURE) ? 0 : GetLastError();
+}
 
 struct Call {
 	int op;
@@ -473,11 +483,11 @@ void handle(Call* c) {
 				c->status = (int32_t)HRESULT_FROM_WIN32(GetLastError());
 				return;
 			}
-			// Never in any capture: Glimpse's own, screenshots, screen sharing (build 19041+).
-			SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
 			uint64_t id = g_nextId++;
 			Frame f;
 			f.hwnd = hwnd;
+			// Never in any capture: Glimpse's own, screenshots, screen sharing (build 19041+).
+			excludeFromCapture(f);
 			g_frames[id] = f;
 			c->out = id;
 			return;
@@ -521,6 +531,7 @@ void handle(Call* c) {
 				paint(f);
 				ShowWindow(f.hwnd, SW_SHOWNOACTIVATE);
 				SetWindowPos(f.hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+				excludeFromCapture(f);
 			} else {
 				ShowWindow(f.hwnd, SW_HIDE);
 				if (f.hover >= 0) {
@@ -578,6 +589,7 @@ void handle(Call* c) {
 		}
 		case kWindowId:
 			c->out = (uint64_t)(uintptr_t)it->second.hwnd;
+			c->ints[0] = (int32_t)it->second.affinityError;  // glim_frame_info (GLIM-163)
 			return;
 		case kDestroy:
 			if (it->second.tracking) KillTimer(it->second.hwnd, kTrackTimer);
@@ -738,7 +750,8 @@ GLIM_EXPORT int32_t glim_frame_window_id(uint64_t frame, uint64_t* out) {
 }
 
 // Diagnostics / smoke tests: JSON with what the OS reports for the frame window:
-// {"exStyle":N,"affinity":N,"visible":0|1,"x":..,"y":..,"w":..,"h":..,"clickThrough":0|1}.
+// {"exStyle":N,"affinity":N,"affinityError":N,"visible":0|1,"x":..,"y":..,"w":..,"h":..,"clickThrough":0|1}.
+// affinityError (GLIM-163): GetLastError() of the last failed SetWindowDisplayAffinity, or 0.
 // clickThrough: WindowFromPoint at a tick's pixel does NOT return the frame (hit-testing
 // skips WS_EX_TRANSPARENT layered windows), i.e. a click there reaches the app below.
 GLIM_EXPORT int32_t glim_frame_info(uint64_t frame, char* buf, int32_t cap) {
@@ -754,11 +767,12 @@ GLIM_EXPORT int32_t glim_frame_info(uint64_t frame, char* buf, int32_t cap) {
 	// A pixel on the top-left tick: 16 px margin (scaled) minus the 3 px tick offset, roughly.
 	POINT probe{rc.left + (rc.right - rc.left > 20 ? 14 : 0), rc.bottom - 14};
 	HWND hit = WindowFromPoint(probe);
-	char out[256];
+	char out[288];
 	snprintf(out, sizeof out,
-	         "{\"exStyle\":%lld,\"affinity\":%lu,\"visible\":%d,\"x\":%ld,\"y\":%ld,\"w\":%ld,\"h\":%ld,\"clickThrough\":%d}",
-	         (long long)ex, (unsigned long)affinity, IsWindowVisible(hwnd) ? 1 : 0, rc.left, rc.top, rc.right - rc.left,
-	         rc.bottom - rc.top, hit != hwnd ? 1 : 0);
+	         "{\"exStyle\":%lld,\"affinity\":%lu,\"affinityError\":%lu,\"visible\":%d,\"x\":%ld,\"y\":%ld,\"w\":%ld,\"h\":%ld,"
+	         "\"clickThrough\":%d}",
+	         (long long)ex, (unsigned long)affinity, (unsigned long)(uint32_t)c.ints[0], IsWindowVisible(hwnd) ? 1 : 0,
+	         rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, hit != hwnd ? 1 : 0);
 	return glimCopyOut(out, buf, cap);
 }
 

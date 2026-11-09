@@ -38,6 +38,7 @@ import {
 	systemTimers,
 	type Timers,
 } from "@glimpse/core";
+import type { LiveMarksUnavailable } from "../../../shared/live-rpc.ts";
 import type { LiveState } from "../../tray-menu.ts";
 import type { FrameTag } from "./frame-layout.ts";
 import type { LiveFrameMark, LiveMarksPointer } from "./pinned-frame.ts";
@@ -62,6 +63,8 @@ export interface LiveFrame {
 	dispose(): void;
 	/** GLIM-154: the display scale to rasterise marks at, or null when marks can't be drawn. */
 	readonly marksScale?: number | null;
+	/** GLIM-163: why marks can't be drawn (null when they can). Optional for older fakes. */
+	readonly marksUnavailable?: LiveMarksUnavailable | null;
 	setMarks?(marks: readonly LiveFrameMark[]): void;
 	pointer?(): LiveMarksPointer;
 }
@@ -378,6 +381,19 @@ export class LiveService {
 	 */
 	marksScale(): number | null {
 		return this.#current?.frame?.marksScale ?? null;
+	}
+
+	/**
+	 * GLIM-163: why the running session can't draw marks, for the popup's disabled On screen
+	 * toggle. Null while there is no running session, or when marks can be drawn.
+	 */
+	marksUnavailable(): LiveMarksUnavailable | null {
+		const cur = this.#current;
+		if (!cur) return null;
+		const f = cur.frame;
+		if (!f) return "no-frame";
+		if (f.marksUnavailable !== undefined) return f.marksUnavailable;
+		return f.marksScale === undefined ? "no-frame" : f.marksScale === null ? "not-excluded" : null;
 	}
 
 	/** GLIM-154: the badges and cards over the pinned region (an empty list clears them). */
