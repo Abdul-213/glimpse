@@ -13,6 +13,8 @@ export const COMMANDS = [
 	"live.stop",
 	"live.pause",
 	"live.resume",
+	/** GLIM-157: read the Live area now (Refresh; the only update in "Only when I refresh"). */
+	"live.refresh",
 	/** Hide / show the docked Live popup (live-popup.md L19); the session keeps running. */
 	"live.popup.toggle",
 	/** "Focus Live popup" (§6.3): keyboard and screen-reader users reach its controls. */

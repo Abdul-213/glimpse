@@ -39,6 +39,8 @@ Inline-start to end:
 | Private toggle | `button-icon` 24px, eye-off icon, `aria-pressed`. On: `overlay-selected` background, icon `text-primary`. |
 | Pause / Resume | `button-icon`, pause icon ↔ play icon. |
 | Re-pin | `button-icon`, "select area" icon. |
+| Update mode (GLIM-157) | `button-icon` toggle, `refresh-off` icon (struck-through arrows), `aria-pressed`, "Only update when I refresh". Pressed = Settings › Live › Update is "Only when I refresh" (the setting itself, for this and later sessions). After Re-pin. |
+| Refresh (GLIM-157) | `button-icon`, `refresh` icon, "Refresh" with `Ctrl+R` / `⌘R`. **Only in manual mode**, next to the Update toggle; disabled while paused. |
 | Dock (GLIM-151) | `button-icon`, magnet icon, "Dock next to the area". **Only while moved** (§3.3). |
 | Pin (GLIM-151) | `button-icon` toggle, `aria-pressed`, "Keep on top of other windows". On (default): pin icon, `overlay-selected` background. Off: struck-through pin icon, no background. |
 | Stop | `button-icon`, stop (square) icon. Stops and unpins. |
@@ -149,7 +151,7 @@ Pure logic in `@glimpse/core` (`live-move.ts`): `moveLivePopup`, `liveMoveStep`,
 | L0 | **Pinned, first capture** | accent · "Live" | Skeleton bars per detected box, then pending source, then translations: the Snip sequence S0–S3, without a footer. No change marks for the first fill. |
 | L1 | **Running, fresh** | accent · "Live" | Blocks. Latest change set marked. |
 | L2 | **Settling** (pixels changing, not yet stable for ~300 ms) | unchanged | Unchanged. Nothing greys out (flows L3 greyed the old line; that is churn). |
-| L3 | **Updating** (settled change being processed > 1000 ms) | accent · "Updating" | Unchanged until results arrive. The label returns to "Live" when done. |
+| L3 | **Updating** (changed text being translated > 1000 ms; at once after Refresh, GLIM-157) | accent · "Updating" | Unchanged until results arrive. The label returns to "Live" when done. A re-read whose text turns out unchanged never shows it. |
 | L4 | **Changed** | accent · "Live" | Changed blocks flash → rest + mark (§2.5). |
 | L5 | **Paused** | hollow · "Paused" | State row "Showing text from {age}". Blocks in `text-secondary` (translations too). Frame ticks at 60% white. |
 | L6 | **Resumed** | accent · "Live" | Capture runs at once; blocks that differ from what was shown are marked as one change set. Text seen while paused is never replayed. |
@@ -176,8 +178,10 @@ Pure logic in `@glimpse/core` (`live-move.ts`): `moveLivePopup`, `liveMoveStep`,
 
 Pure function `diffLiveBlocks(prev, next) → { upserts, removes, order, changeSet }`, unit-tested.
 
-1. Match each new block to a previous one by bbox IoU ≥ 0.5; else by equal normalised text (GLIM-20 normaliser); else it's new.
-2. Matched + same normalised text → **unchanged**: keep the DOM node, no re-render, no mark (even if its bbox jittered).
+**Same text (GLIM-157).** Two readings are the same text when their `liveTextKey` matches: the GLIM-20 normalised text reduced to letters, digits and combining marks, case-folded. OCR reads an unchanged line slightly differently when the pixels around it change (a hover highlight, antialiasing, a cursor nearby): a lost full stop, an extra space, a capital. That is not a change: the block keeps the text and translation it shows, and the new reading's translation is ignored. A changed word, number or tone mark is a change. A change in punctuation alone is not shown (accepted trade-off).
+
+1. Match each new block to a previous one by equal text key (nearest); else by bbox IoU ≥ 0.5; else it's new.
+2. Matched + same text key → **unchanged**: keep the DOM node, no re-render, no mark (even if its bbox jittered).
 3. Matched + different text → **changed** (unless neutral or skip class: update silently).
 4. New → **added** (counts as changed).
 5. Unmatched previous → **removed**: its height collapses (§9), no mark.
@@ -185,6 +189,10 @@ Pure function `diffLiveBlocks(prev, next) → { upserts, removes, order, changeS
 7. GLIM-21 hysteresis keeps a block's language stable across frames, so class flips (translate ↔ skip) are rare. If one happens, the block moves between the list and the skipped line without a mark.
 
 The change set is all changed and added blocks from one settled capture.
+
+**An unchanged page makes no update (GLIM-157).** Pixel change detection (§8, GLIM-58/114) decides when to *read* the area again; only the text decides what is *shown*. A read whose blocks are all unchanged (no upsert, no removal, same order) sends no `frame` event at all: the popup state, the change marks, the badges and cards and the frame stay exactly as they are, nothing streams for blocks that are already translated, and "Updating" doesn't show. Main also skips re-drawing marks that are identical (same keys, same places).
+
+**Update mode (GLIM-157).** Settings › General › Live › **Update**: "When the text changes" (default, the above) or "Only when I refresh": after the first read at pin, Live captures nothing (the capture loop is paused, no CPU) until **Refresh** (the strip button, `Ctrl+R` / `⌘R` in the focused popup, the optional *Refresh Live* shortcut, or the tray's *Refresh Live*). Each Refresh reads the area once, shows "Updating" until it is done (so the press is acknowledged even when nothing changed) and marks what changed, as an automatic update would. Re-reads Glimpse needs itself (a language pack landed, the languages changed) still happen at once. The state row says "Updates only when you refresh." while the mode is on. Refresh also works in automatic mode (reads at once).
 
 ## 6. Controls and keyboard
 
@@ -215,6 +223,7 @@ Stop never asks for confirmation; it ends the session and drops its caches (GLIM
 | `Ctrl+Shift+C` / `⌘⇧C` | Copy original. |
 | `Ctrl+Shift+O` / `⌘⇧O` | Toggle original view (cards on the region peek while it is on, GLIM-154). |
 | `Ctrl+Shift+T` / `⌘⇧T` | Overlay on / off (GLIM-154). |
+| `Ctrl+R` / `⌘R` | Refresh: read the area now (GLIM-157). |
 | `↑` / `↓`, `Home` / `End` | Move between blocks. |
 | `Alt+arrows` / `⌥+arrows` (+ `Shift`) | Move the popup 10px (50px) (§3.3). Taken before the toolbar and list see the arrows. |
 | `Tab` / `Shift+Tab` | Strip buttons → state-row buttons → blocks, wrapping. |
@@ -225,9 +234,9 @@ Stop never asks for confirmation; it ends the session and drops its caches (GLIM
 | Key | Action |
 |---|---|
 | Live hotkey (`Alt+Shift+L` / `⌃⇧L`) | When pinned: stop. When not: open the picker in Live mode. |
-| Unbound by default (user can assign) | Pause/resume Live; Show/hide Live popup; **Focus Live popup** (new, proposed here, owner question 6). |
+| Unbound by default (user can assign) | Pause/resume Live; Show/hide Live popup; **Focus Live popup** (new, proposed here, owner question 6); **Refresh Live** (GLIM-157). |
 
-Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private, Show translations on screen (GLIM-158, a checkbox: the Settings default, which a running session follows), Stop Live.
+Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private, Show translations on screen (GLIM-158, a checkbox: the Settings default, which a running session follows), Refresh Live (GLIM-157, while running in "Only when I refresh"), Stop Live.
 
 ## 7. Focus rules
 
@@ -246,7 +255,8 @@ Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private
 | Capture cadence | 2–4 fps (PRODUCT.md); 1 fps on battery if Settings says so. |
 | Settle | Re-OCR only after the pixel diff passes the threshold and the region has been stable ~300 ms (GLIM-58). |
 | Hold before swapping | When a block changes, its old translation stays up to **600 ms** waiting for the new translation, then swaps and flashes once. If it isn't ready by 600 ms, the new source text appears in `source` style and flashes then; the translation later crossfades in (`duration-fast`) **without a second flash**. |
-| "Updating" label | After 1000 ms of processing a settled change. |
+| Settle | GLIM-157: a settled pixel change only re-reads; what shows depends on the text (§5). |
+| "Updating" label | After 1000 ms of translating changed text (GLIM-157: not while OCR re-reads; at once for a Refresh). |
 | Flash → rest | `duration-settle` 1600 ms, linear. Mark stays until the next change set. |
 | Empty hold | 5 s with no text before showing L7. |
 | Stale age refresh | Every 30 s. |
@@ -353,6 +363,11 @@ Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private
 | `live.action.stop` | Stop Live |
 | `live.overlay.on` | Show translations on screen (GLIM-154, Snip's `snip.showOnScreen`) |
 | `live.overlay.off` | Back to the list only |
+| `live.update.manual` | Only update when I refresh (GLIM-157, the strip toggle) |
+| `live.refresh` | Refresh ({key}) |
+| `live.state.manual` | Updates only when you refresh. |
+| `settings.live.update` | Update: When the text changes / Only when I refresh. "Live shows only text that changed. Or it waits until you press Refresh in the Live popup." |
+| `tray.live.refresh` | Refresh Live |
 | `live.overlay.label` | On screen (GLIM-158: the toggle's visible label) |
 | `live.tag` | Live |
 | `live.tag.paused` | Live · Paused |

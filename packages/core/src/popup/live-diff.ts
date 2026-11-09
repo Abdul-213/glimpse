@@ -1,6 +1,12 @@
 // live-popup.md §5: block identity and diffing between settled Live captures. Pure.
 //
-// 1. Match each new block to a previous one by equal normalised text (nearest), else by bbox
+// GLIM-157: "same text" means the same *words*: OCR reads an unchanged line slightly differently
+// from one capture to the next (a hover highlight, antialiasing, a cursor nearby: a lost full
+// stop, a space, a capital), and that must not count as a change. Texts are compared by
+// `liveTextKey`: letters, digits and combining marks only, case-folded. A change of punctuation
+// alone is not shown; a changed word or number is.
+//
+// 1. Match each new block to a previous one by equal text key (nearest), else by bbox
 //    IoU ≥ 0.5; else it is new. (The spec lists IoU first; text first is what keeps a scrolling
 //    chat from marking every line, see below.)
 // 2. Matched + same normalised text -> unchanged: no upsert, no mark (even if its box jittered).
@@ -70,6 +76,17 @@ export interface LiveDiffOptions {
 
 const silent = (cls: BlockClass) => cls === "neutral" || cls === "skip";
 
+/**
+ * GLIM-157: what two readings of a block must share to be "the same text": the normalised
+ * text's letters, digits and combining marks (tone marks, vowel signs), lower-cased. Text
+ * that is only punctuation or symbols ("…", "→") keeps its normalised form.
+ */
+export function liveTextKey(text: string): string {
+	const normalised = normaliseSegment(text);
+	const words = normalised.replace(/[^\p{L}\p{N}\p{M}]/gu, "").toLocaleLowerCase("und");
+	return words === "" ? normalised : words;
+}
+
 export function diffLiveBlocks(
 	prev: readonly LiveBlock[],
 	next: readonly LiveBlockInput[],
@@ -83,8 +100,8 @@ export function diffLiveBlocks(
 	// 1a. Equal normalised text first, nearest wins (as GLIM-56's BlockIdTracker): in a scrolling
 	// chat every line moves into the box of the line above it, and matching by IoU first would
 	// mark them all as changed. Then 1b: best IoU for the rest (a line rewritten in place).
-	const prevText = prev.map((p) => normaliseSegment(p.source));
-	const nextText = next.map((n) => normaliseSegment(n.source));
+	const prevText = prev.map((p) => liveTextKey(p.source));
+	const nextText = next.map((n) => liveTextKey(n.source));
 	const pairs: { i: number; j: number; score: number }[] = [];
 	next.forEach((n, i) => {
 		prev.forEach((p, j) => {
@@ -113,8 +130,8 @@ export function diffLiveBlocks(
 		const p = j === null || j === undefined ? undefined : prev[j];
 		const id = p?.id ?? options.newId();
 		ids.push(id);
-		if (p && normaliseSegment(p.source) === normaliseSegment(n.source)) {
-			// Unchanged text: keep what is shown (its translation too), take the new box.
+		if (p && liveTextKey(p.source) === liveTextKey(n.source)) {
+			// Unchanged text: keep what is shown (its text and translation too), take the new box.
 			const sameMeta = p.cls === n.cls && p.lang === n.lang;
 			const kept: LiveBlock = sameMeta
 				? { ...p, box: n.box, waitingForPack: n.waitingForPack }

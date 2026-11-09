@@ -338,6 +338,7 @@ describe("HotkeyService", () => {
 		resnip: null,
 		toggleLivePopup: null,
 		focusLivePopup: null,
+		refreshLive: null,
 	};
 
 	test("registers bound actions, reports conflicts without rebinding, fires handlers", () => {

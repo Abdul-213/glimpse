@@ -7,11 +7,20 @@
 // OCR runs only for the first frame and for frames change detection calls settled. A settled
 // frame identical to one of the last 8 read (A -> B -> A) reuses that result instead.
 //
-// Timings (live-popup.md §8): "Updating" after 1 s of processing a settled change; "empty"
+// GLIM-157: an unchanged page makes no visible update. Pixels can change without the text
+// changing (a hover highlight, an animation next to the text): the frame is read again, but
+// when its text is the same (live-diff.ts `liveTextKey`: OCR jitter in punctuation, spacing or
+// case doesn't count) no `frame` event goes out, no streamed translation for a block that is
+// already translated, and no "Updating". "Only when I refresh" (`update: "manual"`): after the
+// first read nothing is captured until `refresh()`.
+//
+// Timings (live-popup.md §8): "Updating" after 1 s of translating changed text (at once for a
+// manual Refresh); "empty"
 // after 5 s without text (shorter gaps keep the last blocks); pause / resume / stop at once;
 // resume compares with the processed frame immediately, so what changed while paused is one
 // change set and nothing seen while paused is replayed.
 
+import { normaliseSegment } from "../cache/normalise.ts";
 import { toOcrImage } from "../capture/compose.ts";
 import type { CaptureFrame } from "../capture/port.ts";
 import type { Rect } from "../geometry.ts";
@@ -49,7 +58,14 @@ export interface LiveSettingsParams {
 	readonly fps: number;
 	readonly diffThreshold: number;
 	readonly stabilityMs: number;
+	/**
+	 * GLIM-157, Settings › Live › Update: `text` (default) reads the region again whenever its
+	 * pixels change and shows only text changes; `manual` reads it only on `refresh()`.
+	 */
+	readonly update?: LiveUpdateMode;
 }
+
+export type LiveUpdateMode = "text" | "manual";
 
 export interface LiveRunnerOptions extends LiveSettingsParams {
 	readonly sessionId: string;
@@ -132,6 +148,8 @@ export interface LiveRunnerStats {
 	readonly budget: LiveBudgetState | null;
 	/** The runner's own cost estimate so far: change detection + OCR wall time, ms. */
 	readonly costMs: number;
+	/** GLIM-157: reads whose text was unchanged, so nothing was shown (no `frame` event). */
+	readonly unchangedReads: number;
 }
 
 const ERROR_FOR_CODE: Readonly<Record<string, LiveErrorKind>> = {
@@ -181,6 +199,16 @@ export class LiveRunner {
 	/** Last grab whose decision wasn't `same` (something moved that matters). */
 	#activeAt = 0;
 	#quiet = false;
+	/** GLIM-157: "Only when I refresh", and a Refresh waiting for its frame. */
+	#manual = false;
+	#refreshing = false;
+	/** Frame events skipped because the text was unchanged (stats, tests). */
+	#unchanged = 0;
+	/**
+	 * GLIM-157: blocks the latest read saw with the same words but different characters (OCR
+	 * jitter): what is shown stays, so their new translations are ignored. Keyed by frameSeq.
+	 */
+	#jitter: { seq: number; ids: ReadonlySet<string> } = { seq: 0, ids: new Set() };
 	readonly #decisions: Record<ChangeDecision["kind"], number> = {
 		first: 0,
 		same: 0,
@@ -201,6 +229,7 @@ export class LiveRunner {
 			this.#perf,
 		);
 		this.#budget = options.budget === false ? null : new LiveBudget(options.budget ?? {});
+		this.#manual = options.update === "manual";
 		this.#userFps = options.fps;
 		this.#loop = new LiveCaptureLoop({
 			source: options.source,
@@ -263,7 +292,25 @@ export class LiveRunner {
 		this.#detector.resume();
 		this.#setStatus(this.#shownAt === null ? "starting" : this.#empty ? "empty" : "live");
 		if (this.#loop.state === "idle") this.#loop.start();
-		else this.#loop.resume();
+		// GLIM-157: in manual mode nothing is captured until Refresh (or a first read is due).
+		else if (!this.#manual || this.#shownAt === null) this.#loop.resume();
+	}
+
+	/** GLIM-157: "Only when I refresh" is on. */
+	get manual(): boolean {
+		return this.#manual;
+	}
+
+	/**
+	 * GLIM-157: read the region now (the Refresh button / key). In manual mode this is the only
+	 * way it is read after the first time; in `text` mode it re-reads at once without waiting
+	 * for a change. "Updating" shows at once, so the press is acknowledged even when nothing
+	 * changed. Ignored while paused or stopped.
+	 */
+	refresh(): void {
+		if (!this.running || this.#status === "starting") return;
+		if (this.#status === "live" || this.#status === "empty") this.#setStatus("updating");
+		this.#wake();
 	}
 
 	stop(): void {
@@ -285,6 +332,14 @@ export class LiveRunner {
 			...(params.diffThreshold === undefined ? {} : { diffThreshold: params.diffThreshold }),
 			...(params.stabilityMs === undefined ? {} : { stabilityMs: params.stabilityMs }),
 		});
+		if (params.update !== undefined && (params.update === "manual") !== this.#manual) {
+			this.#manual = params.update === "manual";
+			// Back to automatic: compare the next grab with what was read last, at once.
+			if (!this.#manual && this.running) {
+				this.#detector.resume();
+				if (this.#loop.state === "paused") this.#loop.resume();
+			}
+		}
 	}
 
 	/**
@@ -294,6 +349,15 @@ export class LiveRunner {
 	invalidate(): void {
 		this.#ring.clear();
 		this.#detector.reset();
+		// GLIM-157: in manual mode nothing would read it again until Refresh; this re-read is
+		// Glimpse's own (a pack landed, the languages changed), so it happens now, quietly.
+		if (this.#manual && this.running) this.#wake();
+	}
+
+	/** Read the next grab whatever changed (Refresh, or a re-read in manual mode). */
+	#wake(): void {
+		this.#refreshing = true;
+		if (this.#loop.state === "paused") this.#loop.resume();
 	}
 
 	stats(): LiveRunnerStats {
@@ -319,6 +383,7 @@ export class LiveRunner {
 			focusEntered: this.#detector.stats().focusEntered,
 			budget: this.#budget?.state() ?? null,
 			costMs: this.#costMs(),
+			unchangedReads: this.#unchanged,
 		};
 	}
 
@@ -336,11 +401,23 @@ export class LiveRunner {
 		}
 		this.#sampleBudget(frame.capturedAt);
 		const t0 = this.#perf();
+		// GLIM-157: Refresh reads this frame whatever changed; manual mode reads nothing else.
+		const refresh = this.#refreshing || (this.#manual && this.#shownAt === null && this.#frameSeq === 0);
+		if (this.#refreshing) {
+			this.#refreshing = false;
+			this.#detector.reset();
+		} else if (this.#manual && this.#frameSeq > 0) {
+			this.#loop.pause();
+			return undefined;
+		}
 		const decision = this.#detector.feed(frame);
 		this.#decisions[decision.kind]++;
 		this.#trackQuiet(frame.capturedAt, decision);
 		let action: LiveTrace["action"] = "none";
-		if (shouldProcess(decision)) action = this.#settle(frame);
+		if (shouldProcess(decision) || refresh) action = this.#settle(frame);
+		// A Refresh answered without OCR (frame ring, blank): its "Updating" ends now.
+		if (refresh && this.#inFlight === 0 && this.#status === "updating") this.#setStatus(this.#empty ? "empty" : "live");
+		if (this.#manual && action !== "none") this.#loop.pause();
 		const detectMs = this.#perf() - t0;
 		this.#detectMs += detectMs;
 		this.#detectMax = Math.max(this.#detectMax, detectMs);
@@ -402,12 +479,13 @@ export class LiveRunner {
 		this.#lastOcrAt = frame.capturedAt;
 		const gap = this.#budget?.state().limits.ocrGapMs ?? 0;
 		if (gap > 0) this.#detector.holdUntil(frame.capturedAt + gap);
-		this.#armUpdating(epoch);
 		let ids: Map<string, string> | null = null;
 		const onEvent = (event: PipelineEvent) => {
 			if (epoch !== this.#epoch) return;
 			if (event.type === "recognised") {
 				ids = this.#apply(seq, frame, event.blocks, null, false);
+				// GLIM-157: "Updating" only while changed text is being translated.
+				if (this.#pendingTranslation(ids)) this.#armUpdating(epoch);
 				this.#settleMs += this.#perf() - startedAt;
 				this.#settleCount++;
 			} else if (event.type === "translation" && ids) {
@@ -497,14 +575,34 @@ export class LiveRunner {
 			};
 		});
 		const first = this.#shownAt === null;
+		const before = this.#shown.map((b) => b.id);
+		const shownSource = new Map(this.#shown.map((b) => [b.id, normaliseSegment(b.source)]));
 		const diff = diffLiveBlocks(this.#shown, inputs, { newId: () => `L${this.#nextId++}`, first });
+		const jitter = new Set<string>();
 		blocks.forEach((b, i) => {
 			const id = diff.ids[i];
-			if (id) ids.set(b.id, id);
+			if (!id) return;
+			ids.set(b.id, id);
+			const was = shownSource.get(id);
+			const kept = diff.blocks.find((x) => x.id === id);
+			// Matched as the same text, but read differently this time: the shown text stays.
+			if (was !== undefined && kept && normaliseSegment(kept.source) === was && normaliseSegment(b.text) !== was) {
+				jitter.add(id);
+			}
 		});
+		this.#jitter = { seq, ids: jitter };
 		this.#shown = diff.blocks;
 		this.#shownAt = frame.capturedAt;
-		this.#emitFrame(seq, frame, diff.upserts, diff.removes, diff.order, diff.changeSet, reused);
+		// GLIM-157: the same text as shown (boxes may have moved a pixel): nothing to show.
+		const unchanged =
+			!first &&
+			!this.#empty &&
+			diff.upserts.length === 0 &&
+			diff.removes.length === 0 &&
+			diff.order.length === before.length &&
+			diff.order.every((id, i) => id === before[i]);
+		if (unchanged) this.#unchanged++;
+		else this.#emitFrame(seq, frame, diff.upserts, diff.removes, diff.order, diff.changeSet, reused);
 		// L12 pack rows: a fresh run sends its `packs` right after `recognised`; a frame-ring
 		// hit carries them in its result; nothing waiting clears them.
 		if (!blocks.some((b) => b.waitingForPack)) this.#packs(seq, ids, []);
@@ -548,6 +646,10 @@ export class LiveRunner {
 			return;
 		}
 		if (t.final && !failed && shown.translation === t.text) return; // unchanged block, cache hit
+		// GLIM-157: an unchanged, translated block doesn't stream its translation again, and a
+		// block read with OCR jitter keeps the translation of the text it shows.
+		if (!t.final && shown.translation !== null) return;
+		if (shown.translation !== null && this.#jitter.seq === seq && this.#jitter.ids.has(id)) return;
 		if (t.final) {
 			this.#shown = this.#shown.map((b) => (b.id === id ? { ...b, translation: failed ? null : t.text, failed } : b));
 		}
@@ -660,6 +762,12 @@ export class LiveRunner {
 		this.#epoch++;
 		this.#inFlight = 0;
 		this.#clearTimers();
+	}
+
+	/** A block of this run (run id -> stable id) that is shown without its translation yet. */
+	#pendingTranslation(ids: ReadonlyMap<string, string>): boolean {
+		const mine = new Set(ids.values());
+		return this.#shown.some((b) => mine.has(b.id) && b.cls === "translate" && b.translation === null && !b.failed);
 	}
 
 	#armUpdating(epoch: number): void {

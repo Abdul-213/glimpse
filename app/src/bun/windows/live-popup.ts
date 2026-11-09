@@ -125,6 +125,10 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 					},
 					dockRequested: (m) => str(m?.sessionId) && c()?.dock(m.sessionId),
 					pinToggled: (m) => str(m?.sessionId) && c()?.setPinned(m.sessionId, !!m.on),
+					// GLIM-157: Refresh and the Update mode.
+					refreshRequested: (m) => str(m?.sessionId) && c()?.refresh(m.sessionId),
+					updateModeChanged: (m) =>
+						str(m?.sessionId) && c()?.setUpdateMode(m.sessionId, m.mode === "manual" ? "manual" : "text"),
 					// GLIM-154: overlay mode and the badges / cards for the pinned frame.
 					overlayToggled: (m) => str(m?.sessionId) && c()?.toggleOverlay(m.sessionId, !!m.on),
 					liveMarks: (m) =>

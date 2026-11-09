@@ -284,6 +284,7 @@ export class LiveService {
 			fps: settings.live.fps,
 			diffThreshold: settings.live.diffThreshold,
 			stabilityMs: settings.live.stabilityMs,
+			update: settings.live.update,
 			...(this.#d.perfNow ? { perfNow: this.#d.perfNow } : {}),
 			cpuNow: this.#d.cpuNow ?? processCpuMs,
 			onBudget: (b) =>
@@ -439,11 +440,18 @@ export class LiveService {
 	 * Re-read the region on the next grab, without the frame ring (GLIM-123): a language pack
 	 * landed, so blocks that were waiting for it translate in place. The session keeps running.
 	 */
-	refresh(reason: "pack-installed"): void {
+	refresh(reason: "pack-installed" | "user"): void {
 		const cur = this.#current;
 		if (!cur) return;
-		cur.runner.invalidate();
+		// GLIM-157: the Refresh button / key reads the region now, "Updating" until done.
+		if (reason === "user") cur.runner.refresh();
+		else cur.runner.invalidate();
 		this.#d.log.info("live: re-reading the region", { session: cur.id, reason });
+	}
+
+	/** GLIM-157: Settings › Live › Update is "Only when I refresh" for the running session. */
+	get manual(): boolean {
+		return this.#current?.runner.manual ?? false;
 	}
 
 	/**

@@ -38,6 +38,7 @@ const VARIANTS: readonly ShotVariant[] = [
 			"l23-unpinned",
 			"l25-comic-markers",
 			"l26-comic-overlay",
+			"l27-manual",
 		],
 	},
 	{
@@ -58,6 +59,7 @@ const VARIANTS: readonly ShotVariant[] = [
 			"l23-unpinned",
 			"l24-moved-compact",
 			"l26-comic-overlay",
+			"l27-manual",
 		],
 	},
 	{ suffix: "macos-dark-rtl-ui", query: "os=macos&dir=rtl", colorScheme: "dark", only: ["l4-changed"] },

@@ -75,6 +75,7 @@ const ACTION_NAMES: Record<HotkeyAction, string> = {
 	resnip: "Snip the last region again",
 	toggleLivePopup: "Show or hide the Live popup",
 	focusLivePopup: "Focus the Live popup",
+	refreshLive: "Refresh Live",
 };
 
 const MODEL_ID = /^[a-z0-9][a-z0-9.-]{0,127}$/;

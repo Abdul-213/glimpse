@@ -42,6 +42,10 @@ export const COPY = {
 	hideFromScreen: "Back to the list only",
 	// GLIM-158: the toggle's visible label.
 	onScreen: "On screen",
+	// GLIM-157: Update mode and Refresh.
+	refresh: "Refresh",
+	manualOn: "Only update when I refresh",
+	manualNote: "Updates only when you refresh.",
 } as const;
 
 /** GLIM-151: read with the popup (aria-describedby): how to move it from the keyboard. */

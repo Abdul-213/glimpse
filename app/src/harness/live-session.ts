@@ -17,6 +17,7 @@ import {
 	type LiveRunnerStats,
 	type LiveSessionEvent,
 	type LiveTrace,
+	type LiveUpdateMode,
 	livePopupSummary,
 	type OcrProvider,
 	type Rect,
@@ -45,6 +46,10 @@ export interface LiveSessionRunOptions {
 	readonly timers?: Timers;
 	/** Process CPU time in µs (`process.cpuUsage()` user + system), for the cost line. */
 	readonly cpuMicros?: () => number;
+	/** GLIM-157: Settings › Live › Update (`text` by default). */
+	readonly update?: LiveUpdateMode;
+	/** GLIM-157: press Refresh at these times (ms since the session started). */
+	readonly refreshAt?: readonly number[];
 }
 
 export interface LiveSessionReport {
@@ -140,6 +145,7 @@ export async function runLiveSession(
 		fps: options.fps,
 		diffThreshold: options.diffThreshold,
 		stabilityMs: options.stabilityMs,
+		...(options.update ? { update: options.update } : {}),
 		perfNow: () => performance.now(),
 		onEvent: onSessionEvent,
 		onTrace: (tr) => traces.push({ ...tr, t: tr.at - t0 }),
@@ -148,6 +154,7 @@ export async function runLiveSession(
 	const wall0 = performance.now();
 	try {
 		runner.start();
+		for (const at of options.refreshAt ?? []) timers.setTimeout(() => runner.refresh(), at);
 		if (timers instanceof ManualTimers) await timers.advance(options.durationMs);
 		else await Bun.sleep(options.durationMs);
 	} finally {

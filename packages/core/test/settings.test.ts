@@ -46,12 +46,20 @@ describe("settings defaults", () => {
 				resnip: null,
 				toggleLivePopup: null,
 				focusLivePopup: null,
+				refreshLive: null,
 			},
 			providers: { ocr: "paddleocr", translation: ["bergamot", "small100"], options: {} },
 			appearance: { theme: "system", motion: "system" },
 			snip: { copyAfterSnip: true, showOriginalUnder: false, alwaysShowLanguages: false, showOnScreen: false },
 			picker: { showLoupe: true, confirmOnRelease: true },
-			live: { fps: 3, diffThreshold: 0.02, stabilityMs: 300, announceChanges: "auto", popupOffsets: [] },
+			live: {
+				fps: 3,
+				diffThreshold: 0.02,
+				stabilityMs: 300,
+				announceChanges: "auto",
+				update: "text",
+				popupOffsets: [],
+			},
 			privacy: {
 				privateByDefault: false,
 				clearCacheAfterIdleMinutes: 15,
@@ -136,6 +144,7 @@ describe("hotkeys", () => {
 			resnip: "Ctrl+Alt+R",
 			toggleLivePopup: null,
 			focusLivePopup: null,
+			refreshLive: null,
 		});
 		expect(issues.map((i) => i.path)).toEqual(["hotkeys.snip", "hotkeys.pauseLive"]);
 	});
@@ -160,6 +169,7 @@ describe("parseSettings repairs field by field", () => {
 			diffThreshold: 0.1,
 			stabilityMs: 300,
 			announceChanges: "auto",
+			update: "text",
 			popupOffsets: [],
 		});
 		expect(settings.appearance).toEqual({ theme: "system", motion: "reduced" });

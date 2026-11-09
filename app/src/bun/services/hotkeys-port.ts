@@ -18,6 +18,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
 	"resnip",
 	"toggleLivePopup",
 	"focusLivePopup",
+	"refreshLive",
 ];
 
 export interface HotkeyRegistrar {
@@ -71,6 +72,7 @@ export function registrationStatus(
 		resnip: one("resnip"),
 		toggleLivePopup: one("toggleLivePopup"),
 		focusLivePopup: one("focusLivePopup"),
+		refreshLive: one("refreshLive"),
 	};
 }
 
@@ -83,7 +85,15 @@ export class ServiceHotkeyRegistrar implements HotkeyRegistrar {
 		private readonly handlers: HotkeyHandlers,
 	) {
 		this.#status = registrationStatus(
-			{ snip: null, live: null, pauseLive: null, resnip: null, toggleLivePopup: null, focusLivePopup: null },
+			{
+				snip: null,
+				live: null,
+				pauseLive: null,
+				resnip: null,
+				toggleLivePopup: null,
+				focusLivePopup: null,
+				refreshLive: null,
+			},
 			[],
 			handlers,
 		);
@@ -112,9 +122,9 @@ export class ServiceHotkeyRegistrar implements HotkeyRegistrar {
  * by the session's state, and every one does nothing while no area is pinned.
  */
 export function liveHotkeyHandlers(
-	dispatch: (command: "live.pause" | "live.resume" | "live.popup.toggle" | "live.popup.focus") => void,
+	dispatch: (command: "live.pause" | "live.resume" | "live.popup.toggle" | "live.popup.focus" | "live.refresh") => void,
 	live: () => { readonly active: boolean; readonly paused: boolean },
-): Pick<HotkeyHandlers, "pauseLive" | "toggleLivePopup" | "focusLivePopup"> {
+): Pick<HotkeyHandlers, "pauseLive" | "toggleLivePopup" | "focusLivePopup" | "refreshLive"> {
 	const whenActive = (run: () => void) => () => {
 		if (live().active) run();
 	};
@@ -122,5 +132,7 @@ export function liveHotkeyHandlers(
 		pauseLive: whenActive(() => dispatch(live().paused ? "live.resume" : "live.pause")),
 		toggleLivePopup: whenActive(() => dispatch("live.popup.toggle")),
 		focusLivePopup: whenActive(() => dispatch("live.popup.focus")),
+		// GLIM-157: Refresh, from any app (the game keeps the keyboard).
+		refreshLive: whenActive(() => dispatch("live.refresh")),
 	};
 }

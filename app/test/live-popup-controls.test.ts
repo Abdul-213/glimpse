@@ -34,6 +34,11 @@ describe("liveKey (§6.2)", () => {
 		expect(liveKey(k("w", { metaKey: true }), true)).toBe("stop");
 		expect(liveKey(k("w", { ctrlKey: true }), true)).toBeNull();
 	});
+	test("GLIM-157: Ctrl/⌘R refreshes", () => {
+		expect(liveKey(k("r", { ctrlKey: true }), false)).toBe("refresh");
+		expect(liveKey(k("r", { metaKey: true }), true)).toBe("refresh");
+		expect(liveKey(k("R", { ctrlKey: true, shiftKey: true }), false)).toBeNull();
+	});
 });
 
 class Session implements LivePopupSession {

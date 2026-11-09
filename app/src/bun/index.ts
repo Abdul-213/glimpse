@@ -504,7 +504,10 @@ livePopup = new LivePopupController({
 		// GLIM-154: the same setting as Snip; the cards are in the target language.
 		showOnScreen: appSettings.current.snip.showOnScreen,
 		target: appSettings.current.language.target,
+		update: appSettings.current.live.update,
 	}),
+	// GLIM-157: the popup's Update toggle is Settings › Live › Update.
+	setUpdateMode: (mode) => void appSettings.update({ live: { update: mode } }),
 	setPrivate: (on) => translation.setPrivate(on),
 	// L18: the session pauses while the picker is open; a new area replaces it, Esc resumes
 	// it as it was (a session the user had paused stays paused).
@@ -630,6 +633,8 @@ commands.handle("onboarding.open", () => onboarding.open("setup"));
 commands.handle("live.stop", () => live.stop());
 commands.handle("live.pause", () => live.pause("user"));
 commands.handle("live.resume", () => live.resume());
+// GLIM-157: Refresh (popup button, Ctrl/⌘R in the popup, the optional hotkey, the tray).
+commands.handle("live.refresh", () => live.refresh("user"));
 // GLIM-81: the tray mirrors the popup (live-popup.md §6.3).
 commands.handle("live.popup.toggle", () => {
 	const hidden = !livePopup?.hidden;
@@ -697,6 +702,7 @@ const tray = createTray(
 		taskbarTheme: "dark",
 		notices: trayNotices(),
 		showOnScreen: appSettings.current.snip.showOnScreen,
+		liveManual: appSettings.current.live.update === "manual",
 	},
 	commands,
 );
@@ -733,6 +739,11 @@ appSettings.subscribe((next, previous) => {
 	if (next.snip.showOnScreen === previous.snip.showOnScreen) return;
 	tray.update({ showOnScreen: next.snip.showOnScreen });
 	livePopup?.setOverlay(next.snip.showOnScreen);
+});
+appSettings.subscribe((next, previous) => {
+	if (next.live.update === previous.live.update) return;
+	tray.update({ liveManual: next.live.update === "manual" });
+	livePopup?.settingsChanged();
 });
 
 void hotkeyRegistrar.apply(loadedSettings.settings.hotkeys);

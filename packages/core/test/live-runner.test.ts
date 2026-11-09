@@ -236,28 +236,45 @@ describe("LiveRunner (GLIM-58)", () => {
 		s.runner.stop();
 	});
 
-	test("'Updating' after 1 s of processing a settled change", async () => {
+	test("'Updating' after 1 s of translating changed text (GLIM-157: not while OCR re-reads unchanged text)", async () => {
 		const s = await setup([
 			{ colour: "red", holdMs: 1000 },
 			{ colour: "green", holdMs: 5000 },
 		]);
 		let release: () => void = () => {};
 		const slow = new Promise<void>((r) => (release = r));
-		const original = s.ocr.recognise.bind(s.ocr);
+		const original = s.translator.translate.bind(s.translator);
 		let n = 0;
-		s.ocr.recognise = async (req, opts) => {
+		s.translator.translate = async function* (req, opts) {
 			if (++n === 2) await slow;
-			return original(req, opts);
+			yield* original(req, opts);
 		};
 		s.runner.start();
 		await s.at(2000);
 		expect(s.runner.status).toBe("live");
-		await s.at(2400); // settled at 1300 + 1000 ms
+		await s.at(2400); // settled at 1300, read at once, translating for 1000 ms
 		expect(s.runner.status).toBe("updating");
 		release();
 		await s.at(2500);
 		expect(s.runner.status).toBe("live");
 		expect(statuses(s.events)).toEqual(["starting", "live", "updating", "live"]);
+		s.runner.stop();
+	});
+
+	test("GLIM-157: a slow OCR read alone never shows 'Updating' (only translating changed text does)", async () => {
+		const s = await setup([
+			{ colour: "red", holdMs: 1000 },
+			{ colour: "green", holdMs: 1000 },
+			{ colour: "red", holdMs: 4000 },
+		]);
+		const original = s.ocr.recognise.bind(s.ocr);
+		s.ocr.recognise = async (req, opts) => {
+			await new Promise<void>((r) => s.timers.setTimeout(r, 1500));
+			return original(req, opts);
+		};
+		s.runner.start();
+		await s.at(6000);
+		expect(statuses(s.events)).not.toContain("updating");
 		s.runner.stop();
 	});
 
