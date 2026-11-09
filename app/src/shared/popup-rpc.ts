@@ -16,6 +16,7 @@
 //                snipHoverBlock a block is hovered or focused (null: none); its box lights on screen (GLIM-115)
 //                snipOverlay    overlay mode on/off (GLIM-152)
 //                snipPeek       peek key held / released while the overlay is on (GLIM-152)
+//                snipOverlayHintSeen  the one-time On screen hint was shown (GLIM-158)
 import type { PopupSide, SnipPopupState } from "@glimpse/core";
 import type { RPCSchema } from "electrobun/view";
 import type { Platform } from "./rpc.ts";
@@ -36,6 +37,8 @@ export interface SnipViewInit {
 		overlay: string;
 		peek: string;
 	};
+	/** GLIM-158: offer the one-time On screen hint (not seen since install). Absent: no hint. */
+	overlayHint?: boolean;
 }
 
 export interface SnipLayout {
@@ -113,6 +116,8 @@ export type SnipPopupRPC = {
 			snipOverlay: { requestId: string; on: boolean };
 			/** GLIM-152: the peek key is held (overlay cards step aside) or released. */
 			snipPeek: { requestId: string; on: boolean };
+			/** GLIM-158: the one-time On screen hint was shown (main records it in settings). */
+			snipOverlayHintSeen: Record<never, never>;
 		};
 	}>;
 	webview: RPCSchema<{

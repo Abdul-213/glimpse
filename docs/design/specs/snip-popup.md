@@ -61,7 +61,9 @@ For comics and busy layouts, where matching numbers is still work: the results l
 
 | Element | Tokens / values |
 |---|---|
-| Toggle | A footer `button-icon` before Show original (§2.4), speech-bubble-with-lines icon, `aria-pressed`, tooltip "Show translations on screen" / "Back to the list only" with `Ctrl+Shift+T` / `⌘⇧T`. Disabled until a translate-class block exists, and in error states. The popup itself stays as it is (list, footer, keys); the overlay is an addition. The ticket asked for a header toggle; the popup has no header (§14 decision 3), so it joins the footer's icon buttons. |
+| Toggle | GLIM-158: a **labelled** footer toggle before Show original (§2.4), so it is found without hovering: `button-toggle`, 24px tall, speech-bubble-with-lines icon + "On screen" in `label` type, `aria-pressed` (the accessible name is the visible label, so screen readers hear "On screen, toggle button, pressed"), tooltip "Show translations on screen" / "Back to the list only" with `Ctrl+Shift+T` / `⌘⇧T` (and `aria-keyshortcuts`). At rest: `text-secondary` with a 1px `border-control` edge; hover `overlay-hover`; on: `overlay-selected` fill, no edge, `text-primary`, icon in `accent`; disabled: `text-disabled` with a `divider` edge. Disabled until a translate-class block exists, and in error states. The popup itself stays as it is (list, footer, keys); the overlay is an addition. The popup has no header (§14 decision 3), so it sits in the footer. GLIM-158 also wired it: in 0.0.3 the view never sent `snipOverlay` / `snipPeek`, so the button and `Ctrl/⌘⇧T` did nothing outside the previews. |
+| First-use hint (GLIM-158) | On the first Snip after install that has a translate-class block, one quiet line right above the footer, inline-end aligned, `label` type, `text-secondary`: "Tip: On screen ({key}) puts translations over the text." It is the toggle's `aria-describedby`. It stays for that Snip until the toggle is used, and never shows again (`onboarding.overlayHintSeen`, set when it first shows). |
+| Tray | The tray's **Show translations on screen** checkbox is the Settings switch (the default for new Snips and Live sessions). |
 | Card | One per translate-class block with a final translation (pending, failed and waiting blocks keep their plain box and badge until there is something to paint). Opaque: `surface-popup-solid` background, `text-primary`, 1px `border-hairline` edge, the **Tooltip** shadow, `rounded.control`, 4px 6px padding, following the OS appearance (light or dark). Text in `translation` weight with the target language's script stack, size step and leading (`:lang()`), centred, `dir` of the target language (RTL targets right-to-left). The card sits on the box's top edge. |
 | Fitting | Pure `fitText` (core): the largest size from 15px (the popup's `translation` size, × the script's size step) down to 11px in 0.5px steps at which the wrapped text fits the box, never breaking inside a word above the floor. At 11px, if it still doesn't fit, the card grows **downward**. A card is at least 72px wide, and widens around the box's centre (up to 240px) to fit its longest word, so a tall, narrow manga column doesn't get one letter per line. Lines wrap at spaces, and between words in scripts without spaces (CJK, Thai; `Intl.Segmenter`), punctuation staying with its word. The card is clamped onto the display. |
 | Linked / picked | A 2px `accent` ring (the card hides the box fill). |
@@ -71,7 +73,7 @@ For comics and busy layouts, where matching numbers is still work: the results l
 | Capture | Cards and badges are drawn by the picker's overlay windows, which are excluded from Glimpse's own capture like the rest of the results layer (`region-picker.md` §9; GLIM-98): a new Snip over the same text never reads its own cards. |
 | Accessibility | The marks are `aria-hidden`: the popup is the accessible surface for the same text, with the same numbers in its list. |
 
-Screenshots (regenerate with `bun app/scripts/results-shots.ts` and `bun app/scripts/popup-shots.ts --shots docs/design/screens/snip-popup`): the manga fixture with badges, `docs/design/screens/results-layer/comic-badges-macos-light.png`; overlay mode, `comic-overlay-macos-light.png`, `comic-overlay-windows-dark.png` and `comic-overlay-peek-macos-light.png`; the popup for the same page, `docs/design/screens/snip-popup/s18-comic-markers-*.png` (bubble 3 picked on screen) and `s19-overlay-on-*.png`.
+Screenshots (regenerate with `bun app/scripts/results-shots.ts` and `bun app/scripts/popup-shots.ts --shots docs/design/screens/snip-popup`): the manga fixture with badges, `docs/design/screens/results-layer/comic-badges-macos-light.png`; overlay mode, `comic-overlay-macos-light.png`, `comic-overlay-windows-dark.png` and `comic-overlay-peek-macos-light.png`; the popup for the same page, `docs/design/screens/snip-popup/s18-comic-markers-*.png` (bubble 3 picked on screen), `s19-overlay-on-*.png` (the toggle pressed) and `s20-overlay-hint-*.png` (the first-use hint, GLIM-158).
 
 Live (the same overlay over a pinned region, updating in place) is GLIM-154: `live-popup.md` §2.6.
 
@@ -85,6 +87,7 @@ One 24px row, `margin-block-start` `spacing.2` (8px), `padding-inline` 8px (alig
 | Private mark | When Private is on (GLIM-20): eye-off icon + "Private", `label`, `text-secondary`, `margin-inline-start` 8px. |
 | Spacer | flex 1. |
 | Status | `label`, `text-secondary`, `aria-live` (see §10). "Reading text" → "Translating {done} of {total}" → "Copied" (with a 16px check icon) for 2 s → empty. Errors: "Clipboard not changed". |
+| On screen toggle (GLIM-158) | `button-toggle`: speech-bubble icon + the visible label "On screen" (§2.5). |
 | Show original toggle | `button-icon` (24px), icon "text/original", `aria-pressed`. Pressed: `overlay-selected` background, icon `text-primary`. |
 | Copy | `button-icon`, copy icon. |
 | Close | `button-icon`, × icon. |
@@ -337,6 +340,9 @@ Never global. Windows / macOS.
 | `snip.e7.primary` | Snip again |
 | `snip.btn.overlay` | Show translations on screen ({key}) |
 | `snip.btn.overlayOff` | Back to the list only ({key}) |
+| `snip.btn.overlayLabel` | On screen (GLIM-158: the toggle's visible label) |
+| `snip.hint.overlay` | Tip: On screen ({key}) puts translations over the text. (GLIM-158, once after install) |
+| `tray.showOnScreen` | Show translations on screen (macOS: Show Translations on Screen; a checkbox, GLIM-158) |
 | `snip.status.peek` | Hold {key} to peek |
 | `settings.snip.showOnScreen` | Show translations on screen. Each translation covers the text it translates, for comics and busy layouts. |
 | `snip.a11y.dialog` | Translation |

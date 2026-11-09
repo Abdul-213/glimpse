@@ -58,6 +58,10 @@ render(
 								original: (requestId, on) => rpc.send.snipOriginal({ requestId, on }),
 								copy: (requestId, what) => rpc.send.snipCopy({ requestId, what }),
 								hoverBlock: (requestId, blockId) => rpc.send.snipHoverBlock({ requestId, blockId }),
+								// GLIM-158: these two were never wired, so the footer toggle and Ctrl/⌘⇧T did nothing.
+								overlay: (requestId, on) => rpc.send.snipOverlay({ requestId, on }),
+								peek: (requestId, on) => rpc.send.snipPeek({ requestId, on }),
+								overlayHintSeen: () => rpc.send.snipOverlayHintSeen({}),
 							}}
 						/>
 					)}

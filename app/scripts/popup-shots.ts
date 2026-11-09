@@ -50,6 +50,7 @@ export const VARIANTS: readonly ShotVariant[] = [
 			"s6-original-view",
 			"s18-comic-markers",
 			"s19-overlay-on",
+			"s20-overlay-hint",
 		],
 	},
 	{ suffix: "macos-dark", query: "os=macos", colorScheme: "dark", only: ["s4-done", "s8-mixed-languages"] },

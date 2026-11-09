@@ -59,6 +59,7 @@ export {
 export { Switch, type SwitchProps } from "./components/Switch.tsx";
 export { type BlockKind, type BlockState, TextBlock, type TextBlockProps } from "./components/TextBlock.tsx";
 export { TextButton } from "./components/TextButton.tsx";
+export { ToggleButton, type ToggleButtonProps } from "./components/ToggleButton.tsx";
 export { Toolbar, type ToolbarProps } from "./components/Toolbar.tsx";
 export { Tooltip, type TooltipProps } from "./components/Tooltip.tsx";
 export * from "./format.ts";

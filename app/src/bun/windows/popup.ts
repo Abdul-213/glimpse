@@ -44,6 +44,8 @@ export interface ElectrobunPopupDeps {
 	readonly log: (message: string) => void;
 	/** Native material, cloak, edges, theme (GLIM-116). Without it: solid veil, plain hide. */
 	readonly chrome?: WindowChrome;
+	/** GLIM-158: offer the one-time On screen hint (read at each view load), and record it shown. */
+	readonly overlayHint?: { readonly offered: () => boolean; readonly seen: () => void };
 }
 
 export class ElectrobunPopupWindow implements PopupWindowPort {
@@ -67,7 +69,7 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 						queueMicrotask(() => {
 							if (this.last) this.send(this.last);
 						});
-						return deps.init;
+						return deps.overlayHint ? { ...deps.init, overlayHint: deps.overlayHint.offered() } : deps.init;
 					},
 				},
 				messages: {
@@ -107,6 +109,7 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 					snipPeek: (m) => {
 						if (typeof m?.requestId === "string") c()?.peek(m.requestId, !!m.on);
 					},
+					snipOverlayHintSeen: () => deps.overlayHint?.seen(),
 					snipRetryBlock: (m) => {
 						if (typeof m?.requestId === "string" && typeof m.blockId === "string") {
 							c()?.retryBlock(m.requestId, m.blockId);

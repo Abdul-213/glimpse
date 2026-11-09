@@ -75,6 +75,14 @@ body,
 		margin-inline-start: auto;
 	}
 
+	/* GLIM-158: a compact strip with the labelled On screen toggle can't hold every control
+	   on one line either; the controls wrap again, flush to inline-end, never clipped. */
+	.live-popup[data-layout="compact"] .live-controls {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		row-gap: var(--spacing);
+	}
+
 	/* Cloud row (§2.3): the egress pill for the whole session. */
 	.live-cloud-row {
 		display: flex;

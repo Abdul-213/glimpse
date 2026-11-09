@@ -243,6 +243,15 @@ components:
   button-icon-hover:
     backgroundColor: "{colors.overlay-hover}"
     textColor: "{colors.text-primary}"
+  button-toggle:
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    padding: "0 8px 0 6px"
+    height: "24px"
+  button-toggle-pressed:
+    backgroundColor: "{colors.overlay-selected}"
+    textColor: "{colors.text-primary}"
   field:
     backgroundColor: "{colors.surface-control}"
     textColor: "{colors.text-primary}"
@@ -497,7 +506,7 @@ All layout uses logical properties (`margin-inline-start`, `padding-block`, `ins
 
 **Snip popup placement.** Placed 8px outside the selection and at least 8px inside the work area: below it if there are 200px of room, then above (same test), then the inline-end side, then the inline-start side (each needs 280px), then below or above, whichever is larger, if it has at least 96px. Below and above align the popup's inline-start edge with the region's; sides align their tops. It never overlaps the selected region, with one last resort: when the region fills nearly the whole display, the popup sits inside its block-end, inline-end corner, inset 8px, and can be dragged away. Width follows the region (280px minimum, 480px maximum) and is fixed at show time; height grows with content up to 60% of the screen's work area, then the block list scrolls and the footer stays pinned. The edge facing the region is anchored. Exact rules: `docs/design/specs/snip-popup.md` §3.
 
-**Live popup.** Docked 8px from the pinned region on the side chosen at pin time, and it stays on that side for the session (sides tested in the Snip order, with 160px / 240px / 80px thresholds). Below or above, it is **centred** on the region (subtitles and dialogue boxes are centred) and its width matches the region, clamped to 240–640px; on a side its width is clamped to 240–400px. It can be dragged by its control strip (or moved with Alt/Option+arrows); a moved popup stays put for the session, grows from its top-left, and its offset from the region is remembered per display until Dock puts it back (GLIM-151). A 28px control strip sits at the top (grip, status, local indicator, Private, pause/resume, re-pin, Dock while moved, Pin, stop; no Hide button, which lives in the tray). Pin is on by default (above other windows); off, other apps can cover it. Under it, a 24px cloud row while a cloud provider is in use, then a state row when paused, empty or in error. The strip has three widths: **compact** below 300px (local indicator icon-only, no " · Private" in the label), **regular** 300–359px, **wide** from 360px ("On device" spelled out). Live blocks pad 20px at inline-start so the change mark has room and text never shifts. New or resized blocks change only their own height; the popup's anchored edge never moves. Exact rules: `docs/design/specs/live-popup.md` §2–3.
+**Live popup.** Docked 8px from the pinned region on the side chosen at pin time, and it stays on that side for the session (sides tested in the Snip order, with 160px / 240px / 80px thresholds). Below or above, it is **centred** on the region (subtitles and dialogue boxes are centred) and its width matches the region, clamped to 240–640px; on a side its width is clamped to 240–400px. It can be dragged by its control strip (or moved with Alt/Option+arrows); a moved popup stays put for the session, grows from its top-left, and its offset from the region is remembered per display until Dock puts it back (GLIM-151). A 28px control strip sits at the top (grip, status, local indicator, then the labelled On screen toggle when the frame can draw marks, Private, pause/resume, re-pin, Dock while moved, Pin, stop; no Hide button, which lives in the tray). Pin is on by default (above other windows); off, other apps can cover it. Under it, a 24px cloud row while a cloud provider is in use, then a state row when paused, empty or in error. The strip has three widths: **compact** below 300px (local indicator icon-only, no " · Private" in the label), **regular** 300–359px, **wide** from 360px ("On device" spelled out). Live blocks pad 20px at inline-start so the change mark has room and text never shifts. New or resized blocks change only their own height; the popup's anchored edge never moves. Exact rules: `docs/design/specs/live-popup.md` §2–3.
 
 **Settings.** A fixed-size window (720 × 520 minimum, resizable) with a 200px navigation list at the inline-start side and a scrolling pane. On macOS the list sits on sidebar vibrancy; on Windows it uses the Mica navigation-view convention.
 
@@ -537,7 +546,7 @@ Borders are 1px everywhere: `border-hairline` for window edges, `border-control`
 - Visible only for keyboard focus (`:focus-visible`). Every surface, including the picker and every popup control, is reachable and dismissible from the keyboard.
 
 ### Snip popup
-- **Structure:** the block list (which scrolls, and ends with the skipped line when there is one), then a 24px footer row (`popup-footer`): the provider indicator and Private mark at inline-start, the status text, then the Show original, Copy and Close icon buttons at inline-end. No header, no title, no logo. A 1px `divider` appears above the footer only when the list overflows.
+- **Structure:** the block list (which scrolls, and ends with the skipped line when there is one), then a 24px footer row (`popup-footer`): the provider indicator and Private mark at inline-start, the status text, then the labelled On screen toggle (`button-toggle`, GLIM-158) and the Show original, Copy and Close icon buttons at inline-end. No header, no title, no logo. A 1px `divider` appears above the footer only when the list overflows.
 - **Pending state:** as soon as OCR returns, each block shows its source text in `block-source` style. Before OCR returns, static skeleton bars (`skeleton-bar`: `overlay-pressed`, 10px tall, `rounded.box`, centred in a 22px line, width the detected box's share of the region clamped to 30–100%), one per detected box. No shimmer.
 - **Missing language packs:** one row per missing language at the top of the list ("Japanese isn't downloaded yet." + Download), never a row per block.
 - **Copy feedback:** the footer's status changes to "Copied" with a check icon for 2 s. No toast.
@@ -585,6 +594,7 @@ Borders are 1px everywhere: `border-hairline` for window edges, `border-control`
 ### Buttons, fields and keys
 - **Primary** (`button-primary`): one per view at most; onboarding's next step, settings' confirm actions. Hover layers `overlay-hover` over the fill; pressed layers `overlay-pressed`.
 - **Secondary** (`button-secondary`) with a 1px `border-control` edge; **icon** buttons (`button-icon`) with a tooltip naming the action and its shortcut. Toggling icon buttons (Show original, Private) use `aria-pressed`; pressed shows `overlay-selected` behind a `text-primary` icon.
+- **Labelled toggle** (`button-toggle`, GLIM-158): for a mode that must be found without hovering ("On screen" in both popups). Icon + a short `label`-type word, 24px tall like `button-icon`, a 1px `border-control` edge at rest so it reads as a button; pressed is `button-toggle-pressed` (`overlay-selected`, no edge) with the icon in `accent`. `aria-pressed`, the visible word is its name, the tooltip names the action and key. One per popup at most; everything else stays an icon button.
 - **Tooltip** (`tooltip`): `surface-popup-solid`, `label` type, `rounded.kbd`, shadow **Tooltip**, after a 500 ms hover or at once on keyboard focus.
 - **Fields** (`field`) with a 1px `border-control` edge; on focus the edge is replaced by the focus ring. Errors: `danger` edge plus an inline message in `danger` below.
 - **kbd** chips show OS-native glyphs (⌃⇧S on macOS, Alt+Shift+S on Windows) in `label` type.
