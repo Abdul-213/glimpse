@@ -585,6 +585,13 @@ export class LivePopupController {
 		this.#dispatch({ type: "toggleOverlay", on });
 	}
 
+	/** GLIM-158: the tray's Show translations on screen; the running session follows it. */
+	setOverlay(on: boolean): void {
+		if (this.#state.sessionId === null || this.#state.overlay === on) return;
+		this.#d.log.info("live popup: overlay", { on, from: "tray" });
+		this.#dispatch({ type: "toggleOverlay", on });
+	}
+
 	/**
 	 * The view's badges and cards for the frame. Bitmaps arrive once per key and are kept
 	 * while the marks use them; a sprite whose bitmap main doesn't have is skipped.

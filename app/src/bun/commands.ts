@@ -18,6 +18,8 @@ export const COMMANDS = [
 	/** "Focus Live popup" (§6.3): keyboard and screen-reader users reach its controls. */
 	"live.popup.focus",
 	"private.toggle",
+	/** GLIM-158: Show translations on screen (the Settings default; a running Live session follows). */
+	"overlay.toggle",
 	"cache.clear",
 	"settings.open",
 	"screen-access.open",

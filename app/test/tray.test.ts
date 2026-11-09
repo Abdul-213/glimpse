@@ -36,6 +36,7 @@ describe("tray menu", () => {
 			"Snip\tAlt+Shift+S",
 			"Live: pin a region\tAlt+Shift+L",
 			"Private",
+			"Show translations on screen",
 			"Clear translation cache",
 			"Settings…",
 			"Troubleshooting",
@@ -46,6 +47,7 @@ describe("tray menu", () => {
 			"snip.start",
 			"live.start",
 			"private.toggle",
+			"overlay.toggle",
 			"cache.clear",
 			"settings.open",
 			"app.quit",
@@ -108,6 +110,14 @@ describe("tray menu", () => {
 	test("Private is a checkbox item", () => {
 		expect(byAction(buildTrayMenu(base), "private.toggle")?.checked).toBe(false);
 		expect(byAction(buildTrayMenu({ ...base, private: true }), "private.toggle")?.checked).toBe(true);
+	});
+
+	test("GLIM-158: Show translations on screen is a checkbox item, Title Case on macOS", () => {
+		expect(byAction(buildTrayMenu(base), "overlay.toggle")?.checked).toBe(false);
+		expect(byAction(buildTrayMenu({ ...base, showOnScreen: true }), "overlay.toggle")?.checked).toBe(true);
+		expect(byAction(buildTrayMenu({ ...base, platform: "macos" }), "overlay.toggle")?.label).toBe(
+			"Show Translations on Screen",
+		);
 	});
 
 	test("every menu action is a known command", () => {

@@ -38,6 +38,7 @@ import {
 	StatusIndicator,
 	TextBlock,
 	TextButton,
+	ToggleButton,
 	Toolbar,
 } from "@glimpse/ui";
 import { createEffect, createMemo, createSignal, For, type JSX, on, onCleanup, onMount, Show } from "solid-js";
@@ -471,10 +472,24 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 					)}
 				/>
 				<Show when={!cloud()}>
-					<LocalIndicator label={COPY.local} tooltip={COPY.localTooltip} compact={layout() !== "wide"} />
+					{/* GLIM-158: with the labelled On screen toggle, the local indicator is icon-only so a
+					    wide strip stays one line (the words stay in its tooltip and accessible name). */}
+					<LocalIndicator label={COPY.local} tooltip={COPY.localTooltip} compact={layout() !== "wide" || marksOn()} />
 				</Show>
 				<span class="live-spacer" />
 				<Toolbar label={COPY.controls} class="live-controls">
+					{/* GLIM-154: overlay mode, when the frame can paint cards out of capture. */}
+					{/* GLIM-158: a labelled toggle, first in the strip, so the mode is findable without hovering. */}
+					<Show when={marksOn()}>
+						<ToggleButton
+							icon="on-screen"
+							text={COPY.onScreen}
+							tooltip={overlayOn() ? COPY.hideFromScreen : COPY.showOnScreen}
+							shortcut={props.init.keys.overlay}
+							pressed={overlayOn()}
+							onClick={() => setOverlay(!overlayOn())}
+						/>
+					</Show>
 					{/* L10: until the question is answered only Stop (= cancel) is offered. */}
 					<Show when={state().status !== "consent"}>
 						<IconButton
@@ -492,16 +507,6 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 							onClick={togglePause}
 						/>
 						<IconButton icon="select-area" label={COPY.repin} onClick={() => props.intents.repin(id())} />
-					</Show>
-					{/* GLIM-154: overlay mode, when the frame can paint cards out of capture. */}
-					<Show when={marksOn()}>
-						<IconButton
-							icon="on-screen"
-							label={overlayOn() ? COPY.hideFromScreen : COPY.showOnScreen}
-							shortcut={props.init.keys.overlay}
-							pressed={overlayOn()}
-							onClick={() => setOverlay(!overlayOn())}
-						/>
 					</Show>
 					{/* GLIM-151: window controls. Dock only once moved; Pin is a toggle (on = on top). */}
 					<Show when={moved()}>

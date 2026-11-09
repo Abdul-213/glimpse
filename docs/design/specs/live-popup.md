@@ -33,17 +33,17 @@ Inline-start to end:
 | Grip (GLIM-151) | 12px six-dot `grip` icon, `text-secondary` at 55% opacity, full while the strip is hovered or dragged; decorative (`aria-hidden`). Says "this bar moves the popup". |
 | Status dot | 8px circle. Running / updating: `accent` fill. Paused: hollow 1.5px ring in `text-secondary`. Error: `danger` fill. Consent pending: hollow ring. **Never pulses.** |
 | Status label | `label` (12px / 500), `text-secondary`, 6px after the dot. Text per state (§4, copy §11). " · Private" is appended when Private is on and the popup is ≥ 300px wide. |
-| Local indicator | `local-indicator` (chip icon, `text-secondary`). Icon + "On device" at ≥ 360px wide; icon only below that, with `aria-label` and tooltip. 8px after the label. Hidden when cloud is in use (the cloud row replaces it). |
+| Local indicator | `local-indicator` (chip icon, `text-secondary`). Icon + "On device" at ≥ 360px wide; icon only below that, and at every width while the On screen toggle is shown (GLIM-158), with `aria-label` and tooltip. 8px after the label. Hidden when cloud is in use (the cloud row replaces it). |
 | Spacer | flex 1. |
+| On screen (GLIM-154, GLIM-158) | **First** in the controls. `button-toggle`: `on-screen` (speech bubble) icon + the visible label "On screen", 24px tall, `aria-pressed` (its accessible name is the label), tooltip "Show translations on screen" / "Back to the list only" with `Ctrl+Shift+T` / `⌘⇧T`. At rest a 1px `border-control` edge so it reads as a button without hovering; on: `overlay-selected` fill, no edge, icon in `accent`. Only when the frame can draw marks out of capture (§2.6). |
 | Private toggle | `button-icon` 24px, eye-off icon, `aria-pressed`. On: `overlay-selected` background, icon `text-primary`. |
 | Pause / Resume | `button-icon`, pause icon ↔ play icon. |
 | Re-pin | `button-icon`, "select area" icon. |
-| Overlay (GLIM-154) | `button-icon` toggle, `on-screen` (speech bubble) icon, `aria-pressed`, tooltip "Show translations on screen" / "Back to the list only" with `Ctrl+Shift+T` / `⌘⇧T`. Only when the frame can draw marks out of capture (§2.6). On: `overlay-selected` background. |
 | Dock (GLIM-151) | `button-icon`, magnet icon, "Dock next to the area". **Only while moved** (§3.3). |
 | Pin (GLIM-151) | `button-icon` toggle, `aria-pressed`, "Keep on top of other windows". On (default): pin icon, `overlay-selected` background. Off: struck-through pin icon, no background. |
 | Stop | `button-icon`, stop (square) icon. Stops and unpins. |
 
-Icon buttons are 4px apart. GLIM-154: with the Overlay button a regular strip has no room for " · Private" either; the label adds it only on wide strips then (the pressed Private toggle still says it), so regular strips still never wrap. Width budget at the 240px minimum: 216px of content = grip 12 + dot 8 + 6 + "Paused" ≈ 40 + 8 + local icon 16 + flex + 5 × 24 + 4 × 4 = 136 (6 buttons and 160 once moved) ⇒ more than 216, so a **compact strip wraps**: the buttons drop to a second line at inline-end (4px row gap) instead of squeezing the status label. Regular and wide strips never wrap. Hence the three widths: **compact** < 300 (icon-only local indicator, no " · Private" in the label), **regular** 300–359, **wide** ≥ 360 (full "On device").
+Icon buttons are 4px apart. GLIM-154: with the On screen toggle a regular strip has no room for " · Private" either; the label adds it only on wide strips then (the pressed Private toggle still says it). GLIM-158: the labelled toggle is about 92px, so while it is shown the local indicator is icon-only at every width; a wide strip (≥ 360) still holds everything on one line, a **regular strip wraps its controls to a second line** like a compact one, and a compact strip's controls wrap once more (On screen and three buttons, then the rest, flush to inline-end; never clipped). Without the toggle (no marks) the rules below are unchanged. Width budget at the 240px minimum: 216px of content = grip 12 + dot 8 + 6 + "Paused" ≈ 40 + 8 + local icon 16 + flex + 5 × 24 + 4 × 4 = 136 (6 buttons and 160 once moved) ⇒ more than 216, so a **compact strip wraps**: the buttons drop to a second line at inline-end (4px row gap) instead of squeezing the status label. Regular and wide strips never wrap. Hence the three widths: **compact** < 300 (icon-only local indicator, no " · Private" in the label), **regular** 300–359, **wide** ≥ 360 (full "On device").
 
 There is no Hide button in the strip; hiding is a tray item and an optional global key (§6, owner question 5).
 
@@ -97,7 +97,7 @@ Snip's markers and overlay (`snip-popup.md` §2.2, §2.3, §2.5: same tokens, sa
 | Paused / stale / error | Badges and cards stay, at 60% like the ticks. |
 | Pointer | The frame stays click-through **except over badges and cards** (the game keeps the rest of the region). Hover a badge or card: its popup block lights (and its box fills); a card under the pointer peeks (8% opacity, the source shows). Click: **picks** the block: the popup scrolls it into view and holds it with `overlay-selected` (and its number lit) until another pick or the block leaves; the popup never takes focus for it. |
 | Peek | Original view (`Ctrl/⌘⇧O`, popup focused) peeks every card. Holding Shift (Snip's peek) isn't available: the game has the keyboard. |
-| Toggle | Strip button (§2.2) or `Ctrl/⌘⇧T` in the focused popup, for this session. Settings › General › "Show translations on screen" (`snip.showOnScreen`, shared with Snip) opens every session with the overlay on. |
+| Toggle | The On screen toggle in the strip (§2.2) or `Ctrl/⌘⇧T` in the focused popup, for this session. Settings › General › "Show translations on screen" (`snip.showOnScreen`, shared with Snip) opens every session with the overlay on; the tray's **Show translations on screen** checkbox (GLIM-158) is the same setting, and flipping it (tray or Settings) turns a running session's overlay on or off at once. |
 | Capture | The marks are drawn by the frame window, which is always excluded from capture whatever "Hide Glimpse from screenshots" says (it is a `surface`, GLIM-98): Windows `WDA_EXCLUDEFROMCAPTURE`, macOS the SCK filter that leaves out the whole app (plus its window id). Live only draws marks after confirming it: on Windows the frame's display affinity is read back and must be `WDA_EXCLUDEFROMCAPTURE` (it isn't before Windows 10 2004, where marks and the toggle are off); without a native frame (Linux) there are none. Masking (GLIM-98's fallback for un-flagged popups) is never used for marks: painting over the cards would paint over the source text under them. Tested headless in `app/test/live-marks-capture.test.ts`. |
 | Accessibility | The marks are not accessible objects (the native window has none); the popup is the accessible surface with the same numbers. |
 | Forced colours | Not followed on screen yet (the bitmaps use the theme's tokens); the popup follows them. Follow-up GLIM-155. |
@@ -227,7 +227,7 @@ Stop never asks for confirmation; it ends the session and drops its caches (GLIM
 | Live hotkey (`Alt+Shift+L` / `⌃⇧L`) | When pinned: stop. When not: open the picker in Live mode. |
 | Unbound by default (user can assign) | Pause/resume Live; Show/hide Live popup; **Focus Live popup** (new, proposed here, owner question 6). |
 
-Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private, Stop Live.
+Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private, Show translations on screen (GLIM-158, a checkbox: the Settings default, which a running session follows), Stop Live.
 
 ## 7. Focus rules
 
@@ -353,6 +353,7 @@ Tray items mirror them: Pause/Resume, Hide/Show popup, Focus Live popup, Private
 | `live.action.stop` | Stop Live |
 | `live.overlay.on` | Show translations on screen (GLIM-154, Snip's `snip.showOnScreen`) |
 | `live.overlay.off` | Back to the list only |
+| `live.overlay.label` | On screen (GLIM-158: the toggle's visible label) |
 | `live.tag` | Live |
 | `live.tag.paused` | Live · Paused |
 | `live.tag.cloud` | Live · {company} |

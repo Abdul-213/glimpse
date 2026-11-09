@@ -33,6 +33,7 @@ import {
 	StateMessage,
 	TextBlock,
 	TextButton,
+	ToggleButton,
 	Toolbar,
 	Tooltip,
 } from "@glimpse/ui";
@@ -45,6 +46,8 @@ import {
 	type ErrorBody,
 	type ErrorButton,
 	errorBody,
+	overlayHintText,
+	overlayHintVisible,
 	packConfirmCancel,
 	packConfirmText,
 	packDownloadText,
@@ -71,6 +74,8 @@ export interface SnipPopupIntents {
 	/** GLIM-152: overlay mode on/off; the peek key held or released. Optional for previews. */
 	overlay?(requestId: string, on: boolean): void;
 	peek?(requestId: string, on: boolean): void;
+	/** GLIM-158: the one-time On screen hint was shown; main records it so it never shows again. */
+	overlayHintSeen?(): void;
 }
 
 export interface SnipPopupProps {
@@ -80,6 +85,9 @@ export interface SnipPopupProps {
 	/** Frame scheduler (tests and screenshots can pass a synchronous one). */
 	raf?: (cb: () => void) => void;
 }
+
+/** GLIM-158: the hint's request id once the toggle was used (matches no request). */
+const HINT_USED = "";
 
 const isSkeleton = (s: SnipPopupState) => s.blocks.length === 0 && s.skeletons.length > 0;
 
@@ -191,7 +199,26 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 	// Overlay mode (§2.5): the footer toggle, Ctrl/⌘⇧T, Esc returns to the list first.
 	const overlayOn = () => state().overlay;
 	const canOverlay = () => state().blocks.some((b) => b.cls === "translate") && !state().error;
-	const setOverlay = (on: boolean) => props.intents.overlay?.(id(), on);
+	// GLIM-158: one hint, on the first Snip after install that has something to put on screen.
+	// It stays for that Snip until the toggle is used and never comes back: main records it.
+	const [hintRequest, setHintRequest] = createSignal<string | null>(null);
+	const setOverlay = (on: boolean) => {
+		if (hintRequest() !== null) setHintRequest(HINT_USED);
+		props.intents.overlay?.(id(), on);
+	};
+	const hinting = () =>
+		overlayHintVisible({
+			offered: !!props.init.overlayHint,
+			shownFor: hintRequest(),
+			requestId: id(),
+			canOverlay: canOverlay(),
+			overlayOn: overlayOn(),
+		});
+	createEffect(() => {
+		if (!hinting() || hintRequest() !== null) return;
+		setHintRequest(id());
+		props.intents.overlayHintSeen?.();
+	});
 	// Peek: Shift held alone, while the overlay is on, lifts the cards off the source.
 	let peeking = false;
 	const setPeek = (on: boolean) => {
@@ -445,6 +472,11 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 					</SkippedLine>
 				</Show>
 			</BlockList>
+			<Show when={hinting()}>
+				<p class="snip-hint" id={`snip-hint-${id()}`}>
+					{overlayHintText(props.init.keys.overlay)}
+				</p>
+			</Show>
 			<div
 				ref={footer}
 				class="snip-footer electrobun-webkit-app-region-drag"
@@ -494,12 +526,15 @@ export function SnipPopup(props: SnipPopupProps): JSX.Element {
 					{error()?.title ?? announcement(status(), translatedCount(), state().phase === "done", state().autoCopied)}
 				</span>
 				<Toolbar label={COPY.actions} class="snip-actions electrobun-webkit-app-region-no-drag">
-					<IconButton
+					{/* GLIM-158: the overlay is a labelled toggle, findable without hovering. */}
+					<ToggleButton
 						icon="on-screen"
-						label={overlayOn() ? COPY.hideFromScreen : COPY.showOnScreen}
+						text={COPY.onScreen}
+						tooltip={overlayOn() ? COPY.hideFromScreen : COPY.showOnScreen}
 						shortcut={props.init.keys.overlay}
 						pressed={overlayOn()}
 						disabled={!overlayOn() && !canOverlay()}
+						aria-describedby={hinting() ? `snip-hint-${id()}` : undefined}
 						onClick={() => setOverlay(!overlayOn())}
 					/>
 					<IconButton

@@ -87,6 +87,18 @@ body,
 	.snip-actions {
 		margin-inline-start: auto;
 	}
+
+	/* GLIM-158: the one-time On screen hint, a quiet line right above the footer's toggle. */
+	.snip-hint {
+		flex: none;
+		margin: calc(var(--spacing) * 2) 0 0;
+		padding-inline: calc(var(--spacing) * 2);
+		font-size: var(--text-label);
+		font-weight: var(--text-label--font-weight);
+		line-height: var(--text-label--line-height);
+		color: var(--color-text-secondary);
+		text-align: end;
+	}
 }
 
 @layer components {

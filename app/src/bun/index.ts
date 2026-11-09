@@ -408,6 +408,14 @@ const popupWindow = new ElectrobunPopupWindow({
 	displays: readDisplays,
 	log: (message) => popupLog.info(message),
 	chrome,
+	// GLIM-158: the On screen hint shows on one Snip after install, then never again.
+	overlayHint: {
+		offered: () => !appSettings.current.onboarding.overlayHintSeen,
+		seen: () => {
+			if (!appSettings.current.onboarding.overlayHintSeen)
+				void appSettings.update({ onboarding: { overlayHintSeen: true } });
+		},
+	},
 });
 snipPopup = new SnipPopupController({
 	window: popupWindow,
@@ -702,6 +710,7 @@ const tray = createTray(
 		hotkeys: { snip: loadedSettings.settings.hotkeys.snip, live: loadedSettings.settings.hotkeys.live },
 		taskbarTheme: "dark",
 		notices: trayNotices(),
+		showOnScreen: appSettings.current.snip.showOnScreen,
 	},
 	commands,
 );
@@ -728,6 +737,17 @@ setInterval(() => void updates.checkIfDue(), 60 * 60_000);
 
 // The service updates the tray through onPrivateChange.
 commands.handle("private.toggle", () => translation.setPrivate(!translation.private));
+
+// GLIM-158: the tray's Show translations on screen is Settings › General's switch (new Snips
+// and Live sessions open with it); a running Live session follows it at once.
+commands.handle("overlay.toggle", () => {
+	void appSettings.update({ snip: { showOnScreen: !appSettings.current.snip.showOnScreen } });
+});
+appSettings.subscribe((next, previous) => {
+	if (next.snip.showOnScreen === previous.snip.showOnScreen) return;
+	tray.update({ showOnScreen: next.snip.showOnScreen });
+	livePopup?.setOverlay(next.snip.showOnScreen);
+});
 
 void hotkeyRegistrar.apply(loadedSettings.settings.hotkeys);
 

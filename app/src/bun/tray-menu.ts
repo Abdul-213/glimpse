@@ -30,6 +30,8 @@ export interface TrayState {
 	readonly update?: { readonly version: string } | null;
 	/** Things that need the user, listed first (flows/tray.html: "problems are listed first"). */
 	readonly notices?: readonly TrayNotice[];
+	/** GLIM-158: Settings › Show translations on screen (`snip.showOnScreen`). Default false. */
+	readonly showOnScreen?: boolean;
 	/** The docked Live popup is hidden (L19). Default false. */
 	readonly livePopupHidden?: boolean;
 }
@@ -155,6 +157,11 @@ export function buildTrayMenu(state: TrayState): TrayMenuItem[] {
 		item("Private", "private.toggle", {
 			checked: state.private,
 			tooltip: "Translations aren't remembered while Private is on",
+		}),
+		// GLIM-158: the overlay mode, findable without opening a popup.
+		item(t("Show translations on screen", "Show Translations on Screen"), "overlay.toggle", {
+			checked: !!state.showOnScreen,
+			tooltip: "Each translation covers the text it translates",
 		}),
 		{ type: "divider" },
 		item(t("Clear translation cache", "Clear Translation Cache"), "cache.clear"),

@@ -131,6 +131,8 @@ export interface Settings {
 		readonly dismissed: boolean;
 		/** Languages picked to read in setup's download step, so a resumed setup shows them again. */
 		readonly languages: readonly LanguageCode[];
+		/** GLIM-158: the one-time "On screen" hint in the Snip popup was shown. */
+		readonly overlayHintSeen: boolean;
 	};
 	readonly permissions: {
 		/** What Glimpse last knew about macOS Screen Recording (GLIM-45; see capture/screen-access.ts). */
@@ -218,6 +220,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			step: withDefault(oneOf(ONBOARDING_STEPS), "welcome"),
 			dismissed: withDefault(boolean(), false),
 			languages: withDefault(array(languageCodeSchema(), { maxLength: 64, uniqueBy: (c) => c }), []),
+			overlayHintSeen: withDefault(boolean(), false),
 		}),
 		permissions: object({
 			screenAccess: withDefault(oneOf(SCREEN_ACCESS_MEMORY), "unknown"),

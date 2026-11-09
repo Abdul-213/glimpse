@@ -35,7 +35,7 @@ function Frame(props: { scenario: (typeof SCENARIOS)[number] }) {
 			}}
 		>
 			<SnipPopup
-				init={init}
+				init={props.scenario.overlayHint ? { ...init, overlayHint: true } : init}
 				message={message}
 				intents={{
 					painted: () => {

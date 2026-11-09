@@ -30,6 +30,7 @@ import {
 	TextBlock,
 	TextButton,
 	TextField,
+	ToggleButton,
 	Toolbar,
 	type UiPlatform,
 } from "@glimpse/ui";
@@ -582,6 +583,18 @@ function MiscSpecimens(props: { os: UiPlatform }): JSX.Element {
 					<IconButton icon="copy" label="Copy translation" />
 					<IconButton icon="original" label="Show original" pressed />
 					<IconButton icon="close" label="Close" disabled />
+				</Toolbar>
+				{/* GLIM-158: the labelled toggle, off, on and disabled. */}
+				<Toolbar label="Labelled toggles">
+					<ToggleButton icon="on-screen" text="On screen" tooltip="Show translations on screen" pressed={false} />
+					<ToggleButton icon="on-screen" text="On screen" tooltip="Back to the list only" pressed />
+					<ToggleButton
+						icon="on-screen"
+						text="On screen"
+						tooltip="Show translations on screen"
+						pressed={false}
+						disabled
+					/>
 				</Toolbar>
 			</div>
 			<div class="flex flex-wrap items-center gap-3">

@@ -36,7 +36,28 @@ export const COPY = {
 	// GLIM-152: overlay mode and numbered markers.
 	showOnScreen: "Show translations on screen",
 	hideFromScreen: "Back to the list only",
+	// GLIM-158: the toggle's visible label.
+	onScreen: "On screen",
 } as const;
+
+/** GLIM-158: the one-time hint above the footer, naming the toggle and its key. */
+export const overlayHintText = (key: string) => `Tip: On screen (${key}) puts translations over the text.`;
+
+/**
+ * GLIM-158: whether the one-time On screen hint shows. `offered`: not seen since install.
+ * `shownFor`: the request it was first shown on (null: not yet; "" once the toggle was used).
+ * It shows on that one Snip only, while the overlay is off and there is something to put on screen.
+ */
+export function overlayHintVisible(o: {
+	offered: boolean;
+	shownFor: string | null;
+	requestId: string;
+	canOverlay: boolean;
+	overlayOn: boolean;
+}): boolean {
+	if (!o.offered || (o.shownFor !== null && o.shownFor !== o.requestId)) return false;
+	return o.canOverlay && !o.overlayOn;
+}
 
 export const translatingText = (done: number, total: number) => `Translating ${done} of ${total}`;
 export const partialText = (done: number, total: number) => `Translated ${done} of ${total}`;

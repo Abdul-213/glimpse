@@ -235,6 +235,8 @@ export interface Scenario {
 	readonly localAvailable?: boolean;
 	/** Screenshots click this (a CSS selector) first, for states behind a press (GLIM-138 confirm). */
 	readonly click?: string;
+	/** GLIM-158: the view offers the one-time On screen hint (first Snip after install). */
+	readonly overlayHint?: boolean;
 }
 
 export const SCENARIOS: readonly Scenario[] = [
@@ -533,6 +535,12 @@ export const MARKER_SCENARIOS: readonly Scenario[] = [
 		name: "s19-overlay-on",
 		caption: "S19 overlay mode on: the translations are painted over the bubbles",
 		state: () => run(COMIC, { extra: [{ type: "toggleOverlay", on: true }] }),
+	},
+	{
+		name: "s20-overlay-hint",
+		caption: "S20 first Snip after install: the one-time hint above the On screen toggle (GLIM-158)",
+		state: () => run(COMIC),
+		overlayHint: true,
 	},
 ];
 

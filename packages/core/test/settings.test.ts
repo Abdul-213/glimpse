@@ -61,7 +61,7 @@ describe("settings defaults", () => {
 			system: { launchAtLogin: false },
 			cloud: { liveConsent: [], spendCap: "freeTier" },
 			models: { directory: null },
-			onboarding: { completed: false, step: "welcome", dismissed: false, languages: [] },
+			onboarding: { completed: false, step: "welcome", dismissed: false, languages: [], overlayHintSeen: false },
 			permissions: { screenAccess: "unknown" },
 			diagnostics: { logLevel: "info" },
 			updates: { check: true },
