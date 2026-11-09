@@ -25,10 +25,17 @@ import {
 	SPRITE_INTERACTIVE,
 	SPRITE_PEEK,
 } from "../src/bun/native/frame.ts";
-import { type LiveFrameMark, type LiveMarksPointer, PinnedFrame } from "../src/bun/services/live/pinned-frame.ts";
+import {
+	type LiveFrameMark,
+	type LiveMarksPointer,
+	MARKS_RECHECK_MS,
+	PinnedFrame,
+} from "../src/bun/services/live/pinned-frame.ts";
 import {
 	isLiveMarkSprite,
 	LIVE_MARKS_POINTER_MS,
+	LIVE_MARKS_RETRIES,
+	LIVE_MARKS_RETRY_MS,
 	LivePopupController,
 	type LivePopupSession,
 	liveViewInit,
@@ -180,6 +187,115 @@ describe("PinnedFrame marks (GLIM-154)", () => {
 	});
 });
 
+describe("PinnedFrame: why there are no marks, and the re-check (GLIM-163)", () => {
+	function recheckFrame(info: Record<string, number> | null) {
+		let t = 1000;
+		const logs: { message: string; fields: Record<string, unknown> | undefined }[] = [];
+		const log = {
+			...nullLogger,
+			info: (message: string, fields?: Record<string, unknown>) => logs.push({ message, fields }),
+		};
+		const binding = new SpriteBinding(info);
+		const frame = new PinnedFrame({ binding, space: logicalFrameSpace, displays: () => [DISPLAY], log, now: () => t });
+		frame.show(rect(50, 50, 400, 300));
+		return {
+			binding,
+			frame,
+			logs,
+			advance: (ms: number) => {
+				t += ms;
+			},
+		};
+	}
+
+	test("the reason: no binding / no sprite support → no-frame; affinity not read back → not-excluded", () => {
+		const none = new PinnedFrame({
+			binding: null,
+			space: logicalFrameSpace,
+			status: "glimpse.dll missing",
+			displays: () => [DISPLAY],
+			log: nullLogger,
+		});
+		none.show(rect(50, 50, 400, 300));
+		expect(none.marksUnavailable).toBe("no-frame");
+		// An older helper: a frame, but no sprite symbol.
+		const noSprites: FrameNativeBinding = {
+			frameCreate: () => 1n,
+			frameSetRect: () => {},
+			frameSetStyle: () => {},
+			frameSetHighlight: () => {},
+			frameShow: () => {},
+			frameWindowId: () => 7,
+			frameDestroy: () => {},
+			frameInfo: () => ({ affinity: 0x11 }),
+		};
+		const f = new PinnedFrame({
+			binding: noSprites,
+			space: logicalFrameSpace,
+			displays: () => [DISPLAY],
+			log: nullLogger,
+		});
+		f.show(rect(50, 50, 400, 300));
+		expect(f.marksUnavailable).toBe("no-frame");
+		expect(frameWith({ affinity: 0 }).frame.marksUnavailable).toBe("not-excluded");
+		expect(frameWith(null).frame.marksUnavailable).toBe("not-excluded");
+		expect(frameWith({ affinity: 0x11 }).frame.marksUnavailable).toBeNull();
+	});
+
+	test("a negative check is asked again (after the interval, or on show); a positive one is kept", () => {
+		const s = recheckFrame({ affinity: 0 });
+		expect(s.frame.marksAvailable).toBe(false);
+		// The window only now reads back as excluded (a timing miss).
+		s.binding.info = { affinity: 0x11 };
+		s.advance(MARKS_RECHECK_MS - 1);
+		expect(s.frame.marksAvailable).toBe(false);
+		s.advance(1);
+		expect(s.frame.marksAvailable).toBe(true);
+		expect(s.frame.marksScale).toBe(2);
+		// Confirmed: not asked again.
+		s.binding.info = { affinity: 0 };
+		s.advance(MARKS_RECHECK_MS * 10);
+		expect(s.frame.marksAvailable).toBe(true);
+
+		// Re-pin / show re-checks at once.
+		const p = recheckFrame({ affinity: 0 });
+		expect(p.frame.marksAvailable).toBe(false);
+		p.binding.info = { affinity: 0x11 };
+		p.frame.show(rect(60, 60, 400, 300));
+		expect(p.frame.marksAvailable).toBe(true);
+	});
+
+	test("the reason is logged once at info level, with the affinity read back; recovery is logged too", () => {
+		const s = recheckFrame({ affinity: 0, affinityError: 5 });
+		for (let i = 0; i < 5; i++) {
+			expect(s.frame.marksAvailable).toBe(false);
+			s.advance(MARKS_RECHECK_MS);
+		}
+		const off = s.logs.filter((l) => l.message.includes("are off"));
+		expect(off).toHaveLength(1);
+		expect(off[0]?.fields?.["reason"]).toBe("not-excluded");
+		expect(String(off[0]?.fields?.["why"])).toContain("0x0");
+		expect(String(off[0]?.fields?.["why"])).toContain("error 5");
+		s.binding.info = { affinity: 0x11 };
+		expect(s.frame.marksAvailable).toBe(true);
+		expect(s.logs.filter((l) => l.message.includes("confirmed out of capture"))).toHaveLength(1);
+	});
+
+	test("no binding: the loader's status is logged, once", () => {
+		const whys: unknown[] = [];
+		const none = new PinnedFrame({
+			binding: null,
+			space: logicalFrameSpace,
+			status: "no native frame on linux",
+			displays: () => [DISPLAY],
+			log: { ...nullLogger, info: (_m: string, f?: Record<string, unknown>) => whys.push(f?.["why"]) },
+		});
+		expect(none.marksUnavailable).toBe("no-frame");
+		expect(none.marksScale).toBeNull();
+		expect(whys).toEqual(["no frame binding (no native frame on linux)"]);
+	});
+});
+
 describe("isLiveMarkSprite (RPC input)", () => {
 	const ok: LiveMarkSprite = { key: "k", id: "a", kind: "card", x: 1, y: 2, width: 3, height: 4, opacity: 1 };
 	test("accepts sprites with or without an image; rejects junk", () => {
@@ -220,6 +336,12 @@ class MarksSession implements LivePopupSession {
 	setPopupVisible() {}
 	marksScale() {
 		return this.scale;
+	}
+	unavailable: "no-frame" | "not-excluded" | null = null;
+	unavailableAsked = 0;
+	marksUnavailable() {
+		this.unavailableAsked++;
+		return this.unavailable;
 	}
 	setMarks(m: readonly LiveFrameMark[]) {
 		this.marks.push(m);
@@ -335,6 +457,61 @@ describe("LivePopupController marks (GLIM-154)", () => {
 		s.c.toggleOverlay(S, true);
 		await flush();
 		expect(s.last().marks).toBeUndefined();
+	});
+
+	test("GLIM-163: without marks the view is told why; not-excluded is pushed again a few times", async () => {
+		const s = setup();
+		await flush();
+		expect(s.last().marksUnavailable).toBeUndefined();
+		s.live.scale = null;
+		s.live.unavailable = "not-excluded";
+		s.c.toggleOverlay(S, true);
+		await flush();
+		expect(s.last().marks).toBeUndefined();
+		expect(s.last().marksUnavailable).toBe("not-excluded");
+		// No state change, yet the popup is re-sent so the frame can re-check.
+		const before = s.messages.length;
+		s.scheduler.advance(LIVE_MARKS_RETRY_MS);
+		await flush();
+		expect(s.messages.length).toBe(before + 1);
+		// The frame is now confirmed: marks, no reason, no more retries.
+		s.live.scale = 2;
+		s.live.unavailable = null;
+		s.scheduler.advance(LIVE_MARKS_RETRY_MS);
+		await flush();
+		expect(s.last().marks).toEqual({ scale: 2, target: "en" });
+		expect(s.last().marksUnavailable).toBeUndefined();
+		const settled = s.messages.length;
+		s.scheduler.advance(LIVE_MARKS_RETRY_MS * 5);
+		await flush();
+		expect(s.messages.length).toBe(settled);
+	});
+
+	test("GLIM-163: retries stop after LIVE_MARKS_RETRIES; no-frame isn't retried", async () => {
+		// Each retry lands after the frame's own re-check interval, so it really asks again.
+		expect(LIVE_MARKS_RETRY_MS).toBeGreaterThan(MARKS_RECHECK_MS);
+		const s = setup();
+		s.live.scale = null;
+		s.live.unavailable = "not-excluded";
+		s.c.toggleOverlay(S, true);
+		await flush();
+		const start = s.messages.length;
+		for (let i = 0; i < LIVE_MARKS_RETRIES + 3; i++) {
+			s.scheduler.advance(LIVE_MARKS_RETRY_MS);
+			await flush();
+		}
+		expect(s.messages.length - start).toBe(LIVE_MARKS_RETRIES);
+
+		const n = setup();
+		n.live.scale = null;
+		n.live.unavailable = "no-frame";
+		n.c.toggleOverlay(S, true);
+		await flush();
+		expect(n.last().marksUnavailable).toBe("no-frame");
+		const m = n.messages.length;
+		n.scheduler.advance(LIVE_MARKS_RETRY_MS * 3);
+		await flush();
+		expect(n.messages.length).toBe(m);
 	});
 
 	test("overlay: off by default, on with Settings › Show translations on screen, toggled per session", async () => {

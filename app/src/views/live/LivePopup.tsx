@@ -59,6 +59,7 @@ import {
 	errorCopy,
 	type LiveErrorAction,
 	moveHint,
+	onScreenUnavailable,
 	packConfirmCancel,
 	packConfirmText,
 	packDownloadText,
@@ -273,6 +274,9 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 	// GLIM-154: numbered markers and the overlay over the pinned region (§2.6). The numbers
 	// show only when the frame draws badges (two or more numbered blocks, frame out of capture).
 	const marksOn = () => !!props.message.marks && state().status !== "consent";
+	// GLIM-163: the On screen toggle shows once consent is answered, disabled (with the
+	// reason in its tooltip) when the frame can't draw the cards, so it never just vanishes.
+	const onScreenShown = () => state().status !== "consent";
 	const marks = createMemo(() =>
 		marksOn()
 			? liveMarks(state(), {
@@ -478,25 +482,37 @@ export function LivePopup(props: LivePopupProps): JSX.Element {
 						strip().label,
 						state().private,
 						// GLIM-154: with the overlay toggle, " · Private" needs a wide strip (the pressed toggle still says it).
-						layout() === "compact" || (marksOn() && layout() === "regular"),
+						layout() === "compact" || (onScreenShown() && layout() === "regular"),
 					)}
 				/>
 				<Show when={!cloud()}>
 					{/* GLIM-158: with the labelled On screen toggle, the local indicator is icon-only so a
 					    wide strip stays one line (the words stay in its tooltip and accessible name). */}
-					<LocalIndicator label={COPY.local} tooltip={COPY.localTooltip} compact={layout() !== "wide" || marksOn()} />
+					<LocalIndicator
+						label={COPY.local}
+						tooltip={COPY.localTooltip}
+						compact={layout() !== "wide" || onScreenShown()}
+					/>
 				</Show>
 				<span class="live-spacer" />
 				<Toolbar label={COPY.controls} class="live-controls">
 					{/* GLIM-154: overlay mode, when the frame can paint cards out of capture. */}
 					{/* GLIM-158: a labelled toggle, first in the strip, so the mode is findable without hovering. */}
-					<Show when={marksOn()}>
+					{/* GLIM-163: otherwise still there, disabled, its tooltip saying why. */}
+					<Show when={onScreenShown()}>
 						<ToggleButton
 							icon="on-screen"
 							text={COPY.onScreen}
-							tooltip={overlayOn() ? COPY.hideFromScreen : COPY.showOnScreen}
+							tooltip={
+								!marksOn()
+									? onScreenUnavailable(props.message.marksUnavailable)
+									: overlayOn()
+										? COPY.hideFromScreen
+										: COPY.showOnScreen
+							}
 							shortcut={props.init.keys.overlay}
-							pressed={overlayOn()}
+							pressed={marksOn() && overlayOn()}
+							unavailable={!marksOn()}
 							onClick={() => setOverlay(!overlayOn())}
 						/>
 					</Show>

@@ -55,6 +55,7 @@ import type {
 	LiveConsentAnswer,
 	LiveLayout,
 	LiveMarkSprite,
+	LiveMarksUnavailable,
 	LiveSkippedAction,
 	LiveStateMessage,
 	LiveViewInit,
@@ -122,6 +123,11 @@ export interface LivePopupSession {
 	 * can't draw them out of capture. Optional for older fakes (no marks).
 	 */
 	marksScale?(): number | null;
+	/**
+	 * GLIM-163: why marks can't be drawn (the popup's On screen toggle shows disabled with
+	 * the reason), or null. Optional for older fakes.
+	 */
+	marksUnavailable?(): LiveMarksUnavailable | null;
 	/** GLIM-154: the badges and cards over the pinned region. */
 	setMarks?(marks: readonly LiveFrameMark[]): void;
 	/** GLIM-154: the block under the pointer on screen, and the one clicked since the last poll. */
@@ -141,6 +147,14 @@ export interface LivePopupSettings {
 
 /** GLIM-154: how often the pointer over the badges and cards is read while there are any. */
 export const LIVE_MARKS_POINTER_MS = 50;
+/**
+ * GLIM-163: while the frame isn't confirmed out of capture, the popup state is re-sent this
+ * often (just past PinnedFrame's MARKS_RECHECK_MS, 2 s), at most LIVE_MARKS_RETRIES times.
+ * A literal: this module is also bundled for the browser (design checks), and pinned-frame.ts
+ * pulls in the bun:ffi helpers.
+ */
+export const LIVE_MARKS_RETRY_MS = 2500;
+export const LIVE_MARKS_RETRIES = 5;
 
 /** GLIM-154: a `liveMarks` sprite from the view, checked (RPC input is untrusted JSON). */
 export function isLiveMarkSprite(v: unknown): v is LiveMarkSprite {
@@ -221,6 +235,9 @@ export class LivePopupController {
 	#pushQueued = false;
 	#cancelPaint: (() => void) | null = null;
 	#cancelStale: (() => void) | null = null;
+	/** GLIM-163: a pending re-push while the frame isn't confirmed out of capture, and how many so far. */
+	#cancelMarksRetry: (() => void) | null = null;
+	#marksRetries = 0;
 	readonly #holds = new Map<string, () => void>();
 	/** GLIM-154: mark bitmaps by key (the view sends each one once). */
 	readonly #markImages = new Map<string, { width: number; height: number; rgba: Uint8Array }>();
@@ -849,6 +866,9 @@ export class LivePopupController {
 			const settings = this.#d.settings();
 			// GLIM-154: marks only when the frame can draw them out of capture.
 			const scale = this.#d.live.marksScale?.() ?? null;
+			// GLIM-163: otherwise why not, so the toggle can say so instead of vanishing.
+			const unavailable = scale === null ? (this.#d.live.marksUnavailable?.() ?? null) : null;
+			this.#retryMarks(unavailable);
 			this.#d.window.send({
 				sessionId: id,
 				layout,
@@ -857,13 +877,35 @@ export class LivePopupController {
 				now: this.#now(),
 				focused: this.#focused,
 				...(scale !== null ? { marks: { scale, target: settings.target ?? null } } : {}),
+				...(unavailable !== null ? { marksUnavailable: unavailable } : {}),
 				...(settings.update === "manual" ? { update: "manual" as const } : {}),
 				...(this.#d.setUpdateMode ? { updateToggle: true } : {}),
 			});
 		});
 	}
 
+	/**
+	 * GLIM-163: while the frame isn't confirmed out of capture (perhaps only not yet), push
+	 * again a few times so the frame re-checks and the On screen toggle can turn on even when
+	 * the text doesn't change. A frame that can't be excluded stops asking after that.
+	 */
+	#retryMarks(unavailable: LiveMarksUnavailable | null): void {
+		if (unavailable !== "not-excluded") {
+			if (unavailable === null) this.#marksRetries = 0;
+			return;
+		}
+		if (this.#cancelMarksRetry || this.#marksRetries >= LIVE_MARKS_RETRIES) return;
+		this.#marksRetries++;
+		this.#cancelMarksRetry = this.#scheduler.later(LIVE_MARKS_RETRY_MS, () => {
+			this.#cancelMarksRetry = null;
+			this.#push();
+		});
+	}
+
 	#clearTimers(): void {
+		this.#cancelMarksRetry?.();
+		this.#cancelMarksRetry = null;
+		this.#marksRetries = 0;
 		this.#cancelPointer?.();
 		this.#cancelPointer = null;
 		this.#marksCount = 0;

@@ -12,6 +12,7 @@ import { ProgressBar } from "../src/components/ProgressBar.tsx";
 import { SkippedLine } from "../src/components/SkippedLine.tsx";
 import { Switch } from "../src/components/Switch.tsx";
 import { TextBlock } from "../src/components/TextBlock.tsx";
+import { ToggleButton } from "../src/components/ToggleButton.tsx";
 import { Toolbar } from "../src/components/Toolbar.tsx";
 import type { Hotkey } from "../src/hotkey.ts";
 
@@ -439,5 +440,37 @@ describe("PackRows (GLIM-138 confirm step)", () => {
 		const row = rowOf(root, "long-tail-model");
 		expect(row.textContent).toContain("sw text");
 		expect(document.activeElement).toBe(row.querySelector("[data-pack-download]"));
+	});
+});
+
+describe("ToggleButton (GLIM-163 unavailable)", () => {
+	test("unavailable: aria-disabled, still focusable, not pressed, no shortcut, clicks ignored", () => {
+		const clicks: string[] = [];
+		const [unavailable, setUnavailable] = createSignal(true);
+		const root = mount(() => (
+			<ToggleButton
+				icon="on-screen"
+				text="On screen"
+				tooltip="why"
+				shortcut="Ctrl+Shift+T"
+				pressed={true}
+				unavailable={unavailable()}
+				onClick={() => clicks.push("click")}
+			/>
+		));
+		const b = root.querySelector("button") as HTMLButtonElement;
+		expect(b.getAttribute("aria-disabled")).toBe("true");
+		expect(b.disabled).toBe(false);
+		expect(b.getAttribute("aria-pressed")).toBe("false");
+		expect(b.getAttribute("aria-keyshortcuts")).toBeNull();
+		b.focus();
+		expect(document.activeElement).toBe(b);
+		b.click();
+		expect(clicks).toEqual([]);
+		setUnavailable(false);
+		expect(b.getAttribute("aria-disabled")).toBeNull();
+		expect(b.getAttribute("aria-pressed")).toBe("true");
+		b.click();
+		expect(clicks).toEqual(["click"]);
 	});
 });

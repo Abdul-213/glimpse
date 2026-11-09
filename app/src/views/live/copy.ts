@@ -2,6 +2,7 @@
 // from here, so the i18n layer can replace this table without touching components.
 import type { LiveError, LivePopupState } from "@glimpse/core";
 import { staleAge } from "@glimpse/ui";
+import type { LiveMarksUnavailable } from "../../shared/live-rpc.ts";
 
 export const COPY = {
 	region: "Live translation",
@@ -42,6 +43,10 @@ export const COPY = {
 	hideFromScreen: "Back to the list only",
 	// GLIM-158: the toggle's visible label.
 	onScreen: "On screen",
+	// GLIM-163: the toggle's tooltip when the frame can't draw the cards.
+	onScreenNotExcluded: "On screen isn't available here: Glimpse can't hide its overlay from its own capture",
+	onScreenNoFrame: "On screen isn't available here: Glimpse can't draw over this area",
+	onScreenNotYet: "On screen isn't available yet",
 	// GLIM-157: Update mode and Refresh.
 	refresh: "Refresh",
 	manualOn: "Only update when I refresh",
@@ -66,6 +71,14 @@ export const statusLabel = (label: "live" | "updating" | "paused", privateOn: bo
 	const base = label === "live" ? COPY.live : label === "updating" ? COPY.updating : COPY.paused;
 	return privateOn && !compact ? `${base} · Private` : base;
 };
+
+/** GLIM-163: why the On screen toggle is disabled (absent: main hasn't said yet). */
+export const onScreenUnavailable = (reason: LiveMarksUnavailable | undefined): string =>
+	reason === "not-excluded"
+		? COPY.onScreenNotExcluded
+		: reason === "no-frame"
+			? COPY.onScreenNoFrame
+			: COPY.onScreenNotYet;
 
 export const pauseLabel = (paused: boolean) => (paused ? "Resume" : "Pause");
 export const staleText = (capturedAt: number, now: number) => `Showing text from ${staleAge(capturedAt, now)}`;

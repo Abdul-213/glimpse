@@ -90,11 +90,23 @@ export interface LiveStateMessage {
 	 * numbers or overlay toggle in the popup.
 	 */
 	marks?: LiveMarksConfig;
+	/**
+	 * GLIM-163: why there are no marks, when main knows. The On screen toggle still shows
+	 * (disabled, with the reason in its tooltip). Absent with `marks`.
+	 */
+	marksUnavailable?: LiveMarksUnavailable;
 	/** GLIM-157: Settings › Live › Update is "Only when I refresh". Absent: when the text changes. */
 	update?: "manual";
 	/** GLIM-157: the popup may change the Update mode (main persists it). Absent in previews without it. */
 	updateToggle?: boolean;
 }
+
+/**
+ * GLIM-163: why the frame can't draw badges and cards. `no-frame`: there is no on-screen
+ * frame (no native helper, or it failed); `not-excluded`: the frame's window isn't confirmed
+ * out of Glimpse's own capture, so Live would read its own cards.
+ */
+export type LiveMarksUnavailable = "no-frame" | "not-excluded";
 
 /** GLIM-154: how the view rasterises marks for the pinned frame. */
 export interface LiveMarksConfig {
