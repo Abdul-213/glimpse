@@ -11,6 +11,19 @@ workflow builds Windows and macOS and leaves a **draft** release for the owner t
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-11-09
+
+Fifth MVP preview, after the owner's test of 0.0.4. Unsigned. What to try:
+[docs/mvp-test.md](docs/mvp-test.md) steps 17–25a.
+
+### Fixed
+
+- Live: the On screen button is always in the top bar. When the overlay can't be drawn on this
+  system it is greyed out and its tooltip says why, instead of the button being missing (GLIM-163).
+- Live: a failed "hidden from capture" check is retried when the frame is shown or moved, and the
+  Windows frame re-applies the capture exclusion each time it is shown (GLIM-163).
+- Live: the reason the overlay is unavailable is logged once per session, so Copy diagnostics shows it (GLIM-163).
+
 ## [0.0.4] - 2026-11-09
 
 Fourth MVP preview, after the owner's test of 0.0.3. Unsigned. What to try:

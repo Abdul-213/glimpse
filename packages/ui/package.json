@@ -1,6 +1,6 @@
 {
 	"name": "@glimpse/ui",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"private": true,
 	"description": "Shared Solid components and the Tailwind theme generated from DESIGN.md",
 	"type": "module",
