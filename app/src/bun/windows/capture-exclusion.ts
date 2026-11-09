@@ -40,6 +40,8 @@ export interface ExclusionOps {
 	windowId(handle: Pointer): number | null;
 	/** Flag or un-flag a window that is already open (GLIM-98). Throws on failure. */
 	setHidden(handle: Pointer, hidden: boolean): { excluded: boolean; detail: string };
+	/** What the OS reports for the window now (GLIM-156 logs): the read-back affinity on Windows. */
+	state?(handle: Pointer): string;
 	/**
 	 * Glimpse's own capture skips registered window ids whatever the flag says (macOS SCK
 	 * filter). When false (Windows), an un-flagged window shows in Glimpse's frames too.
@@ -128,6 +130,21 @@ export class CaptureExclusion {
 			if (r && r.width > 0 && r.height > 0) out.push(r);
 		}
 		return out;
+	}
+
+	/**
+	 * The window's capture state as the OS reports it now (GLIM-156 logs), or why it can't be
+	 * read. Never throws.
+	 */
+	describe(win: Pick<ExcludableWindow, "ptr">): string {
+		if (!this.ops) return "no exclusion on this platform";
+		if (!win.ptr) return "no native handle";
+		if (!this.ops.state) return "unknown";
+		try {
+			return this.ops.state(win.ptr);
+		} catch (e) {
+			return `unreadable: ${e instanceof Error ? e.message : String(e)}`;
+		}
 	}
 
 	/**

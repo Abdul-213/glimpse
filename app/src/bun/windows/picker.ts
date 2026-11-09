@@ -3,7 +3,8 @@
 // and configured for overlay duty (macOS level 1000 + Spaces/fullscreen collection
 // behaviour through libglimpse.dylib; Windows WS_EX_TOOLWINDOW + HWND_TOPMOST) before it is
 // ever shown. Every first show goes through CaptureExclusion, so overlays never appear in
-// captures. The logic lives in picker-controller.ts.
+// captures. On Windows an overlay is never shown again after it has been hidden: the
+// controller replaces it (GLIM-156, `recycleOverlays`). The logic lives in picker-controller.ts.
 import type { Display, PointerProbe } from "@glimpse/core";
 import { BrowserView, BrowserWindow, Screen } from "electrobun/main";
 import type { PickerLoupeMessage, PickerOpenInfo, PickerRPC } from "../../shared/rpc.ts";
@@ -31,6 +32,9 @@ class ElectrobunOverlay implements OverlayWindow {
 	private shown = false;
 	private protectedOnce = false;
 	private level: OverlayLevel = "picking";
+	private shows = 0;
+	private hides = 0;
+	private exclusionDetail = "not shown yet";
 
 	constructor(
 		readonly display: Display,
@@ -118,18 +122,31 @@ class ElectrobunOverlay implements OverlayWindow {
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
 			// Picker overlays and the results layer are drawn over what Glimpse captures (GLIM-98).
-			this.deps.exclusion.protect(this.win, show, { role: "surface" });
+			this.exclusionDetail = this.deps.exclusion.protect(this.win, show, { role: "surface" }).detail;
 		} else {
 			show();
 		}
 		if (process.platform === "win32" && !this.shown) this.win.setAlwaysOnTop(true);
 		this.shown = true;
+		this.shows++;
 	}
 
 	hide(): void {
 		if (!this.shown) return;
 		this.shown = false;
+		this.hides++;
 		this.win.hide();
+	}
+
+	diagnostics(): Record<string, unknown> {
+		return {
+			visible: this.shown,
+			level: this.level,
+			shows: this.shows,
+			hides: this.hides,
+			excludedOnShow: this.exclusionDetail,
+			capture: this.deps.exclusion.describe(this.win),
+		};
 	}
 
 	setLevel(level: OverlayLevel): void {

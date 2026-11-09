@@ -394,6 +394,24 @@ export function setWindowExcludedFromCapture(hwnd: Pointer, excluded = true): Af
 	return { excluded: affinity === WDA_EXCLUDEFROMCAPTURE, affinity };
 }
 
+/** GetWindowDisplayAffinity alone (GLIM-156 diagnostics), or null if it failed. */
+export function readWindowDisplayAffinity(hwnd: Pointer): number | null {
+	const out = new Uint32Array(1);
+	return openUser32().GetWindowDisplayAffinity(hwnd, ptr(out)) !== 0 ? (out[0] ?? null) : null;
+}
+
+/** A display affinity for the logs. */
+export const affinityName = (a: number | null): string =>
+	a === null
+		? "unreadable"
+		: a === WDA_EXCLUDEFROMCAPTURE
+			? "WDA_EXCLUDEFROMCAPTURE"
+			: a === WDA_NONE
+				? "WDA_NONE"
+				: a === 0x1
+					? "WDA_MONITOR"
+					: `0x${a.toString(16)}`;
+
 // ---- user32: picker overlay styles (GLIM-91, region-picker spec 9.1) ------------
 
 const GWL_EXSTYLE = -20;
