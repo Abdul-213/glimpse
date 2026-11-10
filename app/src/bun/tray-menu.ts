@@ -32,6 +32,8 @@ export interface TrayState {
 	readonly notices?: readonly TrayNotice[];
 	/** GLIM-158: Settings › Show translations on screen (`snip.showOnScreen`). Default false. */
 	readonly showOnScreen?: boolean;
+	/** GLIM-164: Settings › Privacy › Show Glimpse in screen sharing (`privacy.showInScreenSharing`). Default false here; the app passes the setting (on by default). */
+	readonly showInScreenSharing?: boolean;
 	/** GLIM-157: Settings › Live › Update is "Only when I refresh": the tray offers Refresh. */
 	readonly liveManual?: boolean;
 	/** The docked Live popup is hidden (L19). Default false. */
@@ -168,6 +170,11 @@ export function buildTrayMenu(state: TrayState): TrayMenuItem[] {
 		item(t("Show translations on screen", "Show Translations on Screen"), "overlay.toggle", {
 			checked: !!state.showOnScreen,
 			tooltip: "Each translation covers the text it translates",
+		}),
+		// GLIM-164: the owner asked for a quick switch (Discord, OBS) next to the other modes.
+		item(t("Show in screen sharing", "Show in Screen Sharing"), "screen-sharing.toggle", {
+			checked: !!state.showInScreenSharing,
+			tooltip: "Glimpse popups and Settings appear in Discord, OBS, recordings and screenshots",
 		}),
 		{ type: "divider" },
 		item(t("Clear translation cache", "Clear Translation Cache"), "cache.clear"),

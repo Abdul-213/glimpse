@@ -1,6 +1,6 @@
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { SettingsRPC, SettingsSection } from "../../shared/settings-rpc.ts";
-import type { CaptureExclusion } from "./capture-exclusion.ts";
+import { type CaptureExclusion, frameBounds } from "./capture-exclusion.ts";
 import { electrobunChromeTarget } from "./chrome-target.ts";
 import type { SettingsDeps } from "./settings-handlers.ts";
 import { createSettingsHandlers } from "./settings-handlers.ts";
@@ -124,6 +124,6 @@ export class SettingsWindow {
 			this.initialSection = null;
 		});
 		this.window = win;
-		this.exclusion.protect(win, () => win.show(), { role: "window" });
+		this.exclusion.protect(win, () => win.show(), { role: "window", bounds: frameBounds(win) });
 	}
 }

@@ -4,7 +4,7 @@
 // compositor sits between the files and Live: it paints every on-screen Glimpse window into
 // the captured frames unless the window is excluded from capture (what WDA_EXCLUDEFROMCAPTURE
 // and the ScreenCaptureKit filter do on real hardware), and MaskedCaptureSource paints over
-// un-flagged popups as in production (GLIM-98, here with "Hide Glimpse" off). The OCR fake is
+// un-flagged popups as in production (GLIM-98/164, here with "Show Glimpse in screen sharing" on). The OCR fake is
 // pixel-honest: a line reads as its text only while its pixels match the pristine page, so any
 // card or badge that leaked into a frame shows up as a garbled read and a feedback loop.
 //

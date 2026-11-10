@@ -198,7 +198,7 @@ export class ElectrobunLivePopupWindow implements LivePopupWindowPort {
 		this.chrome?.refresh();
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
-			// GLIM-98/128: a `popup` follows "Hide Glimpse from screenshots"; with it off, its
+			// GLIM-98/128/164: a `popup` follows "Show Glimpse in screen sharing"; with it on, its
 			// on-screen frame is painted over in Glimpse's own capture (Windows), so Live never
 			// reads its own popup.
 			this.deps.exclusion.protect(this.win, show, {

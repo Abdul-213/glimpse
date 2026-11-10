@@ -1,5 +1,5 @@
 // GLIM-128: the docked Live popup registers with CaptureExclusion as a `popup` with its
-// on-screen frame (GLIM-98). With "Hide Glimpse from screenshots" off, Windows can't keep the
+// on-screen frame (GLIM-98). With "Show Glimpse in screen sharing" on (GLIM-164), Windows can't keep the
 // popup out of Glimpse's own frames by flag, so MaskedCaptureSource paints its frame over: a
 // Live region under the popup (the "inside" docking of a full-screen pin) never reads the
 // popup's text. File backend, sample recording.

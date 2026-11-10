@@ -64,7 +64,7 @@ describe("settings defaults", () => {
 				privateByDefault: false,
 				clearCacheAfterIdleMinutes: 15,
 				clearCacheOnLock: true,
-				hideFromCapture: true,
+				showInScreenSharing: true,
 			},
 			system: { launchAtLogin: false },
 			cloud: { liveConsent: [], spendCap: "freeTier" },
@@ -511,5 +511,25 @@ describe("source-language subset and models folder (GLIM-68, GLIM-96)", () => {
 		expect(loaded.warnings).toEqual([]);
 		expect(loaded.settings.models.directory).toBeNull();
 		expect(loaded.settings.language.sources).toEqual([languageCode("ja")]);
+	});
+
+	test("GLIM-164: Show Glimpse in screen sharing is on by default, and GLIM-98's hide flag is dropped", async () => {
+		expect(defaultSettings(env).privacy.showInScreenSharing).toBe(true);
+		// Every GLIM-98 install saved hideFromCapture: true (its default). It loads as shown,
+		// without a warning, and isn't written back.
+		const store = new MemorySettingsStore(
+			JSON.stringify({ version: 2, privacy: { hideFromCapture: true, clearCacheOnLock: false } }),
+		);
+		const loaded = await loadSettings(store, env);
+		expect(loaded.warnings).toEqual([]);
+		expect(loaded.settings.privacy.showInScreenSharing).toBe(true);
+		expect(loaded.settings.privacy.clearCacheOnLock).toBe(false);
+		expect(serializeSettings(loaded.settings)).not.toContain("hideFromCapture");
+		const off = applySettingsPatch(loaded.settings, { privacy: { showInScreenSharing: false } }, env);
+		expect(off.issues).toEqual([]);
+		expect(off.settings.privacy.showInScreenSharing).toBe(false);
+		expect(parseSettings(JSON.parse(serializeSettings(off.settings)), env).settings.privacy.showInScreenSharing).toBe(
+			false,
+		);
 	});
 });

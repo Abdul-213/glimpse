@@ -1,6 +1,6 @@
 // GLIM-98: keep Glimpse's own windows out of what Glimpse reads when the OS can't.
 //
-// With "Hide Glimpse from screenshots and screen sharing" off, Windows shows Glimpse's
+// With "Show Glimpse in screen sharing and recordings" on (GLIM-164), Windows shows Glimpse's
 // popups to every capture, Glimpse's own included (WDA_EXCLUDEFROMCAPTURE is all or
 // nothing). So before a frame reaches OCR, the parts of it under a visible Glimpse popup
 // are painted over with a flat colour: OCR finds no text there, and the rest of the frame

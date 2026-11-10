@@ -11,6 +11,16 @@ workflow builds Windows and macOS and leaves a **draft** release for the owner t
 
 ## [Unreleased]
 
+### Changed
+
+- Glimpse's popups, Settings and setup window now show up when you stream or record (Discord, OBS,
+  screenshots). New switch **Show Glimpse in screen sharing and recordings** in Settings › Privacy,
+  on by default, with the same switch in the tray menu (**Show in screen sharing**); it applies to
+  open windows at once. It replaces "Hide Glimpse from screenshots and screen sharing", so existing
+  installs start showing Glimpse too. Glimpse still never reads its own windows. The selection
+  overlay and the Live frame with its numbers and on-screen cards always stay out of captures
+  (GLIM-164).
+
 ## [0.0.5] - 2026-11-09
 
 Fifth MVP preview, after the owner's test of 0.0.4. Unsigned. What to try:

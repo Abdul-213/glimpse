@@ -11,16 +11,20 @@
 //            excludes it from Glimpse's own capture. SCK ignores sharingType on macOS 15+,
 //            so Glimpse windows may still show in other apps' screenshots there.
 //
-// GLIM-98, Settings › Privacy › "Hide Glimpse from screenshots and screen sharing" (on by
-// default). Turning it off un-flags `popup` and `window` windows, so the user's own
-// screenshots and screen shares show them. `surface` windows (picker overlays, the results
-// layer, the Live frame) stay flagged either way: they sit on top of what Glimpse captures.
+// GLIM-164 (was GLIM-98's inverted "Hide Glimpse..."), Settings › Privacy and the tray:
+// "Show Glimpse in screen sharing and recordings", on by default (provisional owner
+// decision). On, `popup` and `window` windows are un-flagged (Windows WDA_NONE, macOS
+// sharingType readOnly), so Discord, OBS and screenshots show them; `setHideFromCapture` is
+// that setting negated. `surface` windows (picker overlays, the results layer, the Live frame
+// with its numbered marks and overlay cards) stay flagged either way: they sit on top of what
+// Glimpse captures, and painting them over would paint over the text under them.
 // Glimpse's own capture still never reads its windows:
-//   macOS    the SCK filter skips every registered window id, whatever sharingType says.
+//   macOS    the SCK filter excludes the whole Glimpse process (and every registered window
+//            id), whatever sharingType says.
 //   Windows  the flag is all or nothing, so `maskRects()` lists the on-screen bounds of every
-//            un-flagged window that gave them (the popups), and `MaskedCaptureSource` paints
-//            those parts of each frame over before OCR. It also covers a flag that didn't
-//            stick (old Windows builds).
+//            un-flagged window (popups from their controllers, Settings and onboarding from
+//            the window frame), and `MaskedCaptureSource` paints those parts of each frame
+//            over before OCR. It also covers a flag that didn't stick (old Windows builds).
 //
 // No electrobun import: a BrowserWindow satisfies ExcludableWindow structurally, and the
 // OS calls come in as ExclusionOps, so this is unit-tested with fakes.
@@ -68,8 +72,33 @@ export type ExclusionRole = "surface" | "popup" | "window";
 
 export interface ProtectOptions {
 	readonly role?: ExclusionRole;
-	/** Where the window is on screen (global logical), or null while hidden. Popups give this. */
+	/**
+	 * Where the window is on screen (global logical), or null while hidden. Every `popup` and
+	 * `window` must give this, or Glimpse could read it on Windows when it is shown to capture.
+	 */
 	readonly bounds?: () => Rect | null;
+}
+
+/** A window that reports its own frame (Electrobun BrowserWindow.getFrame). */
+export interface FramedWindow {
+	getFrame(): { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * GLIM-164: `bounds` for a Settings-like window, read from the window itself on each capture
+ * (the user can move and resize it). Only called on Windows, where Electrobun's frames are in
+ * the same space the popups are placed in; macOS never masks. Null when unreadable or empty.
+ */
+export function frameBounds(win: FramedWindow): () => Rect | null {
+	return () => {
+		try {
+			const f = win.getFrame();
+			const ok = [f.x, f.y, f.width, f.height].every(Number.isFinite) && f.width > 0 && f.height > 0;
+			return ok ? { x: f.x, y: f.y, width: f.width, height: f.height } : null;
+		} catch {
+			return null;
+		}
+	};
 }
 
 interface Entry {
@@ -95,7 +124,7 @@ export class CaptureExclusion {
 		return [...this.ids];
 	}
 
-	/** Settings › "Hide Glimpse from screenshots and screen sharing". */
+	/** Not "Show Glimpse in screen sharing and recordings" (GLIM-164). */
 	get hideFromCapture(): boolean {
 		return this.hidden;
 	}
@@ -180,7 +209,11 @@ export class CaptureExclusion {
 		} else if (this.ops && !handle) {
 			result = { excluded: false, windowId: null, detail: "window has no native handle" };
 		} else if (this.ops) {
-			result = { excluded: false, windowId: null, detail: "shown to screen capture (setting off)" };
+			result = {
+				excluded: false,
+				windowId: null,
+				detail: "shown to screen capture (Show Glimpse in screen sharing is on)",
+			};
 		}
 		if (!result.excluded && this.ops && flag) this.log(`[capture] window not excluded from capture: ${result.detail}`);
 		const entry: Entry = { handle, role, bounds: options.bounds, excluded: result.excluded };

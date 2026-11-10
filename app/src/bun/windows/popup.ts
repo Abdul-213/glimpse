@@ -188,7 +188,7 @@ export class ElectrobunPopupWindow implements PopupWindowPort {
 		const show = () => this.win.show();
 		if (!this.protectedOnce) {
 			this.protectedOnce = true;
-			// GLIM-98: with the setting off the popup shows in screenshots, and Glimpse's own
+			// GLIM-98/164: with "Show Glimpse in screen sharing" on the popup shows in screen shares, and Glimpse's own
 			// capture paints over its frame instead.
 			this.deps.exclusion.protect(this.win, show, {
 				role: "popup",

@@ -462,14 +462,20 @@ rules every implementation follows (contract checks in `@glimpse/core/testing` e
   build 19041+. macOS: `sharingType = none`, and the SCK filter excludes Glimpse's app (or its
   window ids, kept current through `setExcludedWindows`), which also works on macOS 15+ where SCK
   ignores `sharingType`.
-- **Hide from screenshots (GLIM-98):** `settings.privacy.hideFromCapture` (default on). Each
-  `protect` call names a role: `surface` (picker overlays, results layer; always flagged),
-  `popup` (gives its on-screen `bounds`) and `window` (Settings, onboarding). Off un-flags popups and windows
-  (`WDA_NONE` / `sharingType = readOnly`, `glim_window_set_sharing`) so the user's screenshots
-  and shares show them. Glimpse's own capture still never reads them: on macOS the SCK filter
-  skips them by id; on Windows Snip and Live read through `MaskedCaptureSource`
-  (`services/capture/masked.ts`), which paints `CaptureExclusion.maskRects()` (un-flagged
-  windows on screen) over with core's `maskFrame` before OCR.
+- **Show in screen sharing (GLIM-164, was GLIM-98's hide switch):** `settings.privacy.showInScreenSharing`
+  (default on, provisional owner decision; the old `hideFromCapture` key is dropped on load).
+  Settings › Privacy and the tray's checkbox (`screen-sharing.toggle`) both change it;
+  `screen-sharing.ts` applies every change to open windows. Each `protect` call names a role:
+  `surface` (picker overlays, results layer, the Live frame with its marks and cards; always
+  flagged), `popup` (gives its on-screen `bounds`) and `window` (Settings, onboarding; `bounds`
+  from the window's frame). On un-flags popups and windows (`WDA_NONE` / `sharingType =
+  readOnly`, `glim_window_set_sharing`) so Discord, OBS and screenshots show them. Glimpse's own
+  capture still never reads them: on macOS the SCK filter excludes the whole Glimpse process (and
+  the ids); on Windows Snip and Live read through `MaskedCaptureSource`
+  (`services/capture/masked.ts`), which paints `CaptureExclusion.maskRects()` (un-flagged windows
+  on screen, read before and after each grab so a dragged popup is covered at both places) over
+  with core's `maskFrame` before OCR. Surfaces can't be masked (they sit on the text being read),
+  so on Windows they stay out of streams.
 - **Choice:** `createCaptureSource()` (`app/src/bun/services/capture/index.ts`): native on
   Windows/macOS, the file-based backend (GLIM-86, section 7) on Linux. `GLIMPSE_CAPTURE=native|file`
   and `GLIMPSE_CAPTURE_FRAMES=<folder|png>` override it on any OS. It never throws; without a
