@@ -1,6 +1,6 @@
 {
 	"name": "@glimpse/providers",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"private": true,
 	"description": "OCR and translation provider implementations for Glimpse (Bun APIs, WASM, onnxruntime, fetch). No Electrobun.",
 	"type": "module",

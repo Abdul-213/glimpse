@@ -11,6 +11,11 @@ workflow builds Windows and macOS and leaves a **draft** release for the owner t
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-11-10
+
+Sixth MVP preview, after the owner's test of 0.0.5. Unsigned. What to try:
+[docs/mvp-test.md](docs/mvp-test.md) step 24-s.
+
 ### Changed
 
 - Glimpse's popups, Settings and setup window now show up when you stream or record (Discord, OBS,
