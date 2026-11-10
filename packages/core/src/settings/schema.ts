@@ -103,10 +103,14 @@ export interface Settings {
 		/** Wipe the cache on screen lock and system sleep (GLIM-20). */
 		readonly clearCacheOnLock: boolean;
 		/**
-		 * Settings › "Hide Glimpse from screenshots and screen sharing" (GLIM-98). Off: popups
-		 * and Settings show in other apps' captures; Glimpse's own capture still skips them.
+		 * Settings › Privacy and the tray: "Show Glimpse in screen sharing and recordings"
+		 * (GLIM-164, provisional owner decision: on by default). On: popups, Settings and
+		 * onboarding show in other apps' captures (Discord, OBS, screenshots); Glimpse's own
+		 * capture still never reads them. Off: they are hidden from every capture. Replaces
+		 * GLIM-98's `hideFromCapture` (default on), which is dropped on load, so every existing
+		 * install starts showing Glimpse too.
 		 */
-		readonly hideFromCapture: boolean;
+		readonly showInScreenSharing: boolean;
 	};
 	readonly system: {
 		readonly launchAtLogin: boolean;
@@ -206,7 +210,7 @@ export function settingsSchema(env: SettingsEnv): Schema<Settings> {
 			privateByDefault: withDefault(boolean(), false),
 			clearCacheAfterIdleMinutes: withDefault(number({ min: 0, max: 24 * 60, integer: true }), 15),
 			clearCacheOnLock: withDefault(boolean(), true),
-			hideFromCapture: withDefault(boolean(), true),
+			showInScreenSharing: withDefault(boolean(), true),
 		}),
 		system: object({
 			launchAtLogin: withDefault(boolean(), false),

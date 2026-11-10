@@ -22,6 +22,7 @@ import { loadMacNative } from "./native/macos.ts";
 import { overlayOpsFor } from "./native/overlay.ts";
 import { loadWindowsCapture, loadWindowsChrome } from "./native/windows.ts";
 import { platform } from "./platform.ts";
+import { wireScreenSharing } from "./screen-sharing.ts";
 import { AppSettings } from "./services/app-settings.ts";
 import { reportingCapture } from "./services/capture/capture-report.ts";
 import { withDeniedReport } from "./services/capture/denied-report.ts";
@@ -193,12 +194,12 @@ models
 const captureLog = log.child("capture");
 const capture = createCaptureSource({ shellDisplays: readDisplays, log: (message) => captureLog.info(message) });
 const exclusion = new CaptureExclusion(exclusionOpsFor(), capture.source, (message) => captureLog.warn(message));
-// GLIM-98: Settings › Privacy › Hide Glimpse from screenshots and screen sharing. Snip and Live
-// read through `screen`, which paints over Glimpse windows the OS lets into a frame. Under it,
-// a `permission-denied` capture means Screen Recording was turned off while running, so
-// ScreenAccess shows its notice and window (GLIM-45, GLIM-121); `screenAccess` is declared
-// below and this only runs on a failed capture.
-exclusion.setHideFromCapture(loadedSettings.settings.privacy.hideFromCapture);
+// GLIM-164 (GLIM-98): Settings › Privacy / tray › Show Glimpse in screen sharing and recordings.
+// Snip and Live read through `screen`, which paints over Glimpse windows the OS lets into a
+// frame. Under it, a `permission-denied` capture means Screen Recording was turned off while
+// running, so ScreenAccess shows its notice and window (GLIM-45, GLIM-121); `screenAccess` is
+// declared below and this only runs on a failed capture.
+exclusion.setHideFromCapture(!loadedSettings.settings.privacy.showInScreenSharing);
 const screen = new MaskedCaptureSource(
 	withDeniedReport(capture.source, () => screenAccess.reportCaptureDenied()),
 	() => exclusion.maskRects(),
@@ -716,6 +717,7 @@ const tray = createTray(
 		taskbarTheme: "dark",
 		notices: trayNotices(),
 		showOnScreen: appSettings.current.snip.showOnScreen,
+		showInScreenSharing: appSettings.current.privacy.showInScreenSharing,
 		liveManual: appSettings.current.live.update === "manual",
 	},
 	commands,
@@ -754,6 +756,9 @@ appSettings.subscribe((next, previous) => {
 	tray.update({ showOnScreen: next.snip.showOnScreen });
 	livePopup?.setOverlay(next.snip.showOnScreen);
 });
+// GLIM-164: the tray's Show in screen sharing is Settings › Privacy's switch; open windows
+// follow either one at once.
+wireScreenSharing({ settings: appSettings, exclusion, tray, commands });
 appSettings.subscribe((next, previous) => {
 	if (next.live.update === previous.live.update) return;
 	tray.update({ liveManual: next.live.update === "manual" });
@@ -765,9 +770,6 @@ void hotkeyRegistrar.apply(loadedSettings.settings.hotkeys);
 // Settings changes apply without a restart (GLIM-69).
 appSettings.subscribe((next, previous) => {
 	if (next.diagnostics.logLevel !== previous.diagnostics.logLevel) logs.applySettingsLevel(next.diagnostics.logLevel);
-	if (next.privacy.hideFromCapture !== previous.privacy.hideFromCapture) {
-		exclusion.setHideFromCapture(next.privacy.hideFromCapture);
-	}
 	if (next.hotkeys !== previous.hotkeys) tray.update({ hotkeys: { snip: next.hotkeys.snip, live: next.hotkeys.live } });
 });
 

@@ -275,7 +275,7 @@ export class LivePopupController {
 	/**
 	 * Where the popup is on screen (global logical), or null while hidden. GLIM-128: the
 	 * capture-exclusion `popup` bounds, which Glimpse's own capture paints over on Windows when
-	 * "Hide Glimpse from screenshots" is off.
+	 * "Show Glimpse in screen sharing" is on (GLIM-164).
 	 */
 	get frame(): Rect | null {
 		return this.#visible ? this.#frame : null;

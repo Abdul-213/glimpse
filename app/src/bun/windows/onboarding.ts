@@ -1,6 +1,6 @@
 import { BrowserView, BrowserWindow } from "electrobun/main";
 import type { OnboardingMode, OnboardingRPC } from "../../shared/onboarding-rpc.ts";
-import type { CaptureExclusion } from "./capture-exclusion.ts";
+import { type CaptureExclusion, frameBounds } from "./capture-exclusion.ts";
 import { electrobunChromeTarget } from "./chrome-target.ts";
 import { createOnboardingHandlers, type OnboardingDeps } from "./onboarding-handlers.ts";
 import type { WindowChrome } from "./window-chrome.ts";
@@ -92,8 +92,9 @@ export class OnboardingWindow {
 			this.window = null;
 		});
 		this.window = win;
-		// GLIM-98: follows "Hide Glimpse from screenshots and screen sharing", like Settings.
-		this.exclusion.protect(win, () => win.show(), { role: "window" });
+		// GLIM-98/164: follows "Show Glimpse in screen sharing and recordings", like Settings; its
+		// frame is painted over in Glimpse's own capture (Windows) while it is shown.
+		this.exclusion.protect(win, () => win.show(), { role: "window", bounds: frameBounds(win) });
 	}
 
 	close(): void {

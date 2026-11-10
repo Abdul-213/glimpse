@@ -37,6 +37,7 @@ describe("tray menu", () => {
 			"Live: pin a region\tAlt+Shift+L",
 			"Private",
 			"Show translations on screen",
+			"Show in screen sharing",
 			"Clear translation cache",
 			"Settings…",
 			"Troubleshooting",
@@ -48,6 +49,7 @@ describe("tray menu", () => {
 			"live.start",
 			"private.toggle",
 			"overlay.toggle",
+			"screen-sharing.toggle",
 			"cache.clear",
 			"settings.open",
 			"app.quit",
@@ -117,6 +119,16 @@ describe("tray menu", () => {
 		expect(byAction(buildTrayMenu({ ...base, showOnScreen: true }), "overlay.toggle")?.checked).toBe(true);
 		expect(byAction(buildTrayMenu({ ...base, platform: "macos" }), "overlay.toggle")?.label).toBe(
 			"Show Translations on Screen",
+		);
+	});
+
+	test("GLIM-164: Show in screen sharing is a checkbox item, Title Case on macOS", () => {
+		expect(byAction(buildTrayMenu(base), "screen-sharing.toggle")?.checked).toBe(false);
+		expect(byAction(buildTrayMenu({ ...base, showInScreenSharing: true }), "screen-sharing.toggle")?.checked).toBe(
+			true,
+		);
+		expect(byAction(buildTrayMenu({ ...base, platform: "macos" }), "screen-sharing.toggle")?.label).toBe(
+			"Show in Screen Sharing",
 		);
 	});
 

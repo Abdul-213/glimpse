@@ -102,7 +102,7 @@ describe("CaptureExclusion", () => {
 	});
 });
 
-describe("Hide Glimpse from screenshots and screen sharing (GLIM-98)", () => {
+describe("hideFromCapture = not Show Glimpse in screen sharing (GLIM-98/164)", () => {
 	const popupAt = { x: 100, y: 100, width: 300, height: 120 };
 
 	test("on (default): everything is flagged and nothing needs masking", () => {

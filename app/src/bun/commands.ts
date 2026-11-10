@@ -22,6 +22,8 @@ export const COMMANDS = [
 	"private.toggle",
 	/** GLIM-158: Show translations on screen (the Settings default; a running Live session follows). */
 	"overlay.toggle",
+	/** GLIM-164: Show Glimpse in screen sharing and recordings (Settings › Privacy; open windows follow). */
+	"screen-sharing.toggle",
 	"cache.clear",
 	"settings.open",
 	"screen-access.open",

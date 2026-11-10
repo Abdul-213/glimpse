@@ -62,21 +62,21 @@ export function PrivacyPane(props: { state: SettingsState }): JSX.Element {
 				</SettingsRow>
 			</SettingsGroup>
 
-			{/* GLIM-98. Either way, Glimpse never reads its own windows when it captures. */}
+			{/* GLIM-164 (was GLIM-98's Hide switch). Either way, Glimpse never reads its own windows. */}
 			<SettingsGroup
 				title="Screen capture"
-				footer="Either way, Glimpse never reads its own windows when you Snip or pin Live."
+				footer="Either way, Glimpse never reads its own windows when you Snip or pin Live. The tray menu has the same switch."
 			>
 				<SettingsControlRow>
 					<Switch
-						label="Hide Glimpse from screenshots and screen sharing"
+						label="Show Glimpse in screen sharing and recordings"
 						description={
 							os() === "macos"
-								? "Popups and Settings stay out of screenshots, recordings and screen sharing. On macOS 15 and later, some apps can still capture them. Turn this off to share a translation or a bug report."
-								: "Popups and Settings stay out of screenshots, recordings and screen sharing. Turn this off to share a translation or a bug report; the selection overlay and the Live frame stay hidden."
+								? "Popups and Settings appear in Discord, OBS, recordings and screenshots. Turn this off to keep them private; on macOS 15 and later, some apps can still capture them. The selection overlay and the Live frame always stay out."
+								: "Popups and Settings appear in Discord, OBS, recordings and screenshots. Turn this off to keep them private. The selection overlay and the Live frame, with its on-screen translations, always stay out."
 						}
-						checked={s().privacy.hideFromCapture}
-						onChange={(v) => void props.state.update({ privacy: { hideFromCapture: v } })}
+						checked={s().privacy.showInScreenSharing}
+						onChange={(v) => void props.state.update({ privacy: { showInScreenSharing: v } })}
 					/>
 				</SettingsControlRow>
 			</SettingsGroup>
