@@ -1,6 +1,6 @@
 {
 	"name": "@glimpse/core",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"private": true,
 	"description": "Pure TypeScript domain logic for Glimpse: types, providers, pipeline, cache, settings. No OS or Electrobun imports.",
 	"type": "module",
