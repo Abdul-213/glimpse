@@ -1,0 +1,15 @@
+{
+	"name": "@glimpse/core",
+	"version": "0.0.6",
+	"private": true,
+	"description": "Pure TypeScript domain logic for Glimpse: types, providers, pipeline, cache, settings. No OS or Electrobun imports.",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./testing": "./src/testing/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit -p .",
+		"test": "bun test"
+	}
+}

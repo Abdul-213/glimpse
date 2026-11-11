@@ -1,0 +1,73 @@
+// Snip popup view entry (GLIM-65). Loaded hidden at launch into the pre-created popup
+// window; main pushes `snipState`, the view renders it and sends intents back.
+import { applyPlatform } from "@glimpse/ui";
+import { createSignal, Show } from "solid-js";
+import { render } from "solid-js/web";
+import type { SnipPopupRPC, SnipStateMessage, SnipViewInit } from "../../shared/popup-rpc.ts";
+import { connect } from "../rpc.ts";
+import { SnipPopup } from "./SnipPopup.tsx";
+
+const [init, setInit] = createSignal<SnipViewInit | null>(null);
+const [message, setMessage] = createSignal<SnipStateMessage | null>(null);
+
+const rpc = connect<SnipPopupRPC>({
+	requests: {},
+	messages: {
+		snipState: (m) => {
+			document.documentElement.dataset["motion"] = m.reducedMotion ? "reduced" : "full";
+			setMessage(m);
+		},
+	},
+});
+
+// The webview's default context menu is off (§5: right-click does nothing in v1).
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+rpc.request
+	.getSnipInit()
+	.then((i) => {
+		// data-material (native / none) comes from the window's chrome (window-chrome.ts):
+		// the solid veil until it says a material is behind the webview.
+		applyPlatform(i.os);
+		document.documentElement.lang = i.uiLang;
+		document.documentElement.dir = i.uiDir;
+		setInit(i);
+	})
+	.catch(() => {});
+
+const root = document.getElementById("root");
+if (!root) throw new Error("popup: #root missing from index.html");
+
+render(
+	() => (
+		<Show when={init()}>
+			{(i) => (
+				<Show when={message()}>
+					{(m) => (
+						<SnipPopup
+							init={i()}
+							message={m()}
+							intents={{
+								painted: (requestId) => rpc.send.snipPainted({ requestId }),
+								resized: (requestId, contentHeight) => rpc.send.snipResized({ requestId, contentHeight }),
+								dismiss: (requestId, reason) => rpc.send.snipDismiss({ requestId, reason }),
+								skipped: (requestId, expanded) => rpc.send.snipSkipped({ requestId, expanded }),
+								action: (requestId, action, lang) =>
+									rpc.send.snipAction({ requestId, action, ...(lang ? { lang } : {}) }),
+								retryBlock: (requestId, blockId) => rpc.send.snipRetryBlock({ requestId, blockId }),
+								original: (requestId, on) => rpc.send.snipOriginal({ requestId, on }),
+								copy: (requestId, what) => rpc.send.snipCopy({ requestId, what }),
+								hoverBlock: (requestId, blockId) => rpc.send.snipHoverBlock({ requestId, blockId }),
+								// GLIM-158: these two were never wired, so the footer toggle and Ctrl/⌘⇧T did nothing.
+								overlay: (requestId, on) => rpc.send.snipOverlay({ requestId, on }),
+								peek: (requestId, on) => rpc.send.snipPeek({ requestId, on }),
+								overlayHintSeen: () => rpc.send.snipOverlayHintSeen({}),
+							}}
+						/>
+					)}
+				</Show>
+			)}
+		</Show>
+	),
+	root,
+);

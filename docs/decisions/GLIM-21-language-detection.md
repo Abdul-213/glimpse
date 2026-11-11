@@ -79,19 +79,43 @@ What the smoke test showed:
 
 ## Short and low-confidence block rule
 
-Detection runs on a **detection copy** of the text: NFKC normalised, with URLs, e-mail addresses, `@handles`, `#tags`, digits, units, punctuation and emoji stripped. `letters` is the count of remaining letters. Hiragana, katakana and Han characters count ×3 each, so a 2-character Japanese word isn't treated as "short".
+Detection runs on a **detection copy** of the text: NFKC normalised, with URLs, e-mail addresses, `@handles`, `#tags`, digits, units, punctuation and emoji stripped. When the subset has Uzbek, an apostrophe-like mark (`'`, `‘`, `’`, `ʼ`, `` ` ``, `´`) after o/g and before a letter becomes the letter ʻ (U+02BB) first: OCR reads Uzbek oʻ/gʻ as an apostrophe, and fastText recognises Uzbek largely by ʻ (GLIM-144). `letters` is the count of remaining letters. Hiragana, katakana and Han characters count ×3 each, so a 2-character Japanese word isn't treated as "short".
 
 | # | Condition | Outcome |
 |---|---|---|
 | 1 | `letters < 2`, or the whole block is a known token (`OK`, `Esc`, `F1`–`F12`, `Lv.`, `HP`, version strings…) | **Neutral.** Show it as-is in place. Never send it to NLLB. Never count it in "N skipped". |
 | 2 | The dominant script (≥ 70% of letters) is used by **no** language in the subset | **Skip** (certain). |
 | 3 | The script maps to exactly one NLLB language (Hangul, kana, Thai, Lao, Khmer, Greek, Georgian, Armenian, Sinhala, Tamil, Telugu, Kannada, Malayalam, Gujarati, Gurmukhi, Odia, Ol Chiki) | That language. Translate if it is in the subset, otherwise skip. |
-| 4 | Ambiguous script (Latin, Cyrillic, Arabic, Devanagari, Bengali, Han-only, Hebrew, Ethiopic, Myanmar, Tibetan, Tifinagh) and `letters ≥ 8` and detector confident (ELD `isReliable()` and top score ≥ τ; fastText p ≥ τ; starting τ = 0.5, **to be calibrated**) | Top-1 language. Translate if it is in the subset, otherwise skip. |
+| 4 | Ambiguous script (Latin, Cyrillic, Arabic, Devanagari, Bengali, Han-only, Hebrew, Ethiopic, Myanmar, Tibetan, Tifinagh) and `letters ≥ 8` and detector confident (ELD `isReliable()` and top score ≥ τ; fastText p ≥ τ; τ = 0.5 for both: fastText's calibrated in GLIM-142, ELD's still the starting value) | Top-1 language. Translate if it is in the subset, otherwise skip. |
+| 4w | As rule 4, but the block is short, the capture has a **script prior** for its script (below), and the block scores the prior's language within the detector's margin of its own top-1. ELD: `letters < 24`, margin 0.01 (GLIM-140). fastText: `letters < 48`, margin 0.7 (GLIM-142) | The prior's language. Confident, like rule 4. |
 | 5 | Otherwise **uncertain** (short or low confidence). Apply in order: | |
 | 5a | Live mode, and the same normalised text was decided before | Reuse the cached decision (also stops flicker). |
-| 5b | Other blocks in the same capture were decided confidently, and their majority language is plausible for this block's script | Inherit that language. |
-| 5c | Otherwise | **Translate** if any subset language uses this script *and* is in the detector's top 3. Otherwise **skip**. |
+| 5b | Other blocks in the same capture were decided confidently, and their majority language is plausible for this block's script; otherwise the capture has a script prior for this block's script | Inherit that language. |
+| 5c | Otherwise | **Translate** if any subset language uses this script *and* is in the detector's top 3, or the detector recognised nothing at all (`noEvidence`, below; then from the first such language that isn't the target). Otherwise **skip**. |
 | * | Decided language equals the target language | Don't translate. Show the original. |
+
+**Script prior (GLIM-140).** For each ambiguous script that two or more blocks of a capture are written in (OCR confidence above the rule 4 floor, rule 1 tokens excluded), the detector runs once more over those blocks' detection copies joined with spaces. If that result is reliable and its top-1 (consistent with the script) scores ≥ τ, it is the capture's prior for the script. Why: short menu and button labels in closely related languages are near-ties. The GLIM-64 benchmark's Bulgarian menu had "Нов прозорец" at ru 0.842 / bg 0.836 / sr 0.831 and "Последни документи" at sr 0.840 / bg 0.836 in ELD, so rule 4 picked ru and sr (sr is outside the subset, so the item was skipped). The joined menu reads as bg. The window is almost always in one language, so a narrow lead on a short item is weaker evidence than the window. A clear lead (a Russian sentence leads bg by 0.026) or a long block keeps its own top-1, and a prior the block doesn't list among its candidates never applies. The 0.01 margin is on ELD's score scale; fastText has its own (below). In Live only the changed blocks feed the prior.
+
+**Per-detector thresholds (GLIM-104, GLIM-142).** Rule 4w's margin and letter limit, and τ, belong to the detector (`LanguageDetector.tuning`), because scores aren't comparable across libraries: ELD's are similarity scores packed near 0.8 for related languages, fastText's are softmax probabilities (a short Bulgarian item reads ru 0.84 / bg 0.07 in lid.176). ELD declares 0.01 / 24 (`ELD_TUNING`, GLIM-140) and GLIM-21's τ 0.5.
+
+fastText's (`FASTTEXT_TUNING`) were calibrated in GLIM-142 with `bun run bench:lid` ([method and numbers](../benchmarks/language-detection.md)): 190 blocks in 37 captures of id, sw, uz, af, gl, mk, kk, mn, ne and ps windows (settings lists, dialogs, menus, chat, articles, windows mixing in English or Russian blocks), each with a subset that makes `planDetector` pick fastText.
+
+| fastText, GLIM-21 rules | short (< 8) | medium (8–23) | long (≥ 24) | all | missed | wrong source |
+|---|---|---|---|---|---|---|
+| fastText alone (top-1) | 22.6% | 48.5% | 73.3% | 52.1% | | |
+| GLIM-104: τ 0.5, no rule 4w | 61.3% | 69.7% | 80.0% | 71.6% (136/190) | 30 | 24 |
+| **GLIM-142: τ 0.5, rule 4w margin 0.7 under 48 letters** | 67.7% | 73.7% | 83.3% | **75.8% (144/190)** | 27 | 19 |
+
+- **τ 0.5** is the best of 0.1–0.8 (0.4: 131, 0.6: 129 of 190). fastText's `reliable` flag is p ≥ τ.
+- **Rule 4w, 0.7 under 48 letters.** On probabilities a short block rarely says more than "somewhere near here" (gl "Abrir automaticamente ao acender o ordenador": pt 0.79 / gl 0.15) while the joined window reads clearly (gl 0.98), so the prior should win far more often than on ELD's scale. Margins 0.8–1.0 score one block more but from 0.9 the prior overrides confident blocks of another language in mixed windows (a Kazakh line at 0.94); 0.7 keeps 0.2 of headroom. Below 48 letters the gain shrinks (24: 140).
+- A separate threshold for the script prior, or a top 10 instead of a top 5, changes nothing.
+- ELD's results are unchanged (its tuning is untouched; bench:ocr detection is 100% in every ELD script).
+
+What thresholds can't fix: lid.176 barely identifies Swahili UI and chat text (30% of Swahili blocks right after the rules; GLIM-145), its fixed "no evidence" distribution (en 0.12, ca 0.09, de 0.08…) read as English to rule 5c (fixed in GLIM-145, below), and OCR turns Uzbek ʻ into `'`, which the detection copy used to drop, after which fastText no longer saw Uzbek (fixed in GLIM-144: Uzbek subsets map o'/g' back to oʻ/gʻ in the detection copy; uz 82% → 96% of blocks, bench:ocr `latin-uz-chat` 0/4 → 4/4). With a close relative in the subset (af/nl, gl/pt, ps/fa) the window itself often reads as the relative, so translations come from the relative rather than going missing.
+
+**No evidence and Swahili (GLIM-145).** Text lid.176 has no word or n-gram for ("Jumla", "Batal", "Sasisha programu", even "qwzxv") gets the model's bias alone: the same distribution as empty text (en 0.12, ca 0.09, de 0.08, oc 0.05, fr 0.05). The fastText adapter compares each answer with that one (taken from the model at load) and returns it as no candidates with `noEvidence` set, and rule 5c treats such a block like a subset language the detector can't return: nothing is ruled out, so it leans to translating. ELD never sets the flag, so its results are unchanged. bench:lid (on top of GLIM-144): Swahili 29.6% → 37.0% (8 → 10 of 27) of blocks, all blocks 77.9% → 78.9% (150/190); bench:ocr unchanged. The rest of Swahili is the model: lid.176 reads short Swahili as confident Polish, Esperanto or Indonesian ("Habari yako? Umefika wapi?": pl 0.77; "Nunua sasa": eo 0.89; "Hifadhi": id 0.27), and no threshold, script prior or top-k fixes that (GLIM-142). A small Swahili word list was considered and rejected: one or two words per label don't overlap enough with any list to be safe against Indonesian, Malay and Tagalog, and it would be a per-language patch on top of the model. GlotLID v3 (1.7 GB) and OpenLID (GPL) are outside this decision's size and licence limits. So Settings › Languages notes Swahili as "Short text often not recognised" (`SourceLanguageChoice.weakDetection`), as GLIM-126 did for Vietnamese OCR; long sentences are detected well (the Swahili articles are right).
+
+**fastText in the app (GLIM-104).** `lid.176.ftz` is an on-demand download (`fasttext-lid176` in app/models/manifest.json, 0.9 MB, CC-BY-SA-3.0, attributed in NOTICE.txt), fetched only when the user chooses Download in Settings › Languages (shown when a chosen source language is fastText-only) or Settings › Models. Until then the language counts as undetectable and follows rule 5c. Once it lands, the pipeline reloads its detectors and `planDetector` picks fastText for subsets ELD can't cover. The runtime is fasttext.wasm.js 1.0.0 (MIT) as WASM; the package's own copy of the model is never shipped.
 
 Why rule 5c leans towards translating:
 
@@ -148,7 +172,7 @@ Equivalent codes for fastText's extras: `sw→swh_Latn`, `uz→uzn_Latn`, `mn→
 
 ## Open questions
 
-1. **Calibration.** Build a test set of about 1–2k real OCR'd blocks (UI, chat, games, subtitles) across the top 20 subset languages, then set τ, the `letters` cut-off and the script-dominance ratio from it. ELD's score scale is undocumented.
+1. **Calibration.** Build a test set of about 1–2k real OCR'd blocks (UI, chat, games, subtitles) across the top 20 subset languages, then set τ, the `letters` cut-off and the script-dominance ratio from it. ELD's score scale is undocumented. *Partly done:* rule 4w for ELD on the GLIM-64 OCR benchmark (GLIM-140); fastText's τ and rule 4w on 190 written blocks in 10 fastText-only languages (GLIM-142). Still open: real OCR'd blocks at scale, ELD's τ, `letters`, dominance.
 2. **ELD database size:** medium (+104 MB, 91% short-text accuracy) or small (+89 MB, 90%)?
 3. **Long-tail add-on:** offer GlotLID (1.7 GB, Apache-2.0) as an optional download for users who select uncovered languages, or accept approximate filtering?
 4. Should target-language blocks count towards "N skipped", or show as-is? We recommend as-is.

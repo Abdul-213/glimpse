@@ -1,0 +1,92 @@
+[
+	{
+		"box": {
+			"x": 27,
+			"y": 17,
+			"width": 200,
+			"height": 32
+		},
+		"text": "Release notes",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 28,
+			"y": 85,
+			"width": 322,
+			"height": 29
+		},
+		"text": "The new version improves startup",
+		"confidence": 0.989
+	},
+	{
+		"box": {
+			"x": 477,
+			"y": 85,
+			"width": 306,
+			"height": 29
+		},
+		"text": "Known issues: the tray icon may",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 28,
+			"y": 114,
+			"width": 308,
+			"height": 24
+		},
+		"text": "time and fixes a crash that could",
+		"confidence": 0.985
+	},
+	{
+		"box": {
+			"x": 476,
+			"y": 112,
+			"width": 309,
+			"height": 30
+		},
+		"text": "not update until the next restart",
+		"confidence": 0.992
+	},
+	{
+		"box": {
+			"x": 27,
+			"y": 142,
+			"width": 360,
+			"height": 26
+		},
+		"text": "happen when the window was closed.",
+		"confidence": 0.998
+	},
+	{
+		"box": {
+			"x": 478,
+			"y": 143,
+			"width": 173,
+			"height": 26
+		},
+		"text": "on some systems.",
+		"confidence": 0.998
+	},
+	{
+		"box": {
+			"x": 24,
+			"y": 253,
+			"width": 87,
+			"height": 35
+		},
+		"text": "Settings",
+		"confidence": 0.981
+	},
+	{
+		"box": {
+			"x": 22,
+			"y": 291,
+			"width": 58,
+			"height": 38
+		},
+		"text": "Help",
+		"confidence": 1
+	}
+]

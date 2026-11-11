@@ -19,11 +19,11 @@ web
 
 ## Stack
 
-Open. Nothing is scaffolded yet.
+Provisionally decided in `docs/decisions/GLIM-26-stack.md`.
 
-- **Shell:** Electrobun is the candidate, committed only after a spike passes on both OSes. The spike covers a transparent full-screen overlay, global hotkeys, region capture (including the macOS Screen Recording permission on unsigned builds), OS-level capture exclusion, ONNX Runtime inference from Bun, and keychain access. If items 2–5 need heavy native work, the fallback is a Rust sidecar or Tauri. Either way the UI runs in a webview.
-- **UI (suggested, not final):** Solid or Svelte; Ark UI or Radix-style unstyled primitives; Tailwind driven by DESIGN.md tokens; Motion for animation.
-- **Engines:** pluggable OCR and translation providers. Default OCR is PaddleOCR via ONNX, bundled, and the same engine on both OSes. Default translation is one quantised multilingual any-to-any model, downloaded on first run. (open) Which model: NLLB-200's weights are CC-BY-NC-4.0 (non-commercial), so the default model is under licence review.
+- **Shell:** Electrobun (Bun + system webview) with small per-OS native helper libraries loaded through `bun:ffi`. Tauri stays the fallback if real-machine checks fail.
+- **UI:** Solid + TypeScript, unstyled primitives, Tailwind driven by DESIGN.md tokens, Motion One.
+- **Engines:** pluggable OCR and translation providers. Default OCR is PaddleOCR via ONNX, bundled, the same engine on both OSes. Default translation is Mozilla's Firefox Translations (Bergamot, MPL-2.0) language packs, downloaded on demand, pivoting through English (`docs/decisions/GLIM-85-translation-model.md`).
 
 ## Users
 
@@ -62,7 +62,7 @@ A screen-area translator that runs fully on-device by default. Bundled OCR plus 
 - **Snip flow:** hotkey → full-screen region picker over the current screen → drag or snap to a region → the popup appears next to the selection, first with detected text boxes, then streamed translation → the translation goes to the clipboard → dismiss and return focus to the previous app.
 - **Live flow:** pick a region and pin it. Glimpse captures at about 2–4 fps and re-OCRs only when the pixel diff passes a threshold and the region has been stable for about 300 ms. One persistent popup stays docked to the region and updates in place. Live mode never touches the clipboard. Typical use is a game dialogue box, subtitle strip or chat pane over a long session.
 - **Language filtering:** blocks outside the chosen source-language subset are collapsed into an expandable "N blocks skipped" line, not hidden silently.
-- **Self-capture:** Glimpse's own windows are excluded from capture at the OS level (ScreenCaptureKit exclusion on macOS, `WDA_EXCLUDEFROMCAPTURE` on Windows), so its popups never feed back into OCR.
+- **Self-capture:** Glimpse never reads its own windows: ScreenCaptureKit excludes the whole app on macOS; on Windows the overlays drawn over the read region use `WDA_EXCLUDEFROMCAPTURE`, and popups and Settings shown to screen sharing (GLIM-164, on by default) are painted over in Glimpse's own frames before OCR.
 - **Environments:** fullscreen and borderless games, video players, browsers, PDF readers, chat apps. Multi-monitor and mixed-DPI setups. Light and dark OS themes. Underlying content can be any brightness or colour.
 - **First run:** grant permissions (macOS Screen Recording; possibly a Gatekeeper bypass because builds are unsigned), download the translation model, pick a target language and hotkeys.
 
@@ -90,18 +90,16 @@ A screen-area translator that runs fully on-device by default. Bundled OCR plus 
 **Decided**
 - Default hotkeys: `docs/decisions/GLIM-23-default-hotkeys.md`.
 - Per-block language detection (accepted for now): `docs/decisions/GLIM-21-language-detection.md`.
+- Provisional, owner can override: stack (`GLIM-26-stack.md`), default translation model (`GLIM-85-translation-model.md`), translation cache (`GLIM-20-translation-cache.md`), first cloud providers (`GLIM-22-cloud-providers.md`).
 
 **Open decisions**
-- Default translation model (NLLB-200 licence is non-commercial).
-- Which cloud providers to support first.
-- Translation cache (whether to have one, scope, persistence).
 - Gatekeeper bypass guidance for unsigned macOS builds.
-- Shell (pending spike) and UI framework.
 
 ## Brand Commitments
 
 - **Name:** Glimpse. Icon at `assets/icon.svg`.
-- **Personality:** calm, fast, unobtrusive, native. A utility that gets out of the way. It should feel like part of the OS, not a branded app asking for attention. No mascots, no celebration, no upsell.- **Binding visual constraints given so far (recorded, not expanded; DESIGN.md owns the details):** use native window materials (macOS vibrancy, Windows Mica/Acrylic); follow the OS light/dark setting; use Noto fallbacks for all scripts; aim for the region-picker feel of CleanShot X and Shottr.
+- **Personality:** calm, fast, unobtrusive, native. A utility that gets out of the way. It should feel like part of the OS, not a branded app asking for attention. No mascots, no celebration, no upsell.
+- **Binding visual constraints given so far (recorded, not expanded; DESIGN.md owns the details):** use native window materials (macOS vibrancy, Windows Mica/Acrylic); follow the OS light/dark setting; use Noto fallbacks for all scripts; aim for the region-picker feel of CleanShot X and Shottr.
 - **Open source** on GitHub, so the UI, copy and privacy claims are public and auditable.
 
 ## Evidence on Hand

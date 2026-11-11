@@ -1,0 +1,197 @@
+{
+	"_note": "Google API error replies in the documented google.rpc.Status / ErrorInfo shape (cloud.google.com/apis/design/errors), with the legacy `errors` list Translation v2 still sends. Project numbers are placeholders. Not recorded live (no key, GLIM-60/61).",
+	"key-invalid": {
+		"status": 400,
+		"body": {
+			"error": {
+				"code": 400,
+				"message": "API key not valid. Please pass a valid API key.",
+				"status": "INVALID_ARGUMENT",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "API_KEY_INVALID",
+						"domain": "googleapis.com",
+						"metadata": { "service": "vision.googleapis.com" }
+					}
+				]
+			}
+		}
+	},
+	"key-invalid-v2-legacy": {
+		"status": 400,
+		"body": {
+			"error": {
+				"code": 400,
+				"message": "API key not valid. Please pass a valid API key.",
+				"errors": [
+					{ "message": "API key not valid. Please pass a valid API key.", "domain": "global", "reason": "badRequest" }
+				],
+				"status": "INVALID_ARGUMENT",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "API_KEY_INVALID",
+						"domain": "googleapis.com",
+						"metadata": { "service": "translate.googleapis.com" }
+					}
+				]
+			}
+		}
+	},
+	"service-disabled": {
+		"status": 403,
+		"body": {
+			"error": {
+				"code": 403,
+				"message": "Cloud Translation API has not been used in project 123456789012 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/translate.googleapis.com/overview?project=123456789012 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.",
+				"errors": [
+					{
+						"message": "Cloud Translation API has not been used in project 123456789012 before or it is disabled.",
+						"domain": "usageLimits",
+						"reason": "accessNotConfigured",
+						"extendedHelp": "https://console.developers.google.com"
+					}
+				],
+				"status": "PERMISSION_DENIED",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "SERVICE_DISABLED",
+						"domain": "googleapis.com",
+						"metadata": { "consumer": "projects/123456789012", "service": "translate.googleapis.com" }
+					},
+					{
+						"@type": "type.googleapis.com/google.rpc.Help",
+						"links": [
+							{
+								"description": "Google developers console API activation",
+								"url": "https://console.developers.google.com/apis/api/translate.googleapis.com/overview?project=123456789012"
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"billing-disabled": {
+		"status": 403,
+		"body": {
+			"error": {
+				"code": 403,
+				"message": "This API method requires billing to be enabled. Please enable billing on project #123456789012 by visiting https://console.developers.google.com/billing/enable?project=123456789012 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.",
+				"status": "PERMISSION_DENIED",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "BILLING_DISABLED",
+						"domain": "googleapis.com",
+						"metadata": { "consumer": "projects/123456789012", "service": "vision.googleapis.com" }
+					}
+				]
+			}
+		}
+	},
+	"key-service-blocked": {
+		"status": 403,
+		"body": {
+			"error": {
+				"code": 403,
+				"message": "Requests to this API vision.googleapis.com method google.cloud.vision.v1.ImageAnnotator.BatchAnnotateImages are blocked.",
+				"status": "PERMISSION_DENIED",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "API_KEY_SERVICE_BLOCKED",
+						"domain": "googleapis.com",
+						"metadata": {
+							"service": "vision.googleapis.com",
+							"consumer": "projects/123456789012",
+							"methodName": "google.cloud.vision.v1.ImageAnnotator.BatchAnnotateImages"
+						}
+					}
+				]
+			}
+		}
+	},
+	"referrer-blocked": {
+		"status": 403,
+		"body": {
+			"error": {
+				"code": 403,
+				"message": "Requests from referer <empty> are blocked.",
+				"status": "PERMISSION_DENIED",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "API_KEY_HTTP_REFERRER_BLOCKED",
+						"domain": "googleapis.com",
+						"metadata": { "service": "translate.googleapis.com", "consumer": "projects/123456789012" }
+					}
+				]
+			}
+		}
+	},
+	"rate-limited": {
+		"status": 429,
+		"headers": { "retry-after": "7" },
+		"body": {
+			"error": {
+				"code": 429,
+				"message": "Quota exceeded for quota metric 'Requests' and limit 'Requests per minute' of service 'vision.googleapis.com' for consumer 'project_number:123456789012'.",
+				"status": "RESOURCE_EXHAUSTED",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "RATE_LIMIT_EXCEEDED",
+						"domain": "googleapis.com",
+						"metadata": {
+							"quota_limit": "DefaultRequestsPerMinutePerProject",
+							"quota_metric": "vision.googleapis.com/default_requests",
+							"service": "vision.googleapis.com",
+							"consumer": "projects/123456789012",
+							"quota_limit_value": "1800"
+						}
+					}
+				]
+			}
+		}
+	},
+	"quota-daily": {
+		"status": 429,
+		"body": {
+			"error": {
+				"code": 429,
+				"message": "Quota exceeded for quota metric 'v2 and v3 general model characters' and limit 'v2 and v3 general model characters per day' of service 'translate.googleapis.com' for consumer 'project_number:123456789012'.",
+				"status": "RESOURCE_EXHAUSTED",
+				"details": [
+					{
+						"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+						"reason": "RATE_LIMIT_EXCEEDED",
+						"domain": "googleapis.com",
+						"metadata": {
+							"quota_metric": "translate.googleapis.com/default",
+							"quota_limit": "DefaultCharactersPerDayPerProject",
+							"service": "translate.googleapis.com",
+							"consumer": "projects/123456789012"
+						}
+					}
+				]
+			}
+		}
+	},
+	"quota-daily-legacy": {
+		"status": 403,
+		"body": {
+			"error": {
+				"code": 403,
+				"message": "Daily Limit Exceeded",
+				"errors": [{ "message": "Daily Limit Exceeded", "domain": "usageLimits", "reason": "dailyLimitExceeded" }]
+			}
+		}
+	},
+	"unavailable": {
+		"status": 503,
+		"body": { "error": { "code": 503, "message": "The service is currently unavailable.", "status": "UNAVAILABLE" } }
+	}
+}

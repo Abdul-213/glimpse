@@ -1,0 +1,51 @@
+{
+	"machine": "GitHub ubuntu-latest: AMD EPYC 7763, 2 cores, ORT threads auto (1); totalP50 + GLIM-142 cases scaled from a local run; Latin (fastText) detection from GLIM-144",
+	"scripts": {
+		"Latin": {
+			"cer": 0.0204,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Latin (fastText)": {
+			"cer": 0.0192,
+			"grouping": 1,
+			"detection": 0.9412
+		},
+		"CJK": {
+			"cer": 0.0145,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Arabic": {
+			"cer": 0.0435,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Cyrillic": {
+			"cer": 0,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Devanagari": {
+			"cer": 0.0292,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Thai": {
+			"cer": 0,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Greek": {
+			"cer": 0.0169,
+			"grouping": 1,
+			"detection": 1
+		},
+		"Mixed": {
+			"cer": 0,
+			"grouping": 1,
+			"detection": 1
+		}
+	},
+	"totalP50": 8306
+}

@@ -1,0 +1,9 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		// No DOM: core runs in the Bun main process and in tests, never in a webview
+		// directly. Webviews only import its types.
+		"lib": ["ESNext"]
+	},
+	"include": ["src", "test"]
+}

@@ -1,0 +1,132 @@
+[
+	{
+		"box": {
+			"x": 363,
+			"y": 54,
+			"width": 132,
+			"height": 26
+		},
+		"text": "WHAT NOISE?",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 95,
+			"y": 82,
+			"width": 130,
+			"height": 24
+		},
+		"text": "HEY! DID YOU",
+		"confidence": 0.981
+	},
+	{
+		"box": {
+			"x": 105,
+			"y": 105,
+			"width": 109,
+			"height": 24
+		},
+		"text": "HEAR THAT",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 121,
+			"y": 127,
+			"width": 78,
+			"height": 27
+		},
+		"text": "NOISE?",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 456,
+			"y": 139,
+			"width": 87,
+			"height": 28
+		},
+		"text": "I DIDN'T",
+		"confidence": 0.996
+	},
+	{
+		"box": {
+			"x": 470,
+			"y": 165,
+			"width": 60,
+			"height": 24
+		},
+		"text": "HEAR",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 444,
+			"y": 189,
+			"width": 111,
+			"height": 24
+		},
+		"text": "ANYTHING.",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 42,
+			"y": 306,
+			"width": 121,
+			"height": 27
+		},
+		"text": "PLUS TARD...",
+		"confidence": 0.988
+	},
+	{
+		"box": {
+			"x": 391,
+			"y": 371,
+			"width": 137,
+			"height": 26
+		},
+		"text": "C'EST LE VENT,",
+		"confidence": 0.998
+	},
+	{
+		"box": {
+			"x": 137,
+			"y": 392,
+			"width": 105,
+			"height": 27
+		},
+		"text": "ATTENDS...",
+		"confidence": 0.956
+	},
+	{
+		"box": {
+			"x": 392,
+			"y": 395,
+			"width": 136,
+			"height": 24
+		},
+		"text": "RIEN DE PLUS.",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 107,
+			"y": 417,
+			"width": 166,
+			"height": 24
+		},
+		"text": "TU ENTENDS ÇA?",
+		"confidence": 0.987
+	},
+	{
+		"box": {
+			"x": 404,
+			"y": 418,
+			"width": 113,
+			"height": 24
+		},
+		"text": "RENTRONS.",
+		"confidence": 1
+	}
+]

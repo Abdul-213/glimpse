@@ -1,0 +1,118 @@
+@import "@glimpse/ui/theme.css";
+@source "./";
+
+/*
+ * Settings window chrome (DESIGN.md Layout > Settings). The section list is the macOS sidebar
+ * (rounded selection) or the Windows navigation view (hover tint plus the 3 x 16px accent pill
+ * at inline-start). Materials (GLIM-133): with `data-material="native"` the sidebar is the
+ * window veil over vibrancy (macOS `.sidebar`) or Mica (Windows 11 22H2+) and the pane stays
+ * solid; with `none` everything is solid.
+ */
+@layer components {
+	.settings-shell {
+		background: var(--veil-window);
+	}
+
+	.settings-nav {
+		box-sizing: border-box;
+		padding: calc(var(--spacing) * 2);
+		background: var(--color-overlay-hover);
+		border-inline-end: 1px solid var(--color-divider);
+	}
+
+	[data-os="windows"] .settings-nav {
+		padding: calc(var(--spacing) * 1);
+		background: transparent;
+		border-inline-end: 0;
+	}
+
+	:root[data-material="native"] .settings-shell {
+		background: transparent;
+	}
+
+	:root[data-material="native"] .settings-nav {
+		background: var(--veil-window);
+	}
+
+	:root[data-material="native"] .settings-main {
+		background: var(--color-surface-window-solid);
+	}
+
+	/*
+	 * macOS title bar (hiddenInset): a 28 px drag strip on top of each column; the traffic
+	 * lights sit over the sidebar's. Windows keeps its native caption, so no strip.
+	 */
+	.settings-titlebar {
+		display: none;
+	}
+
+	:root[data-os="macos"] .settings-titlebar {
+		display: block;
+		flex: none;
+		height: 1.75rem;
+	}
+
+	:root[data-os="macos"] .settings-nav > .settings-titlebar {
+		margin: calc(var(--spacing) * -2) calc(var(--spacing) * -2) calc(var(--spacing) * 2);
+	}
+
+	.settings-nav-item {
+		position: relative;
+		display: flex;
+		align-items: center;
+		box-sizing: border-box;
+		width: 100%;
+		height: var(--control-height);
+		padding: 0 calc(var(--spacing) * 2.5);
+		font: inherit;
+		font-size: var(--text-body);
+		color: var(--color-text-primary);
+		text-align: start;
+		background: transparent;
+		border: 0;
+		border-radius: var(--radius-control);
+		cursor: default;
+		transition: background-color var(--duration-fast) var(--ease-standard);
+	}
+
+	.settings-nav-item:hover {
+		background: var(--color-overlay-hover);
+	}
+
+	.settings-nav-item[aria-current="page"] {
+		background: var(--color-overlay-selected);
+	}
+
+	.settings-nav-item:focus-visible {
+		outline: 2px solid var(--color-focus-ring);
+		outline-offset: -2px;
+	}
+
+	[data-os="windows"] .settings-nav-item {
+		height: 2.25rem;
+		padding-inline-start: calc(var(--spacing) * 4);
+	}
+
+	[data-os="windows"] .settings-nav-item[aria-current="page"] {
+		font-weight: 600;
+		background: var(--color-overlay-hover);
+	}
+
+	[data-os="windows"] .settings-nav-item[aria-current="page"]::before {
+		position: absolute;
+		inset-block: calc(50% - 0.5rem);
+		inset-inline-start: 0;
+		width: 0.1875rem;
+		content: "";
+		background: var(--color-accent);
+		border-radius: var(--radius-pill);
+	}
+
+	.settings-pane {
+		scrollbar-gutter: stable;
+	}
+
+	.settings-pane ::selection {
+		background: var(--color-overlay-selected);
+	}
+}

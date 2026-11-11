@@ -1,0 +1,33 @@
+{
+	"name": "glimpse",
+	"version": "0.0.6",
+	"private": true,
+	"description": "Desktop screen-OCR translator for Windows and macOS",
+	"license": "MIT",
+	"type": "module",
+	"workspaces": [
+		"app",
+		"packages/*"
+	],
+	"scripts": {
+		"typecheck": "bun run --filter '*' typecheck",
+		"lint": "biome check .",
+		"lint:ci": "biome ci .",
+		"format": "biome format --write .",
+		"fix": "biome check --write .",
+		"test": "bun test",
+		"devkit": "bun run --filter @glimpse/app devkit",
+		"tokens": "bun run --filter @glimpse/ui tokens",
+		"models": "bun run --filter @glimpse/app models",
+		"dev": "bun run --filter @glimpse/app dev",
+		"build": "bun run --filter @glimpse/app build",
+		"harness": "bun app/scripts/harness.ts",
+		"bench:ocr": "bun packages/providers/bench/ocr/run.ts",
+		"bench:lid": "bun packages/providers/bench/detection/run.ts"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.6.4",
+		"@types/bun": "1.4.4",
+		"typescript": "~5.9.3"
+	}
+}

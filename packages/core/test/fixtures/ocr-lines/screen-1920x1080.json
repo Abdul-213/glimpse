@@ -1,0 +1,262 @@
+[
+	{
+		"box": {
+			"x": 88,
+			"y": 83,
+			"width": 174,
+			"height": 30
+		},
+		"text": "— Glimpse Sample",
+		"confidence": 0.967
+	},
+	{
+		"box": {
+			"x": 887,
+			"y": 85,
+			"width": 47,
+			"height": 26
+		},
+		"text": "Chat",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 98,
+			"y": 131,
+			"width": 54,
+			"height": 37
+		},
+		"text": "一般",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 326,
+			"y": 136,
+			"width": 185,
+			"height": 25
+		},
+		"text": "起動時に自動的に開く",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 904,
+			"y": 134,
+			"width": 56,
+			"height": 24
+		},
+		"text": "Li Wei",
+		"confidence": 0.995
+	},
+	{
+		"box": {
+			"x": 904,
+			"y": 157,
+			"width": 267,
+			"height": 31
+		},
+		"text": "你好！今天晚上一起玩游戏吗？",
+		"confidence": 0.987
+	},
+	{
+		"box": {
+			"x": 97,
+			"y": 178,
+			"width": 54,
+			"height": 39
+		},
+		"text": "表示",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 326,
+			"y": 185,
+			"width": 133,
+			"height": 24
+		},
+		"text": "通知を表示する",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 905,
+			"y": 208,
+			"width": 48,
+			"height": 22
+		},
+		"text": "Anna",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 99,
+			"y": 229,
+			"width": 149,
+			"height": 34
+		},
+		"text": "ショートカット",
+		"confidence": 0.998
+	},
+	{
+		"box": {
+			"x": 327,
+			"y": 232,
+			"width": 168,
+			"height": 25
+		},
+		"text": "翻訳先の言語：英語",
+		"confidence": 0.988
+	},
+	{
+		"box": {
+			"x": 903,
+			"y": 228,
+			"width": 342,
+			"height": 35
+		},
+		"text": "Ja, gernel Ich bin um acht Uhr online.",
+		"confidence": 0.97
+	},
+	{
+		"box": {
+			"x": 99,
+			"y": 277,
+			"width": 110,
+			"height": 33
+		},
+		"text": "アカウント",
+		"confidence": 0.997
+	},
+	{
+		"box": {
+			"x": 327,
+			"y": 280,
+			"width": 184,
+			"height": 25
+		},
+		"text": "変更を保存しますか？",
+		"confidence": 0.953
+	},
+	{
+		"box": {
+			"x": 903,
+			"y": 277,
+			"width": 57,
+			"height": 25
+		},
+		"text": "Li Wei",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 903,
+			"y": 302,
+			"width": 229,
+			"height": 30
+		},
+		"text": "好的，我们在服务器上见。",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 98,
+			"y": 324,
+			"width": 92,
+			"height": 35
+		},
+		"text": "詳細設定",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 905,
+			"y": 352,
+			"width": 49,
+			"height": 22
+		},
+		"text": "Anna",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 904,
+			"y": 376,
+			"width": 363,
+			"height": 30
+		},
+		"text": "Vergiss nicht, das Update zu installieren.",
+		"confidence": 0.979
+	},
+	{
+		"box": {
+			"x": 905,
+			"y": 423,
+			"width": 54,
+			"height": 23
+		},
+		"text": "Li Wei",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 905,
+			"y": 446,
+			"width": 227,
+			"height": 31
+		},
+		"text": "已经下载好了，谢谢提醒。",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 644,
+			"y": 534,
+			"width": 81,
+			"height": 30
+		},
+		"text": "保存する",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 193,
+			"y": 716,
+			"width": 57,
+			"height": 40
+		},
+		"text": "상인",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 195,
+			"y": 768,
+			"width": 537,
+			"height": 33
+		},
+		"text": "어서 오세요!오늘은 특별한 물건이 많이 있습니다.",
+		"confidence": 0.989
+	},
+	{
+		"box": {
+			"x": 196,
+			"y": 818,
+			"width": 242,
+			"height": 37
+		},
+		"text": "무엇을 도와드릴까요?",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 679,
+			"y": 956,
+			"width": 561,
+			"height": 33
+		},
+		"text": "We have to leave before the storm arrives.",
+		"confidence": 0.988
+	}
+]

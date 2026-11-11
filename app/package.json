@@ -1,0 +1,39 @@
+{
+	"name": "@glimpse/app",
+	"version": "0.0.6",
+	"private": true,
+	"description": "The Glimpse Electrobun app: Bun main process, Solid webviews, native helpers",
+	"type": "module",
+	"scripts": {
+		"typecheck": "tsc --noEmit -p .",
+		"test": "bun test",
+		"devkit": "hutch electrobun sync",
+		"views": "bun scripts/build-views.ts",
+		"models": "bun scripts/fetch-models.ts",
+		"dev": "hutch electrobun dev --watch",
+		"start": "hutch electrobun dev",
+		"build": "hutch electrobun build --env=dev",
+		"build:stable": "hutch electrobun build --env=stable",
+		"native:mac": "sh native/macos/build.sh",
+		"native:win": "pwsh -NoProfile -ExecutionPolicy Bypass -File native/windows/build.ps1",
+		"native:win:cross": "sh native/windows/build-zig.sh",
+		"harness": "bun scripts/harness.ts",
+		"fixtures:capture": "bun scripts/make-capture-fixtures.ts"
+	},
+	"dependencies": {
+		"@glimpse/core": "workspace:*",
+		"@glimpse/providers": "workspace:*",
+		"@glimpse/ui": "workspace:*",
+		"solid-js": "1.9.18"
+	},
+	"devDependencies": {
+		"@babel/core": "^7.28.0",
+		"@babel/preset-typescript": "^7.28.0",
+		"@types/babel__core": "7.20.5",
+		"axe-core": "4.14.0",
+		"babel-preset-solid": "1.9.16",
+		"bun-plugin-tailwind": "0.1.2",
+		"playwright-core": "1.64.1",
+		"tailwindcss": "4.3.3"
+	}
+}

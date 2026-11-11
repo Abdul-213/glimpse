@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Glimpse materials spike</title>
+		<link rel="stylesheet" href="index.css" />
+	</head>
+	<body>
+		<h1>Window materials spike (GLIM-19)</h1>
+		<p class="detail" id="osDetail">loading…</p>
+
+		<section>
+			<h2>Show / hide</h2>
+			<div class="row">
+				<button data-action="show">Show</button>
+				<button data-action="hide">Hide</button>
+				<button data-action="toggle">Toggle</button>
+				<button data-action="show-delayed" title="Hides, then shows after 3 s. Click another app in the meantime.">Show in 3 s</button>
+				<button data-action="show-new-content">Show with new content</button>
+			</div>
+			<div class="row">
+				<button data-action="latency" data-value="20">Latency test (20×)</button>
+				<label>Show method <select data-setting="showMode"></select></label>
+			</div>
+			<dl>
+				<dt>Last show</dt>
+				<dd id="lastShow">–</dd>
+				<dt>Latency test</dt>
+				<dd id="latency">–</dd>
+				<dt>Focus check</dt>
+				<dd id="focus">–</dd>
+			</dl>
+		</section>
+
+		<section>
+			<h2>Surface</h2>
+			<div class="grid">
+				<label>Material <select data-setting="material"></select></label>
+				<label>Corners <select data-setting="corner"></select></label>
+				<label
+					>Reduce transparency
+					<select data-setting="rt">
+						<option value="auto">Follow OS</option>
+						<option value="on">Simulate on</option>
+						<option value="off">Ignore OS</option>
+					</select>
+				</label>
+				<label
+					>Appearance
+					<select data-setting="theme">
+						<option value="system">System</option>
+						<option value="light">Light</option>
+						<option value="dark">Dark</option>
+					</select>
+				</label>
+				<label
+					>Veil opacity
+					<select data-setting="veilAlpha">
+						<option value="1">100%</option>
+						<option value="0.9">90% (DESIGN.md)</option>
+						<option value="0.8">80%</option>
+						<option value="0.7">70%</option>
+						<option value="0.5">50%</option>
+						<option value="0">0% (material only)</option>
+					</select>
+				</label>
+				<label class="win-only"
+					>DWM border
+					<select data-setting="winBorder">
+						<option value="none">None (webview hairline)</option>
+						<option value="default">Default</option>
+					</select>
+				</label>
+			</div>
+			<dl>
+				<dt>Surface</dt>
+				<dd id="surface">–</dd>
+				<dt>OS state</dt>
+				<dd id="osState">–</dd>
+			</dl>
+		</section>
+
+		<section>
+			<h2>Position</h2>
+			<div class="row">
+				<button data-action="next-display">Move to next display</button>
+				<button data-action="resize">Toggle size 400×240 / 480×360</button>
+				<button data-action="diagnostics">Log diagnostics</button>
+			</div>
+		</section>
+
+		<section>
+			<h2>Log</h2>
+			<p class="detail">Full log: <code id="logPath"></code></p>
+			<pre id="log"></pre>
+		</section>
+		<script type="module" src="./index.js"></script>
+	</body>
+</html>

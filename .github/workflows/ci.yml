@@ -1,0 +1,158 @@
+# Linux CI: typecheck, lint, unit tests and a Linux `electrobun build` smoke test.
+# Linux runners only. Windows and macOS builds are GLIM-34 (they cost 2x / 10x minutes).
+name: CI
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: typecheck, lint, test
+    runs-on: ubuntu-latest
+    # GLIM-52/83: the design detector and the accessibility check render ~85 pages each.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Hutch
+        run: |
+          curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the Electrobun devkit (pinned in app/hutch.config.ts)
+        working-directory: app
+        run: hutch electrobun sync
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint and format check
+        run: bun run lint:ci
+
+      # Every model in app/models/manifest.json (~120 MB download: the bundled set plus the
+      # on-demand recognisers the OCR benchmark needs, GLIM-64), used by the real-model OCR tests,
+      # the benchmark and the preBuild hook. Cached by manifest hash so most runs download nothing.
+      - name: Cache models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/models
+          key: glimpse-models-all-${{ hashFiles('app/models/manifest.json') }}
+
+      - name: Fetch models
+        run: bun run models -- --all
+
+      - name: Unit tests
+        run: bun test
+
+      # GLIM-64: OCR accuracy (CER/WER per script, grouping, detection) and latency over
+      # packages/providers/bench/ocr; fails only on large regressions against baseline.json.
+      - name: OCR benchmark
+        run: |
+          bun run bench:ocr --check --report="$RUNNER_TEMP/ocr-bench/ocr-results.md" --json="$RUNNER_TEMP/ocr-bench/ocr-results.json"
+          cat "$RUNNER_TEMP/ocr-bench/ocr-results.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload OCR benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-bench
+          path: ${{ runner.temp }}/ocr-bench
+          retention-days: 14
+
+      - name: Headless harness (file-based capture GLIM-86, pipeline GLIM-102, Snip popup GLIM-118)
+        run: |
+          bun run harness snip --rect 20,15,160,90
+          bun run harness live --rect 0,0,360,120 --fps 4
+          bun run harness snip --pipeline --rect 20,15,160,90
+          bun run harness snip --pipeline --popup --rect 20,15,160,90
+          bun run harness live --pipeline --rect 0,0,360,120 --fps 4
+          bun run harness pick --drag 150,20,300,100
+
+      # GLIM-42: render the component gallery headlessly (macOS/Windows variants,
+      # light/dark, LTR/RTL); fails on console errors or an empty render.
+      - name: Gallery screenshots
+        working-directory: app
+        run: |
+          node_modules/.bin/playwright-core install --with-deps --only-shell chromium
+          bun scripts/gallery.ts --shots "$RUNNER_TEMP/gallery"
+
+      - name: Upload gallery screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery
+          path: ${{ runner.temp }}/gallery
+          retention-days: 7
+
+      # GLIM-52: Impeccable design detector over the view sources and every preview surface
+      # (gallery, Settings, onboarding, Snip/Live popups, picker). Clean at GLIM-135, so it
+      # blocks: a new (non-advisory) finding fails the job. The report goes to the job summary
+      # either way. Exceptions: .impeccable/config.json (CONTRIBUTING.md).
+      - name: Design detector
+        working-directory: app
+        env:
+          DO_NOT_TRACK: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/design"
+          bun scripts/design-detect.ts --strict --report "$RUNNER_TEMP/design/design-detector.md" --json "$RUNNER_TEMP/design/design-detector.json" || { cat "$RUNNER_TEMP/design/design-detector.md" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          cat "$RUNNER_TEMP/design/design-detector.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload design detector report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-detector
+          path: ${{ runner.temp }}/design
+          retention-days: 14
+
+      # GLIM-83: axe-core (WCAG 2.1 A/AA), Tab order / visible focus and reduced motion over
+      # every preview surface. Clean at GLIM-83, so it blocks: a regression fails the job.
+      - name: Accessibility check
+        working-directory: app
+        run: |
+          mkdir -p "$RUNNER_TEMP/a11y"
+          bun scripts/a11y-check.ts --strict --report "$RUNNER_TEMP/a11y/a11y.md" --json "$RUNNER_TEMP/a11y/a11y.json" || { cat "$RUNNER_TEMP/a11y/a11y.md" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          cat "$RUNNER_TEMP/a11y/a11y.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload accessibility report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y
+          path: ${{ runner.temp }}/a11y
+          retention-days: 14
+
+      - name: Build the app (Linux)
+        working-directory: app
+        run: hutch electrobun build --env=dev
+
+      # GLIM-146: one Snip of a Japanese/German fixture through the build's staged Workers,
+      # onnxruntime and models and the app's translation service, with real ja/de->en packs
+      # from Remote Settings (~105 MB, cached). Fails on a missing or wrong translation.
+      - name: Cache translation packs for the pipeline smoke
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/pipeline-smoke
+          key: glimpse-smoke-packs-${{ runner.os }}-${{ hashFiles('app/scripts/pipeline-smoke.ts') }}
+          restore-keys: glimpse-smoke-packs-${{ runner.os }}-
+
+      - name: End-to-end translation smoke (staged bundle)
+        working-directory: app
+        run: bun scripts/pipeline-smoke.ts

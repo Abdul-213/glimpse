@@ -1,0 +1,9 @@
+{
+	"data": {
+		"translations": [
+			{ "translatedText": "Settings saved." },
+			{ "translatedText": "Do you want to use this item?" },
+			{ "translatedText": "The meeting tomorrow starts at 3 p.m." }
+		]
+	}
+}

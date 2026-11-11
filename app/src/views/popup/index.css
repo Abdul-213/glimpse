@@ -1,0 +1,146 @@
+@import "@glimpse/ui/theme.css";
+@source "./";
+
+/* The window is exactly the popup: no page background, the veil is the window. */
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+	background: transparent;
+	overflow: hidden;
+}
+
+@layer components {
+	.snip-popup {
+		width: 100%;
+		height: auto;
+		max-height: 100dvh;
+	}
+
+	.snip-list {
+		flex: 0 1 auto;
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-overlay-pressed) transparent;
+	}
+
+	.snip-list ::selection {
+		background: var(--color-overlay-selected);
+	}
+
+	/* Footer (§2.4): one 24px row, aligned with block text; its empty background drags the window. */
+	.snip-footer {
+		display: flex;
+		flex: none;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: calc(var(--spacing) * 2);
+		min-height: 1.5rem;
+		margin-block-start: calc(var(--spacing) * 2);
+		padding-inline-start: calc(var(--spacing) * 2);
+		position: relative;
+	}
+
+	/* GLIM-80: the cloud pill. Its own row when the footer can't fit it (§2.4); never truncated. */
+	.snip-egress {
+		display: inline-flex;
+		min-width: 0;
+	}
+
+	.snip-egress[data-own-row] {
+		flex: 0 0 100%;
+	}
+
+	.snip-egress-measure {
+		position: absolute;
+		inset-inline-start: 0;
+		inset-block-start: 0;
+		display: flex;
+		gap: var(--spacing);
+		visibility: hidden;
+		pointer-events: none;
+		white-space: nowrap;
+	}
+
+	.snip-footer[data-divider] {
+		padding-block-start: calc(var(--spacing) * 2);
+		border-block-start: 1px solid var(--color-divider);
+	}
+
+	.snip-spacer {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.snip-status,
+	.snip-private {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing);
+		font-size: var(--text-label);
+		font-weight: var(--text-label--font-weight);
+		line-height: var(--text-label--line-height);
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+	}
+
+	.snip-actions {
+		margin-inline-start: auto;
+	}
+
+	/* GLIM-158: the one-time On screen hint, a quiet line right above the footer's toggle. */
+	.snip-hint {
+		flex: none;
+		margin: calc(var(--spacing) * 2) 0 0;
+		padding-inline: calc(var(--spacing) * 2);
+		font-size: var(--text-label);
+		font-weight: var(--text-label--font-weight);
+		line-height: var(--text-label--line-height);
+		color: var(--color-text-secondary);
+		text-align: end;
+	}
+}
+
+@layer components {
+	/* Error body (§4.1): replaces the top of the list; buttons 8px apart. */
+	.snip-error {
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		gap: calc(var(--spacing) * 2);
+		margin-block-end: calc(var(--spacing) * 2);
+	}
+
+	.snip-error-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: calc(var(--spacing) * 2);
+		padding-inline: calc(var(--spacing) * 2);
+	}
+
+	/* E2's confirm step for a large download (GLIM-138): the question over its two buttons. */
+	.snip-error-confirm {
+		display: flex;
+		flex-direction: column;
+		gap: calc(var(--spacing) * 2);
+	}
+
+	.snip-error-confirm > p {
+		padding-inline: calc(var(--spacing) * 2);
+	}
+
+	.snip-ocr-note {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: calc(var(--spacing) * 1);
+		padding-inline: calc(var(--spacing) * 2);
+	}
+
+	.snip-skipped-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: calc(var(--spacing) * 4);
+		padding-inline: calc(var(--spacing) * 2);
+	}
+}

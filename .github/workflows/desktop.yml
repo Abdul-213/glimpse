@@ -1,0 +1,453 @@
+# Desktop builds (GLIM-34, GLIM-50): typecheck, unit tests, native helper and a release
+# (`--env=stable`) `electrobun build` on real Windows and macOS runners, then the build is
+# packaged and uploaded as unsigned artifacts for manual testing (14 days):
+#
+#   glimpse-<version>-<sha>-windows-x64.zip         portable app (Glimpse\bin\launcher.exe)
+#   glimpse-<version>-<sha>-windows-x64-setup.zip   Electrobun's installer (Glimpse-Setup.exe)
+#   glimpse-<version>-<sha>-macos-arm64.zip         Glimpse.app, ad-hoc signed (inner app sealed too, GLIM-113)
+#   glimpse-<version>-<sha>-macos-arm64.dmg         the same app in a DMG
+#
+#   glimpse-<version>-<sha>-macos-x64.zip           Intel Mac (job macos-intel: on demand and releases only, GLIM-89)
+#
+# Lint runs only on Linux (ci.yml); it is platform-independent.
+#
+# Windows minutes count 2x and macOS 10x on the free tier, so this never runs on PRs:
+# only on pushes to develop that touch app, native or package code, plus on demand
+# (workflow_dispatch works once this file is on the default branch).
+name: Desktop builds
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - app/**
+      - packages/**
+      - package.json
+      - bun.lock
+      - .github/workflows/desktop.yml
+  workflow_dispatch:
+  # release.yml (GLIM-62) reuses these jobs for a tagged release, then collects the artifacts.
+  workflow_call:
+
+concurrency:
+  # github.workflow is the caller's name when release.yml calls this, so the two never cancel each other.
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: 1.4.4
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      # Keep LF endings so fixtures, snapshots and Biome see the same bytes as on Linux.
+      - name: Check out with LF line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Hutch itself, the pinned Electrobun release and its Bun toolchain (~/.hutch), plus the
+      # synced devkit (app/.hutch). Keyed by the Electrobun pin.
+      - name: Cache Hutch and the Electrobun devkit
+        id: hutch-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hutch
+            app/.hutch
+          key: hutch-${{ runner.os }}-${{ hashFiles('app/hutch.config.ts') }}
+
+      - name: Install Hutch
+        run: |
+          if (-not (Test-Path "$env:USERPROFILE\.hutch\bin\hutch.exe")) {
+            & ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))
+          }
+          "$env:USERPROFILE\.hutch\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Sync the Electrobun devkit
+        working-directory: app
+        run: hutch electrobun sync
+
+      - name: Cache bundled models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/models
+          key: glimpse-models-${{ runner.os }}-${{ hashFiles('app/models/manifest.json') }}
+
+      - name: Fetch bundled models
+        run: bun run models
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun test
+
+      - name: MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build glimpse.dll
+        env:
+          GLIMPSE_NATIVE_TOOL: msvc
+        run: ./app/native/windows/build.ps1
+
+      - name: Build the app (stable)
+        working-directory: app
+        env:
+          GLIMPSE_REQUIRE_MODELS: "1"
+        run: hutch electrobun build --env=stable
+
+      # One OCR call through the staged Worker, onnxruntime and models; checks the Visual C++
+      # runtime DLLs in use are the app-local copies (GLIM-111) and that onnxruntime wrote no
+      # telemetry device id (GLIM-112).
+      - name: OCR smoke test (bundled onnxruntime)
+        working-directory: app
+        run: bun scripts/bundle-smoke.ts
+
+      # GLIM-146: a Snip of a Japanese/German fixture through the app's translation service
+      # over the staged Workers and models (OCR -> grouping -> language detection -> Bergamot
+      # -> English), with real ja/de->en packs from Remote Settings (~105 MB, cached).
+      - name: Cache translation packs for the pipeline smoke
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/pipeline-smoke
+          key: glimpse-smoke-packs-${{ runner.os }}-${{ hashFiles('app/scripts/pipeline-smoke.ts') }}
+          restore-keys: glimpse-smoke-packs-${{ runner.os }}-
+
+      - name: End-to-end translation smoke (bundled Workers)
+        working-directory: app
+        run: bun scripts/pipeline-smoke.ts
+
+      - name: Package
+        id: package
+        run: |
+          $version = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          $base = "glimpse-$version-$sha-windows-x64"
+          $dist = Join-Path $env:RUNNER_TEMP "dist"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
+          Get-ChildItem -Recurse app/build, app/artifacts | Select-Object FullName, Length | Format-Table -AutoSize | Out-String -Width 300 | Write-Host
+
+          # app/build/stable-win-x64 holds the portable app (Glimpse\: bin\launcher.exe, which
+          # unpacks Resources\<hash>.tar.zst on first run) next to a loose copy of the installer.
+          # Zip only the app; the installer comes from app/artifacts. Contents are already zstd,
+          # so store them with the fastest zip level.
+          $app = Get-Item app/build/stable-win-*/Glimpse
+          7z a -tzip -mx=1 "$dist\$base.zip" $app.FullName | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z failed" }
+          "zip=$dist\$base.zip" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+
+          # Electrobun's installer: win-x64-Glimpse-Setup.zip (Glimpse-Setup.exe + its payload).
+          $setup = Get-Item app/artifacts/*-Setup.zip
+          Copy-Item $setup.FullName "$dist\$base-setup.zip"
+          "setup=$dist\$base-setup.zip" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          Get-ChildItem $dist | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Host
+
+      - name: Upload the build folder
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.zip }}
+          archive: false
+          retention-days: 14
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.setup }}
+          archive: false
+          retention-days: 14
+
+  macos:
+    name: macOS arm64
+    runs-on: macos-latest
+    # 15 before GLIM-146's translation smoke (~1 min, more on a pack-cache miss).
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Hutch and the Electrobun devkit
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hutch
+            app/.hutch
+          key: hutch-${{ runner.os }}-${{ hashFiles('app/hutch.config.ts') }}
+
+      - name: Install Hutch
+        run: |
+          [ -x "$HOME/.hutch/bin/hutch" ] || curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the Electrobun devkit
+        working-directory: app
+        run: hutch electrobun sync
+
+      - name: Cache bundled models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/models
+          key: glimpse-models-${{ runner.os }}-${{ hashFiles('app/models/manifest.json') }}
+
+      - name: Fetch bundled models
+        run: bun run models
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun test
+
+      # arm64 only: Intel macOS is blocked by GLIM-89.
+      - name: Build libglimpse.dylib
+        env:
+          ARCHS: arm64
+        run: sh app/native/macos/build.sh
+
+      - name: Build the app (stable)
+        working-directory: app
+        env:
+          GLIMPSE_REQUIRE_MODELS: "1"
+        run: hutch electrobun build --env=stable
+
+      - name: OCR smoke test (bundled onnxruntime)
+        working-directory: app
+        run: bun scripts/bundle-smoke.ts
+
+      # GLIM-146: a Snip of a Japanese/German fixture through the app's translation service
+      # over the staged Workers and models (OCR -> grouping -> language detection -> Bergamot
+      # -> English), with real ja/de->en packs from Remote Settings (~105 MB, cached).
+      - name: Cache translation packs for the pipeline smoke
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/glimpse/pipeline-smoke
+          key: glimpse-smoke-packs-${{ runner.os }}-${{ hashFiles('app/scripts/pipeline-smoke.ts') }}
+          restore-keys: glimpse-smoke-packs-${{ runner.os }}-
+
+      - name: End-to-end translation smoke (bundled Workers)
+        working-directory: app
+        run: bun scripts/pipeline-smoke.ts
+
+      # Unsigned for distribution, but every arm64 binary must carry a valid signature to run
+      # at all, so the bundle is ad-hoc signed as a whole after Electrobun has assembled it.
+      - name: Ad-hoc sign and package
+        id: package
+        run: |
+          set -eu
+          version=$(bun -e 'console.log(require("./app/package.json").version)')
+          base="glimpse-$version-${GITHUB_SHA::7}-macos-arm64"
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+
+          # Glimpse.app here is Electrobun's self-extracting wrapper: Contents/MacOS/launcher plus
+          # Resources/<hash>.tar.zst holding the real app, unpacked on first launch. Seal the
+          # inner app first (GLIM-113: Electrobun leaves it unsealed), then the wrapper.
+          app=$(find app/build -maxdepth 2 -name '*.app' | head -1)
+          [ -n "$app" ] || { echo "no .app in app/build"; exit 1; }
+          sh app/scripts/macos-seal-inner.sh "$app"
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+
+          # GLIM-106: both the wrapper and the app it unpacks are accessory apps (no Dock icon);
+          # macos-seal-inner.sh checks the inner one.
+          value=$(plutil -extract LSUIElement raw "$app/Contents/Info.plist" 2>/dev/null || echo missing)
+          echo "LSUIElement=$value in the wrapper"
+          [ "$value" = true ] || echo "::warning::LSUIElement is not set in the wrapper's Info.plist (GLIM-106)"
+
+          ditto -c -k --keepParent "$app" "$dist/$base.zip"
+
+          stage="$RUNNER_TEMP/dmg"
+          mkdir -p "$stage"
+          ditto "$app" "$stage/$(basename "$app")"
+          ln -s /Applications "$stage/Applications"
+          # hdiutil is flaky on hosted runners ("Resource busy"); retry, and ship the zip regardless.
+          # -srcfolder's own size estimate is too small for this bundle ("No space left on device").
+          dmg_mb=$(( $(du -sm "$stage" | cut -f1) * 2 + 64 ))
+          dmg_ok=0
+          for attempt in 1 2 3; do
+            if hdiutil create -volname Glimpse -srcfolder "$stage" -size "${dmg_mb}m" -format UDZO -ov "$dist/$base.dmg"; then dmg_ok=1; break; fi
+            echo "hdiutil attempt $attempt failed; retrying"; sleep 5
+          done
+          [ "$dmg_ok" = 1 ] || echo "::warning::DMG not created; the .zip is still uploaded"
+
+          ls -la "$dist"
+          echo "zip=$dist/$base.zip" >> "$GITHUB_OUTPUT"
+          echo "dmg=$dist/$base.dmg" >> "$GITHUB_OUTPUT"
+
+      # First launch of the zipped app, as a user would after removing the quarantine flag: the
+      # launcher unpacks the inner app and starts it. Checks every Glimpse.app it leaves behind
+      # verifies (GLIM-113), then quits it. Fails only on a bad signature; a launch that can't be
+      # observed on the runner is a warning.
+      - name: First launch check
+        env:
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          set -u
+          dir="$RUNNER_TEMP/launch"
+          mkdir -p "$dir"
+          ditto -x -k "$ZIP" "$dir"
+          marker="$RUNNER_TEMP/launch-marker"
+          touch "$marker"
+          sleep 1
+          "$dir/Glimpse.app/Contents/MacOS/launcher" > "$RUNNER_TEMP/launch.log" 2>&1 &
+          started=0
+          for _ in $(seq 1 45); do
+            sleep 2
+            if pgrep -f 'Glimpse.app/Contents/MacOS/bun' >/dev/null; then started=1; break; fi
+          done
+          sleep 5
+          echo "--- launcher output"; cat "$RUNNER_TEMP/launch.log"; echo "---"
+          pgrep -fl 'Glimpse.app' || true
+          [ "$started" = 1 ] || echo "::warning::the unpacked app's bun process never appeared"
+          bad=0
+          for root in "$dir" "$HOME/Applications" "$HOME/Library/Application Support" /Applications; do
+            [ -d "$root" ] || continue
+            find "$root" -name 'Glimpse.app' -type d -prune -newer "$marker" 2>/dev/null
+          done | sort -u > "$RUNNER_TEMP/launched-apps.txt"
+          [ -s "$RUNNER_TEMP/launched-apps.txt" ] || echo "$dir/Glimpse.app" > "$RUNNER_TEMP/launched-apps.txt"
+          while read -r bundle; do
+            echo "== $bundle"
+            ls "$bundle/Contents/MacOS" | head -20
+            codesign --verify --deep --strict --verbose=2 "$bundle" || bad=1
+          done < "$RUNNER_TEMP/launched-apps.txt"
+          pkill -f 'Glimpse.app/Contents/MacOS' || true
+          [ "$bad" = 0 ] || { echo "::error::an unpacked Glimpse.app does not verify (GLIM-113)"; exit 1; }
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.zip }}
+          archive: false
+          retention-days: 14
+
+      - name: Upload the DMG
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.dmg }}
+          archive: false
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Intel macOS (GLIM-89): onnxruntime-node 1.23.2, pinned and fetched at build time
+  # (scripts/onnxruntime-legacy.ts, docs/decisions/GLIM-89-intel-mac-onnxruntime.md). Never on
+  # pushes (macOS minutes count 10x): only on demand and when release.yml calls this workflow.
+  # Typecheck and tests run on the arm64 job; this one builds, smoke-tests the bundled OCR and
+  # uploads an unsigned, ad-hoc signed zip.
+  macos-intel:
+    name: macOS x64 (Intel)
+    if: github.event_name != 'push'
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Hutch and the Electrobun devkit
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hutch
+            app/.hutch
+          key: hutch-${{ runner.os }}-x64-${{ hashFiles('app/hutch.config.ts') }}
+
+      - name: Install Hutch
+        run: |
+          [ -x "$HOME/.hutch/bin/hutch" ] || curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the Electrobun devkit
+        working-directory: app
+        run: hutch electrobun sync
+
+      - name: Cache bundled models and onnxruntime-node 1.23.2
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/glimpse/models
+            ~/.cache/glimpse/onnxruntime-node-1.23.2
+          key: glimpse-intel-${{ hashFiles('app/models/manifest.json', 'app/scripts/onnxruntime-legacy.ts') }}
+
+      - name: Fetch bundled models
+        run: bun run models
+
+      - name: Build libglimpse.dylib
+        env:
+          ARCHS: x86_64
+        run: sh app/native/macos/build.sh
+
+      # The preBuild hook fetches and verifies onnxruntime-node 1.23.2 for this target.
+      - name: Build the app (stable)
+        working-directory: app
+        env:
+          GLIMPSE_REQUIRE_MODELS: "1"
+        run: hutch electrobun build --env=stable
+
+      - name: OCR smoke test (bundled onnxruntime 1.23.2)
+        working-directory: app
+        run: bun scripts/bundle-smoke.ts
+
+      - name: Ad-hoc sign and package
+        id: package
+        run: |
+          set -eu
+          version=$(bun -e 'console.log(require("./app/package.json").version)')
+          base="glimpse-$version-${GITHUB_SHA::7}-macos-x64"
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+          app=$(find app/build -maxdepth 2 -name '*.app' | head -1)
+          [ -n "$app" ] || { echo "no .app in app/build"; exit 1; }
+          sh app/scripts/macos-seal-inner.sh "$app"
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          ditto -c -k --keepParent "$app" "$dist/$base.zip"
+          echo "zip=$dist/$base.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.package.outputs.zip }}
+          archive: false
+          retention-days: 14

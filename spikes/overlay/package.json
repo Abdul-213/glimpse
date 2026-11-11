@@ -1,0 +1,11 @@
+{
+	"name": "glimpse-overlay-spike",
+	"version": "0.0.1",
+	"private": true,
+	"description": "GLIM-13 throwaway spike: transparent full-screen region-picker overlay on Electrobun",
+	"type": "module",
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.9.0"
+	}
+}

@@ -1,0 +1,24 @@
+{
+  "name": "glimpse-spike-keychain",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "prepare:devkit": "electrobun prepare",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test test/",
+    "test:linux-headless": "bash scripts/linux-headless-keyring.sh bun test test/",
+    "cli": "bun src/cli.ts",
+    "compile": "bun scripts/compile.ts",
+    "dev": "electrobun dev",
+    "build": "electrobun build --env=dev"
+  },
+  "dependencies": {
+    "electrobun": "2.0.5"
+  },
+  "devDependencies": {
+    "@napi-rs/keyring": "2.1.2",
+    "@types/bun": "^1.4.4",
+    "typescript": "~5.9.3"
+  }
+}

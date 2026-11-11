@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glimpse design tokens preview</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --color-surface-popup: light-dark(#F5F5F7E6, #262628E6);
+  --color-surface-popup-solid: light-dark(#F5F5F7, #262628);
+  --color-surface-window: light-dark(#F2F2F4B8, #1F1F21B8);
+  --color-surface-group: light-dark(#FFFFFFE6, #2C2C2FE6);
+  --color-surface-control: light-dark(#FFFFFF, #3A3A3D);
+  --color-overlay-hover: light-dark(#0000000F, #FFFFFF14);
+  --color-overlay-pressed: light-dark(#0000001A, #FFFFFF24);
+  --color-overlay-selected: light-dark(#0A63C91F, #6AAAFF29);
+  --color-text-primary: light-dark(#1D1D1F, #F4F4F6);
+  --color-text-secondary: light-dark(#55555C, #B6B6BE);
+  --color-text-disabled: light-dark(#8E8E93, #6C6C72);
+  --color-border-hairline: light-dark(#0000001F, #FFFFFF1F);
+  --color-border-control: light-dark(#76767D, #8E8E96);
+  --color-divider: light-dark(#00000014, #FFFFFF14);
+  --color-accent: light-dark(#0A63C9, #2A6FD9);
+  --color-on-accent: light-dark(#FFFFFF, #FFFFFF);
+  --color-link: light-dark(#0959BA, #6AAAFF);
+  --color-focus-ring: light-dark(#0A63C9, #6AAAFF);
+  --color-success: light-dark(#156A37, #5BC987);
+  --color-warning: light-dark(#8A4B00, #F2A93B);
+  --color-danger: light-dark(#B42318, #FF8073);
+  --color-egress: light-dark(#5E32AE, #C4B0FF);
+  --color-egress-tint: light-dark(#5E32AE1A, #C4B0FF1A);
+  --color-change-flash: light-dark(#0A63C924, #6AAAFF1F);
+  --color-change-rest: light-dark(#0A63C90F, #6AAAFF0F);
+  --color-change-mark: light-dark(#0A63C9, #6AAAFF);
+  --color-picker-scrim: #00000073;
+  --color-picker-stroke: #FFFFFF;
+  --color-picker-halo: #00000099;
+  --color-picker-hud: #1C1C1EE0;
+  --color-picker-hud-text: #F5F5F7;
+  --color-picker-hud-text-secondary: #B8B8BF;
+  --color-box-linked-fill: #0A63C93D;
+  --radius-box: 3px;
+  --radius-kbd: 4px;
+  --radius-control: 6px;
+  --radius-control-win: 4px;
+  --radius-popup: 12px;
+  --radius-popup-win: 8px;
+  --radius-pill: 999px;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  --font-ja: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo UI', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif;
+  --font-zh-hans: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei UI', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
+  --font-ko: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', 'Noto Sans KR', sans-serif;
+  --font-ar: -apple-system, BlinkMacSystemFont, 'SF Arabic', 'Geeza Pro', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  --font-he: -apple-system, BlinkMacSystemFont, 'SF Hebrew', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', sans-serif;
+  --font-deva: -apple-system, BlinkMacSystemFont, 'Kohinoor Devanagari', 'Devanagari Sangam MN', 'Nirmala UI', 'Noto Sans Devanagari', sans-serif;
+  --font-th: -apple-system, BlinkMacSystemFont, 'Thonburi', 'Leelawadee UI', 'Noto Sans Thai', sans-serif;
+  --size-scale: 1;
+  --lh-translation: 1.5; --lh-source: 1.5; --lh-body: 1.45;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 100ms; --duration-base: 160ms; --duration-settle: 1600ms;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-ui); font-size: 13px; line-height: 1.45; color: var(--color-text-primary); background: light-dark(#ECECEE, #161618); }
+main { max-inline-size: 1120px; margin-inline: auto; padding: 40px 24px 80px; }
+h1 { font-size: 20px; font-weight: 600; line-height: 1.3; margin: 0 0 8px; }
+h2 { font-size: 15px; font-weight: 600; line-height: 1.35; margin: 40px 0 12px; }
+h3 { font-size: 13px; font-weight: 600; margin: 20px 0 8px; }
+p.lede { margin: 0; color: var(--color-text-secondary); max-inline-size: 70ch; }
+code { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace; font-size: 12px; color: var(--color-text-secondary); }
+::selection { background: var(--color-overlay-selected); }
+:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.pane { padding: 16px; border-radius: 12px; background: var(--color-surface-popup-solid); box-shadow: inset 0 0 0 1px var(--color-border-hairline); color: var(--color-text-primary); }
+.pane > h3:first-child { margin-block-start: 0; }
+.swatches { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 12px; }
+.sw { display: grid; grid-template-columns: 28px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; }
+.chip { grid-row: span 2; inline-size: 28px; block-size: 28px; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--color-border-hairline); background-image: none; position: relative; }
+.sw-name { font-size: 12px; font-weight: 500; }
+.checker .chip { background-color: transparent; }
+.trow, .srow { display: grid; grid-template-columns: 180px 1fr; gap: 16px; padding-block: 8px; border-block-end: 1px solid var(--color-divider); align-items: baseline; }
+.tmeta { display: flex; flex-direction: column; font-size: 12px; }
+.tmeta span { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.t-title { font-size: 20px; font-weight: 600; line-height: 1.3; }
+.t-heading { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.t-translation { font-size: calc(15px * var(--size-scale)); line-height: var(--lh-translation); margin: 0; }
+.t-source { font-size: calc(13px * var(--size-scale)); line-height: var(--lh-source); margin: 0; color: var(--color-text-secondary); }
+.t-body { font-size: 13px; line-height: 1.45; }
+.t-label { font-size: 12px; font-weight: 500; line-height: 1.35; }
+.t-numeric { font-size: 12px; font-weight: 500; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.blk { unicode-bidi: plaintext; }
+:lang(ja) { font-family: var(--font-ja); --lh-translation: 1.7; --lh-source: 1.7; line-break: strict; }
+:lang(zh-Hans) { font-family: var(--font-zh-hans); --lh-translation: 1.7; --lh-source: 1.7; line-break: strict; }
+:lang(ko) { font-family: var(--font-ko); --lh-translation: 1.7; --lh-source: 1.7; line-break: strict; word-break: keep-all; }
+:lang(ar) { font-family: var(--font-ar); --size-scale: 1.0667; --lh-translation: 1.75; --lh-source: 1.75; letter-spacing: 0; font-synthesis: none; }
+:lang(he) { font-family: var(--font-he); --lh-translation: 1.55; --lh-source: 1.55; }
+:lang(hi) { font-family: var(--font-deva); --size-scale: 1.0667; --lh-translation: 1.75; --lh-source: 1.75; }
+:lang(th) { font-family: var(--font-th); --size-scale: 1.0667; --lh-translation: 1.8; --lh-source: 1.8; }
+.sprow { display: grid; grid-template-columns: 40px auto 1fr; gap: 12px; align-items: center; padding-block: 4px; }
+.bar { display: block; block-size: 12px; border-radius: var(--radius-box); background: var(--color-accent); }
+.radii { display: flex; flex-wrap: wrap; gap: 20px; }
+.rad { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 12px; }
+.radbox { inline-size: 72px; block-size: 48px; background: var(--color-surface-control); box-shadow: inset 0 0 0 1px var(--color-border-control); }
+
+/* Mock scenes. The busy backdrop stands in for arbitrary screen content (a game). */
+.scene { position: relative; block-size: 420px; border-radius: 12px; overflow: hidden; color: var(--color-text-primary); }
+.backdrop { position: absolute; inset: 0; background: #0F2A1E; padding: 24px; font-family: var(--font-ja); color: #FFF6D8; }
+.bd1 { font-size: 22px; margin: 16px 0 8px; }
+.bd2 { font-size: 22px; margin: 0; }
+.bd3 { position: absolute; inset-block-end: 24px; inset-inline-start: 24px; font: 600 18px var(--font-ui); color: #FFD23F; margin: 0; }
+.bd-stripes { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: 45%; background: repeating-linear-gradient(115deg, #FFFFFF 0 18px, #E8E0FF 18px 36px, #FFE7B0 36px 54px); }
+.scene[style*="dark"] .bd-stripes { background: repeating-linear-gradient(115deg, #FFFFFF 0 18px, #F4F4F4 18px 36px, #DDEBFF 36px 54px); }
+.selection { position: absolute; inset-block-start: 30px; inset-inline-start: 16px; inline-size: 430px; block-size: 96px; outline: 1px solid var(--color-picker-stroke); box-shadow: 0 0 0 2px var(--color-picker-halo), 0 0 0 2000px #00000040; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; align-content: flex-start; }
+.box { font: 12px var(--font-ja); color: transparent; padding: 2px 6px; border-radius: var(--radius-box); outline: 1px solid var(--color-picker-stroke); box-shadow: 0 0 0 2px var(--color-picker-halo); }
+.box.linked { background: var(--color-box-linked-fill); }
+.box.skipped { outline-style: dashed; outline-color: #FFFFFF99; box-shadow: 0 0 0 2px #00000066; }
+.readout { position: absolute; inset-block-start: 134px; inset-inline-start: 382px; height: 20px; padding: 2px 6px; border-radius: var(--radius-kbd); background: var(--color-picker-hud); color: var(--color-picker-hud-text); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; box-shadow: 0 1px 4px #0000004D; }
+.popup { position: absolute; inset-block-start: 166px; inset-inline-start: 16px; inline-size: 400px; padding: 12px; border-radius: var(--radius-popup);
+  background: var(--color-surface-popup);
+  -webkit-backdrop-filter: blur(30px) saturate(1.6); backdrop-filter: blur(30px) saturate(1.6); /* preview-only stand-in for the OS material */
+  box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 12px 32px #00000059; }
+.scene[style*="dark"] .popup { box-shadow: inset 0 0 0 1px var(--color-border-hairline), 0 0 0 0.5px #000000A6, 0 12px 32px #00000080; }
+.block { padding: 4px 8px; border-radius: var(--radius-control); margin-block-end: 8px; }
+.block.hovered { background: var(--color-overlay-hover); }
+.block .src { margin-block-start: 4px; }
+.tr { color: var(--color-text-primary); }
+.skipped-line { display: flex; align-items: center; gap: 4px; inline-size: 100%; height: 24px; padding: 4px 8px; border: 0; border-radius: var(--radius-control); background: none; font: 500 12px/1.35 var(--font-ui); color: var(--color-text-secondary); cursor: pointer; text-align: start; }
+.skipped-line:hover { background: var(--color-overlay-hover); }
+.foot { display: flex; justify-content: space-between; align-items: center; margin-block-start: 8px; padding-inline: 8px; font-size: 12px; font-weight: 500; line-height: 1.35; color: var(--color-text-secondary); }
+.local, .copied { display: inline-flex; align-items: center; gap: 4px; height: 20px; }
+.egress { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--color-egress-tint); color: var(--color-egress); }
+.live-scene { block-size: 260px; }
+.subs { background: #F2F0EA; display: flex; flex-direction: column; justify-content: flex-end; font: 600 24px var(--font-ui); color: #111111; }
+.scene[style*="dark"] .subs { background: #050505; color: #FFFFFF; }
+.sub { margin: 0 0 4px; text-shadow: 0 0 2px #00000033; }
+.popup.live { inset-block-start: 24px; padding: 8px 12px 12px; }
+.strip { display: flex; justify-content: space-between; align-items: center; height: 28px; margin-block-end: 4px; padding-inline-start: 8px; font-size: 12px; font-weight: 500; color: var(--color-text-secondary); }
+.status { display: inline-flex; align-items: center; gap: 6px; }
+.dot { inline-size: 8px; block-size: 8px; border-radius: 999px; background: var(--color-accent); }
+.icons { display: inline-flex; gap: 4px; }
+.ib { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border: 0; border-radius: var(--radius-control); background: none; color: var(--color-text-secondary); cursor: pointer; }
+.ib:hover { background: var(--color-overlay-hover); color: var(--color-text-primary); }
+.lblock { position: relative; padding-inline-start: 20px; }
+.changed { animation: settle var(--duration-settle) linear infinite; }
+.changed::before { content: ''; position: absolute; inset-inline-start: 8px; inset-block-start: calc(4px + 0.75lh - 3px); inline-size: 6px; block-size: 6px; border-radius: 999px; background: var(--color-change-mark); }
+@keyframes settle { 0% { background: var(--color-change-flash); } 70%, 100% { background: var(--color-change-rest); } }
+@media (prefers-reduced-motion: reduce) { .changed { animation: none; background: var(--color-change-rest); } }
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { height: 28px; padding: 0 12px; border-radius: var(--radius-control); font: 13px var(--font-ui); cursor: pointer; transition: background-color var(--duration-fast) var(--ease-standard); }
+.btn.primary { border: 0; background: var(--color-accent); color: var(--color-on-accent); }
+.btn.primary:hover { background: color-mix(in srgb, var(--color-accent), #000000 6%); }
+.btn.secondary { border: 1px solid var(--color-border-control); background: var(--color-surface-control); color: var(--color-text-primary); }
+.field { height: 28px; padding: 0 8px; border: 1px solid var(--color-border-control); border-radius: var(--radius-control); background: var(--color-surface-control); color: var(--color-text-primary); font: 13px var(--font-ui); }
+.field:focus-visible { border-color: transparent; }
+kbd { display: inline-flex; align-items: center; height: 20px; padding: 1px 6px; border-radius: var(--radius-kbd); background: var(--color-surface-control); box-shadow: inset 0 0 0 1px var(--color-border-hairline); font: 500 12px var(--font-ui); }
+.progress { block-size: 4px; inline-size: 240px; border-radius: 999px; background: var(--color-overlay-pressed); overflow: hidden; }
+.progress > span { display: block; block-size: 100%; inline-size: 34%; background: var(--color-accent); border-radius: 999px; }
+.note { color: var(--color-text-secondary); font-size: 12px; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Glimpse design tokens</h1>
+  <p class="lede">Generated from the frontmatter of <code>DESIGN.md</code> (GLIM-27, provisional). Self-contained: system and Noto font stacks only, no network requests. Scripts render in whatever system or Noto fonts this machine has installed.</p>
+
+  <h2>Colour, light and dark</h2>
+  <div class="cols">
+    <section class="pane" style="color-scheme:light"><h3>Light</h3><ul class="swatches"><li class="sw"><span class="chip" style="background:#F5F5F7E6"></span><span class="sw-name">surface-popup</span><code>#F5F5F7E6</code></li><li class="sw"><span class="chip" style="background:#F5F5F7"></span><span class="sw-name">surface-popup-solid</span><code>#F5F5F7</code></li><li class="sw"><span class="chip" style="background:#F2F2F4B8"></span><span class="sw-name">surface-window</span><code>#F2F2F4B8</code></li><li class="sw"><span class="chip" style="background:#FFFFFFE6"></span><span class="sw-name">surface-group</span><code>#FFFFFFE6</code></li><li class="sw"><span class="chip" style="background:#FFFFFF"></span><span class="sw-name">surface-control</span><code>#FFFFFF</code></li><li class="sw"><span class="chip" style="background:#0000000F"></span><span class="sw-name">overlay-hover</span><code>#0000000F</code></li><li class="sw"><span class="chip" style="background:#0000001A"></span><span class="sw-name">overlay-pressed</span><code>#0000001A</code></li><li class="sw"><span class="chip" style="background:#0A63C91F"></span><span class="sw-name">overlay-selected</span><code>#0A63C91F</code></li><li class="sw"><span class="chip" style="background:#1D1D1F"></span><span class="sw-name">text-primary</span><code>#1D1D1F</code></li><li class="sw"><span class="chip" style="background:#55555C"></span><span class="sw-name">text-secondary</span><code>#55555C</code></li><li class="sw"><span class="chip" style="background:#8E8E93"></span><span class="sw-name">text-disabled</span><code>#8E8E93</code></li><li class="sw"><span class="chip" style="background:#0000001F"></span><span class="sw-name">border-hairline</span><code>#0000001F</code></li><li class="sw"><span class="chip" style="background:#76767D"></span><span class="sw-name">border-control</span><code>#76767D</code></li><li class="sw"><span class="chip" style="background:#00000014"></span><span class="sw-name">divider</span><code>#00000014</code></li><li class="sw"><span class="chip" style="background:#0A63C9"></span><span class="sw-name">accent</span><code>#0A63C9</code></li><li class="sw"><span class="chip" style="background:#FFFFFF"></span><span class="sw-name">on-accent</span><code>#FFFFFF</code></li><li class="sw"><span class="chip" style="background:#0959BA"></span><span class="sw-name">link</span><code>#0959BA</code></li><li class="sw"><span class="chip" style="background:#0A63C9"></span><span class="sw-name">focus-ring</span><code>#0A63C9</code></li><li class="sw"><span class="chip" style="background:#156A37"></span><span class="sw-name">success</span><code>#156A37</code></li><li class="sw"><span class="chip" style="background:#8A4B00"></span><span class="sw-name">warning</span><code>#8A4B00</code></li><li class="sw"><span class="chip" style="background:#B42318"></span><span class="sw-name">danger</span><code>#B42318</code></li><li class="sw"><span class="chip" style="background:#5E32AE"></span><span class="sw-name">egress</span><code>#5E32AE</code></li><li class="sw"><span class="chip" style="background:#5E32AE1A"></span><span class="sw-name">egress-tint</span><code>#5E32AE1A</code></li><li class="sw"><span class="chip" style="background:#0A63C924"></span><span class="sw-name">change-flash</span><code>#0A63C924</code></li><li class="sw"><span class="chip" style="background:#0A63C90F"></span><span class="sw-name">change-rest</span><code>#0A63C90F</code></li><li class="sw"><span class="chip" style="background:#0A63C9"></span><span class="sw-name">change-mark</span><code>#0A63C9</code></li></ul></section>
+    <section class="pane" style="color-scheme:dark"><h3>Dark</h3><ul class="swatches"><li class="sw"><span class="chip" style="background:#262628E6"></span><span class="sw-name">surface-popup</span><code>#262628E6</code></li><li class="sw"><span class="chip" style="background:#262628"></span><span class="sw-name">surface-popup-solid</span><code>#262628</code></li><li class="sw"><span class="chip" style="background:#1F1F21B8"></span><span class="sw-name">surface-window</span><code>#1F1F21B8</code></li><li class="sw"><span class="chip" style="background:#2C2C2FE6"></span><span class="sw-name">surface-group</span><code>#2C2C2FE6</code></li><li class="sw"><span class="chip" style="background:#3A3A3D"></span><span class="sw-name">surface-control</span><code>#3A3A3D</code></li><li class="sw"><span class="chip" style="background:#FFFFFF14"></span><span class="sw-name">overlay-hover</span><code>#FFFFFF14</code></li><li class="sw"><span class="chip" style="background:#FFFFFF24"></span><span class="sw-name">overlay-pressed</span><code>#FFFFFF24</code></li><li class="sw"><span class="chip" style="background:#6AAAFF29"></span><span class="sw-name">overlay-selected</span><code>#6AAAFF29</code></li><li class="sw"><span class="chip" style="background:#F4F4F6"></span><span class="sw-name">text-primary</span><code>#F4F4F6</code></li><li class="sw"><span class="chip" style="background:#B6B6BE"></span><span class="sw-name">text-secondary</span><code>#B6B6BE</code></li><li class="sw"><span class="chip" style="background:#6C6C72"></span><span class="sw-name">text-disabled</span><code>#6C6C72</code></li><li class="sw"><span class="chip" style="background:#FFFFFF1F"></span><span class="sw-name">border-hairline</span><code>#FFFFFF1F</code></li><li class="sw"><span class="chip" style="background:#8E8E96"></span><span class="sw-name">border-control</span><code>#8E8E96</code></li><li class="sw"><span class="chip" style="background:#FFFFFF14"></span><span class="sw-name">divider</span><code>#FFFFFF14</code></li><li class="sw"><span class="chip" style="background:#2A6FD9"></span><span class="sw-name">accent</span><code>#2A6FD9</code></li><li class="sw"><span class="chip" style="background:#FFFFFF"></span><span class="sw-name">on-accent</span><code>#FFFFFF</code></li><li class="sw"><span class="chip" style="background:#6AAAFF"></span><span class="sw-name">link</span><code>#6AAAFF</code></li><li class="sw"><span class="chip" style="background:#6AAAFF"></span><span class="sw-name">focus-ring</span><code>#6AAAFF</code></li><li class="sw"><span class="chip" style="background:#5BC987"></span><span class="sw-name">success</span><code>#5BC987</code></li><li class="sw"><span class="chip" style="background:#F2A93B"></span><span class="sw-name">warning</span><code>#F2A93B</code></li><li class="sw"><span class="chip" style="background:#FF8073"></span><span class="sw-name">danger</span><code>#FF8073</code></li><li class="sw"><span class="chip" style="background:#C4B0FF"></span><span class="sw-name">egress</span><code>#C4B0FF</code></li><li class="sw"><span class="chip" style="background:#C4B0FF1A"></span><span class="sw-name">egress-tint</span><code>#C4B0FF1A</code></li><li class="sw"><span class="chip" style="background:#6AAAFF1F"></span><span class="sw-name">change-flash</span><code>#6AAAFF1F</code></li><li class="sw"><span class="chip" style="background:#6AAAFF0F"></span><span class="sw-name">change-rest</span><code>#6AAAFF0F</code></li><li class="sw"><span class="chip" style="background:#6AAAFF"></span><span class="sw-name">change-mark</span><code>#6AAAFF</code></li></ul></section>
+  </div>
+  <section class="pane" style="margin-block-start:16px"><h3>Picker overlay (theme-independent)</h3><ul class="swatches"><li class="sw"><span class="chip" style="background:#00000073"></span><span class="sw-name">picker-scrim</span><code>#00000073</code></li><li class="sw"><span class="chip" style="background:#FFFFFF"></span><span class="sw-name">picker-stroke</span><code>#FFFFFF</code></li><li class="sw"><span class="chip" style="background:#00000099"></span><span class="sw-name">picker-halo</span><code>#00000099</code></li><li class="sw"><span class="chip" style="background:#1C1C1EE0"></span><span class="sw-name">picker-hud</span><code>#1C1C1EE0</code></li><li class="sw"><span class="chip" style="background:#F5F5F7"></span><span class="sw-name">picker-hud-text</span><code>#F5F5F7</code></li><li class="sw"><span class="chip" style="background:#B8B8BF"></span><span class="sw-name">picker-hud-text-secondary</span><code>#B8B8BF</code></li><li class="sw"><span class="chip" style="background:#0A63C93D"></span><span class="sw-name">box-linked-fill</span><code>#0A63C93D</code></li></ul></section>
+
+  <h2>Snip popup over busy content</h2>
+  <p class="lede">The popup veil is 90% opaque over a simulated material (CSS backdrop blur is a stand-in for the OS material here only). The second block is in its hover state, which lights its detected box on screen. Light popup is local; dark popup shows the cloud-in-use indicator.</p>
+  <div class="cols" style="margin-block-start:12px">
+<div class="scene" style="color-scheme:light">
+  <div class="backdrop" aria-hidden="true">
+    <p class="bd1">ゲームを続けるには何かキーを押してください</p>
+    <p class="bd2">保存に失敗しました。もう一度試しますか？</p>
+    <p class="bd3">HP 1200 / 1200 · Lv. 34</p>
+    <div class="bd-stripes"></div>
+  </div>
+  <div class="selection"><span class="box">ゲームを続けるには…</span><span class="box linked">保存に失敗…</span><span class="box skipped">상점</span></div>
+  <span class="readout">412 × 96</span>
+  <section class="popup" aria-label="Snip result (light)">
+    <div class="block">
+      <p class="t-translation tr">Press any key to continue the game</p>
+      <p class="t-source src" lang="ja">ゲームを続けるには何かキーを押してください</p>
+    </div>
+    <div class="block hovered">
+      <p class="t-translation tr">Save failed. Try again?</p>
+      <p class="t-source src" lang="ja">保存に失敗しました。もう一度試しますか？</p>
+    </div>
+    <div class="block">
+      <p class="t-source src neutral">HP 1200 / 1200 · Lv. 34</p>
+    </div>
+    <button class="skipped-line" type="button"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>1 block skipped · Korean</button>
+    <footer class="foot">
+      <span class="local"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M6.5 2v2M9.5 2v2M6.5 12v2M9.5 12v2M2 6.5h2M2 9.5h2M12 6.5h2M12 9.5h2"/></svg>On device</span>
+      <span class="copied"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>Copied</span>
+    </footer>
+  </section>
+</div>
+<div class="scene" style="color-scheme:dark">
+  <div class="backdrop" aria-hidden="true">
+    <p class="bd1">ゲームを続けるには何かキーを押してください</p>
+    <p class="bd2">保存に失敗しました。もう一度試しますか？</p>
+    <p class="bd3">HP 1200 / 1200 · Lv. 34</p>
+    <div class="bd-stripes"></div>
+  </div>
+  <div class="selection"><span class="box">ゲームを続けるには…</span><span class="box linked">保存に失敗…</span><span class="box skipped">상점</span></div>
+  <span class="readout">412 × 96</span>
+  <section class="popup" aria-label="Snip result (dark)">
+    <div class="block">
+      <p class="t-translation tr">Press any key to continue the game</p>
+      <p class="t-source src" lang="ja">ゲームを続けるには何かキーを押してください</p>
+    </div>
+    <div class="block hovered">
+      <p class="t-translation tr">Save failed. Try again?</p>
+      <p class="t-source src" lang="ja">保存に失敗しました。もう一度試しますか？</p>
+    </div>
+    <div class="block">
+      <p class="t-source src neutral">HP 1200 / 1200 · Lv. 34</p>
+    </div>
+    <button class="skipped-line" type="button"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>1 block skipped · Korean</button>
+    <footer class="foot">
+      <span class="egress"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5h7a3 3 0 0 0 .4-5.97A4 4 0 0 0 4.2 7.6 2.5 2.5 0 0 0 4.5 12.5Z"/></svg>Sent to DeepL</span>
+      <span class="copied"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>Copied</span>
+    </footer>
+  </section>
+</div></div>
+
+  <h2>Live popup: changed block</h2>
+  <p class="lede">The second block just changed: flash tint decaying to the rest tint, plus the change mark. The demo loops; in the product it decays once. With reduced motion on, only the rest tint and mark show.</p>
+  <div class="cols" style="margin-block-start:12px">
+<div class="scene live-scene" style="color-scheme:light">
+  <div class="backdrop subs" aria-hidden="true"><p class="sub">— ¿Trajiste la linterna?</p><p class="sub">— La puerta se abre al amanecer.</p></div>
+  <section class="popup live" aria-label="Live popup (light)">
+    <header class="strip"><span class="status"><span class="dot"></span>Live</span>
+      <span class="icons"><button class="ib" aria-label="Pause"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 4v8M10 4v8"/></svg></button><button class="ib" aria-label="Stop"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg></button></span></header>
+    <div class="block lblock"><p class="t-translation tr">Did you bring the lantern?</p></div>
+    <div class="block lblock changed"><p class="t-translation tr">The gate opens at dawn.</p></div>
+  </section>
+</div>
+<div class="scene live-scene" style="color-scheme:dark">
+  <div class="backdrop subs" aria-hidden="true"><p class="sub">— ¿Trajiste la linterna?</p><p class="sub">— La puerta se abre al amanecer.</p></div>
+  <section class="popup live" aria-label="Live popup (dark)">
+    <header class="strip"><span class="status"><span class="dot"></span>Live</span>
+      <span class="icons"><button class="ib" aria-label="Pause"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 4v8M10 4v8"/></svg></button><button class="ib" aria-label="Stop"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg></button></span></header>
+    <div class="block lblock"><p class="t-translation tr">Did you bring the lantern?</p></div>
+    <div class="block lblock changed"><p class="t-translation tr">The gate opens at dawn.</p></div>
+  </section>
+</div></div>
+
+  <h2>Type scale</h2>
+  <section class="pane"><div class="trow"><div class="tmeta"><b>title</b><span>20px / 600 / 1.3</span></div><div class="t-title">Download the translation model</div></div><div class="trow"><div class="tmeta"><b>heading</b><span>15px / 600 / 1.35</span></div><div class="t-heading">Source languages</div></div><div class="trow"><div class="tmeta"><b>translation</b><span>15px / 400 / 1.5</span></div><div class="t-translation">Press any key to continue. Your progress has been saved.</div></div><div class="trow"><div class="tmeta"><b>source</b><span>13px / 400 / 1.5</span></div><div class="t-source">Original text, shown under the translation</div></div><div class="trow"><div class="tmeta"><b>body</b><span>13px / 400 / 1.45</span></div><div class="t-body">Glimpse runs on this device. Nothing you capture leaves it unless you choose a cloud provider.</div></div><div class="trow"><div class="tmeta"><b>label</b><span>12px / 500 / 1.35</span></div><div class="t-label">3 blocks skipped · Korean, Thai</div></div><div class="trow"><div class="tmeta"><b>numeric</b><span>12px / 500 / 1.35 / tnum</span></div><div class="t-numeric">640 × 212 · 412 MB of 1.2 GB</div></div></section>
+
+  <h2>Scripts (translation role)</h2>
+  <section class="pane"><div class="srow"><div class="tmeta"><b>Latin</b><span>1× · 1.5</span></div><p class="t-translation blk" lang="en" dir="ltr">The gate opens at dawn. Bring the lantern with you.</p></div><div class="srow"><div class="tmeta"><b>Japanese</b><span>1× · 1.7</span></div><p class="t-translation blk" lang="ja" dir="ltr">夜明けに門が開く。ランタンを持って行きなさい。</p></div><div class="srow"><div class="tmeta"><b>Chinese (Simplified)</b><span>1× · 1.7</span></div><p class="t-translation blk" lang="zh-Hans" dir="ltr">黎明时城门打开。带上你的灯笼。</p></div><div class="srow"><div class="tmeta"><b>Korean</b><span>1× · 1.7, keep-all</span></div><p class="t-translation blk" lang="ko" dir="ltr">새벽에 문이 열립니다. 등불을 가지고 가세요.</p></div><div class="srow"><div class="tmeta"><b>Arabic (RTL)</b><span>1.0667× · 1.75</span></div><p class="t-translation blk" lang="ar" dir="rtl">تُفتح البوابة عند الفجر. خذ الفانوس معك.</p></div><div class="srow"><div class="tmeta"><b>Hebrew (RTL)</b><span>1× · 1.55</span></div><p class="t-translation blk" lang="he" dir="rtl">השער נפתח עם עלות השחר. קח איתך את הפנס.</p></div><div class="srow"><div class="tmeta"><b>Devanagari</b><span>1.0667× · 1.75</span></div><p class="t-translation blk" lang="hi" dir="ltr">द्वार भोर में खुलता है। लालटेन अपने साथ ले जाओ।</p></div><div class="srow"><div class="tmeta"><b>Thai</b><span>1.0667× · 1.8</span></div><p class="t-translation blk" lang="th" dir="ltr">ประตูจะเปิดตอนรุ่งสาง นำตะเกียงไปด้วย</p></div><div class="srow"><div class="tmeta"><b>Mixed direction</b><span>dir=auto, plaintext bidi</span></div><p class="t-translation blk" lang="he" dir="auto">לחץ על Save כדי לשמור את הקובץ report.pdf</p></div></section>
+
+  <h2>Controls</h2>
+  <div class="cols">
+    <section class="pane" style="color-scheme:light"><div class="btnrow"><button class="btn primary">Download model</button><button class="btn secondary">Choose shortcut…</button><input class="field" aria-label="API key" placeholder="Paste API key"><kbd>⌃⇧S</kbd><kbd>Alt+Shift+S</kbd></div><div class="btnrow" style="margin-block-start:12px"><div class="progress"><span></span></div><span class="t-numeric">412 MB of 1.2 GB · about 3 min left</span></div></section>
+    <section class="pane" style="color-scheme:dark"><div class="btnrow"><button class="btn primary">Download model</button><button class="btn secondary">Choose shortcut…</button><input class="field" aria-label="API key" placeholder="Paste API key"><kbd>⌃⇧S</kbd><kbd>Alt+Shift+S</kbd></div><div class="btnrow" style="margin-block-start:12px"><div class="progress"><span></span></div><span class="t-numeric">412 MB of 1.2 GB · about 3 min left</span></div></section>
+  </div>
+
+  <h2>Spacing</h2>
+  <section class="pane"><div class="sprow"><code>0.5</code><span class="bar" style="inline-size:2px"></span><span>2px</span></div><div class="sprow"><code>1</code><span class="bar" style="inline-size:4px"></span><span>4px</span></div><div class="sprow"><code>1.5</code><span class="bar" style="inline-size:6px"></span><span>6px</span></div><div class="sprow"><code>2</code><span class="bar" style="inline-size:8px"></span><span>8px</span></div><div class="sprow"><code>3</code><span class="bar" style="inline-size:12px"></span><span>12px</span></div><div class="sprow"><code>4</code><span class="bar" style="inline-size:16px"></span><span>16px</span></div><div class="sprow"><code>5</code><span class="bar" style="inline-size:20px"></span><span>20px</span></div><div class="sprow"><code>6</code><span class="bar" style="inline-size:24px"></span><span>24px</span></div><div class="sprow"><code>8</code><span class="bar" style="inline-size:32px"></span><span>32px</span></div><div class="sprow"><code>10</code><span class="bar" style="inline-size:40px"></span><span>40px</span></div></section>
+
+  <h2>Radii</h2>
+  <section class="pane"><div class="radii"><div class="rad"><div class="radbox" style="border-radius:3px"></div><code>box</code><span>3px</span></div><div class="rad"><div class="radbox" style="border-radius:4px"></div><code>kbd</code><span>4px</span></div><div class="rad"><div class="radbox" style="border-radius:6px"></div><code>control</code><span>6px</span></div><div class="rad"><div class="radbox" style="border-radius:4px"></div><code>control-win</code><span>4px</span></div><div class="rad"><div class="radbox" style="border-radius:12px"></div><code>popup</code><span>12px</span></div><div class="rad"><div class="radbox" style="border-radius:8px"></div><code>popup-win</code><span>8px</span></div><div class="rad"><div class="radbox" style="border-radius:999px"></div><code>pill</code><span>999px</span></div></div><p class="note">macOS uses <code>control</code> and <code>popup</code>; Windows swaps in the <code>-win</code> values via <code>data-os</code>.</p></section>
+</main>
+</body>
+</html>

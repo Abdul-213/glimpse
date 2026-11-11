@@ -1,0 +1,115 @@
+# Compiles the native helpers on their own OS (GLIM-34 / GLIM-36): glimpse.dll with
+# MSVC on windows-latest and libglimpse.dylib (universal) on macos-latest, then loads
+# each through the real bun:ffi bindings to catch C <-> TypeScript ABI drift.
+# Compile and load only: no app build, no capture assertions (runners have no
+# Screen Recording grant and maybe no real desktop).
+#
+# Windows minutes count 2x and macOS 10x, so this only runs when native code or its
+# bindings change, plus on demand.
+name: Native helpers
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - app/native/**
+      - app/src/bun/native/**
+      - app/src/bun/services/capture/**
+      - app/src/bun/services/picker/**
+      - app/src/bun/services/live/frame-layout.ts
+      - app/scripts/native-smoke.ts
+      - .github/workflows/native.yml
+  workflow_dispatch:
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: glimpse.dll (MSVC)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build glimpse.dll
+        env:
+          GLIMPSE_NATIVE_TOOL: msvc
+        run: ./app/native/windows/build.ps1
+
+      - name: Check exports
+        run: |
+          $exports = dumpbin /nologo /exports app/native/windows/build/glimpse.dll | Out-String
+          Write-Host $exports
+          foreach ($s in "glim_abi_version", "glim_last_error", "glim_capture_displays_json", "glim_capture_piece", "glim_capture_release", "glim_list_windows", "glim_focus_save", "glim_focus_restore", "glim_frame_create", "glim_frame_set_rect", "glim_frame_set_style", "glim_frame_set_highlight", "glim_frame_show", "glim_frame_window_id", "glim_frame_info", "glim_frame_destroy", "glim_frame_set_sprites", "glim_frame_pointer", "glim_announce", "glim_screen_reader_active", "glim_session_start", "glim_session_stop", "glim_session_simulate", "glim_session_pump", "glim_session_info", "glim_window_disable_resize", "glim_window_test_create", "glim_window_test_hit_test", "glim_window_test_destroy") {
+            if ($exports -notmatch "\b$s\b") { throw "missing export $s" }
+          }
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Load through the bindings
+        run: |
+          bun install --frozen-lockfile
+          bun app/scripts/native-smoke.ts --try-capture
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimpse-dll-windows-x64
+          path: app/native/windows/build/glimpse.dll
+          retention-days: 7
+
+  macos:
+    name: libglimpse.dylib (clang, universal)
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build libglimpse.dylib
+        run: sh app/native/macos/build.sh
+
+      - name: Check exports and architectures
+        run: |
+          lipo -info app/native/macos/build/libglimpse.dylib
+          nm -gU app/native/macos/build/libglimpse.dylib | tee exports.txt
+          for s in glim_abi_version glim_last_error glim_window_exclude_from_capture glim_window_number \
+            glim_capture_set_excluded_windows glim_capture_shot glim_capture_stream_open glim_capture_stream_read \
+            glim_capture_stream_close glim_capture_reset glim_capture_preflight glim_capture_displays_json \
+            glim_capture_async_init glim_capture_take_error glim_capture_shot_async glim_capture_stream_open_async \
+            glim_capture_stream_sample glim_list_windows glim_focus_save glim_focus_restore glim_window_configure \
+            glim_window_set_level glim_hotkey_init glim_hotkey_register glim_hotkey_unregister \
+            glim_hotkey_unregister_all glim_hotkey_shutdown glim_frame_create glim_frame_set_rect glim_frame_set_style \
+            glim_frame_set_highlight glim_frame_show glim_frame_window_id glim_frame_info glim_frame_destroy glim_frame_set_sprites glim_frame_pointer \
+            glim_announce glim_screen_reader_active glim_tray_set_accessibility_label \
+            glim_session_start glim_session_stop glim_session_simulate glim_session_pump glim_session_info \
+            glim_window_set_material glim_window_set_appearance glim_window_set_frame glim_reduce_transparency \
+            glim_window_material_info glim_window_test_create glim_window_test_destroy; do
+            grep -q "_$s\$" exports.txt || { echo "missing export $s"; exit 1; }
+          done
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Load through the bindings
+        run: |
+          bun install --frozen-lockfile
+          bun app/scripts/native-smoke.ts --try-capture
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libglimpse-dylib-macos-universal
+          path: app/native/macos/build/libglimpse.dylib
+          retention-days: 7

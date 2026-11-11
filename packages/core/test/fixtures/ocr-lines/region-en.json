@@ -1,0 +1,52 @@
+[
+	{
+		"box": {
+			"x": 13,
+			"y": 8,
+			"width": 287,
+			"height": 30
+		},
+		"text": "Settings saved successfully.",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 14,
+			"y": 46,
+			"width": 406,
+			"height": 29
+		},
+		"text": "Do you want to install the update now?",
+		"confidence": 0.991
+	},
+	{
+		"box": {
+			"x": 13,
+			"y": 83,
+			"width": 383,
+			"height": 29
+		},
+		"text": "Your session will expire in 5 minutes.",
+		"confidence": 0.965
+	},
+	{
+		"box": {
+			"x": 14,
+			"y": 120,
+			"width": 329,
+			"height": 28
+		},
+		"text": "Click Continue to keep working.",
+		"confidence": 0.997
+	},
+	{
+		"box": {
+			"x": 14,
+			"y": 158,
+			"width": 250,
+			"height": 24
+		},
+		"text": "Error 404: file not found",
+		"confidence": 0.979
+	}
+]

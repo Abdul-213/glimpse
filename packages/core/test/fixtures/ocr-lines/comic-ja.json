@@ -1,0 +1,122 @@
+[
+	{
+		"box": {
+			"x": 448,
+			"y": 56,
+			"width": 38,
+			"height": 151
+		},
+		"text": "聞こえた?",
+		"confidence": 0.933
+	},
+	{
+		"box": {
+			"x": 485,
+			"y": 56,
+			"width": 37,
+			"height": 97
+		},
+		"text": "今の音",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 522,
+			"y": 53,
+			"width": 36,
+			"height": 204
+		},
+		"text": "ちょっと待って",
+		"confidence": 0.874
+	},
+	{
+		"box": {
+			"x": 205,
+			"y": 110,
+			"width": 39,
+			"height": 150
+		},
+		"text": "聞こえない",
+		"confidence": 0.998
+	},
+	{
+		"box": {
+			"x": 169,
+			"y": 154,
+			"width": 38,
+			"height": 69
+		},
+		"text": "けど",
+		"confidence": 0.998
+	},
+	{
+		"box": {
+			"x": 240,
+			"y": 153,
+			"width": 40,
+			"height": 68
+		},
+		"text": "何も",
+		"confidence": 1
+	},
+	{
+		"box": {
+			"x": 48,
+			"y": 378,
+			"width": 76,
+			"height": 31
+		},
+		"text": "その夜、",
+		"confidence": 0.998
+	},
+	{
+		"box": {
+			"x": 123,
+			"y": 379,
+			"width": 50,
+			"height": 29
+		},
+		"text": "森で",
+		"confidence": 0.999
+	},
+	{
+		"box": {
+			"x": 442,
+			"y": 436,
+			"width": 43,
+			"height": 158
+		},
+		"text": "あれは何？",
+		"confidence": 0.958
+	},
+	{
+		"box": {
+			"x": 480,
+			"y": 438,
+			"width": 40,
+			"height": 97
+		},
+		"text": "じゃあ",
+		"confidence": 0.995
+	},
+	{
+		"box": {
+			"x": 147,
+			"y": 472,
+			"width": 37,
+			"height": 94
+		},
+		"text": "きっと",
+		"confidence": 0.991
+	},
+	{
+		"box": {
+			"x": 184,
+			"y": 471,
+			"width": 36,
+			"height": 150
+		},
+		"text": "風の音だよ",
+		"confidence": 0.999
+	}
+]

@@ -1,0 +1,157 @@
+@import "@glimpse/ui/theme.css";
+@source "./";
+
+/* The window is exactly the popup: no page background, the veil is the window. */
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+	background: transparent;
+	overflow: hidden;
+}
+
+@layer components {
+	.live-popup {
+		width: 100%;
+		height: auto;
+		max-height: 100dvh;
+	}
+
+	/* Control strip (live-popup.md §2.2): 28px, dot · label · local, spacer, icon buttons 4px apart. */
+	.live-strip {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: calc(var(--spacing) * 2);
+		min-height: 1.75rem;
+		padding-inline-start: var(--spacing);
+		/* GLIM-151: the strip is the drag handle; its buttons keep the normal cursor. */
+		cursor: grab;
+		/* GLIM-151: with Pin (and Dock once moved) a compact strip can't hold everything on
+		   one line; the controls then wrap to a second line at inline-end, never squeezing the
+		   status label. Regular and wide strips never wrap. */
+		flex-wrap: wrap;
+		row-gap: var(--spacing);
+		user-select: none;
+		-webkit-user-select: none;
+		touch-action: none;
+	}
+
+	.live-popup[data-dragging] .live-strip {
+		cursor: grabbing;
+	}
+
+	.live-strip button {
+		cursor: default;
+	}
+
+	/* The grip: a quiet handle that says "drag here"; full strength while the strip is hovered. */
+	.live-grip {
+		display: inline-flex;
+		flex: none;
+		margin-inline-end: calc(var(--spacing) * -1);
+		color: var(--color-text-secondary);
+		opacity: 0.55;
+		transition: opacity var(--duration-fast) var(--ease-standard);
+	}
+
+	[data-motion="reduced"] .live-grip {
+		transition: none;
+	}
+
+	.live-strip:hover .live-grip,
+	.live-popup[data-dragging] .live-grip {
+		opacity: 1;
+	}
+
+	.live-spacer {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.live-controls {
+		gap: var(--spacing);
+		margin-inline-start: auto;
+	}
+
+	/* GLIM-158: a compact strip with the labelled On screen toggle can't hold every control
+	   on one line either; the controls wrap again, flush to inline-end, never clipped. */
+	.live-popup[data-layout="compact"] .live-controls {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		row-gap: var(--spacing);
+	}
+
+	/* Cloud row (§2.3): the egress pill for the whole session. */
+	.live-cloud-row {
+		display: flex;
+		flex: none;
+		align-items: center;
+		min-height: 1.5rem;
+		margin-block-start: var(--spacing);
+		padding-inline-start: calc(var(--spacing) * 2);
+	}
+
+	/* State row (§2.3): quiet line for paused / stale / empty; heading + body + buttons for errors. */
+	.live-state-row {
+		display: flex;
+		flex: none;
+		flex-direction: column;
+		gap: calc(var(--spacing) * 2);
+	}
+
+	.live-state-row:not(:empty) {
+		margin-block-start: var(--spacing);
+	}
+
+	.live-quiet {
+		margin: 0;
+		padding-inline: calc(var(--spacing) * 2);
+		font-size: var(--text-body);
+		line-height: var(--text-body--line-height);
+		color: var(--color-text-secondary);
+	}
+
+	.live-remember {
+		display: inline-flex;
+		align-items: center;
+		gap: calc(var(--spacing) * 2);
+		padding-inline: calc(var(--spacing) * 2);
+		font-size: var(--text-body);
+		color: var(--color-text-secondary);
+	}
+
+	.live-remember input {
+		margin: 0;
+		accent-color: var(--color-accent);
+	}
+
+	/* GLIM-131: the skipped line's actions, as Snip's. */
+	.live-skipped-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: calc(var(--spacing) * 4);
+		padding-inline: calc(var(--spacing) * 2);
+	}
+
+	/* L12 pack rows (GLIM-123): the Snip rows, under the strip; the list follows at 4px. */
+	.live-packs {
+		margin-block: var(--spacing) 0;
+	}
+
+	.live-list {
+		flex: 0 1 auto;
+		margin-block-start: var(--spacing);
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-overlay-pressed) transparent;
+	}
+
+	.live-list:empty {
+		display: none;
+	}
+
+	.live-list ::selection {
+		background: var(--color-overlay-selected);
+	}
+}

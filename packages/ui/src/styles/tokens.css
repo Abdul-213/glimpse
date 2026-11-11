@@ -1,0 +1,411 @@
+/*
+ * GENERATED from DESIGN.md frontmatter and .impeccable/design.json (motion).
+ * Do not edit. Run `bun run tokens` after changing DESIGN.md; CI fails if this is stale.
+ */
+
+@theme static {
+	/* Colours: one property per light/dark pair (DESIGN.md Token mapping). */
+	--color-*: initial;
+	--color-surface-popup: light-dark(#F5F5F7E6, #262628E6);
+	--color-surface-popup-solid: light-dark(#F5F5F7, #262628);
+	--color-surface-window: light-dark(#F2F2F4B8, #1F1F21B8);
+	--color-surface-window-solid: light-dark(#F2F2F4, #1F1F21);
+	--color-surface-group: light-dark(#FFFFFFE6, #2C2C2FE6);
+	--color-surface-group-solid: light-dark(#FFFFFF, #2C2C2F);
+	--color-surface-control: light-dark(#FFFFFF, #3A3A3D);
+	--color-popup-outline: light-dark(#00000000, #000000A6);
+	--color-knob: light-dark(#FFFFFF, #E6E6E9);
+	--color-overlay-hover: light-dark(#0000000F, #FFFFFF14);
+	--color-overlay-pressed: light-dark(#0000001A, #FFFFFF24);
+	--color-overlay-selected: var(--mix-overlay-selected);
+	--color-text-primary: light-dark(#1D1D1F, #F4F4F6);
+	--color-text-secondary: light-dark(#55555C, #B6B6BE);
+	--color-text-disabled: light-dark(#8E8E93, #6C6C72);
+	--color-border-hairline: light-dark(#0000001F, #FFFFFF1F);
+	--color-border-control: light-dark(#76767D, #8E8E96);
+	--color-divider: light-dark(#00000014, #FFFFFF14);
+	--color-accent: light-dark(var(--os-accent, #0A63C9), var(--os-accent-dark, #2A6FD9));
+	--color-on-accent: #FFFFFF;
+	--color-link: light-dark(#0959BA, #6AAAFF);
+	--color-focus-ring: light-dark(var(--os-accent, #0A63C9), var(--os-accent-dark, #6AAAFF));
+	--color-success: light-dark(#156A37, #5BC987);
+	--color-warning: light-dark(#8A4B00, #F2A93B);
+	--color-danger: light-dark(#B42318, #FF8073);
+	--color-egress: light-dark(#5E32AE, #C4B0FF);
+	--color-egress-tint: light-dark(#5E32AE1A, #C4B0FF1A);
+	--color-change-flash: var(--mix-change-flash);
+	--color-change-rest: var(--mix-change-rest);
+	--color-change-mark: light-dark(var(--os-accent, #0A63C9), var(--os-accent-dark, #6AAAFF));
+	--color-picker-scrim: #00000073;
+	--color-picker-stroke: #FFFFFF;
+	--color-picker-halo: #00000099;
+	--color-picker-hud: #1C1C1EE0;
+	--color-picker-hud-text: #F5F5F7;
+	--color-picker-hud-text-secondary: #B8B8BF;
+	--color-box-linked-fill: var(--mix-box-linked-fill);
+
+	/* Typography */
+	--font-*: initial;
+	--font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', sans-serif;
+	--font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI', system-ui, 'Noto Sans', sans-serif;
+	--text-*: initial;
+	--text-title: 1.25rem;
+	--text-title--line-height: 1.3;
+	--text-title--font-weight: 600;
+	--text-heading: 0.9375rem;
+	--text-heading--line-height: 1.35;
+	--text-heading--font-weight: 600;
+	--text-translation: 0.9375rem;
+	--text-translation--line-height: 1.5;
+	--text-translation--font-weight: 400;
+	--text-source: 0.8125rem;
+	--text-source--line-height: 1.5;
+	--text-source--font-weight: 400;
+	--text-body: 0.8125rem;
+	--text-body--line-height: 1.45;
+	--text-body--font-weight: 400;
+	--text-label: 0.75rem;
+	--text-label--line-height: 1.35;
+	--text-label--font-weight: 500;
+	--text-numeric: 0.75rem;
+	--text-numeric--line-height: 1.35;
+	--text-numeric--font-weight: 500;
+
+	/* Spacing: one 4px base; utilities multiply it (p-3 = 12px). */
+	--spacing: 0.25rem;
+
+	/* Radii */
+	--radius-*: initial;
+	--radius-box: 0.1875rem;
+	--radius-kbd: 0.25rem;
+	--radius-control: 0.375rem;
+	--radius-control-win: 0.25rem;
+	--radius-popup: 0.75rem;
+	--radius-popup-win: 0.5rem;
+	--radius-popup-win10: 0;
+	--radius-pill: 62.4375rem;
+
+	/* Shadows (DESIGN.md Shadow Vocabulary): colours follow light/dark. */
+	--shadow-*: initial;
+	--shadow-menu: 0 8px 24px light-dark(#0000002E, #00000073), 0 0 0 0.5px light-dark(#0000001F, #FFFFFF1F);
+	--shadow-tooltip: 0 2px 8px light-dark(#00000026, #00000066);
+	--shadow-loupe: 0 4px 16px #00000059, 0 0 0 1px #FFFFFF, 0 0 0 2px #00000099;
+	--shadow-hud: 0 1px 4px #0000004D;
+	--shadow-popup-outline-dark: inset 0 0 0 1px #FFFFFF1F, 0 0 0 0.5px #000000A6;
+	--shadow-knob: 0 1px 2px light-dark(#00000033, #00000066), 0 0 0 0.5px light-dark(#0000000F, #00000033);
+	--shadow-segment: 0 1px 2px light-dark(#0000001F, #00000052), 0 0 0 0.5px light-dark(#0000000F, #FFFFFF14);
+
+	/* Easing */
+	--ease-*: initial;
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
+	--ease-exit: cubic-bezier(0.4, 0, 1, 1);
+	--ease-linear: linear;
+}
+
+:root {
+	color-scheme: light dark;
+	--duration-instant: 0ms;
+	--duration-fast: 100ms;
+	--duration-base: 160ms;
+	--duration-slow: 240ms;
+	--duration-exit: 80ms;
+	--duration-settle: 1600ms;
+}
+
+/* Translucent accent-derived colours (see the note in @theme). One rule each, on purpose. */
+:root { --mix-overlay-selected: color-mix(in oklab, var(--os-accent, #0A63C9) 12.2%, transparent); }
+:root { --mix-change-flash: color-mix(in oklab, var(--os-accent, #0A63C9) 14.1%, transparent); }
+:root { --mix-change-rest: color-mix(in oklab, var(--os-accent, #0A63C9) 5.9%, transparent); }
+:root { --mix-box-linked-fill: color-mix(in oklab, var(--os-accent, #0A63C9) 23.9%, transparent); }
+
+@media (prefers-color-scheme: dark) {
+	:root { --mix-overlay-selected: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 16.1%, transparent); }
+	:root { --mix-change-flash: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 12.2%, transparent); }
+	:root { --mix-change-rest: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 5.9%, transparent); }
+	:root { --mix-box-linked-fill: color-mix(in oklab, var(--os-accent-dark, #0A63C9) 23.9%, transparent); }
+}
+
+/* Theme override: light (data-theme="light", GLIM-110). */
+:root[data-theme="light"] {
+	color-scheme: light;
+	--color-surface-popup: #F5F5F7E6;
+	--color-surface-popup-solid: #F5F5F7;
+	--color-surface-window: #F2F2F4B8;
+	--color-surface-window-solid: #F2F2F4;
+	--color-surface-group: #FFFFFFE6;
+	--color-surface-group-solid: #FFFFFF;
+	--color-surface-control: #FFFFFF;
+	--color-popup-outline: #00000000;
+	--color-knob: #FFFFFF;
+	--color-overlay-hover: #0000000F;
+	--color-overlay-pressed: #0000001A;
+	--color-text-primary: #1D1D1F;
+	--color-text-secondary: #55555C;
+	--color-text-disabled: #8E8E93;
+	--color-border-hairline: #0000001F;
+	--color-border-control: #76767D;
+	--color-divider: #00000014;
+	--color-accent: var(--os-accent, #0A63C9);
+	--color-link: #0959BA;
+	--color-focus-ring: var(--os-accent, #0A63C9);
+	--color-success: #156A37;
+	--color-warning: #8A4B00;
+	--color-danger: #B42318;
+	--color-egress: #5E32AE;
+	--color-egress-tint: #5E32AE1A;
+	--color-change-mark: var(--os-accent, #0A63C9);
+	--shadow-menu: 0 8px 24px #0000002E, 0 0 0 0.5px #0000001F;
+	--shadow-tooltip: 0 2px 8px #00000026;
+	--shadow-knob: 0 1px 2px #00000033, 0 0 0 0.5px #0000000F;
+	--shadow-segment: 0 1px 2px #0000001F, 0 0 0 0.5px #0000000F;
+}
+:root[data-theme="light"] { --mix-overlay-selected: color-mix(in oklab, var(--os-accent, #0A63C9) 12.2%, transparent); }
+:root[data-theme="light"] { --mix-change-flash: color-mix(in oklab, var(--os-accent, #0A63C9) 14.1%, transparent); }
+:root[data-theme="light"] { --mix-change-rest: color-mix(in oklab, var(--os-accent, #0A63C9) 5.9%, transparent); }
+:root[data-theme="light"] { --mix-box-linked-fill: color-mix(in oklab, var(--os-accent, #0A63C9) 23.9%, transparent); }
+
+/* Theme override: dark (data-theme="dark", GLIM-110). */
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--color-surface-popup: #262628E6;
+	--color-surface-popup-solid: #262628;
+	--color-surface-window: #1F1F21B8;
+	--color-surface-window-solid: #1F1F21;
+	--color-surface-group: #2C2C2FE6;
+	--color-surface-group-solid: #2C2C2F;
+	--color-surface-control: #3A3A3D;
+	--color-popup-outline: #000000A6;
+	--color-knob: #E6E6E9;
+	--color-overlay-hover: #FFFFFF14;
+	--color-overlay-pressed: #FFFFFF24;
+	--color-text-primary: #F4F4F6;
+	--color-text-secondary: #B6B6BE;
+	--color-text-disabled: #6C6C72;
+	--color-border-hairline: #FFFFFF1F;
+	--color-border-control: #8E8E96;
+	--color-divider: #FFFFFF14;
+	--color-accent: var(--os-accent-dark, #2A6FD9);
+	--color-link: #6AAAFF;
+	--color-focus-ring: var(--os-accent-dark, #6AAAFF);
+	--color-success: #5BC987;
+	--color-warning: #F2A93B;
+	--color-danger: #FF8073;
+	--color-egress: #C4B0FF;
+	--color-egress-tint: #C4B0FF1A;
+	--color-change-mark: var(--os-accent-dark, #6AAAFF);
+	--shadow-menu: 0 8px 24px #00000073, 0 0 0 0.5px #FFFFFF1F;
+	--shadow-tooltip: 0 2px 8px #00000066;
+	--shadow-knob: 0 1px 2px #00000066, 0 0 0 0.5px #00000033;
+	--shadow-segment: 0 1px 2px #00000052, 0 0 0 0.5px #FFFFFF14;
+}
+:root[data-theme="dark"] { --mix-overlay-selected: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 16.1%, transparent); }
+:root[data-theme="dark"] { --mix-change-flash: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 12.2%, transparent); }
+:root[data-theme="dark"] { --mix-change-rest: color-mix(in oklab, var(--os-accent-dark, #6AAAFF) 5.9%, transparent); }
+:root[data-theme="dark"] { --mix-box-linked-fill: color-mix(in oklab, var(--os-accent-dark, #0A63C9) 23.9%, transparent); }
+
+/* Windows radii: the shell sets data-os on <html>. */
+:root[data-os="windows"] {
+	--radius-control: var(--radius-control-win);
+	--radius-popup: var(--radius-popup-win);
+}
+
+/* Windows 10: DWM does not round windows, so popups are square (DESIGN.md Shapes). */
+:root[data-os="windows"][data-os-version="10"] {
+	--radius-popup: var(--radius-popup-win10);
+}
+
+/* Fallback for webviews without light-dark() (WKWebView before Safari 17.5). */
+@supports not (color: light-dark(#000, #fff)) {
+	:root {
+		--color-surface-popup: #F5F5F7E6;
+		--color-surface-popup-solid: #F5F5F7;
+		--color-surface-window: #F2F2F4B8;
+		--color-surface-window-solid: #F2F2F4;
+		--color-surface-group: #FFFFFFE6;
+		--color-surface-group-solid: #FFFFFF;
+		--color-surface-control: #FFFFFF;
+		--color-popup-outline: #00000000;
+		--color-knob: #FFFFFF;
+		--color-overlay-hover: #0000000F;
+		--color-overlay-pressed: #0000001A;
+		--color-text-primary: #1D1D1F;
+		--color-text-secondary: #55555C;
+		--color-text-disabled: #8E8E93;
+		--color-border-hairline: #0000001F;
+		--color-border-control: #76767D;
+		--color-divider: #00000014;
+		--color-accent: var(--os-accent, #0A63C9);
+		--color-link: #0959BA;
+		--color-focus-ring: var(--os-accent, #0A63C9);
+		--color-success: #156A37;
+		--color-warning: #8A4B00;
+		--color-danger: #B42318;
+		--color-egress: #5E32AE;
+		--color-egress-tint: #5E32AE1A;
+		--color-change-mark: var(--os-accent, #0A63C9);
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--color-surface-popup: #262628E6;
+			--color-surface-popup-solid: #262628;
+			--color-surface-window: #1F1F21B8;
+			--color-surface-window-solid: #1F1F21;
+			--color-surface-group: #2C2C2FE6;
+			--color-surface-group-solid: #2C2C2F;
+			--color-surface-control: #3A3A3D;
+			--color-popup-outline: #000000A6;
+			--color-knob: #E6E6E9;
+			--color-overlay-hover: #FFFFFF14;
+			--color-overlay-pressed: #FFFFFF24;
+			--color-text-primary: #F4F4F6;
+			--color-text-secondary: #B6B6BE;
+			--color-text-disabled: #6C6C72;
+			--color-border-hairline: #FFFFFF1F;
+			--color-border-control: #8E8E96;
+			--color-divider: #FFFFFF14;
+			--color-accent: var(--os-accent-dark, #2A6FD9);
+			--color-link: #6AAAFF;
+			--color-focus-ring: var(--os-accent-dark, #6AAAFF);
+			--color-success: #5BC987;
+			--color-warning: #F2A93B;
+			--color-danger: #FF8073;
+			--color-egress: #C4B0FF;
+			--color-egress-tint: #C4B0FF1A;
+			--color-change-mark: var(--os-accent-dark, #6AAAFF);
+		}
+	}
+}
+
+/* Per-script stacks and leading (DESIGN.md Typography; .impeccable/design.json scriptTypography). */
+@layer base {
+	:where(:root, [lang]) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, 'Noto Sans', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.5;
+		--leading-source: 1.5;
+		--leading-body: 1.45;
+	}
+	:where(:lang(ja)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo UI', 'Noto Sans CJK JP', 'Noto Sans JP', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.7;
+		--leading-source: 1.7;
+		--leading-body: 1.65;
+		line-break: strict;
+	}
+	:where(:lang(zh-Hans), :lang(zh-CN), :lang(zh-SG)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei UI', 'Noto Sans CJK SC', 'Noto Sans SC', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.7;
+		--leading-source: 1.7;
+		--leading-body: 1.65;
+		line-break: strict;
+	}
+	:where(:lang(zh-Hant), :lang(zh-TW)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei UI', 'Noto Sans CJK TC', 'Noto Sans TC', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.7;
+		--leading-source: 1.7;
+		--leading-body: 1.65;
+		line-break: strict;
+	}
+	:where(:lang(zh-HK), :lang(yue)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang HK', 'Microsoft JhengHei UI', 'Noto Sans CJK HK', 'Noto Sans HK', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.7;
+		--leading-source: 1.7;
+		--leading-body: 1.65;
+		line-break: strict;
+	}
+	:where(:lang(ko)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', 'Noto Sans KR', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.7;
+		--leading-source: 1.7;
+		--leading-body: 1.65;
+		line-break: strict;
+		word-break: keep-all;
+	}
+	:where(:lang(ar), :lang(fa), :lang(ps), :lang(ckb)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'SF Arabic', 'Geeza Pro', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Arabic', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 1.75;
+		--leading-source: 1.75;
+		--leading-body: 1.7;
+		letter-spacing: 0;
+		font-synthesis: none;
+	}
+	:where(:lang(ur)) {
+		font-family: 'Noto Nastaliq Urdu', 'Urdu Typesetting', 'SF Arabic', 'Geeza Pro', 'Segoe UI', 'Noto Sans Arabic', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 2;
+		--leading-source: 2;
+		--leading-body: 1.9;
+		letter-spacing: 0;
+		font-synthesis: none;
+	}
+	:where(:lang(he), :lang(yi)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'SF Hebrew', 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.55;
+		--leading-source: 1.55;
+		--leading-body: 1.5;
+	}
+	:where(:lang(hi), :lang(mr), :lang(ne), :lang(sa)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Kohinoor Devanagari', 'Devanagari Sangam MN', 'Nirmala UI', 'Noto Sans Devanagari', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 1.75;
+		--leading-source: 1.75;
+		--leading-body: 1.7;
+	}
+	:where(:lang(bn), :lang(as)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Kohinoor Bangla', 'Bangla Sangam MN', 'Nirmala UI', 'Noto Sans Bengali', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 1.75;
+		--leading-source: 1.75;
+		--leading-body: 1.7;
+	}
+	:where(:lang(ta), :lang(te), :lang(kn), :lang(ml), :lang(gu), :lang(pa), :lang(or), :lang(si)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Nirmala UI', 'Noto Sans Tamil', 'Noto Sans Telugu', 'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Gujarati', 'Noto Sans Gurmukhi', 'Noto Sans Oriya', 'Noto Sans Sinhala', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 1.75;
+		--leading-source: 1.75;
+		--leading-body: 1.7;
+	}
+	:where(:lang(th)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Thonburi', 'Leelawadee UI', 'Noto Sans Thai', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 1.8;
+		--leading-source: 1.8;
+		--leading-body: 1.75;
+	}
+	:where(:lang(lo), :lang(km)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Lao Sangam MN', 'Khmer Sangam MN', 'Lao UI', 'Khmer UI', 'Leelawadee UI', 'Noto Sans Lao', 'Noto Sans Khmer', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 1.8;
+		--leading-source: 1.8;
+		--leading-body: 1.75;
+	}
+	:where(:lang(my), :lang(bo)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Myanmar Sangam MN', 'Kailasa', 'Myanmar Text', 'Microsoft Himalaya', 'Noto Sans Myanmar', 'Noto Serif Tibetan', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1.0667;
+		--leading-translation: 1.9;
+		--leading-source: 1.9;
+		--leading-body: 1.85;
+	}
+	:where(:lang(am), :lang(ti), :lang(tig), :lang(gez)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Kefa', 'Ebrima', 'Noto Sans Ethiopic', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.6;
+		--leading-source: 1.6;
+		--leading-body: 1.55;
+	}
+	:where(:lang(zgh), :lang(tzm-Tfng), :lang(taq-Tfng)) {
+		font-family: -apple-system, BlinkMacSystemFont, 'Ebrima', 'Noto Sans Tifinagh', 'Noto Sans Symbols 2', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+		--script-scale: 1;
+		--leading-translation: 1.6;
+		--leading-source: 1.6;
+		--leading-body: 1.55;
+	}
+}
