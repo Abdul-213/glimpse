@@ -8,8 +8,19 @@ where it appeared. It runs on your computer: the default OCR and translation eng
 so nothing you translate leaves the machine unless you choose a cloud provider yourself.
 
 For Windows 10 (version 2004) or later on x64, and macOS 14 Sonoma or later on Apple Silicon.
-Glimpse is in development and there is no published release yet. Builds are not code-signed
-(see [Install](#install)).
+Glimpse is an early preview (0.0.x): it works end to end, but expect rough edges. Builds are
+not code-signed (see [Install](#install)).
+
+## What it looks like
+
+| On screen: translations laid over a comic's speech bubbles | Snip: numbered translations, linked to the bubbles |
+|---|---|
+| <img src="docs/screenshots/on-screen-overlay.png" width="420" alt="A four-panel comic with each speech bubble covered by a numbered card showing its English translation"> | <img src="docs/screenshots/snip-popup.png" width="420" alt="The Snip popup listing five numbered English translations, with On device, On screen, Copy and Close controls"> |
+| **Live:** a movable, pinnable popup that follows a region | **Settings** |
+| <img src="docs/screenshots/live-popup.png" width="420" alt="The dark Live popup showing two translated lines of game dialogue, with On screen, Private, Pause, Re-pin, Update and Pin buttons"> | <img src="docs/screenshots/settings.png" width="420" alt="The General settings page: target language, Snip, area selection, startup and Live options"> |
+
+The screenshots are the app's own interface code rendered in a test harness, so they match the
+shipped UI; the comic is a sample from [docs/samples/](docs/samples/).
 
 ## Features
 
@@ -28,8 +39,12 @@ Glimpse is in development and there is no published release yet. Builds are not 
   downloaded in Settings › Models. Right-to-left text is supported.
 - **Private:** in Private mode translations aren't remembered in Glimpse's cache. The cache is
   also wiped after a period of inactivity and when the screen locks.
-- **Out of the way:** a tray / menu-bar app with no main window. Its own windows are hidden from
-  screen capture, so they never end up in what it reads.
+- **On screen:** for comics and busy layouts, each translation can be drawn right over the text
+  it translates (the **On screen** button in Snip and Live, or the tray). Otherwise numbered
+  markers link each bubble to its line in the popup.
+- **Out of the way:** a tray / menu-bar app with no main window. It never reads its own windows.
+  They show up in screen sharing and recordings (Discord, OBS) unless you turn that off in the
+  tray or Settings › Privacy.
 - **Your keys, your choice:** optional cloud providers with your own API key, stored in the OS
   keychain (see [Cloud providers](#cloud-providers)).
 
@@ -38,11 +53,10 @@ Glimpse is in development and there is no published release yet. Builds are not 
 Step-by-step instructions, including each warning an unsigned build triggers, the macOS
 Screen Recording permission and what you agree to: **[docs/install.md](docs/install.md)**.
 
-Trying a test build? **[docs/mvp-test.md](docs/mvp-test.md)** says where to download one (GitHub
-Actions artifacts until the first release), how to set it up, and a 5-minute checklist with a
-sample page to snip.
+Trying a test build? **[docs/mvp-test.md](docs/mvp-test.md)** says how to set it up and has a
+checklist with sample pages to snip.
 
-In short, once releases are published:
+In short:
 
 1. Download from the [Releases page](https://github.com/Abdul-213/glimpse/releases):
    `glimpse-<version>-windows-x64-setup.zip` (installer) or `-windows-x64.zip` (portable) for
@@ -109,6 +123,28 @@ came from the cloud shows the provider's name. Google's own terms apply to what 
 does not use this content to train its models (see
 [GLIM-22](docs/decisions/GLIM-22-cloud-providers.md) for the details we checked). You pay Google
 for usage beyond its free tiers.
+
+## Running from source
+
+You need [Bun](https://bun.sh) 1.4.4 and [Hutch](https://hutch.blackboard.sh) (Electrobun's CLI).
+Windows 10 also needs the WebView2 runtime (Windows 11 has it).
+
+```sh
+curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh   # Windows: see CONTRIBUTING.md
+bun install
+bun run devkit          # fetch the pinned Electrobun devkit
+
+# Screen capture needs the native helper, built once per OS:
+sh app/native/macos/build.sh            # macOS (Xcode Command Line Tools)
+pwsh app/native/windows/build.ps1       # Windows (MSVC or zig)
+
+bun run dev             # build the views and launch Glimpse with rebuild-on-change
+```
+
+Glimpse starts in the tray / menu bar. Press `Alt+Shift+S` (macOS `⌃⇧S`) and drag over
+[docs/mvp-sample.png](docs/mvp-sample.png) for a first Snip. On Linux there is no capture, but
+`bun test` and the headless harness (`bun run harness snip|live`) run the whole pipeline on
+recorded frames.
 
 ## Building from source
 
